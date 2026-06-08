@@ -1,6 +1,7 @@
 import { Provider } from "react-redux";
 import { store } from "@/store";
 import { Toaster } from "sonner";
+import { IconCheck, IconX, IconAlertTriangle, IconInfoCircle } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 
 interface ProvidersProps {
@@ -16,15 +17,24 @@ export function Providers({ children }: ProvidersProps) {
     <Provider store={store}>
       {children}
       <Toaster
-        position="top-right"
-        richColors
-        closeButton
-        duration={4000}
+        position="bottom-right"
+        className="toast-container"
+        style={{ bottom: 24, right: 24 }}
+        duration={3500}
+        icons={{
+          success: <IconCheck size={17} />,
+          error: <IconX size={17} />,
+          warning: <IconAlertTriangle size={17} />,
+          info: <IconInfoCircle size={17} />,
+        }}
         toastOptions={{
-          style: {
-            fontFamily: "var(--font-body)",
-            fontSize: "13.5px",
-            fontWeight: 600,
+          unstyled: true,
+          classNames: {
+            toast: "toast",
+            success: "success",
+            error: "danger",
+            warning: "warning",
+            info: "info",
           },
         }}
       />
