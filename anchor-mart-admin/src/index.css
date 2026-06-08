@@ -242,12 +242,14 @@
 /* ═══════════════════════════════════════════════════
    BASE RESET & DEFAULTS
 ════════════════════════════════════════════════════ */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 }
 
 html,
@@ -753,6 +755,7 @@ body {
 
 /* ── STAT CARDS ── */
 .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(188px, 1fr)); gap: 14px; margin-bottom: 22px; }
+.stats-row.cols-7 { grid-template-columns: repeat(7, minmax(140px, 1fr)); overflow-x: auto; padding-bottom: 4px; }
 .stat-card {
   background: var(--surface); border: 1px solid var(--border-sm);
   border-radius: var(--radius-lg); padding: 20px 22px;
@@ -1373,3 +1376,41 @@ textarea.form-input { height: auto; padding: 10px 12px; resize: vertical; line-h
 @media (max-width: 720px) { .mobile-wizard { display: flex; } }
 
 
+
+/* ══════════════════════════════════════
+   DASHBOARD — MISSING UTILITY STYLES
+══════════════════════════════════════ */
+
+/* Bar chart container needs a defined height */
+.bar-chart { height: 200px; padding: 0 20px 0; }
+
+/* Drawer slide-in animation (used in OrderDetailDrawer) */
+@keyframes slideLeft {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+/* Spin animation for Tabler icon components (class="animate-spin") */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.animate-spin { animation: spin 0.7s linear infinite; }
+
+/* Status dot size modifiers */
+.sdot.sm::before { width: 6px; height: 6px; }
+.sdot.xs::before { width: 5px; height: 5px; }
+
+/* Inline status dot text helpers */
+.sdot.xs { font-size: 11px; }
+.sdot.sm { font-size: 11.5px; }
+
+/* Partner earnings row styling */
+.partner-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0 0;
+  margin-top: 12px;
+  border-top: 1px solid var(--border-xs);
+  font-size: 11.5px;
+}

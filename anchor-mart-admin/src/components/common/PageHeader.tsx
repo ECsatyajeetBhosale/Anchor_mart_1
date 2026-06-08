@@ -8,42 +8,15 @@ export interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: "16px",
-        marginBottom: "24px",
-      }}
-    >
-      <div>
-        <h1
-          style={{
-            fontSize: "21px",
-            fontWeight: 800,
-            color: "var(--t1)",
-            letterSpacing: "-0.4px",
-            lineHeight: 1.2,
-          }}
-        >
-          {title}
-        </h1>
+    <div className="pg-header">
+      <div className="pg-header-l">
+        <h1 className="pg-title">{title}</h1>
         {subtitle && (
-          <div
-            style={{
-              fontSize: "13px",
-              color: "var(--t4)",
-              fontWeight: 500,
-              marginTop: "2px",
-            }}
-          >
-            {subtitle}
-          </div>
+          <p className="pg-sub">{subtitle}</p>
         )}
       </div>
       {actions && (
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div className="pg-actions">
           {actions}
         </div>
       )}

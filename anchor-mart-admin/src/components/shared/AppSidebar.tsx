@@ -4,6 +4,7 @@ import { NAV_SECTIONS } from "@/constants/navigation";
 import { useAppDispatch, useAppSelector } from "@/hooks/useAppStore";
 import { logout } from "@/features/auth/slice/authSlice";
 import { APP_ROUTES } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface AppSidebarProps {
@@ -23,35 +24,9 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
   }
 
   return (
-    <aside
-      style={{
-        width: collapsed ? "72px" : "var(--sidebar-w)",
-        minWidth: collapsed ? "72px" : "var(--sidebar-w)",
-        background: "var(--surface)",
-        borderRight: "1px solid var(--border-sm)",
-        display: "flex",
-        flexDirection: "column",
-        height: "100vh",
-        transition: "width 0.2s ease, min-width 0.2s ease",
-        overflow: "hidden",
-        boxShadow: "2px 0 10px rgba(15,23,42,0.04)",
-        zIndex: 100,
-      }}
-    >
+    <aside className="sidebar">
       {/* ── LOGO ── */}
-      <div
-        style={{
-          padding: collapsed ? "0" : "0 20px",
-          borderBottom: "1px solid var(--border-sm)",
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-          justifyContent: collapsed ? "center" : "space-between",
-          height: "var(--topbar-h)",
-          minHeight: "var(--topbar-h)",
-          flexShrink: 0,
-        }}
-      >
+      <div className={cn("sb-logo", collapsed && "logo-only")}>
         {!collapsed && (
           <svg
             width="142"
@@ -74,26 +49,13 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
             <path d="M191.532 27.6538V11.2658H186.619V7.45733H200V11.2658H195.086V27.6538H191.532Z" fill="#003B7A"/>
             <path d="M16.7927 4.95496C16.7927 2.21841 14.5355 0 11.7512 0C8.96689 0 6.70974 2.21841 6.70974 4.95496V6.01802H7.97011L7.95998 4.79279C8.04636 2.80815 9.71066 1.22523 11.7512 1.22523C13.7918 1.22523 15.4561 2.80815 15.5425 4.79279L15.5323 6.01802H16.7927V4.95496Z" fill="#003366"/>
             <path d="M11.8491 10.1189C12.4695 10.1189 12.9723 10.5596 12.9723 11.1033V11.1313C12.9723 11.675 12.4694 12.1157 11.8491 12.1157C11.2289 12.1157 10.726 11.675 10.726 11.1313V11.1033C10.726 10.5596 11.2288 10.1189 11.8491 10.1189Z" fill="#003366"/>
-            <path fill-rule="evenodd" clip-rule="evenodd" d="M23.5391 28H0L2.19992 6.01802H21.7058L23.5391 28ZM11.8897 9.40541C10.7524 9.40541 9.83138 10.2018 9.83137 11.1851C9.83138 11.863 10.3059 12.5598 10.9502 12.8603L11.0189 14.2572H8.12877C7.75485 14.2573 7.45171 14.5193 7.45171 14.8426C7.45172 15.1659 7.75485 15.428 8.12877 15.428H10.9521L10.6284 21.5268C9.06783 23.4564 7.44697 20.7029 6.31874 19.5861L7.06623 18.7547L4.71517 17.1534L4.47316 20.6025L5.24968 19.8939C6.02832 21.67 7.58687 23.0026 8.9904 23.9306C9.78522 24.4011 10.7941 24.7712 11.6964 25.8378C12.6332 24.7099 13.6947 24.4188 14.5304 23.8636C16.2836 22.6985 17.5279 21.7304 18.1077 19.8632L19.0659 20.4239L18.7487 16.9684L16.3266 19.1239L17.1106 19.6791C16.4987 20.7057 14.0185 23.5753 12.8365 21.5882L12.4655 15.428H15.4781C15.852 15.428 16.1552 15.1659 16.1552 14.8426C16.1552 14.5193 15.852 14.2572 15.4781 14.2572H12.3891L12.5085 12.8829C13.3434 12.6557 13.948 11.9814 13.9481 11.1851C13.948 10.2018 13.0269 9.40541 11.8897 9.40541ZM7.66304 7.63964C7.56179 7.63964 7.47971 7.72031 7.47971 7.81982V8.36036C7.47971 8.51958 7.34839 8.64865 7.18639 8.64865C7.02439 8.64865 6.89307 8.51958 6.89307 8.36036V7.81982C6.89307 7.72031 6.81099 7.63964 6.70974 7.63964C6.60849 7.63964 6.52642 7.72031 6.52642 7.81982V8.36036C6.52642 8.7186 6.8219 9.00901 7.18639 9.00901C7.55088 9.00901 7.84637 8.7186 7.84637 8.36036V7.81982C7.84637 7.72031 7.76429 7.63964 7.66304 7.63964ZM16.7194 7.63964C16.6181 7.63964 16.536 7.72031 16.536 7.81982V8.36036C16.536 8.51958 16.4047 8.64865 16.2427 8.64865C16.0807 8.64865 15.9494 8.51958 15.9494 8.36036V7.81982C15.9494 7.72031 15.8673 7.63964 15.7661 7.63964C15.6648 7.63964 15.5827 7.72031 15.5827 7.81982V8.36036C15.5827 8.7186 15.8782 9.00901 16.2427 9.00901C16.6072 9.00901 16.9027 8.7186 16.9027 8.36036V7.81982C16.9027 7.72031 16.8206 7.63964 16.7194 7.63964Z" fill="#003B7A"/>
+            <path fillRule="evenodd" clipRule="evenodd" d="M23.5391 28H0L2.19992 6.01802H21.7058L23.5391 28ZM11.8897 9.40541C10.7524 9.40541 9.83138 10.2018 9.83137 11.1851C9.83138 11.863 10.3059 12.5598 10.9502 12.8603L11.0189 14.2572H8.12877C7.75485 14.2573 7.45171 14.5193 7.45171 14.8426C7.45172 15.1659 7.75485 15.428 8.12877 15.428H10.9521L10.6284 21.5268C9.06783 23.4564 7.44697 20.7029 6.31874 19.5861L7.06623 18.7547L4.71517 17.1534L4.47316 20.6025L5.24968 19.8939C6.02832 21.67 7.58687 23.0026 8.9904 23.9306C9.78522 24.4011 10.7941 24.7712 11.6964 25.8378C12.6332 24.7099 13.6947 24.4188 14.5304 23.8636C16.2836 22.6985 17.5279 21.7304 18.1077 19.8632L19.0659 20.4239L18.7487 16.9684L16.3266 19.1239L17.1106 19.6791C16.4987 20.7057 14.0185 23.5753 12.8365 21.5882L12.4655 15.428H15.4781C15.852 15.428 16.1552 15.1659 16.1552 14.8426C16.1552 14.5193 15.852 14.2572 15.4781 14.2572H12.3891L12.5085 12.8829C13.3434 12.6557 13.948 11.9814 13.9481 11.1851C13.948 10.2018 13.0269 9.40541 11.8897 9.40541ZM7.66304 7.63964C7.56179 7.63964 7.47971 7.72031 7.47971 7.81982V8.36036C7.47971 8.51958 7.34839 8.64865 7.18639 8.64865C7.02439 8.64865 6.89307 8.51958 6.89307 8.36036V7.81982C6.89307 7.72031 6.81099 7.63964 6.70974 7.63964C6.60849 7.63964 6.52642 7.72031 6.52642 7.81982V8.36036C6.52642 8.7186 6.8219 9.00901 7.18639 9.00901C7.55088 9.00901 7.84637 8.7186 7.84637 8.36036V7.81982C7.84637 7.72031 7.76429 7.63964 7.66304 7.63964ZM16.7194 7.63964C16.6181 7.63964 16.536 7.72031 16.536 7.81982V8.36036C16.536 8.51958 16.4047 8.64865 16.2427 8.64865C16.0807 8.64865 15.9494 8.51958 15.9494 8.36036V7.81982C15.9494 7.72031 15.8673 7.63964 15.7661 7.63964C15.6648 7.63964 15.5827 7.72031 15.5827 7.81982V8.36036C15.5827 8.7186 15.8782 9.00901 16.2427 9.00901C16.6072 9.00901 16.9027 8.7186 16.9027 8.36036V7.81982C16.9027 7.72031 16.8206 7.63964 16.7194 7.63964Z" fill="#003B7A"/>
           </svg>
         )}
         <button
+          className="sb-toggle"
+          id="sb-toggle-btn"
           onClick={onToggle}
-          style={{
-            background: "transparent",
-            border: "none",
-            color: "var(--t4)",
-            cursor: "pointer",
-            padding: 4,
-            borderRadius: "var(--radius-sm)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            marginLeft: collapsed ? "0" : "auto",
-            width: "34px",
-            height: "34px",
-            transition: "all 0.2s",
-          }}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? <IconChevronRight size={18} /> : <IconChevronLeft size={18} />}
@@ -101,193 +63,43 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
       </div>
 
       {/* ── NAV SECTIONS ── */}
-      <nav
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "12px 0",
-          scrollbarWidth: "none",
-        }}
-      >
+      <div className="sb-scroll">
         {NAV_SECTIONS.map((section) => (
-          <div key={section.label} style={{ marginBottom: 4 }}>
-            {!collapsed && (
-              <div
-                style={{
-                  fontSize: 9.5,
-                  fontWeight: 700,
-                  letterSpacing: "0.9px",
-                  color: "var(--t4)",
-                  padding: "10px 20px 4px",
-                }}
-              >
-                {section.label}
-              </div>
-            )}
+          <div key={section.label}>
+            <div className="sb-section">{section.label}</div>
             {section.items.map((item) => {
               const Icon = item.icon;
               return (
                 <NavLink
                   key={item.key}
                   to={item.path}
+                  className={({ isActive }) => cn("nav-item", isActive && "active")}
                   title={collapsed ? item.label : undefined}
-                  style={({ isActive }) => ({
-                    display: "flex",
-                    alignItems: "center",
-                    gap: collapsed ? 0 : 10,
-                    padding: collapsed ? "9px 0" : "9px 20px",
-                    justifyContent: collapsed ? "center" : "flex-start",
-                    color: isActive ? "var(--navy-700)" : "var(--t3)",
-                    textDecoration: "none",
-                    fontSize: 13,
-                    fontWeight: isActive ? 700 : 600,
-                    borderRadius: "var(--radius-sm)",
-                    margin: "1px 8px",
-                    background: isActive
-                      ? "var(--navy-50)"
-                      : "transparent",
-                    transition: "all 0.15s ease",
-                    position: "relative",
-                  })}
                 >
-                  {({ isActive }) => (
-                    <>
-                      {isActive && (
-                        <span
-                          style={{
-                            position: "absolute",
-                            left: -8,
-                            top: "50%",
-                            transform: "translateY(-50%)",
-                            width: 3,
-                            height: 20,
-                            background: "var(--navy-600)",
-                            borderRadius: "0 3px 3px 0",
-                          }}
-                        />
-                      )}
-                      <span style={{ color: isActive ? "var(--navy-500)" : "var(--t4)", display: "inline-flex" }}>
-                        <Icon size={17} />
-                      </span>
-                      {!collapsed && (
-                        <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {item.label}
-                        </span>
-                      )}
-                      {!collapsed && item.badge && (
-                        <span
-                          style={{
-                            background: item.badgeVariant === "warning" ? "var(--warning-bg)" : "var(--teal-500)",
-                            color: item.badgeVariant === "warning" ? "var(--warning-text)" : "#fff",
-                            border: item.badgeVariant === "warning" ? "1px solid var(--warning-border)" : "1px solid transparent",
-                            fontSize: 10,
-                            fontWeight: 800,
-                            padding: "1px 6px",
-                            borderRadius: 10,
-                            lineHeight: 1.5,
-                          }}
-                        >
-                          {item.badge}
-                        </span>
-                      )}
-                    </>
+                  <Icon size={17} />
+                  <span>{item.label}</span>
+                  {item.badge && (
+                    <span className={cn("nav-badge", "mla", item.badgeVariant === "warning" && "warning")}>
+                      {item.badge}
+                    </span>
                   )}
                 </NavLink>
               );
             })}
           </div>
         ))}
-      </nav>
+      </div>
 
       {/* ── USER + LOGOUT ── */}
-      <div
-        style={{
-          borderTop: "1px solid var(--border-xs)",
-          padding: collapsed ? "12px 0" : "12px 14px",
-          display: "flex",
-          alignItems: "center",
-          gap: collapsed ? 0 : 10,
-          justifyContent: collapsed ? "center" : "flex-start",
-          flexShrink: 0,
-        }}
-      >
-        <div
-          style={{
-            width: 34,
-            height: 34,
-            background: "var(--teal-600)",
-            borderRadius: "50%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#fff",
-            fontWeight: 800,
-            fontSize: 13,
-            flexShrink: 0,
-          }}
-        >
-          {user?.email?.[0]?.toUpperCase() ?? "A"}
+      <div className="sb-footer">
+        <div className="sb-avatar">{user?.email?.[0]?.toUpperCase() ?? "A"}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="sb-uname">{user?.email ?? "Admin"}</div>
+          <div className="sb-urole">{user?.role ?? "Admin"}</div>
         </div>
-        {!collapsed && (
-          <>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  color: "var(--t1)",
-                  fontSize: 12.5,
-                  fontWeight: 700,
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-              >
-                {user?.email ?? "Admin"}
-              </div>
-              <div
-                style={{
-                  color: "var(--t4)",
-                  fontSize: 11,
-                  fontWeight: 600,
-                }}
-              >
-                {user?.role ?? "Admin"}
-              </div>
-            </div>
-            <button
-              onClick={handleLogout}
-              title="Sign out"
-              style={{
-                background: "transparent",
-                border: "none",
-                color: "var(--t4)",
-                cursor: "pointer",
-                padding: 6,
-                borderRadius: "var(--radius-xs)",
-                display: "flex",
-                transition: "color 0.15s",
-              }}
-            >
-              <IconLogout size={17} />
-            </button>
-          </>
-        )}
-        {collapsed && (
-          <button
-            onClick={handleLogout}
-            title="Sign out"
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "var(--t4)",
-              cursor: "pointer",
-              padding: 4,
-              display: "flex",
-              marginTop: 6,
-            }}
-          >
-            <IconLogout size={16} />
-          </button>
-        )}
+        <div className="sb-logout" onClick={handleLogout} title="Sign out">
+          <IconLogout size={17} />
+        </div>
       </div>
     </aside>
   );

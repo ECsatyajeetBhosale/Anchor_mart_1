@@ -1,7 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { AppSidebar } from "@/components/shared/AppSidebar";
 import { AppTopbar } from "@/components/shared/AppTopbar";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 /**
  * Main dashboard shell layout.
@@ -10,42 +10,23 @@ import { useState } from "react";
  */
 export function DashboardLayout() {
   const [collapsed, setCollapsed] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "100vh",
-        overflow: "hidden",
-        background: "var(--bg)",
-      }}
-    >
+    <div className={`app-shell ${collapsed ? "collapsed" : ""} ${mounted ? "in" : ""}`} id="app">
       <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
+      
+      <AppTopbar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
 
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          minWidth: 0,
-        }}
-      >
-        <AppTopbar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
-
-        <main
-          id="main-content"
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            padding: "26px 28px",
-          }}
-        >
-          <div className="page-enter">
-            <Outlet />
-          </div>
-        </main>
-      </div>
+      <main className="main-content" id="mc">
+        <div className="page-enter">
+          <Outlet />
+        </div>
+      </main>
     </div>
   );
 }
