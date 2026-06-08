@@ -522,24 +522,6 @@ export function DashboardPage() {
 
       </div>
 
-      {/* ── Row 4: Delivery overview mini stats ───────── */}
-      <div className="grid-4" style={{ marginTop: "20px" }}>
-        {[
-          { icon: <IconTruck size={19} />, label: "Delivered Today", value: "132", variant: "teal" as const },
-          { icon: <IconCircleCheck size={19} />, label: "On-Time Rate", value: "94%", variant: "green" as const },
-          { icon: <IconClock size={19} />, label: "Avg Delivery Time", value: "42m", variant: "amber" as const },
-          { icon: <IconCircleX size={19} />, label: "Failed Attempts", value: "3", variant: "red" as const },
-        ].map((s) => (
-          <StatCard
-            key={s.label}
-            label={s.label}
-            value={s.value}
-            icon={s.icon}
-            variant={s.variant}
-          />
-        ))}
-      </div>
-
       {/* ── Order Detail Drawer ────────────────────────── */}
       <OrderDetailDrawer
         order={selectedOrder}

@@ -1,35 +1,4 @@
-/**
- * Application navigation routes.
- * All app path strings live here — never hardcode paths in components.
- */
-export const APP_ROUTES = {
-  LOGIN: "/login",
-  DASHBOARD: "/dashboard",
-  ANALYTICS: "/analytics",
-  SAILORS: "/sailors",
-  ORDERS: "/orders",
-  INTENTS: "/intents",
-  PRODUCTS: "/products",
-  EXPRESS: "/express",
-  INVENTORY: "/inventory",
-  REWARDS: "/rewards",
-  PARTNERS: "/partners",
-  ASSIGNMENTS: "/assignments",
-  VERIFICATION: "/verification",
-  NOTIFICATIONS: "/notifications",
-  CHAT: "/chat",
-  SUPPORT: "/support",
-  SELLERS: "/sellers",
-  SETTINGS: "/settings",
-  REQUESTS: "/requests",
-  SPARES: "/spares",
-} as const;
-
-/**
- * API endpoint paths.
- * All backend URLs live here — never hardcode API strings in feature files.
- * The base URL comes from import.meta.env.VITE_API_BASE_URL.
- */
+// API endpoint paths – moved to a dedicated file for better organization
 export const API_ROUTES = {
   AUTH: {
     LOGIN: "/superadmin/admin/login/",
