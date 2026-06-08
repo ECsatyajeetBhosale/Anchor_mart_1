@@ -32,7 +32,7 @@ export const APP_ROUTES = {
  */
 export const API_ROUTES = {
   AUTH: {
-    LOGIN: "/superadmin/auth/login/",
+    LOGIN: "/superadmin/admin/login/",
     LOGOUT: "/superadmin/auth/logout/",
     ME: "/superadmin/auth/me/",
   },

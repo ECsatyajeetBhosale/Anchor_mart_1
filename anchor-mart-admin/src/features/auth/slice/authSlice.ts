@@ -2,6 +2,7 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { AdminUser, AuthState } from "../types/auth";
 
 const TOKEN_KEY = "am_admin_token";
+const USER_KEY = "am_admin_user";
 
 function loadToken(): string | null {
   try {
@@ -11,9 +12,19 @@ function loadToken(): string | null {
   }
 }
 
+function loadUser(): AdminUser | null {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as AdminUser;
+  } catch {
+    return null;
+  }
+}
+
 const initialState: AuthState = {
   token: loadToken(),
-  user: null,
+  user: loadUser(),
   isAuthenticated: !!loadToken(),
   isLoading: false,
 };
@@ -32,6 +43,7 @@ const authSlice = createSlice({
       state.isLoading = false;
       try {
         localStorage.setItem(TOKEN_KEY, action.payload.token);
+        localStorage.setItem(USER_KEY, JSON.stringify(action.payload.user));
       } catch {
         // localStorage unavailable — session-only auth
       }
@@ -46,6 +58,7 @@ const authSlice = createSlice({
       state.isLoading = false;
       try {
         localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
       } catch {
         // ignore
       }

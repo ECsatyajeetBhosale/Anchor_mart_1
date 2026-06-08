@@ -226,7 +226,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
             flexShrink: 0,
           }}
         >
-          {user?.name?.[0]?.toUpperCase() ?? "A"}
+          {user?.email?.[0]?.toUpperCase() ?? "A"}
         </div>
         {!collapsed && (
           <>
@@ -241,7 +241,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
                   textOverflow: "ellipsis",
                 }}
               >
-                {user?.name ?? "Admin"}
+                {user?.email ?? "Admin"}
               </div>
               <div
                 style={{
@@ -250,7 +250,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
                   fontWeight: 600,
                 }}
               >
-                Super Admin
+                {user?.role ?? "Admin"}
               </div>
             </div>
             <button

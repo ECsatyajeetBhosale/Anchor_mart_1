@@ -33,42 +33,27 @@ export function LoginPage() {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "admin@anchormart.io",
-      password: "password123",
+      email: "",
+      password: "",
     },
   });
 
   const onSubmit = async (data: LoginFormData) => {
     setApiError(null);
     try {
-      // For testing/development preview purposes when the server isn't running:
-      // If VITE_API_BASE_URL points to localhost and we get a network error,
-      // we can optionally log in with mock credentials if development mode is active.
-      // Let's call the mutation first.
       const response = await login(data).unwrap();
       dispatch(setCredentials({ token: response.token, user: response.user }));
-      toast.success(`Welcome back, ${response.user.name}!`);
+      toast.success(response.message || "Login successful");
       navigate(APP_ROUTES.DASHBOARD, { replace: true });
-    } catch (err: any) {
-      console.error("Login error:", err);
-      // Let's check if we are in development mode and the request failed (e.g. server offline)
-      // to allow easy local developer evaluation without a running Django backend
-      const isDev = import.meta.env.DEV;
-      if (isDev && (err.status === "FETCH_ERROR" || err.code === "ERR_NETWORK")) {
-        // Mock success fallback for preview/developer demo
-        const mockUser = {
-          id: "1",
-          email: data.email,
-          name: "Satyajeet Bhosale",
-          role: "Super Admin",
-        };
-        dispatch(setCredentials({ token: "mock-dev-token-xyz123", user: mockUser }));
-        toast.success(`[DEV MOCK] Welcome back, ${mockUser.name}!`);
-        navigate(APP_ROUTES.DASHBOARD, { replace: true });
-      } else {
-        const errorMsg = err?.data?.non_field_errors?.[0] || err?.data?.detail || "Invalid email or password. Please try again.";
-        setApiError(errorMsg);
-      }
+    } catch (err: unknown) {
+      const error = err as { status?: string | number; data?: Record<string, unknown> };
+      const errorData = error?.data as Record<string, string | string[]> | undefined;
+      const errorMsg =
+        (Array.isArray(errorData?.non_field_errors) ? errorData.non_field_errors[0] : null) ??
+        (typeof errorData?.detail === "string" ? errorData.detail : null) ??
+        (typeof errorData?.message === "string" ? errorData.message : null) ??
+        "Invalid email or password. Please try again.";
+      setApiError(errorMsg);
     }
   };
 

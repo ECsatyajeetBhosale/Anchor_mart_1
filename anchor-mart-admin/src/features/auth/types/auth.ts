@@ -4,11 +4,8 @@
  */
 
 export interface AdminUser {
-  id: string;
   email: string;
-  name: string;
   role: string;
-  avatar?: string;
 }
 
 export interface AuthState {
@@ -24,6 +21,7 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
+  message: string;
   token: string;
   user: AdminUser;
 }

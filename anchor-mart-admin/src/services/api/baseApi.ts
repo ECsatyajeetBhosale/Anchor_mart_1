@@ -13,7 +13,9 @@ import type { RootState } from "@/store";
 export const baseApi = createApi({
   reducerPath: "api",
   baseQuery: fetchBaseQuery({
-    baseUrl: import.meta.env.VITE_API_BASE_URL as string,
+    // Dev: empty baseUrl → relative URLs hit Vite proxy (no CORS)
+    // Prod: full URL → requests go directly to backend
+    baseUrl: import.meta.env.DEV ? "/api" : (import.meta.env.VITE_API_BASE_URL as string),
     prepareHeaders: (headers, { getState }) => {
       const token = (getState() as RootState).auth.token;
       if (token) {
@@ -22,6 +24,8 @@ export const baseApi = createApi({
       }
       headers.set("Content-Type", "application/json");
       headers.set("Accept", "application/json");
+      // Skip ngrok browser interstitial in development
+      headers.set("ngrok-skip-browser-warning", "true");
       return headers;
     },
   }),
