@@ -685,12 +685,12 @@ body {
 ══════════════════════════════════════════ */
 
 /* Page Header */
-.pg-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; gap: 16px; flex-wrap: nowrap; min-height: 72px; }
-.pg-header-l { flex: 0 1 48%; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.pg-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; gap: 16px; flex-wrap: wrap; }
+.pg-header-l { flex: 1; min-width: 0; }
 .pg-title { font-size: 22px; font-weight: 800; color: var(--t1); letter-spacing: -.4px; line-height: 1.2; }
 .pg-sub { font-size: 13px; font-weight: 500; color: var(--t3); margin-top: 5px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pg-sub .sep { color: var(--t5); }
-.pg-actions { display: flex; align-items: center; gap: 10px; flex: 1 1 52%; flex-shrink: 0; flex-wrap: nowrap; overflow-x: auto; align-self: center !important; justify-content: flex-end; }
+.pg-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
 
 /* Constrain search inputs and selects inside page actions to keep them on a single line */
 .pg-actions .input-wrap { display: inline-flex; align-items: center; }
