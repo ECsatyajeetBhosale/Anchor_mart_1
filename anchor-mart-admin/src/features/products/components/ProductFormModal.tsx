@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   IconBoxSeam,
   IconCloudUpload,
@@ -16,6 +16,9 @@ import {
   SheetDescription,
   SheetFooter,
 } from "@/components/ui/sheet";
+import { DynamicTabs } from "@/components/common/DynamicTabs";
+import { FormRow } from "@/components/common/FormRow";
+import { FormField } from "@/components/common/FormField";
 
 export interface ProductFormModalProps {
   isOpen: boolean;
@@ -51,93 +54,66 @@ export function ProductFormModal({ isOpen, onClose, product }: ProductFormModalP
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto p-6 pt-2">
-          <div className="tab-row sticky top-0 bg-[var(--surface)] z-10" style={{ marginBottom: 18, paddingTop: 10 }}>
-            <div
-              className={`tab-item ${activeTab === "pt-basic" ? "active" : ""}`}
-              onClick={() => setActiveTab("pt-basic")}
-            >
-              Basic Info
-            </div>
-            <div
-              className={`tab-item ${activeTab === "pt-media" ? "active" : ""}`}
-              onClick={() => setActiveTab("pt-media")}
-            >
-              Media
-            </div>
-            <div
-              className={`tab-item ${activeTab === "pt-pricing" ? "active" : ""}`}
-              onClick={() => setActiveTab("pt-pricing")}
-            >
-              Pricing
-            </div>
-            <div
-              className={`tab-item ${activeTab === "pt-shipping" ? "active" : ""}`}
-              onClick={() => setActiveTab("pt-shipping")}
-            >
-              Shipping
-            </div>
-            <div
-              className={`tab-item ${activeTab === "pt-variants" ? "active" : ""}`}
-              onClick={() => setActiveTab("pt-variants")}
-            >
-              Variants
-            </div>
+          <div className="sticky top-0 bg-[var(--surface)] z-10" style={{ marginBottom: 18, paddingTop: 10 }}>
+            <DynamicTabs
+              tabs={[
+                { label: "Basic Info", value: "pt-basic" },
+                { label: "Media", value: "pt-media" },
+                { label: "Pricing", value: "pt-pricing" },
+                { label: "Shipping", value: "pt-shipping" },
+                { label: "Variants", value: "pt-variants" },
+              ]}
+              value={activeTab}
+              onTabChange={setActiveTab}
+            />
           </div>
 
           {/* Basic Info Tab */}
           {activeTab === "pt-basic" && (
             <div className="prod-tab mt-4">
               <div className="sec-label">Product Details</div>
-              <div className="form-row">
-                <div className="fg">
-                  <label className="fg-label">Product Title *</label>
+              <FormRow>
+                <FormField label="Product Title *">
                   <input
                     className="form-input"
                     placeholder="Enter product name"
                     defaultValue={product?.name || ""}
                   />
-                </div>
-                <div className="fg">
-                  <label className="fg-label">Product Subtitle</label>
+                </FormField>
+                <FormField label="Product Subtitle">
                   <input className="form-input" placeholder="Short product tagline" />
-                </div>
-              </div>
-              <div className="fg">
-                <label className="fg-label">Product Slug / URL Handle</label>
+                </FormField>
+              </FormRow>
+              <FormField label="Product Slug / URL Handle" hint="Auto-generated from the title — editable">
                 <input
                   className="form-input mono"
                   placeholder="auto-generated-from-title"
                 />
-                <div className="fg-hint">Auto-generated from the title — editable</div>
-              </div>
-              <div className="fg">
-                <label className="fg-label">Product Description</label>
+              </FormField>
+              <FormField label="Product Description">
                 <textarea
                   className="form-input"
                   placeholder="Enter a detailed description for this product..."
                   style={{ height: 120 }}
                   defaultValue={product?.description || ""}
-                ></textarea>
-              </div>
-              <div className="fg">
-                <label className="fg-label">Short Description</label>
+                />
+              </FormField>
+              <FormField label="Short Description">
                 <textarea
                   className="form-input"
                   maxLength={250}
                   placeholder="Brief summary (max 250 characters)"
                   style={{ height: 64 }}
-                ></textarea>
-              </div>
-              <div className="form-row triple">
-                <div className="fg">
-                  <label className="fg-label">Brand</label>
+                />
+              </FormField>
+              <FormRow columns={3}>
+                <FormField label="Brand">
                   <input
                     className="form-input"
                     placeholder="Search or add brand…"
                   />
-                </div>
-                <div className="fg">
-                  <label className="fg-label">Category</label>
+                </FormField>
+                <FormField label="Category">
                   <select className="form-select" defaultValue={product?.category}>
                     <option value="">Select category…</option>
                     <option value="Electronics">Electronics</option>
@@ -147,16 +123,15 @@ export function ProductFormModal({ isOpen, onClose, product }: ProductFormModalP
                     <option value="Fitness">Fitness</option>
                     <option value="Beverages">Beverages</option>
                   </select>
-                </div>
-                <div className="fg">
-                  <label className="fg-label">Status</label>
+                </FormField>
+                <FormField label="Status">
                   <select className="form-select">
                     <option>Active</option>
                     <option>Draft</option>
                     <option>Archived</option>
                   </select>
-                </div>
-              </div>
+                </FormField>
+              </FormRow>
             </div>
           )}
 
@@ -164,8 +139,7 @@ export function ProductFormModal({ isOpen, onClose, product }: ProductFormModalP
           {activeTab === "pt-media" && (
             <div className="prod-tab mt-4">
               <div className="sec-label">Product Media</div>
-              <div className="fg">
-                <label className="fg-label">Product Images</label>
+              <FormField label="Product Images">
                 <div className="upload-area">
                   <IconCloudUpload size={28} style={{ display: "block", margin: "0 auto 6px" }} />
                   Drag &amp; drop images here, or click to upload
@@ -173,15 +147,14 @@ export function ProductFormModal({ isOpen, onClose, product }: ProductFormModalP
                     JPG · PNG · WEBP · AVIF — multiple allowed
                   </div>
                 </div>
-              </div>
-              <div className="fg">
-                <label className="fg-label">Thumbnail Image</label>
+              </FormField>
+              <FormField label="Thumbnail Image">
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                   <button type="button" className="btn btn-secondary btn-sm">
                     <IconPhoto size={16} /> Pick Thumbnail
                   </button>
                 </div>
-              </div>
+              </FormField>
             </div>
           )}
 
@@ -189,46 +162,42 @@ export function ProductFormModal({ isOpen, onClose, product }: ProductFormModalP
           {activeTab === "pt-pricing" && (
             <div className="prod-tab mt-4">
               <div className="sec-label">Pricing</div>
-              <div className="form-row">
-                <div className="fg">
-                  <label className="fg-label">Selling Price *</label>
+              <FormRow>
+                <FormField label="Selling Price *">
                   <input
                     className="form-input"
                     type="number"
                     placeholder="0.00"
                     defaultValue={product?.price || ""}
                   />
-                </div>
-                <div className="fg">
-                  <label className="fg-label">Currency</label>
+                </FormField>
+                <FormField label="Currency">
                   <select className="form-select">
                     <option>USD ($)</option>
                     <option>SGD (S$)</option>
                     <option>EUR (€)</option>
                   </select>
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="fg">
-                  <label className="fg-label">Tax Class</label>
+                </FormField>
+              </FormRow>
+              <FormRow>
+                <FormField label="Tax Class">
                   <select className="form-select">
                     <option>Standard</option>
                     <option>Reduced</option>
                     <option>Zero-rated</option>
                   </select>
-                </div>
-                <div className="fg">
-                  <label className="fg-label">Unit Price</label>
+                </FormField>
+                <FormField label="Unit Price">
                   <input className="form-input" placeholder="e.g. $2.00 / 100ml" />
-                </div>
-              </div>
-              <div className="form-row" style={{ marginBottom: 0 }}>
+                </FormField>
+              </FormRow>
+              <FormRow style={{ marginBottom: 0 }}>
                 <label className="switch">
                   <input type="checkbox" defaultChecked />
                   <div className="switch-track"></div>
                   <span className="switch-label">Taxable</span>
                 </label>
-              </div>
+              </FormRow>
             </div>
           )}
 
@@ -236,7 +205,7 @@ export function ProductFormModal({ isOpen, onClose, product }: ProductFormModalP
           {activeTab === "pt-shipping" && (
             <div className="prod-tab mt-4">
               <div className="sec-label">Shipping &amp; Delivery</div>
-              <div className="form-row" style={{ marginBottom: 14 }}>
+              <FormRow style={{ marginBottom: 14 }}>
                 <label className="switch">
                   <input type="checkbox" defaultChecked />
                   <div className="switch-track"></div>
@@ -247,29 +216,26 @@ export function ProductFormModal({ isOpen, onClose, product }: ProductFormModalP
                   <div className="switch-track"></div>
                   <span className="switch-label">Free Shipping</span>
                 </label>
-              </div>
-              <div className="form-row triple">
-                <div className="fg">
-                  <label className="fg-label">Weight</label>
+              </FormRow>
+              <FormRow columns={3}>
+                <FormField label="Weight">
                   <input className="form-input" type="number" placeholder="0" />
-                </div>
-                <div className="fg">
-                  <label className="fg-label">Weight Unit</label>
+                </FormField>
+                <FormField label="Weight Unit">
                   <select className="form-select">
                     <option>kg</option>
                     <option>g</option>
                     <option>lb</option>
                   </select>
-                </div>
-                <div className="fg">
-                  <label className="fg-label">Package Type</label>
+                </FormField>
+                <FormField label="Package Type">
                   <select className="form-select">
                     <option>Box</option>
                     <option>Envelope</option>
                     <option>Custom</option>
                   </select>
-                </div>
-              </div>
+                </FormField>
+              </FormRow>
             </div>
           )}
 
@@ -278,20 +244,18 @@ export function ProductFormModal({ isOpen, onClose, product }: ProductFormModalP
             <div className="prod-tab mt-4">
               <div className="sec-label">Product Options</div>
               <div className="opt-row mb-4">
-                <div className="fg" style={{ width: 190 }}>
-                  <label className="fg-label">Option Name</label>
+                <FormField label="Option Name" style={{ width: 190 }}>
                   <select className="form-select">
                     <option>Size</option>
                     <option>Color</option>
                     <option>Material</option>
                   </select>
-                </div>
-                <div className="fg" style={{ flex: 1 }}>
-                  <label className="fg-label">Option Values</label>
+                </FormField>
+                <FormField label="Option Values" style={{ flex: 1 }}>
                   <div className="tag-input-wrap">
                     <input type="text" placeholder="Type a value, press Enter" />
                   </div>
-                </div>
+                </FormField>
                 <button
                   type="button"
                   className="btn btn-ghost btn-sm btn-icon"

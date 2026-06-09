@@ -14,6 +14,7 @@ export interface Product {
   is_active: boolean;
   created_at: string;
   images: ProductImage[];
+  is_featured?: boolean;
 }
 
 export interface ProductListResponseData {

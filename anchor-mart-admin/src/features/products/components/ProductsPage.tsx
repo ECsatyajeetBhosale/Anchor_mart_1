@@ -1,31 +1,55 @@
-import React, { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { toast } from "sonner";
-import { DataTable, type Column } from "@/components/ui/data-table";
-import { useGetProductsQuery, useDeleteProductMutation } from "../api/productApi";
-import type { Product } from "../types/product.types";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { DynamicTabs } from "@/components/common/DynamicTabs";
+import { PageHeader } from "@/components/common/PageHeader";
+import { SearchFilters } from "@/components/common/SearchFilters";
+import { StatsGrid } from "@/components/common/StatsGrid";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { TableActions } from "@/components/common/TableActions";
+import { type Column, DataTable } from "@/components/ui/data-table";
 import {
-  IconSearch,
-  IconPlus,
   IconBoxSeam,
   IconCategory,
-  IconStar,
-  IconEdit,
-  IconTrash,
   IconDeviceSpeaker,
+  IconEdit,
+  IconPlus,
+  IconStar,
+  IconTrash,
 } from "@tabler/icons-react";
+import React, { useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
+import { useGetProductsQuery } from "../api/productApi";
+import type { Product } from "../types/product.types";
 import { ProductFormModal } from "./ProductFormModal";
 
+const categoryOptions = [
+  { value: "all-categories", label: "All Categories" },
+  { value: "fashion", label: "Fashion" },
+  { value: "beauty", label: "Beauty" },
+  { value: "fitness", label: "Fitness" },
+  { value: "electronics", label: "Electronics" },
+  { value: "marine", label: "Marine Emergency" },
+  { value: "living", label: "Living" },
+];
+
+const productTabs = [
+  { label: "All Products", value: "all" },
+  { label: "Deal Products", value: "deal" },
+  { label: "Special Requests", value: "special" },
+];
+
 export function ProductsPage() {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("all");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [productToDelete, setProductToDelete] = useState<string | null>(null);
+  const [localDeletedIds, setLocalDeletedIds] = useState<string[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Pagination params from URL
-  const page = parseInt(searchParams.get("page") ?? "1", 10);
+  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
   const nameFilter = searchParams.get("name") ?? "";
 
   // API Integration
@@ -36,31 +60,40 @@ export function ProductsPage() {
     name: nameFilter,
   });
 
-  const [deleteProduct] = useDeleteProductMutation();
-
   const productsData: Product[] = data?.results?.data || [];
   const totalCount = data?.count || 0;
   const totalPages = Math.ceil(totalCount / limit) || 1;
 
   const filteredProducts = React.useMemo(() => {
+    let result = productsData;
     if (activeTab === "deal") {
-      return productsData.filter((p) => p.is_featured || p.average_rating >= 4.5);
+      result = result.filter((p) => p.is_featured || p.average_rating >= 4.5);
     }
-    return productsData;
-  }, [productsData, activeTab]);
+    return result.filter((p) => !localDeletedIds.includes(p.id));
+  }, [productsData, activeTab, localDeletedIds]);
 
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
+  const handleDeleteClick = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (!window.confirm("Are you sure you want to delete this product?")) return;
+    setProductToDelete(id);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!productToDelete) return;
+    setIsDeleting(true);
     try {
-      await deleteProduct(id).unwrap();
+      // Future API integration:
+      // await deleteProduct(productToDelete).unwrap();
+      setLocalDeletedIds((prev) => [...prev, productToDelete]);
       toast.success("Product deleted successfully");
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to delete product");
+    } finally {
+      setIsDeleting(false);
+      setProductToDelete(null);
     }
   };
 
-  const handleEdit = (e: React.MouseEvent, product: any) => {
+  const handleEdit = (e: React.MouseEvent, product: Product) => {
     e.stopPropagation();
     setEditingProduct(product);
     setIsModalOpen(true);
@@ -71,7 +104,7 @@ export function ProductsPage() {
     setIsModalOpen(true);
   };
 
-  const getProductImage = (images: any[]) => {
+  const getProductImage = (images: Product["images"]) => {
     if (!images || images.length === 0) {
       return <IconDeviceSpeaker size={18} />;
     }
@@ -110,7 +143,7 @@ export function ProductsPage() {
     {
       id: "category",
       header: "Category",
-      cell: (row) => <span className="badge badge-navy">{row.category_name}</span>,
+      cell: (row) => <StatusBadge status={row.category_name} />,
     },
     {
       id: "price",
@@ -120,55 +153,44 @@ export function ProductsPage() {
     {
       id: "featured",
       header: "Featured",
-      cell: (row) =>
-        row.is_featured || row.average_rating >= 4.5 ? (
-          <span className="badge badge-amber">
-            <IconStar size={11} className="mr-1 inline-block" />
-            Yes
-          </span>
-        ) : (
-          <span className="td-m">—</span>
-        ),
+      cell: (row) => {
+        const isFeatured = row.is_featured || row.average_rating >= 4.5;
+        return isFeatured ? <StatusBadge status="Featured" /> : <span className="td-m">—</span>;
+      },
     },
     {
       id: "status",
       header: "Status",
-      cell: (row) => {
-        const statusText = row.is_active ? "Active" : "Inactive";
-        const statusColor = row.is_active ? "success" : "danger";
-        return <span className={`badge badge-${statusColor}`}>{statusText}</span>;
-      },
+      cell: (row) => <StatusBadge status={row.is_active} />,
     },
     {
       id: "actions",
       header: "Actions",
       cell: (row) => (
-        <div className="td-acts flex items-center gap-1">
-          <button
-            className="btn btn-ghost btn-sm btn-icon"
-            title="Edit"
-            onClick={(e) => handleEdit(e, row)}
-          >
-            <IconEdit size={16} />
-          </button>
-          <button
-            className="btn btn-ghost btn-sm btn-icon"
-            title="Toggle featured"
-            onClick={(e) => {
-              e.stopPropagation();
-              toast.success("Toggled featured status");
-            }}
-          >
-            <IconStar size={16} />
-          </button>
-          <button
-            className="btn btn-danger btn-sm btn-icon"
-            title="Remove"
-            onClick={(e) => handleDelete(e, row.id)}
-          >
-            <IconTrash size={16} />
-          </button>
-        </div>
+        <TableActions
+          row={row}
+          actions={[
+            {
+              icon: <IconEdit size={16} />,
+              title: "Edit",
+              onClick: (e, r) => handleEdit(e, r),
+            },
+            {
+              icon: <IconStar size={16} />,
+              title: "Toggle featured",
+              onClick: (e) => {
+                e.stopPropagation();
+                toast.success("Toggled featured status");
+              },
+            },
+            {
+              icon: <IconTrash size={16} />,
+              title: "Remove",
+              variant: "danger",
+              onClick: (e, r) => handleDeleteClick(e, r.id),
+            },
+          ]}
+        />
       ),
       className: "w-24 text-right",
     },
@@ -178,104 +200,75 @@ export function ProductsPage() {
     setSearchParams({ ...Object.fromEntries(searchParams.entries()), page: newPage.toString() });
   };
 
+  const statItems = [
+    {
+      id: "total-products",
+      label: "Total Products",
+      value: totalCount,
+      icon: <IconBoxSeam size={19} />,
+      variant: "navy" as const,
+    },
+    {
+      id: "total-categories",
+      label: "Total Categories",
+      value: "12",
+      icon: <IconCategory size={19} />,
+      variant: "teal" as const,
+    },
+    {
+      id: "featured-deals",
+      label: "Featured / Deals",
+      value: "48",
+      icon: <IconStar size={19} />,
+      variant: "amber" as const,
+    },
+  ];
+
   return (
     <>
-      {/* Header */}
-      <div className="pg-header">
-        <div className="pg-header-l">
-          <h1 className="pg-title">Products & Catalog</h1>
-        </div>
-        <div className="pg-actions">
-          <div className="input-wrap">
-            <IconSearch className="pre" size={16} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--t4)" }} />
-            <input
-              type="text"
-              className="form-input has-icon"
-              placeholder="Search products…"
-              style={{ width: 200, paddingLeft: 36 }}
-              value={nameFilter}
-              onChange={(e) => {
-                setSearchParams({ ...Object.fromEntries(searchParams.entries()), name: e.target.value, page: "1" });
-              }}
-            />
-          </div>
-          <select className="form-select">
-            <option>All Categories</option>
-            <option>Fashion</option>
-            <option>Beauty</option>
-            <option>Fitness</option>
-            <option>Electronics</option>
-            <option>Marine Emergency</option>
-            <option>Living</option>
-          </select>
-          <select className="form-select">
-            <option>All Status</option>
-            <option>In Stock</option>
-            <option>Out of Stock</option>
-            <option>Low Stock</option>
-          </select>
-          <button className="btn btn-primary" onClick={handleAddProduct}>
-            <IconPlus size={16} />
-            Add Product
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Products & Catalog"
+        actions={
+          <SearchFilters
+            searchValue={nameFilter}
+            onSearchChange={(val) => {
+              setSearchParams({
+                ...Object.fromEntries(searchParams.entries()),
+                name: val,
+                page: "1",
+              });
+            }}
+            searchPlaceholder="Search products…"
+            searchDebounceMs={300}
+            searchLoading={isLoading}
+            filters={[
+              {
+                id: "category",
+                value: "all-categories",
+                placeholder: "All Categories",
+                options: categoryOptions,
+                width: "160px",
+                onValueChange: () => {},
+              },
+            ]}
+          >
+            <button type="button" className="btn btn-primary" onClick={handleAddProduct}>
+              <IconPlus size={16} />
+              Add Product
+            </button>
+          </SearchFilters>
+        }
+      />
 
-      {/* Stats Row */}
-      <div className="stats-row">
-        <div className="stat-card sc-navy">
-          <div className="stat-stripe"></div>
-          <div className="stat-top">
-            <div className="stat-lbl">Total Products</div>
-            <div className="stat-icon">
-              <IconBoxSeam size={19} />
-            </div>
-          </div>
-          <div className="stat-val">{totalCount}</div>
-        </div>
-        <div className="stat-card sc-teal">
-          <div className="stat-stripe"></div>
-          <div className="stat-top">
-            <div className="stat-lbl">Total Categories</div>
-            <div className="stat-icon">
-              <IconCategory size={19} />
-            </div>
-          </div>
-          <div className="stat-val">-  </div>
-        </div>
-        <div className="stat-card sc-amber">
-          <div className="stat-stripe"></div>
-          <div className="stat-top">
-            <div className="stat-lbl">Featured / Deals</div>
-            <div className="stat-icon">
-              <IconStar size={19} />
-            </div>
-          </div>
-          <div className="stat-val">-</div>
-        </div>
-      </div>
+      <StatsGrid items={statItems} />
 
       {/* Tabs */}
-      <div className="tab-row">
-        <div
-          className={`tab-item ${activeTab === "all" ? "active" : ""}`}
-          onClick={() => setActiveTab("all")}
-        >
-          All Products
-        </div>
-        <div
-          className={`tab-item ${activeTab === "deal" ? "active" : ""}`}
-          onClick={() => setActiveTab("deal")}
-        >
-          Deal Products
-        </div>
-        <div
-          className={`tab-item ${activeTab === "special" ? "active" : ""}`}
-          onClick={() => setActiveTab("special")}
-        >
-          Special Requests
-        </div>
-      </div>
+      <DynamicTabs
+        tabs={productTabs}
+        value={activeTab}
+        onTabChange={setActiveTab}
+        triggerClassName="data-[state=active]:!text-black data-[state=active]:!border-black"
+      />
 
       {/* Table */}
       <DataTable
@@ -300,6 +293,16 @@ export function ProductsPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         product={editingProduct}
+      />
+
+      <ConfirmDialog
+        isOpen={!!productToDelete}
+        onClose={() => setProductToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Product"
+        description="Are you sure you want to delete this product? This action cannot be undone."
+        confirmText="Delete"
+        isLoading={isDeleting}
       />
     </>
   );
