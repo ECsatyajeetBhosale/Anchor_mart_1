@@ -30,7 +30,7 @@ export function ProductFormModal({ isOpen, onClose, product }: ProductFormModalP
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className="flex flex-col gap-0 p-0 sm:max-w-3xl overflow-hidden bg-[var(--surface)]">
+      <SheetContent side="right" adjustable defaultWidth={800} className="flex flex-col gap-0 p-0 sm:max-w-none overflow-hidden bg-[var(--surface)]">
         <SheetHeader className="p-6 pb-2 border-b border-[var(--border-md)]">
           <div className="flex items-center gap-3">
             <div

@@ -41,27 +41,92 @@ const sheetVariants = (side: "top" | "bottom" | "left" | "right") => {
 export interface SheetContentProps
   extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content> {
   side?: "top" | "bottom" | "left" | "right"
+  adjustable?: boolean
+  defaultWidth?: number
+  minWidth?: number
+  maxWidth?: number
 }
 
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
   SheetContentProps
->(({ side = "right", className, children, ...props }, ref) => (
-  <SheetPortal>
-    <SheetOverlay />
-    <SheetPrimitive.Content
-      ref={ref}
-      className={cn(sheetVariants(side), className)}
-      {...props}
-    >
-      {children}
-      <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
-        <IconX className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </SheetPrimitive.Close>
-    </SheetPrimitive.Content>
-  </SheetPortal>
-))
+>(({ side = "right", className, children, adjustable, defaultWidth = 600, minWidth = 300, maxWidth = 1200, style, ...props }, ref) => {
+  const [width, setWidth] = React.useState(defaultWidth);
+  const isResizing = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!adjustable) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing.current) return;
+      
+      let newWidth = width;
+      if (side === "right") {
+        newWidth = window.innerWidth - e.clientX;
+      } else if (side === "left") {
+        newWidth = e.clientX;
+      }
+      
+      if (newWidth >= minWidth && newWidth <= maxWidth) {
+        setWidth(newWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      isResizing.current = false;
+      document.body.style.cursor = "default";
+      document.body.style.userSelect = "auto";
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [adjustable, side, minWidth, maxWidth]);
+
+  const handleMouseDown = () => {
+    isResizing.current = true;
+    document.body.style.cursor = "ew-resize";
+    document.body.style.userSelect = "none";
+  };
+
+  const dynamicStyle = adjustable && (side === "left" || side === "right") 
+    ? { ...style, width: `${width}px`, maxWidth: "100%" } 
+    : style;
+
+  return (
+    <SheetPortal>
+      <SheetOverlay />
+      <SheetPrimitive.Content
+        ref={ref}
+        className={cn(sheetVariants(side), className)}
+        style={dynamicStyle}
+        {...props}
+      >
+        {adjustable && side === "right" && (
+          <div
+            onMouseDown={handleMouseDown}
+            className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-teal-500/50 transition-colors z-50"
+          />
+        )}
+        {adjustable && side === "left" && (
+          <div
+            onMouseDown={handleMouseDown}
+            className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-teal-500/50 transition-colors z-50"
+          />
+        )}
+        {children}
+        <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary z-50">
+          <IconX className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </SheetPrimitive.Close>
+      </SheetPrimitive.Content>
+    </SheetPortal>
+  );
+})
 SheetContent.displayName = SheetPrimitive.Content.displayName
 
 const SheetHeader = ({
