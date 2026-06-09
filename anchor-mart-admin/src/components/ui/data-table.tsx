@@ -28,6 +28,7 @@ export interface DataTableProps<T> {
   onPageChange?: (page: number) => void;
   onLimitChange?: (limit: number) => void;
   showPagination?: boolean;
+  onRowClick?: (row: T) => void;
 }
 
 export function DataTable<T>({
@@ -44,6 +45,7 @@ export function DataTable<T>({
   pages = 1,
   onPageChange,
   showPagination = true,
+  onRowClick,
 }: DataTableProps<T>) {
   return (
     <div
@@ -132,9 +134,11 @@ export function DataTable<T>({
               data.map((row, rowIndex) => (
                 <tr
                   key={rowIndex}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
                   style={{
                     borderBottom: "1px solid var(--border-xs)",
                     transition: "background 0.15s",
+                    cursor: onRowClick ? "pointer" : "default",
                   }}
                   className="hover:bg-[var(--surface-alt)]"
                 >
