@@ -1,1 +1,2 @@
-export { CategoriesPage } from "./components/CategoriesPage";
+export { useGetCategoriesQuery } from "./api/categoryApi";
+export type { Category } from "./types/category.types";

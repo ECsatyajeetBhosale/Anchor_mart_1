@@ -69,3 +69,7 @@ export const PRODUCT_ENDPOINTS = {
   GET_PRODUCTS: "/superadmin/catalog/get-products/",
   DELETE_PRODUCT: (id: string) => `/superadmin/catalog/delete-product/${id}/`,
 };
+
+export const CATEGORY_ENDPOINTS = {
+  GET_CATEGORIES: "/superadmin/catalog/get-categories/",
+};

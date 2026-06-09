@@ -78,7 +78,7 @@ export const SelectContent = React.forwardRef<HTMLDivElement, React.HTMLAttribut
     if (!open) return null;
 
     return (
-      <div className="absolute z-50 mt-1 max-h-96 w-full min-w-[8rem] overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-sm)] bg-[var(--surface)] text-[var(--t1)] shadow-[var(--sh-md)]">
+      <div className="absolute z-50 mt-1 max-h-72 w-full min-w-[8rem] overflow-y-auto rounded-[var(--radius-md)] border border-[var(--border-sm)] bg-[var(--surface)] text-[var(--t1)] shadow-[var(--sh-md)]">
         <div
           ref={ref}
           className={cn("p-1", className)}

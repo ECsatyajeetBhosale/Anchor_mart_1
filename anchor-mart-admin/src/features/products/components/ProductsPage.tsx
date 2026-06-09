@@ -22,16 +22,7 @@ import { toast } from "sonner";
 import { useGetProductsQuery, useDeleteProductMutation } from "../api/productApi";
 import type { Product } from "../types/product.types";
 import { ProductFormModal } from "./ProductFormModal";
-
-const categoryOptions = [
-  { value: "all-categories", label: "All Categories" },
-  { value: "fashion", label: "Fashion" },
-  { value: "beauty", label: "Beauty" },
-  { value: "fitness", label: "Fitness" },
-  { value: "electronics", label: "Electronics" },
-  { value: "marine", label: "Marine Emergency" },
-  { value: "living", label: "Living" },
-];
+import { useGetCategoriesQuery } from "@/features/catalog";
 
 const productTabs = [
   { label: "All Products", value: "all" },
@@ -51,6 +42,7 @@ export function ProductsPage() {
   // Pagination params from URL
   const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
   const nameFilter = searchParams.get("name") ?? "";
+  const categoryFilter = searchParams.get("category") ?? "all";
 
   // API Integration
   const limit = 10;
@@ -59,6 +51,16 @@ export function ProductsPage() {
     limit,
     name: nameFilter,
   });
+
+  // Category options sourced from the catalog API (replaces the old static list)
+  const { data: categoriesData } = useGetCategoriesQuery({ limit: 100 });
+  const categoryOptions = React.useMemo(
+    () => [
+      { value: "all", label: "All Categories" },
+      ...(categoriesData?.results?.data ?? []).map((c) => ({ value: c.name, label: c.name })),
+    ],
+    [categoriesData],
+  );
 
   const productsData: Product[] = data?.results?.data || [];
   const totalCount = data?.count || 0;
@@ -69,8 +71,11 @@ export function ProductsPage() {
     if (activeTab === "deal") {
       result = result.filter((p) => p.is_featured || p.average_rating >= 4.5);
     }
+    if (categoryFilter !== "all") {
+      result = result.filter((p) => p.category_name === categoryFilter);
+    }
     return result;
-  }, [productsData, activeTab]);
+  }, [productsData, activeTab, categoryFilter]);
 
   const handleDeleteClick = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -251,11 +256,17 @@ export function ProductsPage() {
             filters={[
               {
                 id: "category",
-                value: "all-categories",
+                value: categoryFilter,
                 placeholder: "All Categories",
                 options: categoryOptions,
                 width: "160px",
-                onValueChange: () => {},
+                onValueChange: (val) => {
+                  setSearchParams({
+                    ...Object.fromEntries(searchParams.entries()),
+                    category: val,
+                    page: "1",
+                  });
+                },
               },
             ]}
           >
