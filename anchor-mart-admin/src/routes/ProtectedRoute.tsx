@@ -1,5 +1,5 @@
 import { Navigate, Outlet } from "react-router-dom";
-import { useAppSelector } from "@/hooks/useAppStore";
+import { useAppSelector } from "@/hooks/useAppDispatch";
 import { APP_ROUTES } from "@/lib/constants";
 
 /**

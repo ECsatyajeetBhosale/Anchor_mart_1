@@ -1,19 +1,18 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { APP_ROUTES } from "@/lib/constants";
 import { ProtectedRoute } from "./ProtectedRoute";
-import { DashboardLayout } from "@/layouts/DashboardLayout";
-import { AuthLayout } from "@/layouts/AuthLayout";
+import { Layout } from "@/components/common/Layout";
+import { AuthLayout } from "@/components/common/AuthLayout";
 
-// Auth
-import { LoginPage } from "@/pages/LoginPage";
+// Auth — from feature
+import { LoginPage } from "@/features/auth";
 
-// Dashboard pages
+// Dashboard pages (remain in pages/ until migrated to features)
 import { DashboardPage } from "@/pages/DashboardPage";
 import { AnalyticsPage } from "@/pages/AnalyticsPage";
 import { SailorsPage } from "@/pages/SailorsPage";
 import { OrdersPage } from "@/pages/OrdersPage";
 import { IntentsPage } from "@/pages/IntentsPage";
-import { ProductsPage } from "@/pages/ProductsPage";
 import { ExpressPage } from "@/pages/ExpressPage";
 import { InventoryPage } from "@/pages/InventoryPage";
 import { RewardsPage } from "@/pages/RewardsPage";
@@ -27,6 +26,9 @@ import { SellersPage } from "@/pages/SellersPage";
 import { SpecialRequestsPage } from "@/pages/SpecialRequestsPage";
 import { SparesPage } from "@/pages/SparesPage";
 import { SettingsPage } from "@/pages/SettingsPage";
+
+// Products — from feature
+import { ProductsPage } from "@/features/products";
 
 export function AppRouter() {
   return (
@@ -42,7 +44,7 @@ export function AppRouter() {
 
         {/* Protected dashboard routes */}
         <Route element={<ProtectedRoute />}>
-          <Route element={<DashboardLayout />}>
+          <Route element={<Layout />}>
             <Route path={APP_ROUTES.DASHBOARD} element={<DashboardPage />} />
             <Route path={APP_ROUTES.ANALYTICS} element={<AnalyticsPage />} />
             <Route path={APP_ROUTES.SAILORS} element={<SailorsPage />} />

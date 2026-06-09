@@ -1,5 +1,5 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { AdminUser, AuthState } from "../types/auth";
+import type { AdminUser, AuthState } from "../types/auth.types";
 
 const TOKEN_KEY = "am_admin_token";
 const USER_KEY = "am_admin_user";

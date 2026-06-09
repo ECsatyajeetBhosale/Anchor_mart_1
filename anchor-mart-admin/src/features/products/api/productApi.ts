@@ -1,6 +1,6 @@
-// src/features/products/api/productsApi.ts
-import { baseApi } from '@/services/api/baseApi';
-import type { Product } from '@/types/product';
+// src/features/products/api/productApi.ts
+import { baseApi } from '@/lib/fetchUtils';
+import type { Product } from '../types/product';
 
 // Define the shape of the response for paginated products
 export interface PaginatedProductsResponse {

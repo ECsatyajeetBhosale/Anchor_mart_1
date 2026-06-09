@@ -5,17 +5,138 @@
 
 ---
 
-## 🏗️ Structure
+## 🏗️ Project Structure
 
-- **Feature-based folder structure.** All features live in `src/features/<feature-name>/`.
-  Each feature owns its own API, components, hooks, slice, types, and schemas.
-- **Only export what's needed.** Every feature must have an `index.ts` that re-exports only
-  the public API of that feature. Do not import from deep internal paths outside the feature.
+The project follows a **feature-sliced architecture**. The canonical folder structure is:
+
+```
+src/
+├── App.tsx                            # Root app component
+├── main.tsx                           # Entry point
+├── index.css                          # Global styles
+├── vite-env.d.ts                      # Vite type declarations
+│
+├── assets/                            # Static assets (images, fonts, icons)
+│
+├── components/
+│   ├── common/                        # Shared layout/structural components
+│   │   ├── AppSidebar.tsx
+│   │   ├── Header.tsx
+│   │   ├── Layout.tsx
+│   │   └── ...
+│   ├── ui/                            # Reusable UI primitives (shadcn-style)
+│   │   ├── button.tsx
+│   │   ├── data-table.tsx
+│   │   ├── pagination.tsx
+│   │   ├── search-input.tsx
+│   │   └── ...
+│   └── examples/                      # Component usage examples
+│
+├── features/                          # Feature-sliced modules (see rules below)
+│   ├── auth/
+│   ├── dashboard/
+│   ├── products/
+│   ├── orders/
+│   ├── sailors/
+│   └── ...
+│
+├── hooks/                             # Global/shared hooks
+│
+├── lib/                               # Utilities, constants, helpers
+│   ├── constants.ts                   # APP_ROUTES, API_ROUTES
+│   ├── fetchUtils.ts                  # RTK Query base API setup
+│   ├── navigation.ts                  # Sidebar navigation config
+│   ├── messages.ts                    # UI display strings
+│   ├── toast.ts                       # Toast helper functions
+│   └── utils.ts                       # cn() and general utilities
+│
+├── pages/                             # Thin route-level page wrappers (re-exports)
+│
+├── routes/                            # React Router config
+│   ├── AppRouter.tsx
+│   └── ProtectedRoute.tsx
+│
+├── store/                             # Redux store setup
+│   └── index.ts
+│
+├── types/                             # Shared global types
+│   └── index.ts
+│
+└── test/                              # Test setup & utilities
+    └── setup.ts
+```
+
+### Feature Folder Rules
+
+Every feature **MUST** follow this internal structure:
+
+```
+features/<feature-name>/
+├── api/                               # RTK Query endpoint definitions
+│   └── <feature>Api.ts
+├── components/                        # ALL UI components for this feature
+│   ├── <Feature>Page.tsx              # Main page component
+│   ├── <Feature>Table.tsx             # Table/list component (if applicable)
+│   ├── <Feature>Filters.tsx           # Filters component (if applicable)
+│   ├── <Feature>Drawer.tsx            # Detail drawer (if applicable)
+│   └── <Feature>FormDrawer.tsx        # Create/edit form drawer (if applicable)
+├── hooks/                             # Feature-specific hooks
+│   └── use<Feature>.ts
+├── schemas/                           # Zod validation schemas
+│   └── <feature>.schema.ts
+├── slice/                             # Redux slice (if needed)
+│   └── <feature>Slice.ts
+├── types/                             # TypeScript type definitions
+│   └── <feature>.types.ts
+└── index.ts                           # Barrel exports (public API only)
+```
+
+### ⚠️ MANDATORY Rules for Features
+
+1. **Page components live INSIDE their feature's `components/` folder.**
+   - ✅ `features/auth/components/LoginPage.tsx`
+   - ✅ `features/products/components/ProductsPage.tsx`
+   - ❌ `pages/ProductsPage.tsx` with all logic inside it
+
+2. **The `pages/` directory holds ONLY thin re-export wrappers** for routing:
+   ```tsx
+   // pages/ProductsPage.tsx — THIN WRAPPER ONLY
+   export { ProductsPage } from "@/features/products";
+   ```
+
+3. **When creating a new feature, ALWAYS create the full folder structure:**
+   ```
+   features/<new-feature>/
+   ├── api/
+   ├── components/
+   ├── hooks/
+   ├── types/
+   └── index.ts
+   ```
+   Even if some folders start empty, create them to maintain consistency.
+
+4. **Every feature MUST have an `index.ts`** barrel file that re-exports only the public API:
+   ```tsx
+   // features/products/index.ts
+   export { ProductsPage } from "./components/ProductsPage";
+   export { useGetProductsQuery } from "./api/productApi";
+   export type { Product } from "./types/product.types";
+   ```
+
+5. **Do NOT import from deep internal paths outside the feature.**
+   - ✅ `import { ProductsPage } from "@/features/products"`
+   - ❌ `import { ProductsPage } from "@/features/products/components/ProductsPage"`
+
+6. **Keep feature folders self-contained.** A feature should own its API, components, hooks, types, and schemas. Cross-feature imports should go through the barrel `index.ts`.
+
+---
 
 ## 🧠 State Management
 
 - **RTK Query for all API/server data.** Do not use `fetch` or `axios` directly. Define
-  endpoints in `src/features/<feature>/api/<feature>Api.ts` using `createApi`.
+  endpoints in `src/features/<feature>/api/<feature>Api.ts` using `baseApi.injectEndpoints()`.
+- **Single `baseApi` instance.** All feature APIs extend `src/lib/fetchUtils.ts` via
+  `injectEndpoints()` — never create a new `createApi()` instance.
 - **Redux slices for UI/global client state only.** Use `createSlice` for things like
   `isLoggedIn`, modal open/close, theme, etc. Do not store API response data in slices —
   that is RTK Query's job.
@@ -49,21 +170,17 @@
 - **Functional components with TypeScript only.** No class components.
 - **Props must be typed.** Every component must have an explicit `interface Props` or
   `type Props` definition.
-- **Reusable UI elements** (Button, Input, etc.) live in `src/components/ui/`.
-- **Shared layout/structural components** live in `src/components/common/`.
-- **Use existing shadcn UI components first.** When building new features or components,
-  prefer the shared shadcn-style components from `src/components/ui/` instead of creating
-  raw HTML controls or one-off UI. For example, use the existing `Button`, `Input`,
-  `Sheet`, `Table`, `DataTable`, `Pagination`, and `SearchInput` components where they fit.
-- **Reuse common table, search, and navigation components.** If a feature needs a table,
-  use the shared table/data-table components. If it needs search or pagination, use
-  `SearchInput` and `Pagination`/`DataTable` rather than rebuilding them. Navigation links
-  should use the existing route constants and shared navigation/sidebar patterns.
+- **Reusable UI elements** (Button, Input, DataTable, etc.) live in `src/components/ui/`.
+- **Shared layout/structural components** (AppSidebar, Header, Layout) live in `src/components/common/`.
+- **Feature-specific components** live in `src/features/<feature>/components/`.
+- **Use existing UI components first.** Prefer the shared components from `src/components/ui/`
+  instead of creating raw HTML controls or one-off UI.
 
 ## 📦 Imports
 
 - **Use absolute imports with `@/`** instead of relative `../../` paths.
-  Example: `import { Button } from "@/components/ui/Button"`.
+  Example: `import { Button } from "@/components/ui/button"`.
+- **Import features through their barrel `index.ts`**, not deep internal paths.
 
 ## 🧪 Testing
 
@@ -73,8 +190,8 @@
 ## 🔤 Language & i18n
 
 - Default language is **English**.
-- Avoid hardcoding display strings inside components. Move them to a constants file or a
-  translation file so the app is easy to internationalize (i18n) in the future.
+- Avoid hardcoding display strings inside components. Move them to `src/lib/messages.ts`
+  so the app is easy to internationalize (i18n) in the future.
 
 ## ✅ Code Quality
 
@@ -82,3 +199,16 @@
   automatically.
 - Keep functions small and focused. If a function does more than one thing, split it.
 - Add a short comment above any non-obvious logic.
+
+## 📋 New Feature Checklist
+
+When adding a new feature, follow this checklist:
+
+1. [ ] Create `src/features/<name>/` with subdirs: `api/`, `components/`, `hooks/`, `types/`
+2. [ ] Create `src/features/<name>/index.ts` barrel file
+3. [ ] Create the main page component in `components/<Name>Page.tsx`
+4. [ ] Create API endpoints in `api/<name>Api.ts` using `baseApi.injectEndpoints()`
+5. [ ] Define types in `types/<name>.types.ts`
+6. [ ] Add route to `src/routes/AppRouter.tsx`
+7. [ ] Add navigation item to `src/lib/navigation.ts`
+8. [ ] Add thin re-export wrapper in `src/pages/<Name>Page.tsx`

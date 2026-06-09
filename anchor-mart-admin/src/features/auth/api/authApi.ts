@@ -1,6 +1,6 @@
-import { baseApi } from "@/services/api/baseApi";
+import { baseApi } from "@/lib/fetchUtils";
 import { API_ROUTES } from "@/lib/constants";
-import type { LoginRequest, LoginResponse } from "../types/auth";
+import type { LoginRequest, LoginResponse } from "../types/auth.types";
 
 export const authApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
