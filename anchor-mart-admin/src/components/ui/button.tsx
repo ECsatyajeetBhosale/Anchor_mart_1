@@ -20,10 +20,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     };
 
     const sizeClasses = {
-      default: "h-10 px-4 text-[13.5px]",
-      xs: "h-[30px] px-2.5 text-xs rounded-[var(--radius-sm)]",
-      sm: "h-9 px-3 text-sm rounded-[var(--radius-sm)]",
-      lg: "h-11 px-8 text-base",
+      default: "h-[38px] px-4 text-[13.5px]",
+      xs: "h-[26px] px-2.5 text-[11.5px] rounded-[var(--radius-xs)]",
+      sm: "h-[32px] px-3 text-[12.5px] rounded-[var(--radius-sm)]",
+      lg: "h-[44px] px-[22px] text-[14.5px]",
     };
 
     return (

@@ -35,7 +35,7 @@ export function ProductsPage() {
     limit,
     name: nameFilter,
   });
-  
+
   const [deleteProduct] = useDeleteProductMutation();
 
   const productsData: Product[] = data?.results?.data || [];
@@ -97,10 +97,14 @@ export function ProductsPage() {
       id: "name",
       header: "Product",
       cell: (row) => (
-        <>
-          <div className="td-p">{row.name}</div>
-          <div className="td-m">{row.description}</div>
-        </>
+        <div style={{ maxWidth: "180px" }}>
+          <div className="td-p truncate" title={row.name}>
+            {row.name}
+          </div>
+          <div className="td-m truncate" title={row.description}>
+            {row.description}
+          </div>
+        </div>
       ),
     },
     {
@@ -180,9 +184,6 @@ export function ProductsPage() {
       <div className="pg-header">
         <div className="pg-header-l">
           <h1 className="pg-title">Products & Catalog</h1>
-          <p className="pg-sub block">
-            <span>{totalCount} products</span>
-          </p>
         </div>
         <div className="pg-actions">
           <div className="input-wrap">
@@ -231,9 +232,6 @@ export function ProductsPage() {
             </div>
           </div>
           <div className="stat-val">{totalCount}</div>
-          <div className="stat-foot block mt-1 text-[11px] text-[var(--t4)]">
-            <span>Updated catalog</span>
-          </div>
         </div>
         <div className="stat-card sc-teal">
           <div className="stat-stripe"></div>
@@ -243,10 +241,7 @@ export function ProductsPage() {
               <IconCategory size={19} />
             </div>
           </div>
-          <div className="stat-val">12</div>
-          <div className="stat-foot block mt-1 text-[11px] text-[var(--t4)]">
-            <span>Across catalog</span>
-          </div>
+          <div className="stat-val">-  </div>
         </div>
         <div className="stat-card sc-amber">
           <div className="stat-stripe"></div>
@@ -256,10 +251,7 @@ export function ProductsPage() {
               <IconStar size={19} />
             </div>
           </div>
-          <div className="stat-val">48</div>
-          <div className="stat-foot block mt-1 text-[11px] text-[var(--t4)]">
-            <span>Active promotions</span>
-          </div>
+          <div className="stat-val">-</div>
         </div>
       </div>
 

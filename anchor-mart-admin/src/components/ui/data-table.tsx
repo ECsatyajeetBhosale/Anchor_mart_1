@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { Pagination } from "./pagination";
+import Pagination from "./pagination";
 import { Button } from "./button";
 
 export interface Column<T> {
@@ -48,33 +48,15 @@ export function DataTable<T>({
   onRowClick,
 }: DataTableProps<T>) {
   return (
-    <div
-      className="card"
-      style={{
-        background: "var(--surface)",
-        border: "1px solid var(--border-sm)",
-        borderRadius: "var(--radius-lg)",
-        overflow: "hidden",
-        boxShadow: "var(--sh-xs)",
-      }}
-    >
-      <div className="tbl-wrap" style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13.5px" }}>
+    <div className="card">
+      <div className="tbl-wrap">
+        <table>
           <thead>
-            <tr style={{ borderBottom: "1.5px solid var(--border-md)", background: "var(--surface-alt)" }}>
+            <tr>
               {columns.map((col) => (
                 <th
                   key={col.id}
                   className={col.headerClassName}
-                  style={{
-                    padding: "11px 16px",
-                    textAlign: "left",
-                    fontWeight: 800,
-                    color: "var(--t4)",
-                    fontSize: "10.5px",
-                    textTransform: "uppercase",
-                    letterSpacing: "1.1px",
-                  }}
                 >
                   {col.header}
                 </th>
@@ -135,12 +117,7 @@ export function DataTable<T>({
                 <tr
                   key={rowIndex}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  style={{
-                    borderBottom: "1px solid var(--border-xs)",
-                    transition: "background 0.15s",
-                    cursor: onRowClick ? "pointer" : "default",
-                  }}
-                  className="hover:bg-[var(--surface-alt)]"
+                  style={{ cursor: onRowClick ? "pointer" : "default" }}
                 >
                   {columns.map((col) => {
                     const value = col.accessorKey ? row[col.accessorKey] : undefined;
@@ -148,12 +125,6 @@ export function DataTable<T>({
                       <td
                         key={col.id}
                         className={col.className}
-                        style={{
-                          padding: "14px 20px",
-                          color: "var(--t1)",
-                          fontWeight: 500,
-                          verticalAlign: "middle",
-                        }}
                       >
                         {col.cell ? col.cell(row) : (value as React.ReactNode)}
                       </td>
