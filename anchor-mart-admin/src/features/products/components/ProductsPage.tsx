@@ -19,7 +19,7 @@ import {
 import React, { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { useGetProductsQuery } from "../api/productApi";
+import { useGetProductsQuery, useDeleteProductMutation } from "../api/productApi";
 import type { Product } from "../types/product.types";
 import { ProductFormModal } from "./ProductFormModal";
 
@@ -46,8 +46,7 @@ export function ProductsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
-  const [localDeletedIds, setLocalDeletedIds] = useState<string[]>([]);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteProduct, { isLoading: isDeleting }] = useDeleteProductMutation();
 
   // Pagination params from URL
   const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
@@ -70,8 +69,8 @@ export function ProductsPage() {
     if (activeTab === "deal") {
       result = result.filter((p) => p.is_featured || p.average_rating >= 4.5);
     }
-    return result.filter((p) => !localDeletedIds.includes(p.id));
-  }, [productsData, activeTab, localDeletedIds]);
+    return result;
+  }, [productsData, activeTab]);
 
   const handleDeleteClick = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -80,17 +79,12 @@ export function ProductsPage() {
 
   const handleConfirmDelete = async () => {
     if (!productToDelete) return;
-    setIsDeleting(true);
     try {
-      // Future API integration:
-      // await deleteProduct(productToDelete).unwrap();
-      setLocalDeletedIds((prev) => [...prev, productToDelete]);
+      await deleteProduct(productToDelete).unwrap();
       toast.success("Product deleted successfully");
+      setProductToDelete(null);
     } catch (_error) {
       toast.error("Failed to delete product");
-    } finally {
-      setIsDeleting(false);
-      setProductToDelete(null);
     }
   };
 
@@ -144,7 +138,11 @@ export function ProductsPage() {
     {
       id: "category",
       header: "Category",
-      cell: (row) => <Badge variant="navy">{row.category_name}</Badge>,
+      cell: (row) => (
+        <Badge variant="navy" className="text-[10px] h-[24px]">
+          {row.category_name}
+        </Badge>
+      ),
     },
     {
       id: "price",
@@ -158,7 +156,7 @@ export function ProductsPage() {
       cell: (row) => {
         const isFeatured = row.is_featured || row.average_rating >= 4.5;
         return isFeatured ? (
-          <Badge variant="amber" className="gap-1">
+          <Badge variant="amber" className="gap-1 h-[24px]">
             <IconStar size={12} fill="currentColor" />
             Yes
           </Badge>
@@ -170,7 +168,7 @@ export function ProductsPage() {
     {
       id: "status",
       header: "Status",
-      cell: (row) => <StatusBadge status={row.is_active} />,
+      cell: (row) => <StatusBadge status={row.is_active} className="text-[10px] h-[24px]" />,
     },
     {
       id: "actions",

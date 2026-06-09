@@ -21,7 +21,7 @@ export const productsApi = baseApi.injectEndpoints({
         };
       },
       // Provide a stable cache key based on parameters
-      providesTags: (result, error, arg) =>
+      providesTags: (result) =>
         result && result.results.data
           ? [
               ...result.results.data.map(({ id }) => ({ type: 'Products' as const, id })),
@@ -31,11 +31,14 @@ export const productsApi = baseApi.injectEndpoints({
     }),
     deleteProduct: builder.mutation<void, string>({
       query: (id) => ({
-        url: `/products/${id}`,
+        url: PRODUCT_ENDPOINTS.DELETE_PRODUCT(id),
         method: 'DELETE',
       }),
-      // Invalidate the list after a deletion
-      invalidatesTags: [{ type: 'Products', id: 'PARTIAL-LIST' }],
+      // Invalidate the deleted product and the list so the table refetches
+      invalidatesTags: (_result, _error, id) => [
+        { type: 'Products', id },
+        { type: 'Products', id: 'PARTIAL-LIST' },
+      ],
     }),
   }),
   overrideExisting: false,

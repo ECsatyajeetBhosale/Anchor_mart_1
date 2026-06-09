@@ -20,7 +20,7 @@ import { StatCard } from "@/components/common/StatCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ProfileDrawer, type ProfileDetail } from "@/components/shared/ProfileDrawer";
+import { ProfileDrawer, type ProfileDetail } from "@/components/common/ProfileDrawer";
 import { toast } from "sonner";
 
 interface PartnerData {

@@ -14,7 +14,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { OrderDetailDrawer, type OrderDetail } from "@/components/shared/OrderDetailDrawer";
+import { OrderDetailDrawer, type OrderDetail } from "@/components/common/OrderDetailDrawer";
 
 interface AssignmentData {
   e: string;

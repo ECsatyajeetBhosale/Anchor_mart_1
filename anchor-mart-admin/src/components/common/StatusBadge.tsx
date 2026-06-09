@@ -4,12 +4,14 @@ export interface StatusBadgeProps {
   status: string | boolean;
   activeLabel?: string;
   inactiveLabel?: string;
+  className?: string;
 }
 
 export function StatusBadge({
   status,
   activeLabel = "Active",
   inactiveLabel = "Inactive",
+  className,
 }: StatusBadgeProps) {
   let isTrue = false;
   let label = "";
@@ -65,7 +67,11 @@ export function StatusBadge({
     variant = "amber";
   }
 
-  return <Badge variant={variant}>{label}</Badge>;
+  return (
+    <Badge variant={variant} className={className}>
+      {label}
+    </Badge>
+  );
 }
 
 export default StatusBadge;

@@ -35,7 +35,7 @@ import { StatCard } from "@/components/common/StatCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { APP_ROUTES } from "@/lib/constants";
-import { OrderDetailDrawer, type OrderDetail } from "@/components/shared/OrderDetailDrawer";
+import { OrderDetailDrawer, type OrderDetail } from "@/components/common/OrderDetailDrawer";
 import { toast } from "sonner";
 
 /* ─── Mock data types ─────────────────────────────────── */

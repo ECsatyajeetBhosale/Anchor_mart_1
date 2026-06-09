@@ -14,7 +14,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { OrderDetailDrawer, type OrderDetail } from "@/components/shared/OrderDetailDrawer";
+import { OrderDetailDrawer, type OrderDetail } from "@/components/common/OrderDetailDrawer";
 import { toast } from "sonner";
 
 interface OrderData {
