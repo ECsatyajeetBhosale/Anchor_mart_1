@@ -67,13 +67,13 @@ export function DataTable<T>({
                   key={col.id}
                   className={col.headerClassName}
                   style={{
-                    padding: "14px 20px",
+                    padding: "11px 16px",
                     textAlign: "left",
                     fontWeight: 800,
-                    color: "var(--t3)",
-                    fontSize: "11.5px",
+                    color: "var(--t4)",
+                    fontSize: "10.5px",
                     textTransform: "uppercase",
-                    letterSpacing: "0.5px",
+                    letterSpacing: "1.1px",
                   }}
                 >
                   {col.header}

@@ -1,13 +1,7 @@
 // src/features/products/api/productApi.ts
 import { baseApi } from '@/lib/fetchUtils';
-import type { Product } from '../types/product';
-
-// Define the shape of the response for paginated products
-export interface PaginatedProductsResponse {
-  results: Product[];
-  total_pages: number;
-  total_items: number;
-}
+import { PRODUCT_ENDPOINTS } from '@/lib/apiEndpoints';
+import type { ProductListResponse } from '../types/product.types';
 
 // Query parameters for fetching products
 export interface GetProductsParams {
@@ -18,19 +12,19 @@ export interface GetProductsParams {
 
 export const productsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getProducts: builder.query<PaginatedProductsResponse, GetProductsParams>({
+    getProducts: builder.query<ProductListResponse, GetProductsParams>({
       query: (params) => {
         return {
-          url: `/superadmin/catalog/get-products/`,
+          url: PRODUCT_ENDPOINTS.GET_PRODUCTS,
           method: 'GET',
           params: { page: params.page, limit: params.limit, name: params.name },
         };
       },
       // Provide a stable cache key based on parameters
       providesTags: (result, error, arg) =>
-        result
+        result && result.results.data
           ? [
-              ...result.results.map(({ id }) => ({ type: 'Products' as const, id })),
+              ...result.results.data.map(({ id }) => ({ type: 'Products' as const, id })),
               { type: 'Products', id: 'PARTIAL-LIST' },
             ]
           : [{ type: 'Products', id: 'PARTIAL-LIST' }],

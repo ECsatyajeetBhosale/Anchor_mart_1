@@ -64,3 +64,7 @@ export const API_ROUTES = {
     REJECT: (id: string) => `/superadmin/sellers/${id}/reject/`,
   },
 } as const;
+
+export const PRODUCT_ENDPOINTS = {
+  GET_PRODUCTS: "/superadmin/catalog/get-products/",
+};
