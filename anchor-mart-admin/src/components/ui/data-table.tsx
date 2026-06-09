@@ -116,6 +116,7 @@ export function DataTable<T>({
               data.map((row, rowIndex) => (
                 <tr
                   key={rowIndex}
+                  className={onRowClick ? "tr-click" : ""}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   style={{ cursor: onRowClick ? "pointer" : "default" }}
                 >

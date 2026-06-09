@@ -6,6 +6,7 @@ import { StatsGrid } from "@/components/common/StatsGrid";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { TableActions } from "@/components/common/TableActions";
 import { type Column, DataTable } from "@/components/ui/data-table";
+import { Badge } from "@/components/ui/badge";
 import {
   IconBoxSeam,
   IconCategory,
@@ -131,10 +132,10 @@ export function ProductsPage() {
       header: "Product",
       cell: (row) => (
         <div style={{ maxWidth: "180px" }}>
-          <div className="td-p truncate" title={row.name}>
+          <div className="td-p trunc" title={row.name}>
             {row.name}
           </div>
-          <div className="td-m truncate" title={row.description}>
+          <div className="td-m trunc" title={row.description}>
             {row.description}
           </div>
         </div>
@@ -143,19 +144,27 @@ export function ProductsPage() {
     {
       id: "category",
       header: "Category",
-      cell: (row) => <StatusBadge status={row.category_name} />,
+      cell: (row) => <Badge variant="navy">{row.category_name}</Badge>,
     },
     {
       id: "price",
       header: "Price",
-      cell: (row) => <span className="td-p w7">${Number(row.base_price).toFixed(2)}</span>,
+      cell: (row) => `$${Number(row.base_price).toFixed(2)}`,
+      className: "td-p w7",
     },
     {
       id: "featured",
       header: "Featured",
       cell: (row) => {
         const isFeatured = row.is_featured || row.average_rating >= 4.5;
-        return isFeatured ? <StatusBadge status="Featured" /> : <span className="td-m">—</span>;
+        return isFeatured ? (
+          <Badge variant="amber" className="gap-1">
+            <IconStar size={12} fill="currentColor" />
+            Yes
+          </Badge>
+        ) : (
+          <span className="td-m">—</span>
+        );
       },
     },
     {
