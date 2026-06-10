@@ -43,6 +43,8 @@ export interface DataTableProps<T> {
   onLimitChange?: (limit: number) => void;
   showPagination?: boolean;
   onRowClick?: (row: T) => void;
+  /** Stable React key per row — a field name or a function. Falls back to index. */
+  rowKey?: keyof T | ((row: T, index: number) => React.Key);
 }
 
 export function DataTable<T>({
@@ -60,7 +62,14 @@ export function DataTable<T>({
   onPageChange,
   showPagination = true,
   onRowClick,
+  rowKey,
 }: DataTableProps<T>) {
+  const getRowKey = (row: T, index: number): React.Key => {
+    if (typeof rowKey === "function") return rowKey(row, index);
+    if (rowKey) return row[rowKey] as React.Key;
+    return index;
+  };
+
   return (
     <div className="card">
       <div className="tbl-wrap">
@@ -87,26 +96,10 @@ export function DataTable<T>({
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={columns.length} style={{ padding: "48px 24px", textAlign: "center" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: "10px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: "24px",
-                        height: "24px",
-                        border: "3px solid var(--border-md)",
-                        borderTopColor: "var(--teal-500)",
-                        borderRadius: "50%",
-                        animation: "lspin 0.8s linear infinite",
-                      }}
-                    />
-                    <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--t4)" }}>
+                <td colSpan={columns.length} className="px-6 py-12 text-center">
+                  <div className="flex flex-col items-center gap-2.5">
+                    <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-[var(--border-md)] border-t-[var(--teal-500)]" />
+                    <span className="text-[13px] font-semibold text-[var(--t4)]">
                       Loading data...
                     </span>
                   </div>
@@ -114,18 +107,9 @@ export function DataTable<T>({
               </tr>
             ) : isError ? (
               <tr>
-                <td colSpan={columns.length} style={{ padding: "48px 24px", textAlign: "center" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: "12px",
-                    }}
-                  >
-                    <span
-                      style={{ fontSize: "13.5px", fontWeight: 600, color: "var(--danger-text)" }}
-                    >
+                <td colSpan={columns.length} className="px-6 py-12 text-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <span className="text-[13.5px] font-semibold text-[var(--danger-text)]">
                       {error || "Failed to load data."}
                     </span>
                     {onRetry && (
@@ -138,25 +122,11 @@ export function DataTable<T>({
               </tr>
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} style={{ padding: "48px 24px", textAlign: "center" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: "8px",
-                    }}
-                  >
-                    <span style={{ fontSize: "14px", fontWeight: 700, color: "var(--t3)" }}>
-                      {emptyMessage}
-                    </span>
+                <td colSpan={columns.length} className="px-6 py-12 text-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <span className="text-[14px] font-bold text-[var(--t3)]">{emptyMessage}</span>
                     {hasActiveFilters && onResetFilters && (
-                      <Button
-                        variant="link"
-                        size="xs"
-                        onClick={onResetFilters}
-                        style={{ marginTop: "4px" }}
-                      >
+                      <Button variant="link" size="xs" onClick={onResetFilters} className="mt-1">
                         Reset Filters
                       </Button>
                     )}
@@ -166,10 +136,20 @@ export function DataTable<T>({
             ) : (
               data.map((row, rowIndex) => (
                 <tr
-                  key={rowIndex}
+                  key={getRowKey(row, rowIndex)}
                   className={onRowClick ? "tr-click" : ""}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  style={{ cursor: onRowClick ? "pointer" : "default" }}
+                  onKeyDown={
+                    onRowClick
+                      ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onRowClick(row);
+                          }
+                        }
+                      : undefined
+                  }
+                  tabIndex={onRowClick ? 0 : undefined}
                 >
                   {columns.map((col) => {
                     const value = col.accessorKey ? row[col.accessorKey] : undefined;

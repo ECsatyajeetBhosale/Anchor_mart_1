@@ -93,11 +93,20 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
     control,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<ProductAddFormData>({
     resolver: zodResolver(productAddSchema),
     defaultValues: ADD_DEFAULTS,
   });
+
+  // Selecting a category submits its id as the top-level `category`, and mirrors
+  // the readable name into `attributes.category` (which the API expects by name).
+  const handleCategorySelect = (id: string) => {
+    setValue("category", id, { shouldDirty: true, shouldValidate: true });
+    const name = categoryOptions.find((opt) => opt.value === id)?.label ?? "";
+    setValue("attributes.category", name, { shouldDirty: true });
+  };
 
   // Reset to a clean form each time the drawer opens. On a failed submit the
   // drawer stays open and isOpen doesn't change, so entered data is preserved.
@@ -128,6 +137,7 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
       toast.success(getApiMessage(response) ?? "Product created successfully");
     } catch (error) {
       // Failure: keep the drawer open (data preserved) so the user can retry.
+      console.error("add-product failed:", error);
       toast.error(getApiMessage(error) ?? "Failed to create product. Please try again.");
     }
   };
@@ -170,7 +180,7 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
                   render={({ field }) => (
                     <DropdownSelect
                       value={field.value}
-                      onValueChange={field.onChange}
+                      onValueChange={handleCategorySelect}
                       options={categoryOptions}
                       placeholder="Select category…"
                       width="100%"
@@ -256,8 +266,8 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
               </FormField>
             </FormRow>
             <FormRow columns={3}>
-              <FormField label="Category">
-                <Input placeholder="e.g. Apparel" {...register("attributes.category")} />
+              <FormField label="Category" hint="Auto-filled from the selected category above">
+                <Input placeholder="e.g. Apparel" readOnly {...register("attributes.category")} />
               </FormField>
               <FormField label="Subcategory">
                 <Input placeholder="e.g. Bottoms" {...register("attributes.subcategory")} />

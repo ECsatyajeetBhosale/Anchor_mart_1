@@ -15,6 +15,8 @@ export interface GetProductsParams {
   search?: string;
   // Status filter, sent as `?is_active=True|False`. Omit for "all".
   isActive?: boolean;
+  // Category id filter, sent as `?category=<id>`. Omit for "all".
+  category?: string;
 }
 
 export const productsApi = baseApi.injectEndpoints({
@@ -35,6 +37,7 @@ export const productsApi = baseApi.injectEndpoints({
             // Django expects capitalized booleans (True/False); omit for "all".
             is_active:
               params.isActive === undefined ? undefined : params.isActive ? "True" : "False",
+            category: params.category || undefined,
           },
         };
       },
