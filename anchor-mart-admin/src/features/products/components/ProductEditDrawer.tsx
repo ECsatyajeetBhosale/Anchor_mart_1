@@ -1,0 +1,493 @@
+import { DropdownSelect } from "@/components/common/DropdownSelect";
+import { DynamicTabs } from "@/components/common/DynamicTabs";
+import { FormField } from "@/components/common/FormField";
+import { FormRow } from "@/components/common/FormRow";
+import { StringListField } from "@/components/common/StringListField";
+import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { useGetCategoriesQuery } from "@/features/catalog";
+import { getApiMessage } from "@/lib/apiError";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  IconBoxSeam,
+  IconCheck,
+  IconCloudUpload,
+  IconPhoto,
+  IconPlus,
+  IconTrash,
+} from "@tabler/icons-react";
+import { useEffect, useState } from "react";
+import { Controller, useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { useUpdateProductMutation } from "../api/productApi";
+import { type ProductUpdateFormData, productUpdateSchema } from "../schemas/product.schema";
+import type { Product, ProductImage, UpdateProductPayload } from "../types/product.types";
+
+export interface ProductEditDrawerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  product: Product;
+}
+
+// Static option lists for the read-only/decorative selects (not part of the
+// update contract — shown for UI consistency only).
+const STATUS_OPTIONS = [
+  { value: "Active", label: "Active" },
+  { value: "Draft", label: "Draft" },
+  { value: "Archived", label: "Archived" },
+];
+const CURRENCY_OPTIONS = [
+  { value: "USD", label: "USD ($)" },
+  { value: "SGD", label: "SGD (S$)" },
+  { value: "EUR", label: "EUR (€)" },
+];
+const TAX_CLASS_OPTIONS = [
+  { value: "Standard", label: "Standard" },
+  { value: "Reduced", label: "Reduced" },
+  { value: "Zero-rated", label: "Zero-rated" },
+];
+const WEIGHT_UNIT_OPTIONS = [
+  { value: "kg", label: "kg" },
+  { value: "g", label: "g" },
+  { value: "lb", label: "lb" },
+];
+const PACKAGE_TYPE_OPTIONS = [
+  { value: "Box", label: "Box" },
+  { value: "Envelope", label: "Envelope" },
+  { value: "Custom", label: "Custom" },
+];
+const OPTION_NAME_OPTIONS = [
+  { value: "Size", label: "Size" },
+  { value: "Color", label: "Color" },
+  { value: "Material", label: "Material" },
+];
+const VARIANT_STATUS_OPTIONS = [
+  { value: "Active", label: "Active" },
+  { value: "Draft", label: "Draft" },
+];
+
+/** Extract the stored relative path (e.g. "product_images/x.png") from an image. */
+function toImagePath(img: ProductImage): string {
+  const raw = img.image || img.image_url || "";
+  const idx = raw.indexOf("/media/");
+  return idx >= 0 ? raw.slice(idx + "/media/".length) : raw;
+}
+
+export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawerProps) {
+  const [activeTab, setActiveTab] = useState("pt-basic");
+  const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
+
+  // Category options for the editable category dropdown (value = UUID).
+  const { data: categoriesData } = useGetCategoriesQuery({ limit: 100 });
+  const categories = categoriesData?.results?.data ?? [];
+  const categoryOptions = categories.map((c) => ({ value: c.id, label: c.name }));
+
+  const {
+    register,
+    control,
+    handleSubmit,
+    reset,
+    watch,
+    setValue,
+    formState: { errors },
+  } = useForm<ProductUpdateFormData>({
+    resolver: zodResolver(productUpdateSchema),
+  });
+
+  // Pre-populate the editable fields from the selected product whenever the
+  // drawer opens (and once categories load, so we can resolve the category id).
+  useEffect(() => {
+    if (!isOpen) return;
+    setActiveTab("pt-basic");
+    const cats = categoriesData?.results?.data ?? [];
+    const categoryId =
+      product.category || cats.find((c) => c.name === product.category_name)?.id || "";
+    reset({
+      category: categoryId,
+      shop: product.shop ?? "",
+      name: product.name ?? "",
+      description: product.description ?? "",
+      base_price: Number(product.base_price) || 0,
+      images: (product.images ?? []).map(toImagePath).filter(Boolean),
+    });
+  }, [isOpen, product, categoriesData, reset]);
+
+  const images = watch("images") ?? [];
+  const setImages = (next: string[]) => setValue("images", next, { shouldDirty: true });
+
+  const onSubmit = async (formData: ProductUpdateFormData) => {
+    // Strictly the API contract — only the supported fields, nothing from the
+    // read-only UI state leaks into the request.
+    const payload: UpdateProductPayload = {
+      category: formData.category,
+      shop: formData.shop,
+      name: formData.name,
+      description: formData.description,
+      base_price: formData.base_price,
+      images: formData.images.filter(Boolean),
+    };
+
+    try {
+      const response = await updateProduct({ id: product.id, body: payload }).unwrap();
+      // Success: close the drawer first, then notify.
+      onClose();
+      toast.success(getApiMessage(response) ?? "Product updated successfully");
+    } catch (error) {
+      // Failure: keep the drawer open so the user can fix and retry, then notify.
+      toast.error(getApiMessage(error) ?? "Failed to update product. Please try again.");
+    }
+  };
+
+  return (
+    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent
+        side="right"
+        adjustable
+        defaultWidth={800}
+        className="flex flex-col gap-0 p-0 sm:max-w-none overflow-hidden bg-[var(--surface)]"
+      >
+        <SheetHeader className="p-6 pb-2 border-b border-[var(--border-md)]">
+          <div className="flex items-center gap-3">
+            <div
+              className="flex items-center justify-center w-10 h-10 rounded-lg"
+              style={{ background: "var(--teal-50)", color: "var(--teal-600)" }}
+            >
+              <IconBoxSeam size={22} />
+            </div>
+            <div>
+              <SheetTitle className="text-xl">Edit Product</SheetTitle>
+              <SheetDescription>Update your product details</SheetDescription>
+            </div>
+          </div>
+        </SheetHeader>
+
+        <div className="flex-1 overflow-y-auto p-6 pt-2">
+          <div
+            className="sticky top-0 bg-[var(--surface)] z-10"
+            style={{ marginBottom: 18, paddingTop: 10 }}
+          >
+            <DynamicTabs
+              tabs={[
+                { label: "Basic Info", value: "pt-basic" },
+                { label: "Media", value: "pt-media" },
+                { label: "Pricing", value: "pt-pricing" },
+                { label: "Shipping", value: "pt-shipping" },
+                { label: "Variants", value: "pt-variants" },
+              ]}
+              value={activeTab}
+              onTabChange={setActiveTab}
+            />
+          </div>
+
+          {/* Basic Info Tab */}
+          {activeTab === "pt-basic" && (
+            <div className="prod-tab mt-4">
+              <div className="sec-label">Product Details</div>
+              <FormRow>
+                <FormField label="Product Title *" error={errors.name?.message}>
+                  <Input
+                    placeholder="Enter product name"
+                    error={!!errors.name}
+                    {...register("name")}
+                  />
+                </FormField>
+                <FormField label="Product Subtitle" hint="Read-only — not sent on update">
+                  <Input placeholder="Short product tagline" disabled />
+                </FormField>
+              </FormRow>
+              <FormField label="Product Slug / URL Handle" hint="Read-only — not sent on update">
+                <Input className="mono" placeholder="auto-generated-from-title" disabled />
+              </FormField>
+              <FormField label="Product Description *" error={errors.description?.message}>
+                <Textarea
+                  placeholder="Enter a detailed description for this product..."
+                  style={{ height: 120 }}
+                  error={!!errors.description}
+                  {...register("description")}
+                />
+              </FormField>
+              <FormField label="Short Description" hint="Read-only — not sent on update">
+                <Textarea
+                  maxLength={250}
+                  placeholder="Brief summary (max 250 characters)"
+                  style={{ height: 64 }}
+                  disabled
+                />
+              </FormField>
+              <FormRow>
+                <FormField label="Brand" hint="Read-only — not sent on update">
+                  <Input placeholder="Search or add brand…" disabled />
+                </FormField>
+                <FormField label="Category *" error={errors.category?.message}>
+                  <Controller
+                    control={control}
+                    name="category"
+                    render={({ field }) => (
+                      <DropdownSelect
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        options={categoryOptions}
+                        placeholder="Select category…"
+                        width="100%"
+                      />
+                    )}
+                  />
+                </FormField>
+              </FormRow>
+              <FormRow>
+                <FormField label="Shop *" error={errors.shop?.message} hint="Shop UUID">
+                  <Input className="mono" placeholder="Shop ID" {...register("shop")} />
+                </FormField>
+                <FormField label="Status" hint="Read-only — not sent on update">
+                  <DropdownSelect options={STATUS_OPTIONS} value="Active" width="100%" disabled />
+                </FormField>
+              </FormRow>
+            </div>
+          )}
+
+          {/* Media Tab */}
+          {activeTab === "pt-media" && (
+            <div className="prod-tab mt-4">
+              <div className="sec-label">Product Media</div>
+              <FormField
+                label="Product Images"
+                hint="Direct upload is not supported by the API — manage the stored image paths below."
+              >
+                <div className="upload-area" style={{ opacity: 0.6, pointerEvents: "none" }}>
+                  <IconCloudUpload size={28} style={{ display: "block", margin: "0 auto 6px" }} />
+                  Drag &amp; drop images here, or click to upload
+                  <div className="fg-hint" style={{ marginTop: 4 }}>
+                    JPG · PNG · WEBP · AVIF — multiple allowed
+                  </div>
+                </div>
+              </FormField>
+
+              <FormField label="Image Paths">
+                <StringListField
+                  values={images}
+                  onChange={setImages}
+                  placeholder="product_images/example.png"
+                  addLabel="Add Image Path"
+                  emptyHint="No images yet — add one below."
+                  mono
+                />
+              </FormField>
+
+              <FormField label="Thumbnail Image" hint="Read-only — not sent on update">
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <button type="button" className="btn btn-secondary btn-sm" disabled>
+                    <IconPhoto size={16} /> Pick Thumbnail
+                  </button>
+                </div>
+              </FormField>
+            </div>
+          )}
+
+          {/* Pricing Tab */}
+          {activeTab === "pt-pricing" && (
+            <div className="prod-tab mt-4">
+              <div className="sec-label">Pricing</div>
+              <FormRow>
+                <FormField label="Base Price *" error={errors.base_price?.message}>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    error={!!errors.base_price}
+                    {...register("base_price")}
+                  />
+                </FormField>
+                <FormField label="Currency" hint="Read-only — not sent on update">
+                  <DropdownSelect options={CURRENCY_OPTIONS} value="USD" width="100%" disabled />
+                </FormField>
+              </FormRow>
+              <FormRow>
+                <FormField label="Tax Class" hint="Read-only — not sent on update">
+                  <DropdownSelect
+                    options={TAX_CLASS_OPTIONS}
+                    value="Standard"
+                    width="100%"
+                    disabled
+                  />
+                </FormField>
+                <FormField label="Unit Price" hint="Read-only — not sent on update">
+                  <Input placeholder="e.g. $2.00 / 100ml" disabled />
+                </FormField>
+              </FormRow>
+              <FormRow style={{ marginBottom: 0 }}>
+                <div className="flex items-center gap-2">
+                  <Switch id="sw-taxable" defaultChecked disabled />
+                  <label
+                    htmlFor="sw-taxable"
+                    className="text-[13px] font-semibold text-[var(--t2)]"
+                  >
+                    Taxable
+                  </label>
+                </div>
+              </FormRow>
+            </div>
+          )}
+
+          {/* Shipping Tab — all read-only (not part of the update contract) */}
+          {activeTab === "pt-shipping" && (
+            <div className="prod-tab mt-4">
+              <div className="sec-label">Shipping &amp; Delivery</div>
+              <FormRow style={{ marginBottom: 14 }}>
+                <div className="flex items-center gap-2">
+                  <Switch id="sw-physical" defaultChecked disabled />
+                  <label
+                    htmlFor="sw-physical"
+                    className="text-[13px] font-semibold text-[var(--t2)]"
+                  >
+                    Physical Product
+                  </label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch id="sw-free-ship" disabled />
+                  <label
+                    htmlFor="sw-free-ship"
+                    className="text-[13px] font-semibold text-[var(--t2)]"
+                  >
+                    Free Shipping
+                  </label>
+                </div>
+              </FormRow>
+              <FormRow columns={3}>
+                <FormField label="Weight">
+                  <Input type="number" placeholder="0" disabled />
+                </FormField>
+                <FormField label="Weight Unit">
+                  <DropdownSelect options={WEIGHT_UNIT_OPTIONS} value="kg" width="100%" disabled />
+                </FormField>
+                <FormField label="Package Type">
+                  <DropdownSelect
+                    options={PACKAGE_TYPE_OPTIONS}
+                    value="Box"
+                    width="100%"
+                    disabled
+                  />
+                </FormField>
+              </FormRow>
+            </div>
+          )}
+
+          {/* Variants Tab — all read-only (not part of the update contract) */}
+          {activeTab === "pt-variants" && (
+            <div className="prod-tab mt-4">
+              <div className="sec-label">Product Options</div>
+              <div className="opt-row mb-4">
+                <FormField label="Option Name" style={{ width: 190 }}>
+                  <DropdownSelect
+                    options={OPTION_NAME_OPTIONS}
+                    value="Size"
+                    width="100%"
+                    disabled
+                  />
+                </FormField>
+                <FormField label="Option Values" style={{ flex: 1 }}>
+                  <Input placeholder="Type a value, press Enter" disabled />
+                </FormField>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm btn-icon"
+                  style={{ marginTop: 25 }}
+                  disabled
+                >
+                  <IconTrash size={16} />
+                </button>
+              </div>
+              <button type="button" className="btn btn-secondary btn-sm" disabled>
+                <IconPlus size={16} /> Add Option
+              </button>
+
+              <div className="sec-label mt-6">Variants</div>
+              <div className="var-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Image</th>
+                      <th>Variant</th>
+                      <th>SKU</th>
+                      <th>Price</th>
+                      <th>Qty</th>
+                      <th>Status</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>
+                        <button type="button" className="btn btn-ghost btn-sm btn-icon" disabled>
+                          <IconPhoto size={16} />
+                        </button>
+                      </td>
+                      <td>
+                        <Input placeholder="e.g. Red / L" style={{ width: 120 }} disabled />
+                      </td>
+                      <td>
+                        <Input placeholder="SKU" style={{ width: 100 }} disabled />
+                      </td>
+                      <td>
+                        <Input type="number" placeholder="0.00" style={{ width: 80 }} disabled />
+                      </td>
+                      <td>
+                        <Input type="number" placeholder="0" style={{ width: 64 }} disabled />
+                      </td>
+                      <td>
+                        <DropdownSelect
+                          options={VARIANT_STATUS_OPTIONS}
+                          value="Active"
+                          width="98px"
+                          disabled
+                        />
+                      </td>
+                      <td>
+                        <button type="button" className="btn btn-danger btn-sm btn-icon" disabled>
+                          <IconTrash size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <button type="button" className="btn btn-secondary btn-sm mt-3" disabled>
+                <IconPlus size={16} /> Add Variant
+              </button>
+            </div>
+          )}
+        </div>
+
+        <SheetFooter className="p-6 border-t border-[var(--border-md)] bg-[var(--surface)]">
+          <div className="flex justify-end gap-3 w-full">
+            <button
+              type="button"
+              className="btn btn-ghost btn-cancel"
+              onClick={onClose}
+              disabled={isUpdating}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleSubmit(onSubmit)}
+              disabled={isUpdating}
+            >
+              <IconCheck size={16} />
+              {isUpdating ? "Saving…" : "Save Changes"}
+            </button>
+          </div>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
+  );
+}

@@ -281,7 +281,7 @@ export function ProductsPage() {
               });
             }}
             searchPlaceholder="Search products…"
-            searchDebounceMs={300}
+            searchDebounceMs={180}
             searchLoading={isLoading}
             filters={[
               {

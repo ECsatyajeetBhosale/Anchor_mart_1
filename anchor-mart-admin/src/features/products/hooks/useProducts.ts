@@ -1,20 +1,23 @@
-import { useGetProductsQuery, useDeleteProductMutation } from "../api/productApi";
+import { useDeleteProductMutation, useGetProductsQuery } from "../api/productApi";
 
 /**
- * Hook encapsulating products data access.
+ * Hook encapsulating products data access (list + delete) with derived paging.
  */
-export function useProducts(params: { page?: number; limit?: number; name?: string } = {}) {
+export function useProducts(params: { page?: number; limit?: number; search?: string } = {}) {
+  const limit = params.limit ?? 10;
   const { data, isLoading, isError, error, refetch } = useGetProductsQuery({
     page: params.page ?? 1,
-    limit: params.limit ?? 10,
-    name: params.name,
+    limit,
+    search: params.search,
   });
   const [deleteProduct, deleteState] = useDeleteProductMutation();
 
+  const totalItems = data?.count ?? 0;
+
   return {
-    products: data?.results ?? [],
-    totalPages: data?.total_pages ?? 1,
-    totalItems: data?.total_items ?? 0,
+    products: data?.results?.data ?? [],
+    totalItems,
+    totalPages: Math.max(1, Math.ceil(totalItems / limit)),
     isLoading,
     isError,
     error,

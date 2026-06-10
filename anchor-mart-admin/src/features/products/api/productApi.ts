@@ -1,7 +1,11 @@
 import { PRODUCT_ENDPOINTS } from "@/lib/apiEndpoints";
 // src/features/products/api/productApi.ts
 import { baseApi } from "@/lib/fetchUtils";
-import type { ProductListResponse } from "../types/product.types";
+import type {
+  AddProductPayload,
+  ProductListResponse,
+  UpdateProductPayload,
+} from "../types/product.types";
 
 // Query parameters for fetching products
 export interface GetProductsParams {
@@ -43,6 +47,27 @@ export const productsApi = baseApi.injectEndpoints({
             ]
           : [{ type: "Products", id: "PARTIAL-LIST" }],
     }),
+    createProduct: builder.mutation<unknown, AddProductPayload>({
+      query: (body) => ({
+        url: PRODUCT_ENDPOINTS.ADD_PRODUCT,
+        method: "POST",
+        body,
+      }),
+      // Invalidate the list so the new product shows up without a manual refresh.
+      invalidatesTags: [{ type: "Products", id: "PARTIAL-LIST" }],
+    }),
+    updateProduct: builder.mutation<unknown, { id: string; body: UpdateProductPayload }>({
+      query: ({ id, body }) => ({
+        url: PRODUCT_ENDPOINTS.UPDATE_PRODUCT(id),
+        method: "PUT",
+        body,
+      }),
+      // Refetch the updated product and the list so the table reflects changes.
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "Products", id },
+        { type: "Products", id: "PARTIAL-LIST" },
+      ],
+    }),
     deleteProduct: builder.mutation<void, string>({
       query: (id) => ({
         url: PRODUCT_ENDPOINTS.DELETE_PRODUCT(id),
@@ -59,7 +84,12 @@ export const productsApi = baseApi.injectEndpoints({
 });
 
 // Export hooks for usage in components
-export const { useGetProductsQuery, useDeleteProductMutation } = productsApi;
+export const {
+  useGetProductsQuery,
+  useCreateProductMutation,
+  useUpdateProductMutation,
+  useDeleteProductMutation,
+} = productsApi;
 
 // NOTE: Ensure that the server enforces HTTPS, proper authentication, and
 // validates all incoming parameters to mitigate injection attacks. //TODO(security)
