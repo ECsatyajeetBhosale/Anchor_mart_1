@@ -1,5 +1,5 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import type { RootState } from "@/store";
+import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
 /**
  * RTK Query base API — the single source of truth for all API calls.
@@ -37,6 +37,7 @@ export const baseApi = createApi({
     "Orders",
     "Intents",
     "Products",
+    "ExpressItems",
     "Categories",
     "Partners",
     "Coupons",

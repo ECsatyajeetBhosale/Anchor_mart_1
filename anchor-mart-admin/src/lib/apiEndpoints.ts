@@ -75,3 +75,7 @@ export const PRODUCT_ENDPOINTS = {
 export const CATEGORY_ENDPOINTS = {
   GET_CATEGORIES: "/superadmin/catalog/get-categories/",
 };
+
+export const EXPRESS_ENDPOINTS = {
+  GET_EXPRESS_ITEMS: "/superadmin/catalog/get-express-items/",
+};
