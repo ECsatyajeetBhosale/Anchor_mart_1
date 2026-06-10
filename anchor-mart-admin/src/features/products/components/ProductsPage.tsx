@@ -5,8 +5,9 @@ import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { TableActions } from "@/components/common/TableActions";
-import { type Column, DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
+import { type Column, DataTable } from "@/components/ui/data-table";
+import { useGetCategoriesQuery } from "@/features/catalog";
 import {
   IconBoxSeam,
   IconCategory,
@@ -19,10 +20,9 @@ import {
 import React, { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { useGetProductsQuery, useDeleteProductMutation } from "../api/productApi";
+import { useDeleteProductMutation, useGetProductsQuery } from "../api/productApi";
 import type { Product } from "../types/product.types";
 import { ProductFormModal } from "./ProductFormModal";
-import { useGetCategoriesQuery } from "@/features/catalog";
 
 const productTabs = [
   { label: "All Products", value: "all" },
@@ -39,17 +39,23 @@ export function ProductsPage() {
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [deleteProduct, { isLoading: isDeleting }] = useDeleteProductMutation();
 
-  // Pagination params from URL
+  // Pagination + search + filter params from URL
   const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
-  const nameFilter = searchParams.get("name") ?? "";
+  const searchTerm = searchParams.get("search") ?? "";
   const categoryFilter = searchParams.get("category") ?? "all";
+  const statusFilter = searchParams.get("status") ?? ""; // "", "active", "inactive"
 
-  // API Integration
+  // Map the URL status filter to the backend `is_active` flag (undefined = all).
+  const isActive =
+    statusFilter === "active" ? true : statusFilter === "inactive" ? false : undefined;
+
+  // API Integration — search is sent as `?search=...`, status as `?is_active=...`
   const limit = 10;
   const { data, isLoading, isError, refetch } = useGetProductsQuery({
     page,
     limit,
-    name: nameFilter,
+    search: searchTerm,
+    isActive,
   });
 
   // Category options sourced from the catalog API (replaces the old static list)
@@ -103,6 +109,20 @@ export function ProductsPage() {
     setEditingProduct(null);
     setIsModalOpen(true);
   };
+
+  // Update a single URL param and reset to page 1; empty value clears the param.
+  const setFilterParam = (key: string, value: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("page", "1");
+    if (value) {
+      next.set(key, value);
+    } else {
+      next.delete(key);
+    }
+    setSearchParams(next);
+  };
+
+  const handleStatusFilter = (value: string) => setFilterParam("status", value);
 
   const getProductImage = (images: Product["images"]) => {
     if (!images || images.length === 0) {
@@ -174,6 +194,15 @@ export function ProductsPage() {
       id: "status",
       header: "Status",
       cell: (row) => <StatusBadge status={row.is_active} className="text-[10px] h-[24px]" />,
+      // Server-side status filter via the clickable header (?is_active=True|False).
+      filter: {
+        value: statusFilter,
+        options: [
+          { label: "Active", value: "active" },
+          { label: "Inactive", value: "inactive" },
+        ],
+        onChange: handleStatusFilter,
+      },
     },
     {
       id: "actions",
@@ -242,11 +271,12 @@ export function ProductsPage() {
         title="Products & Catalog"
         actions={
           <SearchFilters
-            searchValue={nameFilter}
+            searchValue={searchTerm}
             onSearchChange={(val) => {
+              // New search → reset to page 1. Empty value is dropped at the API layer.
               setSearchParams({
                 ...Object.fromEntries(searchParams.entries()),
-                name: val,
+                search: val,
                 page: "1",
               });
             }}

@@ -29,12 +29,21 @@ export function Search({
   const [localValue, setLocalValue] = useState(value);
   const isFirstRender = useRef(true);
 
+  // Hold onSearch in a ref so the debounce effect doesn't re-run (and re-dispatch
+  // a search) just because the parent passed a new callback identity on re-render.
+  // Without this, paginating re-renders the parent, changes onSearch's identity,
+  // and the effect fires onSearch("") again — resetting the page back to 1.
+  const onSearchRef = useRef(onSearch);
+  useEffect(() => {
+    onSearchRef.current = onSearch;
+  }, [onSearch]);
+
   // Keep local value in sync with external prop updates
   useEffect(() => {
     setLocalValue(value);
   }, [value]);
 
-  // Handle debouncing and dispatching search
+  // Handle debouncing and dispatching search — only when the user changes the input
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -43,13 +52,13 @@ export function Search({
 
     if (debounceMs > 0) {
       const timer = setTimeout(() => {
-        onSearch(localValue);
+        onSearchRef.current(localValue);
       }, debounceMs);
       return () => clearTimeout(timer);
     }
 
-    onSearch(localValue);
-  }, [localValue, debounceMs, onSearch]);
+    onSearchRef.current(localValue);
+  }, [localValue, debounceMs]);
 
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;

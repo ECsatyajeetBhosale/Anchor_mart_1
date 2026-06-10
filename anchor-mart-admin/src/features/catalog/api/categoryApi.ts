@@ -15,7 +15,8 @@ export const categoryApi = baseApi.injectEndpoints({
       query: (params) => ({
         url: CATEGORY_ENDPOINTS.GET_CATEGORIES,
         method: "GET",
-        params: params ? { page: params.page, limit: params.limit } : undefined,
+        // DRF pagination expects `page_size`, not `limit`.
+        params: params ? { page: params.page, page_size: params.limit } : undefined,
       }),
       providesTags: (result) =>
         result?.results?.data

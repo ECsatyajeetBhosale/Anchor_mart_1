@@ -1,6 +1,18 @@
+import {
+  ColumnFilterHeader,
+  type ColumnFilterOption,
+} from "@/components/common/ColumnFilterHeader";
 import type * as React from "react";
-import Pagination from "./pagination";
 import { Button } from "./button";
+import Pagination from "./pagination";
+
+/** Optional per-column header filter. Empty `value` = no filter (show all). */
+export interface ColumnFilter {
+  value: string;
+  options: ColumnFilterOption[];
+  onChange: (value: string) => void;
+  allLabel?: string;
+}
 
 export interface Column<T> {
   id: string;
@@ -9,6 +21,8 @@ export interface Column<T> {
   cell?: (row: T) => React.ReactNode;
   className?: string;
   headerClassName?: string;
+  /** When set, the header becomes a clickable filter dropdown. */
+  filter?: ColumnFilter;
 }
 
 export interface DataTableProps<T> {
@@ -54,11 +68,18 @@ export function DataTable<T>({
           <thead>
             <tr>
               {columns.map((col) => (
-                <th
-                  key={col.id}
-                  className={col.headerClassName}
-                >
-                  {col.header}
+                <th key={col.id} className={col.headerClassName}>
+                  {col.filter ? (
+                    <ColumnFilterHeader
+                      label={col.header}
+                      value={col.filter.value}
+                      options={col.filter.options}
+                      onChange={col.filter.onChange}
+                      allLabel={col.filter.allLabel}
+                    />
+                  ) : (
+                    col.header
+                  )}
                 </th>
               ))}
             </tr>
@@ -67,7 +88,14 @@ export function DataTable<T>({
             {isLoading ? (
               <tr>
                 <td colSpan={columns.length} style={{ padding: "48px 24px", textAlign: "center" }}>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "10px",
+                    }}
+                  >
                     <div
                       style={{
                         width: "24px",
@@ -78,15 +106,26 @@ export function DataTable<T>({
                         animation: "lspin 0.8s linear infinite",
                       }}
                     />
-                    <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--t4)" }}>Loading data...</span>
+                    <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--t4)" }}>
+                      Loading data...
+                    </span>
                   </div>
                 </td>
               </tr>
             ) : isError ? (
               <tr>
                 <td colSpan={columns.length} style={{ padding: "48px 24px", textAlign: "center" }}>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
-                    <span style={{ fontSize: "13.5px", fontWeight: 600, color: "var(--danger-text)" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "12px",
+                    }}
+                  >
+                    <span
+                      style={{ fontSize: "13.5px", fontWeight: 600, color: "var(--danger-text)" }}
+                    >
                       {error || "Failed to load data."}
                     </span>
                     {onRetry && (
@@ -100,12 +139,24 @@ export function DataTable<T>({
             ) : data.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} style={{ padding: "48px 24px", textAlign: "center" }}>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
                     <span style={{ fontSize: "14px", fontWeight: 700, color: "var(--t3)" }}>
                       {emptyMessage}
                     </span>
                     {hasActiveFilters && onResetFilters && (
-                      <Button variant="link" size="xs" onClick={onResetFilters} style={{ marginTop: "4px" }}>
+                      <Button
+                        variant="link"
+                        size="xs"
+                        onClick={onResetFilters}
+                        style={{ marginTop: "4px" }}
+                      >
                         Reset Filters
                       </Button>
                     )}
@@ -123,10 +174,7 @@ export function DataTable<T>({
                   {columns.map((col) => {
                     const value = col.accessorKey ? row[col.accessorKey] : undefined;
                     return (
-                      <td
-                        key={col.id}
-                        className={col.className}
-                      >
+                      <td key={col.id} className={col.className}>
                         {col.cell ? col.cell(row) : (value as React.ReactNode)}
                       </td>
                     );
@@ -138,9 +186,13 @@ export function DataTable<T>({
         </table>
       </div>
 
-      {showPagination && !isLoading && !isError && data.length > 0 && page && pages && onPageChange && (
-        <Pagination page={page} pages={pages} onPageChange={onPageChange} />
-      )}
+      {showPagination &&
+        !isLoading &&
+        !isError &&
+        data.length > 0 &&
+        page &&
+        pages &&
+        onPageChange && <Pagination page={page} pages={pages} onPageChange={onPageChange} />}
     </div>
   );
 }
