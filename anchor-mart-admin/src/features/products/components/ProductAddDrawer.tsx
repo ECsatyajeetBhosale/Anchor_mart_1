@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useGetCategoriesQuery } from "@/features/catalog";
 import { getApiMessage } from "@/lib/apiError";
+import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconBoxSeam, IconCheck } from "@tabler/icons-react";
 import { useEffect } from "react";
@@ -134,11 +135,11 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
       const response = await createProduct(payload).unwrap();
       // Success: close the drawer first, then notify.
       onClose();
-      toast.success(getApiMessage(response) ?? "Product created successfully");
+      toast.success(getApiMessage(response) ?? MESSAGES.PRODUCTS.TOAST.ADD_SUCCESS);
     } catch (error) {
       // Failure: keep the drawer open (data preserved) so the user can retry.
       console.error("add-product failed:", error);
-      toast.error(getApiMessage(error) ?? "Failed to create product. Please try again.");
+      toast.error(getApiMessage(error) ?? MESSAGES.PRODUCTS.TOAST.ADD_ERROR);
     }
   };
 
@@ -152,15 +153,12 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
       >
         <SheetHeader className="p-6 pb-2 border-b border-[var(--border-md)]">
           <div className="flex items-center gap-3">
-            <div
-              className="flex items-center justify-center w-10 h-10 rounded-lg"
-              style={{ background: "var(--teal-50)", color: "var(--teal-600)" }}
-            >
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--teal-50)] text-[var(--teal-600)]">
               <IconBoxSeam size={22} />
             </div>
             <div>
-              <SheetTitle className="text-xl">Add New Product</SheetTitle>
-              <SheetDescription>Create a new product for your catalog</SheetDescription>
+              <SheetTitle className="text-xl">{MESSAGES.PRODUCTS.ADD.TITLE}</SheetTitle>
+              <SheetDescription>{MESSAGES.PRODUCTS.ADD.SUBTITLE}</SheetDescription>
             </div>
           </div>
         </SheetHeader>
@@ -168,7 +166,7 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
         <div className="flex-1 overflow-y-auto p-6 pt-4 flex flex-col gap-6">
           {/* Basic Information */}
           <section className="prod-tab">
-            <div className="sec-label">Basic Information</div>
+            <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.BASIC}</div>
             <FormRow>
               <FormField label="Product Name *" error={errors.name?.message}>
                 <Input placeholder="e.g. Pant2" error={!!errors.name} {...register("name")} />
@@ -192,7 +190,7 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
             <FormField label="Description *" error={errors.description?.message}>
               <Textarea
                 placeholder="Describe the product…"
-                style={{ height: 96 }}
+                className="h-24"
                 error={!!errors.description}
                 {...register("description")}
               />
@@ -201,7 +199,7 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
 
           {/* Product Media */}
           <section className="prod-tab">
-            <div className="sec-label">Product Media</div>
+            <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.MEDIA}</div>
             <FormField
               label="Image Paths"
               hint="Add one or more stored image paths (e.g. product_images/example.png)."
@@ -225,7 +223,7 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
 
           {/* Inventory & Pricing */}
           <section className="prod-tab">
-            <div className="sec-label">Inventory &amp; Pricing</div>
+            <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.INVENTORY_PRICING}</div>
             <FormRow>
               <FormField label="SKU *" error={errors.sku?.message}>
                 <Input
@@ -249,7 +247,7 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
 
           {/* Product Attributes */}
           <section className="prod-tab">
-            <div className="sec-label">Product Attributes</div>
+            <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.ATTRIBUTES}</div>
             <FormRow>
               <FormField label="Attribute ID">
                 <Input
@@ -346,7 +344,7 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
             <FormField label="Care Instructions">
               <Textarea
                 placeholder="e.g. Machine wash cold, tumble dry low"
-                style={{ height: 64 }}
+                className="h-16"
                 {...register("attributes.care_instructions")}
               />
             </FormField>
@@ -354,7 +352,7 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
 
           {/* Material Details */}
           <section className="prod-tab">
-            <div className="sec-label">Material Details</div>
+            <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.MATERIAL}</div>
             <FormRow columns={3}>
               <FormField label="Primary Material">
                 <Input placeholder="e.g. Polyester" {...register("attributes.material.primary")} />
@@ -370,7 +368,7 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
 
           {/* Price Details */}
           <section className="prod-tab">
-            <div className="sec-label">Price Details</div>
+            <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.PRICE}</div>
             <FormRow columns={3}>
               <FormField label="Amount" error={errors.attributes?.price?.amount?.message}>
                 <Input
@@ -412,7 +410,7 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
                     htmlFor="price-discounted"
                     className="text-[13px] font-semibold text-[var(--t2)]"
                   >
-                    On discount
+                    {MESSAGES.PRODUCTS.TOGGLES.ON_DISCOUNT}
                   </label>
                 </div>
               </FormField>
@@ -421,7 +419,7 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
 
           {/* Additional Settings */}
           <section className="prod-tab">
-            <div className="sec-label">Additional Settings</div>
+            <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.ADDITIONAL}</div>
             <FormRow>
               <div className="flex items-center gap-2">
                 <Controller
@@ -439,7 +437,7 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
                   htmlFor="admin-sourceable"
                   className="text-[13px] font-semibold text-[var(--t2)]"
                 >
-                  Admin sourceable
+                  {MESSAGES.PRODUCTS.TOGGLES.ADMIN_SOURCEABLE}
                 </label>
               </div>
               <div className="flex items-center gap-2">
@@ -458,7 +456,7 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
                   htmlFor="express-item"
                   className="text-[13px] font-semibold text-[var(--t2)]"
                 >
-                  Express item
+                  {MESSAGES.PRODUCTS.TOGGLES.EXPRESS_ITEM}
                 </label>
               </div>
             </FormRow>
@@ -473,7 +471,7 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
               onClick={onClose}
               disabled={isCreating}
             >
-              Cancel
+              {MESSAGES.COMMON.CANCEL}
             </button>
             <button
               type="button"
@@ -482,7 +480,7 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
               disabled={isCreating}
             >
               <IconCheck size={16} />
-              {isCreating ? "Saving…" : "Add Product"}
+              {isCreating ? MESSAGES.PRODUCTS.ADD.SAVING : MESSAGES.PRODUCTS.ADD.SUBMIT}
             </button>
           </div>
         </SheetFooter>

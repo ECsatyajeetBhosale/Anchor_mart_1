@@ -44,7 +44,8 @@ export const MESSAGES = {
     EMPTY: "No orders found",
     EMPTY_FILTERED: "No orders match your filters",
     CANCEL_CONFIRM_TITLE: "Cancel Order",
-    CANCEL_CONFIRM_MSG: "This will cancel the order and trigger refund processing. This cannot be undone.",
+    CANCEL_CONFIRM_MSG:
+      "This will cancel the order and trigger refund processing. This cannot be undone.",
     ORDER_CANCELLED: "Order cancelled",
     PARTNER_REASSIGNED: "Partner reassigned successfully",
   },
@@ -56,15 +57,147 @@ export const MESSAGES = {
     EMPTY: "No intent requests found",
   },
   PRODUCTS: {
+    // Page chrome
     TITLE: "Products & Catalog",
+    SEARCH_PLACEHOLDER: "Search products…",
+    ALL_CATEGORIES: "All Categories",
     ADD_PRODUCT: "Add Product",
-    EDIT_PRODUCT: "Edit Product",
-    PRODUCT_ADDED: "Product added successfully",
-    PRODUCT_UPDATED: "Product updated successfully",
-    PRODUCT_REMOVED: "Product removed",
-    REMOVE_CONFIRM_TITLE: "Remove Product",
-    REMOVE_CONFIRM_MSG: "This product will be permanently removed. This cannot be undone.",
-    EMPTY: "No products found",
+    FETCH_ERROR: "Failed to fetch products",
+    EMPTY: "No products found.",
+    // Filter tabs
+    TABS: {
+      ALL: "All Products",
+      DEAL: "Deal Products",
+      SPECIAL: "Special Requests",
+    },
+    // KPI cards
+    STATS: {
+      TOTAL_PRODUCTS: "Total Products",
+      TOTAL_CATEGORIES: "Total Categories",
+      FEATURED_DEALS: "Featured / Deals",
+    },
+    // Table
+    COLUMNS: {
+      PRODUCT: "Product",
+      CATEGORY: "Category",
+      PRICE: "Price",
+      FEATURED: "Featured",
+      STATUS: "Status",
+      ACTIONS: "Actions",
+    },
+    STATUS_FILTER: {
+      ACTIVE: "Active",
+      INACTIVE: "Inactive",
+    },
+    FEATURED_YES: "Yes",
+    ACTION_EDIT: "Edit",
+    ACTION_REMOVE: "Remove",
+    IMAGE_ALT: "Product",
+    // Toasts
+    TOAST: {
+      DELETE_SUCCESS: "Product deleted successfully",
+      DELETE_ERROR: "Failed to delete product",
+      ADD_SUCCESS: "Product created successfully",
+      ADD_ERROR: "Failed to create product. Please try again.",
+      UPDATE_SUCCESS: "Product updated successfully",
+      UPDATE_ERROR: "Failed to update product. Please try again.",
+    },
+    // Delete confirmation dialog
+    DELETE_CONFIRM: {
+      TITLE: "Delete Product",
+      MESSAGE: "Are you sure you want to delete this product? This action cannot be undone.",
+      CONFIRM: "Delete",
+    },
+    // Add drawer
+    ADD: {
+      TITLE: "Add New Product",
+      SUBTITLE: "Create a new product for your catalog",
+      SUBMIT: "Add Product",
+      SAVING: "Saving…",
+    },
+    // Edit drawer
+    EDIT: {
+      TITLE: "Edit Product",
+      SUBTITLE: "Update your product details",
+      SUBMIT: "Save Changes",
+      SAVING: "Saving…",
+      TABS: {
+        BASIC: "Basic Info",
+        MEDIA: "Media",
+        PRICING: "Pricing",
+        SHIPPING: "Shipping",
+        VARIANTS: "Variants",
+      },
+    },
+    // Drawer section headings
+    SECTIONS: {
+      BASIC: "Basic Information",
+      MEDIA: "Product Media",
+      INVENTORY_PRICING: "Inventory & Pricing",
+      ATTRIBUTES: "Product Attributes",
+      MATERIAL: "Material Details",
+      PRICE: "Price Details",
+      ADDITIONAL: "Additional Settings",
+      DETAILS: "Product Details",
+      PRICING: "Pricing",
+      SHIPPING: "Shipping & Delivery",
+      OPTIONS: "Product Options",
+      VARIANTS: "Variants",
+    },
+    // Toggle labels
+    TOGGLES: {
+      ON_DISCOUNT: "On discount",
+      ADMIN_SOURCEABLE: "Admin sourceable",
+      EXPRESS_ITEM: "Express item",
+      TAXABLE: "Taxable",
+      PHYSICAL: "Physical Product",
+      FREE_SHIPPING: "Free Shipping",
+    },
+  },
+  EXPRESS: {
+    // Page chrome
+    TITLE: "Express Items",
+    SUBTITLE: "Fast-delivery everyday essentials",
+    SEARCH_PLACEHOLDER: "Search express items…",
+    FETCH_ERROR: "Failed to fetch express items",
+    EMPTY: "No express items found.",
+    IMAGE_ALT: "Express item",
+    // Table
+    COLUMNS: {
+      PRODUCT: "Product",
+      CATEGORY: "Category",
+      PRICE: "Price",
+      SALES: "Sales",
+      SOURCEABLE: "Sourceable",
+      STATUS: "Status",
+      EXPRESS: "Express",
+      CREATED: "Created",
+      UPDATED: "Updated",
+      ACTIONS: "Actions",
+    },
+    STATUS_FILTER: {
+      ACTIVE: "Active",
+      INACTIVE: "Inactive",
+    },
+    // Boolean flag badge labels
+    FLAGS: {
+      EXPRESS: "Express",
+      NON_EXPRESS: "Non-Express",
+      SOURCEABLE: "Sourceable",
+      NOT_SOURCEABLE: "Not Sourceable",
+    },
+    ACTION_VIEW: "View details",
+    // Detail drawer
+    DRAWER: {
+      TITLE_FALLBACK: "Express Item",
+      CLOSE: "Close",
+      SECTIONS: {
+        OVERVIEW: "Overview",
+        ATTRIBUTES: "Attributes",
+        MATERIAL: "Material",
+        CARE: "Care Instructions",
+      },
+    },
   },
   PARTNERS: {
     TITLE: "Delivery Partners",

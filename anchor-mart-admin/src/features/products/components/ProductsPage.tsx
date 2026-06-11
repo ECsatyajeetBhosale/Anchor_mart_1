@@ -5,6 +5,7 @@ import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import { DataTable } from "@/components/ui/data-table";
 import { useGetCategoriesQuery } from "@/features/catalog";
+import { MESSAGES } from "@/lib/messages";
 import { IconBoxSeam, IconCategory, IconPlus, IconStar } from "@tabler/icons-react";
 import React, { useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -15,9 +16,9 @@ import { ProductFormModal } from "./ProductFormModal";
 import { useProductColumns } from "./productColumns";
 
 const productTabs = [
-  { label: "All Products", value: "all" },
-  { label: "Deal Products", value: "deal" },
-  { label: "Special Requests", value: "special" },
+  { label: MESSAGES.PRODUCTS.TABS.ALL, value: "all" },
+  { label: MESSAGES.PRODUCTS.TABS.DEAL, value: "deal" },
+  { label: MESSAGES.PRODUCTS.TABS.SPECIAL, value: "special" },
 ];
 
 const LIMIT = 10;
@@ -53,7 +54,7 @@ export function ProductsPage() {
   const categories = categoriesData?.results?.data ?? [];
   const categoryOptions = React.useMemo(
     () => [
-      { value: "all", label: "All Categories" },
+      { value: "all", label: MESSAGES.PRODUCTS.ALL_CATEGORIES },
       ...(categoriesData?.results?.data ?? []).map((c) => ({ value: c.id, label: c.name })),
     ],
     [categoriesData],
@@ -116,10 +117,10 @@ export function ProductsPage() {
     if (!productToDelete) return;
     try {
       await deleteProduct(productToDelete).unwrap();
-      toast.success("Product deleted successfully");
+      toast.success(MESSAGES.PRODUCTS.TOAST.DELETE_SUCCESS);
       setProductToDelete(null);
     } catch (_error) {
-      toast.error("Failed to delete product");
+      toast.error(MESSAGES.PRODUCTS.TOAST.DELETE_ERROR);
     }
   };
 
@@ -133,14 +134,14 @@ export function ProductsPage() {
   const statItems = [
     {
       id: "total-products",
-      label: "Total Products",
+      label: MESSAGES.PRODUCTS.STATS.TOTAL_PRODUCTS,
       value: totalCount,
       icon: <IconBoxSeam size={19} />,
       variant: "navy" as const,
     },
     {
       id: "total-categories",
-      label: "Total Categories",
+      label: MESSAGES.PRODUCTS.STATS.TOTAL_CATEGORIES,
       value: categoriesData?.count ?? categories.length,
       icon: <IconCategory size={19} />,
       variant: "teal" as const,
@@ -148,7 +149,7 @@ export function ProductsPage() {
     {
       // The API doesn't return a featured/deals count yet — show a placeholder.
       id: "featured-deals",
-      label: "Featured / Deals",
+      label: MESSAGES.PRODUCTS.STATS.FEATURED_DEALS,
       value: "-",
       icon: <IconStar size={19} />,
       variant: "amber" as const,
@@ -158,19 +159,19 @@ export function ProductsPage() {
   return (
     <>
       <PageHeader
-        title="Products & Catalog"
+        title={MESSAGES.PRODUCTS.TITLE}
         actions={
           <SearchFilters
             searchValue={searchTerm}
             onSearchChange={(val) => setFilterParam("search", val)}
-            searchPlaceholder="Search products…"
+            searchPlaceholder={MESSAGES.PRODUCTS.SEARCH_PLACEHOLDER}
             searchDebounceMs={180}
             searchLoading={isLoading}
             filters={[
               {
                 id: "category",
                 value: categoryFilter,
-                placeholder: "All Categories",
+                placeholder: MESSAGES.PRODUCTS.ALL_CATEGORIES,
                 options: categoryOptions,
                 width: "160px",
                 onValueChange: (val) => setFilterParam("category", val === "all" ? "" : val),
@@ -179,7 +180,7 @@ export function ProductsPage() {
           >
             <button type="button" className="btn btn-primary" onClick={handleAddProduct}>
               <IconPlus size={16} />
-              Add Product
+              {MESSAGES.PRODUCTS.ADD_PRODUCT}
             </button>
           </SearchFilters>
         }
@@ -202,11 +203,11 @@ export function ProductsPage() {
         pages={totalPages}
         isLoading={isLoading}
         isError={isError}
-        error={isError ? "Failed to fetch products" : null}
+        error={isError ? MESSAGES.PRODUCTS.FETCH_ERROR : null}
         onRetry={refetch}
         onPageChange={handlePageChange}
         showPagination
-        emptyMessage="No products found."
+        emptyMessage={MESSAGES.PRODUCTS.EMPTY}
         onRowClick={(row) => {
           setEditingProduct(row);
           setIsModalOpen(true);
@@ -223,9 +224,9 @@ export function ProductsPage() {
         isOpen={!!productToDelete}
         onClose={() => setProductToDelete(null)}
         onConfirm={handleConfirmDelete}
-        title="Delete Product"
-        description="Are you sure you want to delete this product? This action cannot be undone."
-        confirmText="Delete"
+        title={MESSAGES.PRODUCTS.DELETE_CONFIRM.TITLE}
+        description={MESSAGES.PRODUCTS.DELETE_CONFIRM.MESSAGE}
+        confirmText={MESSAGES.PRODUCTS.DELETE_CONFIRM.CONFIRM}
         isLoading={isDeleting}
       />
     </>

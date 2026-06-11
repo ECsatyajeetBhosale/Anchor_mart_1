@@ -3,6 +3,7 @@ import { SearchFilters } from "@/components/common/SearchFilters";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
+import { MESSAGES } from "@/lib/messages";
 import { IconCookie, IconCup, IconHeartRateMonitor } from "@tabler/icons-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -21,8 +22,7 @@ const CATEGORY_CARDS = [
     count: 24,
     top: "Bisleri 1L",
     badge: "teal" as const,
-    iconBg: "var(--teal-50)",
-    iconColor: "var(--teal-600)",
+    iconClass: "bg-[var(--teal-50)] text-[var(--teal-600)]",
   },
   {
     name: "Snacks",
@@ -30,8 +30,7 @@ const CATEGORY_CARDS = [
     count: 18,
     top: "Lay's Classic",
     badge: "amber" as const,
-    iconBg: "var(--amber-50)",
-    iconColor: "var(--amber-700)",
+    iconClass: "bg-[var(--amber-50)] text-[var(--amber-700)]",
   },
   {
     name: "Personal Care",
@@ -39,8 +38,7 @@ const CATEGORY_CARDS = [
     count: 12,
     top: "Dettol Antiseptic",
     badge: "navy" as const,
-    iconBg: "var(--navy-50)",
-    iconColor: "var(--navy-600)",
+    iconClass: "bg-[var(--navy-50)] text-[var(--navy-600)]",
   },
 ];
 
@@ -103,13 +101,13 @@ export function ExpressItemsPage() {
   return (
     <>
       <PageHeader
-        title="Express Items"
-        subtitle="Fast-delivery everyday essentials"
+        title={MESSAGES.EXPRESS.TITLE}
+        subtitle={MESSAGES.EXPRESS.SUBTITLE}
         actions={
           <SearchFilters
             searchValue={searchTerm}
             onSearchChange={(val) => setFilterParam("search", val)}
-            searchPlaceholder="Search express items…"
+            searchPlaceholder={MESSAGES.EXPRESS.SEARCH_PLACEHOLDER}
             searchDebounceMs={180}
             searchLoading={isLoading}
           />
@@ -124,8 +122,7 @@ export function ExpressItemsPage() {
             <Card key={c.name} className="p-4">
               <div className="flex items-center gap-3.5">
                 <div
-                  className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-md)]"
-                  style={{ background: c.iconBg, color: c.iconColor }}
+                  className={`flex h-12 w-12 items-center justify-center rounded-[var(--radius-md)] ${c.iconClass}`}
                 >
                   <Icon size={22} />
                 </div>
@@ -150,11 +147,11 @@ export function ExpressItemsPage() {
         pages={totalPages}
         isLoading={isLoading}
         isError={isError}
-        error={isError ? "Failed to fetch express items" : null}
+        error={isError ? MESSAGES.EXPRESS.FETCH_ERROR : null}
         onRetry={refetch}
         onPageChange={handlePageChange}
         showPagination
-        emptyMessage="No express items found."
+        emptyMessage={MESSAGES.EXPRESS.EMPTY}
         onRowClick={openItem}
       />
 

@@ -8,6 +8,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { MESSAGES } from "@/lib/messages";
 import { IconBolt, IconDeviceSpeaker } from "@tabler/icons-react";
 import type React from "react";
 import type { ExpressItem } from "../types/expressItem.types";
@@ -45,13 +46,19 @@ export function ExpressItemDrawer({ isOpen, onClose, item }: ExpressItemDrawerPr
           <div className="flex items-center gap-3">
             <div className="prod-thumb h-10 w-10">
               {imageSrc ? (
-                <img src={imageSrc} alt="Express item" className="h-10 w-10 rounded object-cover" />
+                <img
+                  src={imageSrc}
+                  alt={MESSAGES.EXPRESS.IMAGE_ALT}
+                  className="h-10 w-10 rounded object-cover"
+                />
               ) : (
                 <IconDeviceSpeaker size={20} />
               )}
             </div>
             <div>
-              <SheetTitle className="text-xl">{item?.product_name ?? "Express Item"}</SheetTitle>
+              <SheetTitle className="text-xl">
+                {item?.product_name ?? MESSAGES.EXPRESS.DRAWER.TITLE_FALLBACK}
+              </SheetTitle>
               <SheetDescription>
                 <span className="mono">{item?.sku}</span>
               </SheetDescription>
@@ -63,14 +70,18 @@ export function ExpressItemDrawer({ isOpen, onClose, item }: ExpressItemDrawerPr
           {item && (
             <>
               <section>
-                <div className="sec-label">Overview</div>
+                <div className="sec-label">{MESSAGES.EXPRESS.DRAWER.SECTIONS.OVERVIEW}</div>
                 <div className="flex flex-wrap items-center gap-2 mb-4">
                   <StatusBadge status={item.is_active} />
                   <Badge variant={item.is_express_item ? "teal" : "neutral"}>
-                    {item.is_express_item ? "Express" : "Non-Express"}
+                    {item.is_express_item
+                      ? MESSAGES.EXPRESS.FLAGS.EXPRESS
+                      : MESSAGES.EXPRESS.FLAGS.NON_EXPRESS}
                   </Badge>
                   <Badge variant={item.admin_sourceable ? "success" : "neutral"}>
-                    {item.admin_sourceable ? "Sourceable" : "Not Sourceable"}
+                    {item.admin_sourceable
+                      ? MESSAGES.EXPRESS.FLAGS.SOURCEABLE
+                      : MESSAGES.EXPRESS.FLAGS.NOT_SOURCEABLE}
                   </Badge>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -83,7 +94,7 @@ export function ExpressItemDrawer({ isOpen, onClose, item }: ExpressItemDrawerPr
               </section>
 
               <section>
-                <div className="sec-label">Attributes</div>
+                <div className="sec-label">{MESSAGES.EXPRESS.DRAWER.SECTIONS.ATTRIBUTES}</div>
                 <div className="grid grid-cols-3 gap-4">
                   <DetailRow label="Gender" value={attributes?.gender} />
                   <DetailRow label="Fit" value={attributes?.fit} />
@@ -95,7 +106,7 @@ export function ExpressItemDrawer({ isOpen, onClose, item }: ExpressItemDrawerPr
               </section>
 
               <section>
-                <div className="sec-label">Material</div>
+                <div className="sec-label">{MESSAGES.EXPRESS.DRAWER.SECTIONS.MATERIAL}</div>
                 <div className="grid grid-cols-3 gap-4">
                   <DetailRow label="Primary" value={material?.primary} />
                   <DetailRow label="Secondary" value={material?.secondary} />
@@ -104,7 +115,7 @@ export function ExpressItemDrawer({ isOpen, onClose, item }: ExpressItemDrawerPr
               </section>
 
               <section>
-                <div className="sec-label">Care Instructions</div>
+                <div className="sec-label">{MESSAGES.EXPRESS.DRAWER.SECTIONS.CARE}</div>
                 <p className="text-[13.5px] font-medium text-[var(--t2)]">
                   {attributes?.care_instructions || "—"}
                 </p>
@@ -117,7 +128,7 @@ export function ExpressItemDrawer({ isOpen, onClose, item }: ExpressItemDrawerPr
           <div className="flex justify-end w-full">
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               <IconBolt size={16} />
-              Close
+              {MESSAGES.EXPRESS.DRAWER.CLOSE}
             </button>
           </div>
         </SheetFooter>

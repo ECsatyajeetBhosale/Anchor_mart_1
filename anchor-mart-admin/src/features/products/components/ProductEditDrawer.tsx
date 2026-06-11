@@ -16,6 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useGetCategoriesQuery } from "@/features/catalog";
 import { getApiMessage } from "@/lib/apiError";
+import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   IconBoxSeam,
@@ -140,10 +141,10 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
       const response = await updateProduct({ id: product.id, body: payload }).unwrap();
       // Success: close the drawer first, then notify.
       onClose();
-      toast.success(getApiMessage(response) ?? "Product updated successfully");
+      toast.success(getApiMessage(response) ?? MESSAGES.PRODUCTS.TOAST.UPDATE_SUCCESS);
     } catch (error) {
       // Failure: keep the drawer open so the user can fix and retry, then notify.
-      toast.error(getApiMessage(error) ?? "Failed to update product. Please try again.");
+      toast.error(getApiMessage(error) ?? MESSAGES.PRODUCTS.TOAST.UPDATE_ERROR);
     }
   };
 
@@ -157,31 +158,25 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
       >
         <SheetHeader className="p-6 pb-2 border-b border-[var(--border-md)]">
           <div className="flex items-center gap-3">
-            <div
-              className="flex items-center justify-center w-10 h-10 rounded-lg"
-              style={{ background: "var(--teal-50)", color: "var(--teal-600)" }}
-            >
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--teal-50)] text-[var(--teal-600)]">
               <IconBoxSeam size={22} />
             </div>
             <div>
-              <SheetTitle className="text-xl">Edit Product</SheetTitle>
-              <SheetDescription>Update your product details</SheetDescription>
+              <SheetTitle className="text-xl">{MESSAGES.PRODUCTS.EDIT.TITLE}</SheetTitle>
+              <SheetDescription>{MESSAGES.PRODUCTS.EDIT.SUBTITLE}</SheetDescription>
             </div>
           </div>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto p-6 pt-2">
-          <div
-            className="sticky top-0 bg-[var(--surface)] z-10"
-            style={{ marginBottom: 18, paddingTop: 10 }}
-          >
+          <div className="sticky top-0 bg-[var(--surface)] z-10 mb-[18px] pt-[10px]">
             <DynamicTabs
               tabs={[
-                { label: "Basic Info", value: "pt-basic" },
-                { label: "Media", value: "pt-media" },
-                { label: "Pricing", value: "pt-pricing" },
-                { label: "Shipping", value: "pt-shipping" },
-                { label: "Variants", value: "pt-variants" },
+                { label: MESSAGES.PRODUCTS.EDIT.TABS.BASIC, value: "pt-basic" },
+                { label: MESSAGES.PRODUCTS.EDIT.TABS.MEDIA, value: "pt-media" },
+                { label: MESSAGES.PRODUCTS.EDIT.TABS.PRICING, value: "pt-pricing" },
+                { label: MESSAGES.PRODUCTS.EDIT.TABS.SHIPPING, value: "pt-shipping" },
+                { label: MESSAGES.PRODUCTS.EDIT.TABS.VARIANTS, value: "pt-variants" },
               ]}
               value={activeTab}
               onTabChange={setActiveTab}
@@ -191,7 +186,7 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
           {/* Basic Info Tab */}
           {activeTab === "pt-basic" && (
             <div className="prod-tab mt-4">
-              <div className="sec-label">Product Details</div>
+              <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.DETAILS}</div>
               <FormRow>
                 <FormField label="Product Title *" error={errors.name?.message}>
                   <Input
@@ -210,7 +205,7 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
               <FormField label="Product Description *" error={errors.description?.message}>
                 <Textarea
                   placeholder="Enter a detailed description for this product..."
-                  style={{ height: 120 }}
+                  className="h-[120px]"
                   error={!!errors.description}
                   {...register("description")}
                 />
@@ -219,7 +214,7 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                 <Textarea
                   maxLength={250}
                   placeholder="Brief summary (max 250 characters)"
-                  style={{ height: 64 }}
+                  className="h-16"
                   disabled
                 />
               </FormField>
@@ -257,17 +252,15 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
           {/* Media Tab */}
           {activeTab === "pt-media" && (
             <div className="prod-tab mt-4">
-              <div className="sec-label">Product Media</div>
+              <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.MEDIA}</div>
               <FormField
                 label="Product Images"
                 hint="Direct upload is not supported by the API — manage the stored image paths below."
               >
-                <div className="upload-area" style={{ opacity: 0.6, pointerEvents: "none" }}>
-                  <IconCloudUpload size={28} style={{ display: "block", margin: "0 auto 6px" }} />
+                <div className="upload-area opacity-60 pointer-events-none">
+                  <IconCloudUpload size={28} className="block mx-auto mb-1.5" />
                   Drag &amp; drop images here, or click to upload
-                  <div className="fg-hint" style={{ marginTop: 4 }}>
-                    JPG · PNG · WEBP · AVIF — multiple allowed
-                  </div>
+                  <div className="fg-hint mt-1">JPG · PNG · WEBP · AVIF — multiple allowed</div>
                 </div>
               </FormField>
 
@@ -283,7 +276,7 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
               </FormField>
 
               <FormField label="Thumbnail Image" hint="Read-only — not sent on update">
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div className="flex items-center gap-[14px]">
                   <button type="button" className="btn btn-secondary btn-sm" disabled>
                     <IconPhoto size={16} /> Pick Thumbnail
                   </button>
@@ -295,7 +288,7 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
           {/* Pricing Tab */}
           {activeTab === "pt-pricing" && (
             <div className="prod-tab mt-4">
-              <div className="sec-label">Pricing</div>
+              <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.PRICING}</div>
               <FormRow>
                 <FormField label="Base Price *" error={errors.base_price?.message}>
                   <Input
@@ -323,14 +316,14 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                   <Input placeholder="e.g. $2.00 / 100ml" disabled />
                 </FormField>
               </FormRow>
-              <FormRow style={{ marginBottom: 0 }}>
+              <FormRow className="mb-0">
                 <div className="flex items-center gap-2">
                   <Switch id="sw-taxable" defaultChecked disabled />
                   <label
                     htmlFor="sw-taxable"
                     className="text-[13px] font-semibold text-[var(--t2)]"
                   >
-                    Taxable
+                    {MESSAGES.PRODUCTS.TOGGLES.TAXABLE}
                   </label>
                 </div>
               </FormRow>
@@ -340,15 +333,15 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
           {/* Shipping Tab — all read-only (not part of the update contract) */}
           {activeTab === "pt-shipping" && (
             <div className="prod-tab mt-4">
-              <div className="sec-label">Shipping &amp; Delivery</div>
-              <FormRow style={{ marginBottom: 14 }}>
+              <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.SHIPPING}</div>
+              <FormRow className="mb-[14px]">
                 <div className="flex items-center gap-2">
                   <Switch id="sw-physical" defaultChecked disabled />
                   <label
                     htmlFor="sw-physical"
                     className="text-[13px] font-semibold text-[var(--t2)]"
                   >
-                    Physical Product
+                    {MESSAGES.PRODUCTS.TOGGLES.PHYSICAL}
                   </label>
                 </div>
                 <div className="flex items-center gap-2">
@@ -357,7 +350,7 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                     htmlFor="sw-free-ship"
                     className="text-[13px] font-semibold text-[var(--t2)]"
                   >
-                    Free Shipping
+                    {MESSAGES.PRODUCTS.TOGGLES.FREE_SHIPPING}
                   </label>
                 </div>
               </FormRow>
@@ -383,9 +376,9 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
           {/* Variants Tab — all read-only (not part of the update contract) */}
           {activeTab === "pt-variants" && (
             <div className="prod-tab mt-4">
-              <div className="sec-label">Product Options</div>
+              <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.OPTIONS}</div>
               <div className="opt-row mb-4">
-                <FormField label="Option Name" style={{ width: 190 }}>
+                <FormField label="Option Name" className="w-[190px]">
                   <DropdownSelect
                     options={OPTION_NAME_OPTIONS}
                     value="Size"
@@ -393,15 +386,10 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                     disabled
                   />
                 </FormField>
-                <FormField label="Option Values" style={{ flex: 1 }}>
+                <FormField label="Option Values" className="flex-1">
                   <Input placeholder="Type a value, press Enter" disabled />
                 </FormField>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm btn-icon"
-                  style={{ marginTop: 25 }}
-                  disabled
-                >
+                <button type="button" className="btn btn-ghost btn-sm btn-icon mt-[25px]" disabled>
                   <IconTrash size={16} />
                 </button>
               </div>
@@ -409,7 +397,7 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                 <IconPlus size={16} /> Add Option
               </button>
 
-              <div className="sec-label mt-6">Variants</div>
+              <div className="sec-label mt-6">{MESSAGES.PRODUCTS.SECTIONS.VARIANTS}</div>
               <div className="var-table-wrap">
                 <table>
                   <thead>
@@ -431,16 +419,16 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                         </button>
                       </td>
                       <td>
-                        <Input placeholder="e.g. Red / L" style={{ width: 120 }} disabled />
+                        <Input placeholder="e.g. Red / L" className="w-[120px]" disabled />
                       </td>
                       <td>
-                        <Input placeholder="SKU" style={{ width: 100 }} disabled />
+                        <Input placeholder="SKU" className="w-[100px]" disabled />
                       </td>
                       <td>
-                        <Input type="number" placeholder="0.00" style={{ width: 80 }} disabled />
+                        <Input type="number" placeholder="0.00" className="w-20" disabled />
                       </td>
                       <td>
-                        <Input type="number" placeholder="0" style={{ width: 64 }} disabled />
+                        <Input type="number" placeholder="0" className="w-16" disabled />
                       </td>
                       <td>
                         <DropdownSelect
@@ -474,7 +462,7 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
               onClick={onClose}
               disabled={isUpdating}
             >
-              Cancel
+              {MESSAGES.COMMON.CANCEL}
             </button>
             <button
               type="button"
@@ -483,7 +471,7 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
               disabled={isUpdating}
             >
               <IconCheck size={16} />
-              {isUpdating ? "Saving…" : "Save Changes"}
+              {isUpdating ? MESSAGES.PRODUCTS.EDIT.SAVING : MESSAGES.PRODUCTS.EDIT.SUBMIT}
             </button>
           </div>
         </SheetFooter>
