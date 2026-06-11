@@ -1416,3 +1416,57 @@ textarea.form-input { height: auto; padding: 10px 12px; resize: vertical; line-h
   border-top: 1px solid var(--border-xs);
   font-size: 11.5px;
 }
+
+/* ─── react-day-picker theming ───
+   Scoped to `.am-calendar` (added by components/ui/calendar.tsx) so these
+   override the library's `.rdp-root` defaults by specificity, without leaking.
+   Colours map to our design tokens — no hardcoded values. */
+.am-calendar {
+  --rdp-accent-color: var(--navy-900);
+  --rdp-accent-background-color: var(--teal-50);
+  --rdp-today-color: var(--teal-600);
+  --rdp-day-width: 38px;
+  --rdp-day-height: 38px;
+  --rdp-day_button-width: 36px;
+  --rdp-day_button-height: 36px;
+  --rdp-day_button-border-radius: var(--radius-sm);
+  --rdp-selected-border: 2px solid var(--navy-900);
+  --rdp-range_start-color: #fff;
+  --rdp-range_end-color: #fff;
+  font-family: var(--font-body);
+}
+.am-calendar .rdp-month_caption {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--t1);
+}
+.am-calendar .rdp-weekday {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--t4);
+  text-transform: uppercase;
+}
+.am-calendar .rdp-day_button {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t2);
+}
+.am-calendar .rdp-day_button:hover:not([disabled]) {
+  background: var(--surface-alt);
+}
+.am-calendar .rdp-button_previous,
+.am-calendar .rdp-button_next {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border-md);
+  background: var(--surface);
+  color: var(--t3);
+  transition: all 0.15s;
+}
+.am-calendar .rdp-button_previous:hover,
+.am-calendar .rdp-button_next:hover {
+  background: var(--surface-alt);
+  color: var(--t1);
+  border-color: var(--border-lg);
+}

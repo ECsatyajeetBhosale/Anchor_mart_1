@@ -40,13 +40,52 @@ export const MESSAGES = {
     EMPTY_FILTERED: "No sailors match your filters",
   },
   ORDERS: {
+    // Page chrome
     TITLE: "Orders Management",
+    SUBTITLE_COUNT: "184 orders today",
+    SUBTITLE_TAGLINE: "Full lifecycle visibility",
+    SEARCH_PLACEHOLDER: "Search orders…",
+    DATE_RANGE: "Date Range",
+    EXPORT: "Export",
+    EXPORTED: "Exported order records",
     EMPTY: "No orders found",
-    EMPTY_FILTERED: "No orders match your filters",
+    EMPTY_FILTERED: "No orders match the current filters.",
+    // Status dropdown filter
+    STATUS_FILTER: {
+      ALL: "All Status",
+      NEW: "New",
+      VERIFYING: "Verifying",
+      IN_PROGRESS: "In Progress",
+      DELIVERING: "Delivering",
+      DELIVERED: "Delivered",
+      CANCELLED: "Cancelled",
+    },
+    // Table
+    COLUMNS: {
+      ORDER_ID: "Order ID",
+      SAILOR: "Sailor",
+      ITEMS: "Items",
+      SHIP_TERMINAL: "Ship / Terminal",
+      PARTNER: "Partner",
+      PAYMENT: "Payment",
+      COUPON: "Coupon",
+      TOTAL: "Total",
+      STATUS: "Status",
+      ACTIONS: "Actions",
+    },
+    ACTIONS: {
+      VIEW: "View",
+      MESSAGE: "Message",
+      CANCEL: "Cancel",
+    },
+    UNASSIGNED: "Unassigned",
+    // Toasts & confirm
+    MESSAGE_SENT: (sailor: string) => `Message sent to ${sailor}`,
     CANCEL_CONFIRM_TITLE: "Cancel Order",
     CANCEL_CONFIRM_MSG:
       "This will cancel the order and trigger refund processing. This cannot be undone.",
-    ORDER_CANCELLED: "Order cancelled",
+    CANCEL_CONFIRM_CONFIRM: "Cancel Order",
+    ORDER_CANCELLED: (id: string) => `Order ${id} has been cancelled`,
     PARTNER_REASSIGNED: "Partner reassigned successfully",
   },
   INTENTS: {
