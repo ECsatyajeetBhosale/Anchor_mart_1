@@ -1,9 +1,14 @@
-import { StatusBadge } from "@/components/common/StatusBadge";
-import { TableActions } from "@/components/common/TableActions";
+import {
+  actionsColumn,
+  badgeColumn,
+  currencyColumn,
+  statusColumn,
+  twoLineColumn,
+} from "@/components/common/tableColumns";
 import { Badge } from "@/components/ui/badge";
 import type { Column } from "@/components/ui/data-table";
 import { MESSAGES } from "@/lib/messages";
-import { IconDeviceSpeaker, IconEdit, IconStar, IconTrash } from "@tabler/icons-react";
+import { IconDeviceSpeaker, IconStar } from "@tabler/icons-react";
 import type React from "react";
 import type { Product } from "../types/product.types";
 
@@ -52,35 +57,23 @@ export function useProductColumns({
       cell: (row) => <div className="prod-thumb">{getProductImage(row.images)}</div>,
       className: "w-12",
     },
-    {
+    twoLineColumn({
       id: "name",
       header: MESSAGES.PRODUCTS.COLUMNS.PRODUCT,
-      cell: (row) => (
-        <div className="max-w-[180px]">
-          <div className="td-p trunc" title={row.name}>
-            {row.name}
-          </div>
-          <div className="td-m trunc" title={row.description}>
-            {row.description}
-          </div>
-        </div>
-      ),
-    },
-    {
+      primary: (row) => row.name,
+      secondary: (row) => row.description,
+    }),
+    badgeColumn({
       id: "category",
       header: MESSAGES.PRODUCTS.COLUMNS.CATEGORY,
-      cell: (row) => (
-        <Badge variant="navy" className="text-[10px] h-[24px]">
-          {row.category_name}
-        </Badge>
-      ),
-    },
-    {
+      get: (row) => row.category_name,
+      variant: "navy",
+    }),
+    currencyColumn({
       id: "price",
       header: MESSAGES.PRODUCTS.COLUMNS.PRICE,
-      cell: (row) => `$${Number(row.base_price).toFixed(2)}`,
-      className: "td-p w7",
-    },
+      get: (row) => row.base_price,
+    }),
     {
       id: "featured",
       header: MESSAGES.PRODUCTS.COLUMNS.FEATURED,
@@ -96,39 +89,30 @@ export function useProductColumns({
         );
       },
     },
-    {
+    statusColumn({
       id: "status",
       header: MESSAGES.PRODUCTS.COLUMNS.STATUS,
-      cell: (row) => <StatusBadge status={row.is_active} className="text-[10px] h-[24px]" />,
+      get: (row) => row.is_active,
+      badgeClassName: "text-[10px] h-[24px]",
       // Server-side status filter via the clickable header (?is_active=True|False).
       filter: {
         value: statusFilter,
         options: STATUS_FILTER_OPTIONS,
         onChange: onStatusFilter,
       },
-    },
-    {
-      id: "actions",
+    }),
+    actionsColumn({
       header: MESSAGES.PRODUCTS.COLUMNS.ACTIONS,
-      cell: (row) => (
-        <TableActions
-          row={row}
-          actions={[
-            {
-              icon: <IconEdit size={16} />,
-              title: MESSAGES.PRODUCTS.ACTION_EDIT,
-              onClick: (e, r) => onEdit(e, r),
-            },
-            {
-              icon: <IconTrash size={16} />,
-              title: MESSAGES.PRODUCTS.ACTION_REMOVE,
-              variant: "danger",
-              onClick: (e, r) => onDelete(e, r.id),
-            },
-          ]}
-        />
-      ),
-      className: "w-24 text-right",
-    },
+      actions: () => ({
+        edit: {
+          title: MESSAGES.PRODUCTS.ACTION_EDIT,
+          onClick: (e, r) => onEdit(e, r),
+        },
+        delete: {
+          title: MESSAGES.PRODUCTS.ACTION_REMOVE,
+          onClick: (e, r) => onDelete(e, r.id),
+        },
+      }),
+    }),
   ];
 }

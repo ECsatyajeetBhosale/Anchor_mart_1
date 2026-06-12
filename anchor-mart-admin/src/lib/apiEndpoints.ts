@@ -79,3 +79,9 @@ export const CATEGORY_ENDPOINTS = {
 export const EXPRESS_ENDPOINTS = {
   GET_EXPRESS_ITEMS: "/superadmin/catalog/get-express-items/",
 };
+
+export const ORDER_ENDPOINTS = {
+  GET_ORDERS: "/superadmin/orders/orders/",
+  ORDER_DETAIL: (id: string) => `/superadmin/orders/orders/${id}/`,
+  CANCEL_ORDER: (id: string) => `/superadmin/orders/orders/${id}/cancel/`,
+};

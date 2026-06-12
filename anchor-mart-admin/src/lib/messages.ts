@@ -50,6 +50,7 @@ export const MESSAGES = {
     EXPORTED: "Exported order records",
     EMPTY: "No orders found",
     EMPTY_FILTERED: "No orders match the current filters.",
+    FETCH_ERROR: "Failed to load orders. Please try again.",
     // Status dropdown filter
     STATUS_FILTER: {
       ALL: "All Status",
