@@ -7,8 +7,10 @@ import { AuthLayout } from "@/components/common/AuthLayout";
 // Auth — from feature
 import { LoginPage } from "@/features/auth";
 
-// Dashboard pages (remain in pages/ until migrated to features)
-import { DashboardPage } from "@/pages/DashboardPage";
+// Dashboard — from feature
+import { DashboardPage } from "@/features/dashboard";
+
+// Pages (remain in pages/ until migrated to features)
 import { AnalyticsPage } from "@/pages/AnalyticsPage";
 import { SailorsPage } from "@/pages/SailorsPage";
 import { OrdersPage } from "@/pages/OrdersPage";

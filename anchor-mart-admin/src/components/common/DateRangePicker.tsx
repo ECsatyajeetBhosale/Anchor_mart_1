@@ -1,5 +1,5 @@
+import { DateRangeCalendar } from "@/components/common/DateRangeCalendar";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { IconCalendar } from "@tabler/icons-react";
@@ -14,9 +14,9 @@ export interface DateRangePickerProps {
 }
 
 /**
- * Date-range picker — a shadcn-style composition of `Popover` + `Calendar`
- * (there is no standalone DatePicker primitive). The trigger reuses the project
- * `Button`; the panel shows a two-month range calendar.
+ * Date-range picker — a `Popover` trigger (the project `Button` showing the
+ * selected range) over a {@link DateRangeCalendar} panel: two separate
+ * From / To single-date calendars on one shared surface.
  */
 export function DateRangePicker({
   value,
@@ -42,8 +42,8 @@ export function DateRangePicker({
           {label}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-auto">
-        <Calendar mode="range" numberOfMonths={1} selected={value} onSelect={onChange} autoFocus />
+      <PopoverContent align="end" className="w-auto p-3">
+        <DateRangeCalendar value={value} onChange={onChange} />
       </PopoverContent>
     </Popover>
   );

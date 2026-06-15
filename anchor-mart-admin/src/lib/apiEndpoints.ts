@@ -85,3 +85,7 @@ export const ORDER_ENDPOINTS = {
   ORDER_DETAIL: (id: string) => `/superadmin/orders/orders/${id}/`,
   CANCEL_ORDER: (id: string) => `/superadmin/orders/orders/${id}/cancel/`,
 };
+
+export const DASHBOARD_ENDPOINTS = {
+  GET_STATS: "/superadmin/dashboard/dashboard/stats/",
+};
