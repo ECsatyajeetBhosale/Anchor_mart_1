@@ -22,7 +22,7 @@ export function Calendar({
 }: CalendarProps) {
   return (
     <DayPicker
-      className={cn("am-calendar p-2", className)}
+      className={cn("am-calendar p-1", className)}
       captionLayout={captionLayout}
       startMonth={startMonth}
       endMonth={endMonth}

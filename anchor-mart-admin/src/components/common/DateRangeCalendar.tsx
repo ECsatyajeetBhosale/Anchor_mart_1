@@ -43,7 +43,7 @@ export function DateRangeCalendar({
       </div>
 
       {/* To */}
-      <div className="flex flex-col gap-1 px-2 border-l border-[var(--border-sm)]">
+      <div className="flex flex-col gap-1 pl-2 border-l border-[var(--border-sm)]">
         <span className="fg-label">{toLabel}</span>
         <Calendar
           mode="single"

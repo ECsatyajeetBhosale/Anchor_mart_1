@@ -1429,10 +1429,10 @@ textarea.form-input { height: auto; padding: 10px 12px; resize: vertical; line-h
   --rdp-accent-color: var(--navy-900);
   --rdp-accent-background-color: var(--teal-50);
   --rdp-today-color: var(--teal-600);
-  --rdp-day-width: 30px;
-  --rdp-day-height: 30px;
-  --rdp-day_button-width: 28px;
-  --rdp-day_button-height: 28px;
+  --rdp-day-width: 25px;
+  --rdp-day-height: 25px;
+  --rdp-day_button-width: 23px;
+  --rdp-day_button-height: 23px;
   --rdp-day_button-border-radius: var(--radius-sm);
   --rdp-selected-border: 2px solid var(--navy-900);
   --rdp-range_start-color: #fff;
@@ -1442,18 +1442,18 @@ textarea.form-input { height: auto; padding: 10px 12px; resize: vertical; line-h
 .am-calendar .rdp-months {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 12px;
 }
 .am-calendar .rdp-month_caption {
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 /* Dropdown caption (month + year selects) */
 .am-calendar .rdp-dropdowns {
-  gap: 6px;
+  gap: 4px;
 }
 .am-calendar .rdp-caption_label {
-  padding: 4px 8px;
-  font-size: 12.5px;
+  padding: 2px 6px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--t1);
   border: 1.5px solid var(--border-md);
@@ -1461,14 +1461,19 @@ textarea.form-input { height: auto; padding: 10px 12px; resize: vertical; line-h
   background: var(--surface);
   transition: all 0.15s;
 }
+/* Native select overlay — controls the dropdown option list text size. */
+.am-calendar .rdp-dropdown {
+  font-size: 11px;
+  font-weight: 600;
+}
 .am-calendar .rdp-dropdown_root:hover .rdp-caption_label {
   background: var(--surface-alt);
   border-color: var(--border-lg);
 }
 .am-calendar .rdp-button_previous,
 .am-calendar .rdp-button_next {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   border-radius: var(--radius-sm);
   border: 1.5px solid var(--border-md);
   background: var(--surface);
@@ -1482,13 +1487,13 @@ textarea.form-input { height: auto; padding: 10px 12px; resize: vertical; line-h
   border-color: var(--border-lg);
 }
 .am-calendar .rdp-weekday {
-  font-size: 9.5px;
+  font-size: 9px;
   font-weight: 700;
   color: var(--t4);
   text-transform: uppercase;
 }
 .am-calendar .rdp-day_button {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--t2);
 }

@@ -4,6 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { IconCalendar } from "@tabler/icons-react";
 import { format } from "date-fns";
+import { useState } from "react";
 import type { DateRange } from "react-day-picker";
 
 export interface DateRangePickerProps {
@@ -24,14 +25,23 @@ export function DateRangePicker({
   placeholder = "Date Range",
   className,
 }: DateRangePickerProps) {
+  const [open, setOpen] = useState(false);
+
   const label = value?.from
     ? value.to
       ? `${format(value.from, "MMM d")} – ${format(value.to, "MMM d, yyyy")}`
       : format(value.from, "MMM d, yyyy")
     : placeholder;
 
+  // Propagate the change, then close the panel once a full range is picked so
+  // the cards refetch with the new from/to.
+  const handleChange = (range: DateRange | undefined) => {
+    onChange?.(range);
+    if (range?.from && range?.to) setOpen(false);
+  };
+
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="secondary"
@@ -42,8 +52,8 @@ export function DateRangePicker({
           {label}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-auto p-3">
-        <DateRangeCalendar value={value} onChange={onChange} />
+      <PopoverContent align="end" className="w-auto p-2">
+        <DateRangeCalendar value={value} onChange={handleChange} />
       </PopoverContent>
     </Popover>
   );
