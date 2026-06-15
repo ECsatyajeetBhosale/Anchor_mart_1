@@ -1,11 +1,14 @@
 import { format } from "date-fns";
 import { useState } from "react";
 import type { DateRange } from "react-day-picker";
-import { useGetDashboardStatsQuery } from "../api/dashboardApi";
+import { useGetDashboardStatsQuery, useGetLiveOrdersQuery } from "../api/dashboardApi";
 import type { DashboardPeriod, DashboardStatsParams, TimeRange } from "../types/dashboard.types";
 
 /** Placeholder shown in a stat card while data is loading or unavailable. */
 const PLACEHOLDER = "—";
+
+/** Max rows shown in the dashboard Live Orders preview table. */
+const LIVE_ORDERS_LIMIT = 5;
 
 /** Format a numeric stat with thousands separators; fall back while loading. */
 function formatStat(value: number | undefined): string {
@@ -15,9 +18,10 @@ function formatStat(value: number | undefined): string {
 /**
  * Dashboard data access + header filter state.
  *
- * Owns the period toggle and custom date range, derives the stats query
+ * Owns the period toggle and custom date range, derives the shared stats query
  * params (a custom range always overrides the period — the two are never sent
- * together), and exposes the API stats pre-formatted for the existing cards.
+ * together), and drives every dashboard section from that single filter so the
+ * stat cards and Live Orders table stay in sync. Refreshing refetches both.
  */
 export function useDashboard() {
   const [activeTab, setActiveTab] = useState<TimeRange>("Today");
@@ -32,8 +36,8 @@ export function useDashboard() {
         }
       : { period: activeTab.toLowerCase() as DashboardPeriod };
 
-  const { data, isLoading, isFetching, isError, error, refetch } =
-    useGetDashboardStatsQuery(params);
+  const statsQuery = useGetDashboardStatsQuery(params);
+  const liveOrdersQuery = useGetLiveOrdersQuery(params);
 
   // Selecting a period pill clears any active custom range so `period` applies.
   const selectPeriod = (tab: TimeRange) => {
@@ -41,16 +45,32 @@ export function useDashboard() {
     setDateRange(undefined);
   };
 
+  // Refresh keeps cards and table synchronized.
+  const refetch = () => {
+    statsQuery.refetch();
+    liveOrdersQuery.refetch();
+  };
+
   // Pre-formatted values mapped to the existing dashboard cards.
   const stats = {
-    totalSailors: formatStat(data?.total_sailors),
-    activePartners: formatStat(data?.active_partners),
-    ordersPlaced: formatStat(data?.orders_placed),
-    intentReceived: formatStat(data?.intent_received),
-    inProgress: formatStat(data?.in_progress),
-    cancelled: formatStat(data?.cancelled),
-    pendingIntents: formatStat(data?.pending_intents),
-    refunded: formatStat(data?.refunded),
+    totalSailors: formatStat(statsQuery.data?.total_sailors),
+    activePartners: formatStat(statsQuery.data?.active_partners),
+    ordersPlaced: formatStat(statsQuery.data?.orders_placed),
+    intentReceived: formatStat(statsQuery.data?.intent_received),
+    inProgress: formatStat(statsQuery.data?.in_progress),
+    cancelled: formatStat(statsQuery.data?.cancelled),
+    pendingIntents: formatStat(statsQuery.data?.pending_intents),
+    refunded: formatStat(statsQuery.data?.refunded),
+  };
+
+  const liveOrders = {
+    // Dashboard shows a capped preview; `count` keeps the true total for the footer.
+    items: (liveOrdersQuery.data?.results ?? []).slice(0, LIVE_ORDERS_LIMIT),
+    count: liveOrdersQuery.data?.count ?? 0,
+    isLoading: liveOrdersQuery.isLoading,
+    isError: liveOrdersQuery.isError,
+    error: liveOrdersQuery.error,
+    refetch: liveOrdersQuery.refetch,
   };
 
   return {
@@ -59,10 +79,9 @@ export function useDashboard() {
     dateRange,
     setDateRange,
     stats,
-    isLoading,
-    isFetching,
-    isError,
-    error,
+    isError: statsQuery.isError,
+    error: statsQuery.error,
     refetch,
+    liveOrders,
   };
 }

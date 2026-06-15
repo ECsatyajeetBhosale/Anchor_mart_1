@@ -1,6 +1,10 @@
 export { DashboardPage } from "./components/DashboardPage";
 export { useDashboard } from "./hooks/useDashboard";
-export { useGetDashboardStatsQuery } from "./api/dashboardApi";
+export {
+  useGetDashboardStatsQuery,
+  useGetLiveOrdersQuery,
+  useGetLiveOrderDetailsQuery,
+} from "./api/dashboardApi";
 export type {
   ActionItem,
   ActivePartner,
@@ -8,6 +12,12 @@ export type {
   DashboardPeriodInfo,
   DashboardStatsParams,
   DashboardStatsResponse,
+  LiveOrder,
+  LiveOrderDetailsResponse,
+  LiveOrderPartner,
+  LiveOrderPort,
+  LiveOrdersResponse,
+  LiveOrderSailor,
   TimeRange,
   TopProduct,
 } from "./types/dashboard.types";

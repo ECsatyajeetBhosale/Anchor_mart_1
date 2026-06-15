@@ -1238,17 +1238,22 @@ textarea.form-input { height: auto; padding: 10px 12px; resize: vertical; line-h
 .detail-v { font-size: 13.5px; font-weight: 600; color: var(--t1); flex: 1; }
 
 /* Timeline compact */
-.tl-compact { display: flex; flex-direction: column; gap: 0; }
-.tl-c-item { display: flex; gap: 12px; position: relative; }
-.tl-c-item::before { content:''; position:absolute;left:15px;top:22px;bottom:0;width:1.5px;background:var(--border-sm); }
+.tl-compact { display: flex; flex-direction: column; }
+.tl-c-item { display: flex; gap: 12px; position: relative; padding-bottom: 16px; }
+.tl-c-item:last-child { padding-bottom: 0; }
+/* Rail sits centered under the 30px dot, starting just below it (no overlap). */
+.tl-c-item::before { content:''; position:absolute; left:15px; transform:translateX(-50%); top:32px; bottom:0; width:1.5px; background:var(--border-sm); }
 .tl-c-item:last-child::before { display: none; }
 .tl-c-dot { width: 30px; height: 30px; border-radius: 50%; display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px; }
 .tl-c-dot.done   { background:var(--success-bg);color:var(--success-icon);border:2px solid var(--success-border); }
 .tl-c-dot.active { background:var(--warning-bg);color:var(--warning-icon);border:2px solid var(--warning-border);animation:livePulse 2s infinite; }
 .tl-c-dot.pend   { background:var(--surface-alt);color:var(--t4);border:2px solid var(--border-md); }
-.tl-c-body { flex:1; padding-bottom:18px; }
-.tl-c-title { font-size:13.5px;font-weight:700;color:var(--t1);margin-bottom:2px; }
-.tl-c-sub   { font-size:12px;font-weight:500;color:var(--t4); }
+/* padding-top nudges the title to vertically center against the dot. */
+.tl-c-body { flex:1; padding-top:4px; }
+.tl-c-title { font-size:13.5px;font-weight:700;color:var(--t1);line-height:1.35; }
+/* min-height reserves one line so steps with no date/detail stay the same
+   height — keeping the spacing between nodes consistent either way. */
+.tl-c-sub   { font-size:12px;font-weight:500;color:var(--t4);line-height:1.35;min-height:16px; }
 
 /* Switch toggle */
 .switch { position:relative;display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none; }

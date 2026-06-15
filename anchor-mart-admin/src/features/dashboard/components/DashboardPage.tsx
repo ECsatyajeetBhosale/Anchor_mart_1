@@ -25,8 +25,9 @@ import {
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { DashboardOrderDrawer } from "@/components/common/DashboardOrderDrawer";
 import { DateRangePicker } from "@/components/common/DateRangePicker";
-import { type OrderDetail, OrderDetailDrawer } from "@/components/common/OrderDetailDrawer";
+import type { OrderDetail } from "@/components/common/OrderDetailDrawer";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatCard } from "@/components/common/StatCard";
 import { Badge } from "@/components/ui/badge";
@@ -34,86 +35,19 @@ import { Button } from "@/components/ui/button";
 import { getApiMessage } from "@/lib/apiError";
 import { APP_ROUTES } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
+import { skipToken } from "@reduxjs/toolkit/query";
 import { toast } from "sonner";
+import { useGetLiveOrderDetailsQuery } from "../api/dashboardApi";
 import { useDashboard } from "../hooks/useDashboard";
-import type { ActionItem, ActivePartner, TopProduct } from "../types/dashboard.types";
+import type {
+  ActionItem,
+  ActivePartner,
+  LiveOrder,
+  LiveOrderDetailsResponse,
+  TopProduct,
+} from "../types/dashboard.types";
 
-/* ─── Mock data for the non-stats sections (Live Orders, chart, lists) ────── */
-const LIVE_ORDERS: OrderDetail[] = [
-  {
-    id: "#AM2458",
-    sailor: "Lois Becket",
-    ship: "IMO 0123456",
-    terminal: "Anchorage 2 · PSA",
-    partner: "Rahul Singh",
-    status: "In Progress",
-    total: "$84.00",
-    payment: "Card · Paid",
-    coupon: "SHIP10",
-    items: [
-      { name: "Titan Watch", qty: 1, price: "$75.00" },
-      { name: "Card Holder", qty: 1, price: "$12.00" },
-    ],
-  },
-  {
-    id: "#AM2461",
-    sailor: "Ali Mahmoud",
-    ship: "MSC Marvela",
-    terminal: "MSC Marvela · Berth 7",
-    partner: "Rahul Singh",
-    status: "Verifying",
-    total: "$70.45",
-    payment: "Card · Paid",
-    items: [
-      { name: "Nu Republic Powerbank", qty: 2, price: "$60.00" },
-      { name: "Protein Bar", qty: 1, price: "$10.45" },
-    ],
-  },
-  {
-    id: "#AM2463",
-    sailor: "James Wren",
-    ship: "Evergreen Faith",
-    terminal: "Evergreen · Brani",
-    partner: "Pita Havili",
-    status: "Delivering",
-    total: "$48.00",
-    payment: "Card · Paid",
-    coupon: "FREESHIP",
-    items: [
-      { name: "Coffee Powder", qty: 1, price: "$18.00" },
-      { name: "Coastal Charger", qty: 1, price: "$30.00" },
-    ],
-  },
-  {
-    id: "#AM2465",
-    sailor: "Sara Chen",
-    ship: "APL Vanda",
-    terminal: "APL Vanda · PSA",
-    partner: "Marco Reyes",
-    status: "Delivered",
-    total: "$94.99",
-    payment: "Card · Paid",
-    items: [
-      { name: "Echo Dot 5th Gen", qty: 1, price: "$59.99" },
-      { name: "Echo Buds", qty: 1, price: "$35.00" },
-    ],
-  },
-  {
-    id: "#AM2467",
-    sailor: "Ravi Patel",
-    ship: "IMO 0123456",
-    terminal: "IMO 0123456 · PSA",
-    partner: "Unassigned",
-    status: "New",
-    total: "$32.00",
-    payment: "Pending",
-    items: [
-      { name: "Water Bottle 1L", qty: 6, price: "$12.00" },
-      { name: "Gillette Shaving Kit", qty: 1, price: "$20.00" },
-    ],
-  },
-];
-
+/* ─── Mock data for the remaining non-stats sections (chart, lists) ───────── */
 const CHART_VALS = [48, 62, 55, 80, 70, 95, 84, 110, 88, 102, 114, 98, 128, 112];
 const CHART_DAYS = [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29];
 const CHART_MAX = Math.max(...CHART_VALS);
@@ -191,6 +125,51 @@ const ACTION_ITEMS: ActionItem[] = [
   },
 ];
 
+/** Compose the "Ship / Port" cell from the live-order ship + port name. */
+function shipPort(order: LiveOrder): string {
+  return order.port?.name ? `${order.ship} · ${order.port.name}` : order.ship;
+}
+
+/**
+ * Adapt a list row to the {@link OrderDetail} the detail drawer expects. The
+ * list endpoint omits items/payment, so those are left empty — the drawer still
+ * opens with the order's summary fields.
+ */
+function toOrderDetail(order: LiveOrder): OrderDetail {
+  return {
+    id: order.order_number,
+    sailor: order.sailor.name,
+    ship: order.ship,
+    terminal: shipPort(order),
+    partner: order.partner?.name ?? "Unassigned",
+    status: order.status_display,
+    total: `$${Number(order.total_amount).toFixed(2)}`,
+    payment: "—",
+    items: [],
+  };
+}
+
+/** Map the full details payload to the drawer's {@link OrderDetail} shape. */
+function detailsToOrderDetail(d: LiveOrderDetailsResponse): OrderDetail {
+  const info = d.information;
+  return {
+    id: d.order_number,
+    sailor: info.sailor?.name ?? "—",
+    ship: info.ship ? `${info.ship.vessel_name} · IMO ${info.ship.imo}` : "—",
+    terminal: info.terminal ?? "—",
+    partner: info.delivery_partner?.name ?? "Unassigned",
+    status: d.status_display,
+    total: `$${d.totals.total_amount.toFixed(2)}`,
+    payment: info.payment ? `${info.payment.method} · ${info.payment.status}` : "—",
+    coupon: info.coupon ?? undefined,
+    items: d.items.map((it) => ({
+      name: it.name,
+      qty: it.quantity,
+      price: `$${it.subtotal.toFixed(2)}`,
+    })),
+  };
+}
+
 /* ─── Status → badge variant map ─────────────────────── */
 function getStatusVariant(status: string) {
   switch (status.toLowerCase()) {
@@ -215,10 +194,39 @@ function getStatusVariant(status: string) {
 ════════════════════════════════════════════════════════ */
 export function DashboardPage() {
   const navigate = useNavigate();
+  // Row summary feeds the drawer's static fields; the UUID drives the details fetch.
   const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
-  const { activeTab, selectPeriod, dateRange, setDateRange, stats, isError, error, refetch } =
-    useDashboard();
+  const {
+    activeTab,
+    selectPeriod,
+    dateRange,
+    setDateRange,
+    stats,
+    isError,
+    error,
+    refetch,
+    liveOrders,
+  } = useDashboard();
+
+  // Fetch live-order details only while the drawer is open; refetch when the id
+  // changes; skip (and reset) when closed. RTK Query caches per id.
+  const orderDetails = useGetLiveOrderDetailsQuery(selectedOrderId ?? skipToken);
+
+  // Show the row summary instantly, then swap to the full details once loaded.
+  const drawerOrder = orderDetails.data ? detailsToOrderDetail(orderDetails.data) : selectedOrder;
+
+  // Open the drawer with the row summary + its id for the details fetch.
+  const openOrder = (order: LiveOrder) => {
+    setSelectedOrder(toOrderDetail(order));
+    setSelectedOrderId(order.id);
+  };
+
+  const closeOrder = () => {
+    setSelectedOrder(null);
+    setSelectedOrderId(null);
+  };
 
   // Surface load failures through the shared toast convention.
   useEffect(() => {
@@ -226,6 +234,13 @@ export function DashboardPage() {
       toast.error(getApiMessage(error) ?? MESSAGES.DASHBOARD.ERROR);
     }
   }, [isError, error]);
+
+  // Keep the drawer usable even if the details request fails.
+  useEffect(() => {
+    if (orderDetails.isError) {
+      toast.error(getApiMessage(orderDetails.error) ?? MESSAGES.DASHBOARD.ERROR);
+    }
+  }, [orderDetails.isError, orderDetails.error]);
 
   return (
     <div className="page-enter">
@@ -352,40 +367,85 @@ export function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {LIVE_ORDERS.map((order) => (
-                  <tr key={order.id} className="tr-click" onClick={() => setSelectedOrder(order)}>
-                    <td className="td-id">{order.id}</td>
-                    <td>
-                      <div className="flex aic g8">
-                        <div className="av av-sm av-navy">{order.sailor[0]}</div>
-                        <span className="td-p">{order.sailor}</span>
-                      </div>
-                    </td>
-                    <td className="td-m">{order.terminal}</td>
+                {liveOrders.isLoading ? (
+                  <tr>
                     <td
-                      style={{
-                        color: order.partner === "Unassigned" ? "var(--danger-text)" : "var(--t3)",
-                        fontSize: "12.5px",
-                        fontWeight: 600,
-                      }}
+                      colSpan={7}
+                      className="td-m"
+                      style={{ textAlign: "center", padding: "28px" }}
                     >
-                      {order.partner}
-                    </td>
-                    <td>
-                      <Badge variant={getStatusVariant(order.status)}>{order.status}</Badge>
-                    </td>
-                    <td className="td-p w7">{order.total}</td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <button
-                        className="btn btn-ghost btn-sm btn-icon"
-                        title="View detail"
-                        onClick={() => setSelectedOrder(order)}
-                      >
-                        <IconEye size={14} />
-                      </button>
+                      {MESSAGES.DASHBOARD.LOADING}
                     </td>
                   </tr>
-                ))}
+                ) : liveOrders.isError ? (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: "center", padding: "24px" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "10px",
+                        }}
+                      >
+                        <span className="td-m" style={{ color: "var(--danger-text)" }}>
+                          {MESSAGES.DASHBOARD.ERROR}
+                        </span>
+                        <Button variant="ghost" size="xs" onClick={() => liveOrders.refetch()}>
+                          <IconRefresh size={13} />
+                          Retry
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : liveOrders.items.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="td-m"
+                      style={{ textAlign: "center", padding: "28px" }}
+                    >
+                      {MESSAGES.DASHBOARD.LIVE_ORDERS_EMPTY}
+                    </td>
+                  </tr>
+                ) : (
+                  liveOrders.items.map((order) => (
+                    <tr key={order.id} className="tr-click" onClick={() => openOrder(order)}>
+                      <td className="td-id">{order.order_number}</td>
+                      <td>
+                        <div className="flex aic g8">
+                          <div className="av av-sm av-navy">{order.sailor.name[0]}</div>
+                          <span className="td-p">{order.sailor.name}</span>
+                        </div>
+                      </td>
+                      <td className="td-m">{shipPort(order)}</td>
+                      <td
+                        style={{
+                          color: order.partner ? "var(--t3)" : "var(--danger-text)",
+                          fontSize: "12.5px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {order.partner?.name ?? "Unassigned"}
+                      </td>
+                      <td>
+                        <Badge variant={getStatusVariant(order.status_display)}>
+                          {order.status_display}
+                        </Badge>
+                      </td>
+                      <td className="td-p w7">${Number(order.total_amount).toFixed(2)}</td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <button
+                          className="btn btn-ghost btn-sm btn-icon"
+                          title="View detail"
+                          onClick={() => openOrder(order)}
+                        >
+                          <IconEye size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -395,7 +455,7 @@ export function DashboardPage() {
             style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
           >
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--t4)" }}>
-              Showing 5 of {stats.ordersPlaced} orders
+              Showing {liveOrders.items.length} of {liveOrders.count} orders
             </span>
             <Button variant="ghost" size="xs" onClick={() => navigate(APP_ROUTES.ORDERS)}>
               View all orders <IconArrowRight size={13} />
@@ -683,7 +743,12 @@ export function DashboardPage() {
       </div>
 
       {/* ── Order Detail Drawer ────────────────────────── */}
-      <OrderDetailDrawer order={selectedOrder} onClose={() => setSelectedOrder(null)} />
+      <DashboardOrderDrawer
+        order={drawerOrder}
+        onClose={closeOrder}
+        timeline={orderDetails.data?.timeline}
+        timelineLoading={orderDetails.isFetching}
+      />
     </div>
   );
 }

@@ -26,6 +26,7 @@ export const MESSAGES = {
     CANCELLED: "Cancelled",
     LOADING: "Loading dashboard…",
     ERROR: "Failed to load dashboard data. Please try again.",
+    LIVE_ORDERS_EMPTY: "No live orders for this period",
   },
   SAILORS: {
     TITLE: "Sailors Management",

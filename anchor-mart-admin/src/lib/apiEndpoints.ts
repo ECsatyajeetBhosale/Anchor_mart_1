@@ -88,4 +88,6 @@ export const ORDER_ENDPOINTS = {
 
 export const DASHBOARD_ENDPOINTS = {
   GET_STATS: "/superadmin/dashboard/dashboard/stats/",
+  GET_LIVE_ORDERS: "/superadmin/dashboard/live-orders/",
+  LIVE_ORDER_DETAIL: (id: string) => `/superadmin/dashboard/live-orders/${id}/`,
 };
