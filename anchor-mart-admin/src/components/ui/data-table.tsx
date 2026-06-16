@@ -45,6 +45,12 @@ export interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
   /** Stable React key per row — a field name or a function. Falls back to index. */
   rowKey?: keyof T | ((row: T, index: number) => React.Key);
+  /**
+   * Omit the outer `.card` wrapper so the table can be embedded inside an
+   * existing card (e.g. a {@link SectionCard} with its own header/footer).
+   * Defaults to `false` — standalone tables keep the card shell.
+   */
+  bare?: boolean;
 }
 
 export function DataTable<T>({
@@ -63,6 +69,7 @@ export function DataTable<T>({
   showPagination = true,
   onRowClick,
   rowKey,
+  bare = false,
 }: DataTableProps<T>) {
   const getRowKey = (row: T, index: number): React.Key => {
     if (typeof rowKey === "function") return rowKey(row, index);
@@ -70,8 +77,8 @@ export function DataTable<T>({
     return index;
   };
 
-  return (
-    <div className="card">
+  const body = (
+    <>
       <div className="tbl-wrap">
         <table>
           <thead>
@@ -173,7 +180,9 @@ export function DataTable<T>({
         page &&
         pages &&
         onPageChange && <Pagination page={page} pages={pages} onPageChange={onPageChange} />}
-    </div>
+    </>
   );
+
+  return bare ? body : <div className="card">{body}</div>;
 }
 export default DataTable;

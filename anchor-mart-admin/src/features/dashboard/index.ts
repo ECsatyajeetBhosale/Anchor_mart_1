@@ -7,6 +7,7 @@ export {
 } from "./api/dashboardApi";
 export type {
   ActionItem,
+  ActionTone,
   ActivePartner,
   DashboardPeriod,
   DashboardPeriodInfo,

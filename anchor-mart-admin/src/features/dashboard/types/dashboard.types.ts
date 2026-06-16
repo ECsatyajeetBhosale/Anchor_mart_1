@@ -152,11 +152,13 @@ export interface ActivePartner {
   variant: "teal" | "warning" | "success";
 }
 
+/** Color tone for an "Action Required" item's icon tile. */
+export type ActionTone = "warning" | "danger" | "info" | "purple" | "success";
+
 /** Row in the "Action Required" card. */
 export interface ActionItem {
   icon: ReactNode;
-  bg: string;
-  color: string;
+  tone: ActionTone;
   title: string;
   sub: string;
   route: string;

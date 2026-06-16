@@ -27,6 +27,66 @@ export const MESSAGES = {
     LOADING: "Loading dashboard…",
     ERROR: "Failed to load dashboard data. Please try again.",
     LIVE_ORDERS_EMPTY: "No live orders for this period",
+    // Header chrome
+    REFRESH: "Refresh",
+    EXPORT: "Export",
+    REPORT_EXPORTED: "Report exported",
+    // Period toggle
+    PERIOD: {
+      TODAY: "Today",
+      WEEK: "Week",
+      MONTH: "Month",
+    },
+    // KPI stat-card labels
+    STATS: {
+      TOTAL_SAILORS: "Total Sailors",
+      ACTIVE_PARTNERS: "Active Partners",
+      ORDERS: "Orders",
+      INTENTS_RECEIVED: "Intents Received",
+      IN_PROGRESS: "In Progress",
+      CANCELLED: "Cancelled",
+      PENDING_INTENTS: "Pending Intents",
+    },
+    // Live Orders card
+    LIVE_ORDERS: "Live Orders",
+    REALTIME: "Real-time",
+    VIEW_ALL: "View all",
+    VIEW_ALL_ORDERS: "View all orders",
+    SHOWING_ORDERS: (shown: number, total: number) => `Showing ${shown} of ${total} orders`,
+    UNASSIGNED: "Unassigned",
+    LIVE_ORDERS_COLUMNS: {
+      ORDER_ID: "Order ID",
+      SAILOR: "Sailor",
+      SHIP_PORT: "Ship / Port",
+      PARTNER: "Partner",
+      STATUS: "Status",
+      TOTAL: "Total",
+    },
+    VIEW_DETAIL: "View detail",
+    // Revenue chart card
+    REVENUE_TITLE: "Revenue — Last 14 Days",
+    REVENUE_EXPORTED: "Revenue CSV exported",
+    CHART_MODE: {
+      DAILY: "Daily",
+      WEEKLY: "Weekly",
+    },
+    WEEKLY_LOADING: "Weekly view loading…",
+    METRICS: {
+      TOTAL: "Total",
+      AVG_DAY: "Avg / Day",
+      PEAK_DAY: "Peak Day",
+      GROWTH: "Growth",
+    },
+    // Top Products card
+    TOP_PRODUCTS: "Top Products",
+    // Active Partners card
+    ACTIVE_PARTNERS_TITLE: "Active Partners",
+    WEEKLY_EARNINGS: "Weekly partner earnings",
+    PARTNER_FREE: "free",
+    PARTNER_ACTIVE: (count: number) => `${count} active`,
+    // Action Required card
+    ACTION_REQUIRED: "Action Required",
+    ACTIONS_OPEN: (count: number) => `${count} open`,
   },
   SAILORS: {
     TITLE: "Sailors Management",
