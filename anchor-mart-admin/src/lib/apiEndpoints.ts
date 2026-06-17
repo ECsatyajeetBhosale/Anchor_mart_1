@@ -68,12 +68,12 @@ export const API_ROUTES = {
 export const PRODUCT_ENDPOINTS = {
   GET_PRODUCTS: "/superadmin/products/get-products/",
   ADD_PRODUCT: "/superadmin/products/add-product/",
-  UPDATE_PRODUCT: (id: string) => `/superadmin/catalog/update-product/${id}/`,
-  DELETE_PRODUCT: (id: string) => `/superadmin/catalog/delete-product/${id}/`,
+  UPDATE_PRODUCT: (id: string) => `/superadmin/products/update-product/${id}/`,
+  DELETE_PRODUCT: (id: string) => `/superadmin/products/delete-product/${id}/`,
 };
 
 export const CATEGORY_ENDPOINTS = {
-  GET_CATEGORIES: "/superadmin/catalog/get-categories/",
+  GET_CATEGORIES: "/superadmin/categories/get-categories/",
 };
 
 export const EXPRESS_ENDPOINTS = {
@@ -94,4 +94,11 @@ export const DASHBOARD_ENDPOINTS = {
   GET_TOP_PRODUCTS: "/superadmin/dashboard/top-products/",
   GET_ACTIVE_PARTNERS: "/superadmin/dashboard/active-partners/",
   GET_ACTION_REQUIRED: "/superadmin/dashboard/action-required/",
+};
+
+export const ANALYTICS_ENDPOINTS = {
+  GET_SUMMARY: "/superadmin/analytics/summary/",
+  GET_SALES_TREND: "/superadmin/analytics/sales-trend/",
+  GET_ORDERS_BY_CATEGORY: "/superadmin/analytics/orders-by-category/",
+  GET_PRODUCT_SALES: "/superadmin/analytics/product-sales/",
 };

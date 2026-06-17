@@ -101,6 +101,8 @@ export const MESSAGES = {
   },
   ANALYTICS: {
     TITLE: "Analytics & Insights",
+    ERROR: "Failed to load analytics data. Please try again.",
+    EMPTY: "No data for this period",
     // Period pill toggle
     PERIOD: {
       D7: "7 Days",

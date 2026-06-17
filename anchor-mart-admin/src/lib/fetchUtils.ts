@@ -33,6 +33,7 @@ export const baseApi = createApi({
   }),
   tagTypes: [
     "Dashboard",
+    "Analytics",
     "Sailors",
     "Orders",
     "Intents",
