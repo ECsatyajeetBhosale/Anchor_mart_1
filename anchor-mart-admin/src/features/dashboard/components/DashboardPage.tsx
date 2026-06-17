@@ -62,6 +62,9 @@ export function DashboardPage() {
     error,
     refetch,
     liveOrders,
+    topProducts,
+    activePartners,
+    actionRequired,
   } = useDashboard();
 
   // Fetch live-order details only while the drawer is open; refetch when the id
@@ -207,14 +210,34 @@ export function DashboardPage() {
 
       {/* ── Row 2: Revenue Chart ───────────────────────── */}
       <div className="mb20">
-        <RevenueChartCard />
+        <RevenueChartCard dateRange={dateRange} />
       </div>
 
       {/* ── Row 3: Top Products · Active Partners · Action Required ── */}
       <div className="grid-3">
-        <TopProductsCard />
-        <ActivePartnersCard />
-        <ActionRequiredCard />
+        <TopProductsCard
+          items={topProducts.items}
+          isLoading={topProducts.isLoading}
+          isError={topProducts.isError}
+          onRetry={topProducts.refetch}
+          onViewAll={() => navigate(APP_ROUTES.PRODUCTS)}
+          onSelect={() => navigate(APP_ROUTES.PRODUCTS)}
+        />
+        <ActivePartnersCard
+          items={activePartners.items}
+          isLoading={activePartners.isLoading}
+          isError={activePartners.isError}
+          onRetry={activePartners.refetch}
+          onViewAll={() => navigate(APP_ROUTES.PARTNERS)}
+          onSelect={() => navigate(APP_ROUTES.PARTNERS)}
+        />
+        <ActionRequiredCard
+          items={actionRequired.items}
+          total={actionRequired.total}
+          isLoading={actionRequired.isLoading}
+          isError={actionRequired.isError}
+          onRetry={actionRequired.refetch}
+        />
       </div>
 
       {/* ── Order Detail Drawer ────────────────────────── */}

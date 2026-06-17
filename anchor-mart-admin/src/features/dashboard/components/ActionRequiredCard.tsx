@@ -1,11 +1,11 @@
 import {
   IconAlertCircle,
   IconBuildingStore,
-  IconClock,
-  IconFileInvoice,
-  IconMapPin,
-  IconPackageOff,
+  IconClipboardList,
+  IconCreditCard,
+  IconShieldCheck,
 } from "@tabler/icons-react";
+import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { SectionCard } from "@/components/common/SectionCard";
@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { APP_ROUTES } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
-import type { ActionItem, ActionTone } from "../types/dashboard.types";
+import type { ActionRequiredItem, ActionTone } from "../types/dashboard.types";
 
 const M = MESSAGES.DASHBOARD;
 
@@ -26,81 +26,130 @@ const TONE_TILE: Record<ActionTone, string> = {
   success: "bg-[var(--success-bg)] text-[var(--success-icon)]",
 };
 
-/* ─── Mock data — pending an operational-alerts endpoint ──────────────────── */
-const ACTION_ITEMS: ActionItem[] = [
-  {
-    icon: <IconClock size={16} />,
-    tone: "warning",
-    title: "12 orders awaiting payment",
-    sub: "48hr window expiring soon",
-    route: APP_ROUTES.ORDERS,
-    label: "Review",
+/** Per-action-type presentation + frontend destination, keyed by API `key`. */
+interface ActionConfig {
+  icon: ReactNode;
+  tone: ActionTone;
+  button: string;
+  /** Frontend route (APP_ROUTES). Undefined → no navigation for this action. */
+  route?: string;
+}
+
+/**
+ * Maps each known action `key` to its icon, tone, button label, and frontend
+ * route. The API `link` is a backend URL, so navigation resolves to the matching
+ * APP_ROUTES page here; add a key to scale to future action types.
+ */
+const ACTION_CONFIG: Record<string, ActionConfig> = {
+  new_intents: {
+    icon: <IconClipboardList size={16} />,
+    tone: "success",
+    button: M.ACTION_BUTTONS.REVIEW,
+    route: APP_ROUTES.INTENTS,
   },
-  {
-    icon: <IconPackageOff size={16} />,
-    tone: "danger",
-    title: "3 items out of stock",
-    sub: "Admin substitution needed",
-    route: APP_ROUTES.PRODUCTS,
-    label: "Fix",
-  },
-  {
-    icon: <IconMapPin size={16} />,
+  verifications_to_review: {
+    icon: <IconShieldCheck size={16} />,
     tone: "info",
-    title: "2 location changes post-payment",
-    sub: "Additional charges required",
-    route: APP_ROUTES.ORDERS,
-    label: "Review",
+    button: M.ACTION_BUTTONS.VERIFY,
+    route: APP_ROUTES.VERIFICATION,
   },
-  {
+  orders_awaiting_payment: {
+    icon: <IconCreditCard size={16} />,
+    tone: "warning",
+    button: M.ACTION_BUTTONS.COLLECT,
+    route: APP_ROUTES.ORDERS,
+  },
+  pending_seller_applications: {
     icon: <IconBuildingStore size={16} />,
     tone: "purple",
-    title: "4 seller applications pending",
-    sub: "Review required",
+    button: M.ACTION_BUTTONS.APPROVE,
     route: APP_ROUTES.SELLERS,
-    label: "Open",
   },
-  {
-    icon: <IconFileInvoice size={16} />,
-    tone: "success",
-    title: "8 new intent requests",
-    sub: "Awaiting availability check",
-    route: APP_ROUTES.INTENTS,
-    label: "Review",
-  },
-];
+};
 
-/** Total open alerts shown in the header badge (mock). */
-const OPEN_COUNT = 7;
+/** Fallback for unrecognised future action keys. */
+const DEFAULT_CONFIG: ActionConfig = {
+  icon: <IconAlertCircle size={16} />,
+  tone: "info",
+  button: MESSAGES.COMMON.VIEW,
+};
 
-/** Operational alerts that need an admin's attention. */
-export function ActionRequiredCard() {
+export interface ActionRequiredCardProps {
+  items: ActionRequiredItem[];
+  total: number;
+  isLoading: boolean;
+  isError: boolean;
+  onRetry: () => void;
+}
+
+/**
+ * Operational alerts that need an admin's attention — driven by the (param-less)
+ * action-required endpoint via {@link useDashboard}. Cards render dynamically
+ * from the API; UI/structure is unchanged.
+ */
+export function ActionRequiredCard({
+  items,
+  total,
+  isLoading,
+  isError,
+  onRetry,
+}: ActionRequiredCardProps) {
   const navigate = useNavigate();
 
   return (
     <SectionCard
       bodyPadding="sm"
-      bodyClassName="flex flex-col gap-2.5"
+      bodyClassName="flex flex-col gap-5"
       icon={<IconAlertCircle size={17} className="text-[var(--t4)]" />}
       title={M.ACTION_REQUIRED}
-      actions={<Badge variant="danger">{M.ACTIONS_OPEN(OPEN_COUNT)}</Badge>}
+      actions={<Badge variant="danger">{M.ACTIONS_OPEN(total)}</Badge>}
     >
-      {ACTION_ITEMS.map((a) => (
-        <div key={a.title} className="flex items-start gap-2.5">
-          <div
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] ${TONE_TILE[a.tone]}`}
-          >
-            {a.icon}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-[12px] font-bold leading-[1.3] text-[var(--t1)]">{a.title}</div>
-            <div className="mt-0.5 text-[10.5px] text-[var(--t4)]">{a.sub}</div>
-          </div>
-          <Button variant="ghost" size="xs" className="shrink-0" onClick={() => navigate(a.route)}>
-            {a.label}
+      {isLoading ? (
+        <div className="flex min-h-[200px] items-center justify-center">
+          <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-[var(--border-md)] border-t-[var(--teal-500)]" />
+        </div>
+      ) : isError ? (
+        <div className="flex min-h-[200px] flex-col items-center justify-center gap-3">
+          <span className="td-m text-[var(--danger-text)]">{M.ERROR}</span>
+          <Button variant="secondary" size="xs" onClick={onRetry}>
+            {MESSAGES.COMMON.RETRY}
           </Button>
         </div>
-      ))}
+      ) : items.length === 0 ? (
+        <div className="flex min-h-[200px] items-center justify-center">
+          <span className="td-m">{M.ACTION_REQUIRED_EMPTY}</span>
+        </div>
+      ) : (
+        items.map((a) => {
+          const cfg = ACTION_CONFIG[a.key] ?? DEFAULT_CONFIG;
+          return (
+            <div key={a.key} className="flex items-start gap-2.5">
+              <div
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] ${TONE_TILE[cfg.tone]}`}
+              >
+                {cfg.icon}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[12px] font-bold leading-[1.3] text-[var(--t1)]">
+                  {a.label}
+                </div>
+                <div className="mt-0.5 text-[10.5px] text-[var(--t4)]">
+                  {M.ACTION_PENDING(a.count)}
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="xs"
+                className="shrink-0"
+                disabled={!cfg.route}
+                onClick={() => cfg.route && navigate(cfg.route)}
+              >
+                {cfg.button}
+              </Button>
+            </div>
+          );
+        })
+      )}
     </SectionCard>
   );
 }

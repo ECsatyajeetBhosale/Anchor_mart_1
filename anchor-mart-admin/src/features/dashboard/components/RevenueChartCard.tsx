@@ -1,5 +1,6 @@
 import { IconChartBar, IconDownload } from "@tabler/icons-react";
 import { useState } from "react";
+import type { DateRange } from "react-day-picker";
 import { Bar, BarChart, Cell, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 
@@ -13,23 +14,15 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { MESSAGES } from "@/lib/messages";
+import { formatCurrency } from "@/lib/utils";
+
+import { useRevenue } from "../hooks/useRevenue";
+import type { RevenueGranularity } from "../types/dashboard.types";
 
 const M = MESSAGES.DASHBOARD;
 
-/* ─── Mock revenue data — pending a revenue/timeseries endpoint ───────────── */
-const CHART_VALS = [48, 62, 55, 80, 70, 95, 84, 110, 88, 102, 114, 98, 128, 112];
-const CHART_DAYS = [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29];
-
-/** Bars from this index on are emphasised (navy) vs amber — matches the mockup. */
-const HIGHLIGHT_FROM = 7;
-/** Y domain max mirrors the legacy `height: value / 1.3 %` scaling (max ≈ 130). */
-const Y_MAX = 130;
-
-const revenueData = CHART_DAYS.map((day, i) => ({
-  day: `May ${day}`,
-  revenue: CHART_VALS[i],
-  highlight: i >= HIGHLIGHT_FROM,
-}));
+/** Placeholder shown in the Total metric while data is loading/unavailable. */
+const PLACEHOLDER = "—";
 
 /** Bar fill per the mockup: base colors, brighter while hovered. */
 function barFill(highlight: boolean, active: boolean): string {
@@ -38,17 +31,28 @@ function barFill(highlight: boolean, active: boolean): string {
 }
 
 const chartConfig: ChartConfig = {
-  revenue: { label: "Revenue", color: "var(--navy-600)" },
+  net: { label: M.REVENUE_TITLE, color: "var(--navy-600)" },
 };
 
+export interface RevenueChartCardProps {
+  /** Dashboard-wide custom range; scopes the revenue window when complete. */
+  dateRange?: DateRange;
+}
+
 /**
- * Revenue bar chart (last 14 days), rendered with Recharts via the shared
- * {@link ChartContainer} primitive but styled to match the legacy mockup exactly:
- * gridless, full-width amber/navy bars that brighten on hover. Mock data until a
- * revenue timeseries endpoint exists.
+ * Revenue bar chart (Recharts via the shared {@link ChartContainer}), wired to
+ * the revenue endpoint through {@link useRevenue}. Plots `net` per bucket and
+ * shows aggregated totals; the daily/weekly toggle and dashboard date range
+ * drive refetches. Chart visuals are unchanged — only the data is now live.
  */
-export function RevenueChartCard() {
+export function RevenueChartCard({ dateRange }: RevenueChartCardProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const { granularity, setGranularity, data, totals, isLoading, isError, isEmpty, refetch } =
+    useRevenue(dateRange);
+
+  // Headroom above the tallest bar mirrors the mockup's slight top gap.
+  const maxNet = data.reduce((max, d) => Math.max(max, d.net), 0);
+  const yMax = maxNet > 0 ? maxNet * 1.08 : 1;
 
   return (
     <SectionCard
@@ -57,15 +61,13 @@ export function RevenueChartCard() {
       title={M.REVENUE_TITLE}
       actions={
         <>
-          <PillToggle
-            value={M.CHART_MODE.DAILY}
+          <PillToggle<RevenueGranularity>
+            value={granularity}
             options={[
-              { label: M.CHART_MODE.DAILY, value: M.CHART_MODE.DAILY },
-              { label: M.CHART_MODE.WEEKLY, value: M.CHART_MODE.WEEKLY },
+              { label: M.CHART_MODE.DAILY, value: "daily" },
+              { label: M.CHART_MODE.WEEKLY, value: "weekly" },
             ]}
-            onChange={(v) => {
-              if (v === M.CHART_MODE.WEEKLY) toast.info(M.WEEKLY_LOADING);
-            }}
+            onChange={setGranularity}
           />
           <Button variant="ghost" size="xs" onClick={() => toast.success(M.REVENUE_EXPORTED)}>
             <IconDownload size={14} />
@@ -77,48 +79,67 @@ export function RevenueChartCard() {
       <div className="metric-row">
         <div className="metric-item">
           <div className="metric-lbl">{M.METRICS.TOTAL}</div>
-          <div className="metric-val text-[var(--green-text)]!">$168.2k</div>
+          <div className="metric-val text-[var(--green-text)]!">
+            {totals ? formatCurrency(totals.net) : PLACEHOLDER}
+          </div>
         </div>
       </div>
 
       {/* Bar chart */}
       <div className="card-body">
-        <ChartContainer config={chartConfig} className="h-[150px]">
-          <BarChart
-            data={revenueData}
-            margin={{ top: 5, right: 0, left: 0, bottom: 0 }}
-            barCategoryGap="4%"
-            onMouseMove={(state) => {
-              const idx = state?.activeTooltipIndex;
-              setActiveIndex(typeof idx === "number" ? idx : null);
-            }}
-            onMouseLeave={() => setActiveIndex(null)}
-          >
-            <YAxis hide domain={[0, Y_MAX]} />
-            <XAxis
-              dataKey="day"
-              tickLine={false}
-              axisLine={false}
-              interval={0}
-              tickMargin={8}
-              tick={{ fontSize: 9.5, fontWeight: 600 }}
-            />
-            <ChartTooltip
-              cursor={false}
-              content={
-                <ChartTooltipContent
-                  hideIndicator
-                  formatter={(value) => `$${(Number(value) * 145).toLocaleString()}`}
-                />
-              }
-            />
-            <Bar dataKey="revenue" radius={[5, 5, 0, 0]} isAnimationActive={false}>
-              {revenueData.map((d, i) => (
-                <Cell key={d.day} fill={barFill(d.highlight, activeIndex === i)} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ChartContainer>
+        {isLoading ? (
+          <div className="flex h-[150px] items-center justify-center">
+            <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-[var(--border-md)] border-t-[var(--teal-500)]" />
+          </div>
+        ) : isError ? (
+          <div className="flex h-[150px] flex-col items-center justify-center gap-3">
+            <span className="td-m text-[var(--danger-text)]">{M.ERROR}</span>
+            <Button variant="secondary" size="xs" onClick={() => refetch()}>
+              {MESSAGES.COMMON.RETRY}
+            </Button>
+          </div>
+        ) : isEmpty ? (
+          <div className="flex h-[150px] items-center justify-center">
+            <span className="td-m">{M.REVENUE_EMPTY}</span>
+          </div>
+        ) : (
+          <ChartContainer config={chartConfig} className="h-[150px]">
+            <BarChart
+              data={data}
+              margin={{ top: 5, right: 0, left: 0, bottom: 0 }}
+              barCategoryGap="3%"
+              onMouseMove={(state) => {
+                const idx = state?.activeTooltipIndex;
+                setActiveIndex(typeof idx === "number" ? idx : null);
+              }}
+              onMouseLeave={() => setActiveIndex(null)}
+            >
+              <YAxis hide domain={[0, yMax]} />
+              <XAxis
+                dataKey="label"
+                tickLine={false}
+                axisLine={false}
+                interval={0}
+                tickMargin={8}
+                tick={{ fontSize: 9.5, fontWeight: 600 }}
+              />
+              <ChartTooltip
+                cursor={false}
+                content={
+                  <ChartTooltipContent
+                    hideIndicator
+                    formatter={(value) => formatCurrency(Number(value))}
+                  />
+                }
+              />
+              <Bar dataKey="net" radius={[5, 5, 0, 0]} isAnimationActive={false}>
+                {data.map((d, i) => (
+                  <Cell key={d.label} fill={barFill(d.highlight, activeIndex === i)} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ChartContainer>
+        )}
       </div>
     </SectionCard>
   );

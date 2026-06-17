@@ -1,5 +1,4 @@
 import type { OrderTimelineItem } from "@/components/common/OrderDetailDrawer";
-import type { ReactNode } from "react";
 
 /** Time-range filter shown in the dashboard header. */
 export type TimeRange = "Today" | "Week" | "Month";
@@ -135,32 +134,118 @@ export interface LiveOrderDetailsResponse {
   totals: LiveOrderTotals;
 }
 
-/** Row in the "Top Products" card. */
-export interface TopProduct {
-  name: string;
+/** Ranking metric for the top-products endpoint (scalable for future metrics). */
+export type TopProductsRankBy = "units" | "revenue";
+
+/** A single row in the "Top Products" widget. */
+export interface TopProductItem {
+  product_id: string;
+  product_name: string;
   category: string;
-  orders: number;
-  icon: ReactNode;
+  units: number;
+  revenue: number;
 }
 
-/** Row in the "Active Partners" card. */
+/** The `results` envelope of the top-products payload. */
+export interface TopProductsResults {
+  message: string;
+  rank_by: TopProductsRankBy;
+  period: string;
+  data: TopProductItem[];
+}
+
+/** Payload from `GET /superadmin/dashboard/top-products/`. */
+export interface TopProductsResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: TopProductsResults;
+}
+
+/** The order a partner is currently delivering (null when free). */
+export interface ActivePartnerCurrentOrder {
+  id?: string;
+  order_number: string;
+}
+
+/** A delivery partner row from the active-partners endpoint. */
 export interface ActivePartner {
-  name: string;
   id: string;
-  active: number;
-  status: string;
-  variant: "teal" | "warning" | "success";
+  name: string;
+  email: string;
+  partner_code: string | null;
+  is_available: boolean | null;
+  work_status: string;
+  current_order: ActivePartnerCurrentOrder | null;
+}
+
+/** Payload from `GET /superadmin/dashboard/active-partners/` (takes no params). */
+export interface ActivePartnersResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: ActivePartner[];
 }
 
 /** Color tone for an "Action Required" item's icon tile. */
 export type ActionTone = "warning" | "danger" | "info" | "purple" | "success";
 
-/** Row in the "Action Required" card. */
-export interface ActionItem {
-  icon: ReactNode;
-  tone: ActionTone;
-  title: string;
-  sub: string;
-  route: string;
+/** A single actionable item from the action-required endpoint. */
+export interface ActionRequiredItem {
+  key: string;
   label: string;
+  count: number;
+  /** Backend resource link; may be absent. */
+  link: string | null;
+}
+
+/** Payload from `GET /superadmin/dashboard/action-required/` (takes no params). */
+export interface ActionRequiredResponse {
+  actions: ActionRequiredItem[];
+  total: number;
+}
+
+/** Bucketing granularity for the revenue timeseries. */
+export type RevenueGranularity = "daily" | "weekly";
+
+/**
+ * Query parameters for the revenue endpoint. `granularity` is always sent; a
+ * complete custom range adds `from_date` + `to_date` (the two range keys are
+ * sent together or not at all).
+ */
+export interface RevenueParams {
+  granularity: RevenueGranularity;
+  from_date?: string;
+  to_date?: string;
+}
+
+/** Resolved window echoed back by the revenue endpoint. */
+export interface RevenueWindow {
+  from: string;
+  to: string;
+  granularity: RevenueGranularity;
+}
+
+/** Aggregated revenue totals for the resolved window. */
+export interface RevenueTotals {
+  gross: number;
+  refunded: number;
+  net: number;
+}
+
+/** A single bucket (bar) in the revenue timeseries. */
+export interface RevenueBar {
+  label: string;
+  from: string;
+  to: string;
+  gross: number;
+  refunded: number;
+  net: number;
+}
+
+/** Payload from `GET /superadmin/dashboard/revenue/`. */
+export interface RevenueResponse {
+  window: RevenueWindow;
+  totals: RevenueTotals;
+  bars: RevenueBar[];
 }

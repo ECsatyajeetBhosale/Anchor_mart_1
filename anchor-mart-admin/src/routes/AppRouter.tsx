@@ -9,9 +9,9 @@ import { LoginPage } from "@/features/auth";
 
 // Dashboard — from feature
 import { DashboardPage } from "@/features/dashboard";
+import { AnalyticsPage } from "@/features/analytics";
 
 // Pages (remain in pages/ until migrated to features)
-import { AnalyticsPage } from "@/pages/AnalyticsPage";
 import { SailorsPage } from "@/pages/SailorsPage";
 import { OrdersPage } from "@/pages/OrdersPage";
 import { IntentsPage } from "@/pages/IntentsPage";

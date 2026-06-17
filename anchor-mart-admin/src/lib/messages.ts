@@ -66,6 +66,7 @@ export const MESSAGES = {
     // Revenue chart card
     REVENUE_TITLE: "Revenue — Last 14 Days",
     REVENUE_EXPORTED: "Revenue CSV exported",
+    REVENUE_EMPTY: "No revenue data for this period",
     CHART_MODE: {
       DAILY: "Daily",
       WEEKLY: "Weekly",
@@ -79,14 +80,67 @@ export const MESSAGES = {
     },
     // Top Products card
     TOP_PRODUCTS: "Top Products",
+    TOP_PRODUCTS_EMPTY: "No product sales for this period",
     // Active Partners card
     ACTIVE_PARTNERS_TITLE: "Active Partners",
+    ACTIVE_PARTNERS_EMPTY: "No active partners right now",
     WEEKLY_EARNINGS: "Weekly partner earnings",
     PARTNER_FREE: "free",
     PARTNER_ACTIVE: (count: number) => `${count} active`,
     // Action Required card
     ACTION_REQUIRED: "Action Required",
+    ACTION_REQUIRED_EMPTY: "Nothing needs attention right now",
     ACTIONS_OPEN: (count: number) => `${count} open`,
+    ACTION_PENDING: (count: number) => `${count} pending`,
+    ACTION_BUTTONS: {
+      REVIEW: "Review",
+      VERIFY: "Verify",
+      COLLECT: "Collect",
+      APPROVE: "Approve",
+    },
+  },
+  ANALYTICS: {
+    TITLE: "Analytics & Insights",
+    SUBTITLE: "Sales · Delivery · Users · Products · Ports",
+    DATE_RANGE: "Date Range",
+    DATE_RANGE_SOON: "Date range picker coming soon",
+    // Period pill toggle
+    PERIOD: {
+      D7: "7 Days",
+      D30: "30 Days",
+      QUARTER: "Quarter",
+      YEAR: "Year",
+    },
+    // KPI stat-card labels
+    STATS: {
+      MONTHLY_REVENUE: "Monthly Revenue",
+      TOTAL_ORDERS: "Total Orders",
+      ACTIVE_SAILORS: "Active Sailors",
+    },
+    // Chart cards
+    SALES_TREND: "Sales Trend (Daily)",
+    ORDERS_BY_CATEGORY: "Orders by Category",
+    PRODUCT_SALES: "Product-wise Sales",
+    PRODUCT_METRICS: {
+      REVENUE_7D: "Revenue (7d)",
+      UNITS_SOLD: "Units Sold",
+      GROWTH: "Growth",
+    },
+    UNITS_SUFFIX: (n: number) => `${n} units`,
+    ORDERS_SUFFIX: (n: number) => `${n} orders`,
+    // Express performance table
+    EXPRESS_PERFORMANCE: "Express Item Performance",
+    EXPORT: "Export",
+    EXPORTED: "Exported performance report",
+    COLUMNS: {
+      RANK: "#",
+      PRODUCT: "Product",
+      CATEGORY: "Category",
+      UNITS: "Units Sold",
+      REVENUE: "Revenue",
+      GROWTH: "Growth",
+      TREND: "Trend",
+    },
   },
   SAILORS: {
     TITLE: "Sailors Management",

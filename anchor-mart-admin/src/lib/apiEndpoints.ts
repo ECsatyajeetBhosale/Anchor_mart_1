@@ -66,8 +66,8 @@ export const API_ROUTES = {
 } as const;
 
 export const PRODUCT_ENDPOINTS = {
-  GET_PRODUCTS: "/superadmin/catalog/get-products/",
-  ADD_PRODUCT: "/superadmin/catalog/add-product/",
+  GET_PRODUCTS: "/superadmin/products/get-products/",
+  ADD_PRODUCT: "/superadmin/products/add-product/",
   UPDATE_PRODUCT: (id: string) => `/superadmin/catalog/update-product/${id}/`,
   DELETE_PRODUCT: (id: string) => `/superadmin/catalog/delete-product/${id}/`,
 };
@@ -90,4 +90,8 @@ export const DASHBOARD_ENDPOINTS = {
   GET_STATS: "/superadmin/dashboard/dashboard/stats/",
   GET_LIVE_ORDERS: "/superadmin/dashboard/live-orders/",
   LIVE_ORDER_DETAIL: (id: string) => `/superadmin/dashboard/live-orders/${id}/`,
+  GET_REVENUE: "/superadmin/dashboard/revenue/",
+  GET_TOP_PRODUCTS: "/superadmin/dashboard/top-products/",
+  GET_ACTIVE_PARTNERS: "/superadmin/dashboard/active-partners/",
+  GET_ACTION_REQUIRED: "/superadmin/dashboard/action-required/",
 };

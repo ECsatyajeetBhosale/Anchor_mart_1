@@ -44,7 +44,9 @@ export function SectionCard({
 }: SectionCardProps) {
   const hasHeader = title != null || actions != null;
   return (
-    <div className={cn("card", className)}>
+    // Flex column so the body fills (and the footer pins to the bottom) when the
+    // card is stretched by a grid row — natural-height cards are unaffected.
+    <div className={cn("card flex flex-col", className)}>
       {hasHeader && (
         <div className="card-hd">
           <div className="card-ttl">
@@ -54,7 +56,7 @@ export function SectionCard({
           {actions && <div className="card-acts">{actions}</div>}
         </div>
       )}
-      <div className={cn(BODY_PADDING[bodyPadding], bodyClassName)}>{children}</div>
+      <div className={cn("flex-1", BODY_PADDING[bodyPadding], bodyClassName)}>{children}</div>
       {footer && <div className="card-foot">{footer}</div>}
     </div>
   );
