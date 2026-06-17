@@ -24,7 +24,12 @@ export function OrdersByCategoryCard({ params }: OrdersByCategoryCardProps) {
       title={M.ORDERS_BY_CATEGORY}
     >
       <ChartState isLoading={isLoading} isError={isError} isEmpty={isEmpty} onRetry={refetch}>
-        <AnalyticsBarChart bars={bars} variant="teal" />
+        <AnalyticsBarChart
+          bars={bars}
+          color="var(--teal-200)"
+          hoverColor="var(--teal-500)"
+          tooltipFormatter={(value) => M.ORDERS_SUFFIX(value)}
+        />
       </ChartState>
     </SectionCard>
   );

@@ -87,7 +87,12 @@ export function ProductSalesCard({ params }: ProductSalesCardProps) {
       {/* Daily units bar chart */}
       <div className="card-body">
         <ChartState isLoading={isLoading} isError={isError} isEmpty={isEmpty} onRetry={refetch}>
-          <AnalyticsBarChart bars={bars} variant="teal" />
+          <AnalyticsBarChart
+            bars={bars}
+            color="var(--teal-200)"
+            hoverColor="var(--teal-500)"
+            tooltipFormatter={(value) => M.UNITS_SUFFIX(value)}
+          />
         </ChartState>
       </div>
     </SectionCard>

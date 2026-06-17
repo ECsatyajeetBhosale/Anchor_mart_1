@@ -1,13 +1,10 @@
 import { useMemo, useState } from "react";
 
 import { useGetProductsQuery } from "@/features/products";
-import { MESSAGES } from "@/lib/messages";
 
 import { useGetProductSalesQuery } from "../api/analyticsApi";
 import type { ChartBar } from "../components/AnalyticsBarChart";
 import type { AnalyticsParams } from "../types/analytics.types";
-
-const M = MESSAGES.ANALYTICS;
 
 /**
  * Product-wise sales data access. The selector lists products from the same
@@ -30,15 +27,15 @@ export function useProductSales(params: AnalyticsParams) {
   const query = useGetProductSalesQuery({ ...params, product_id: productId });
   const data = query.data;
 
-  const bars = useMemo<ChartBar[]>(() => {
-    const series = data?.series ?? [];
-    const max = series.reduce((m, s) => Math.max(m, s.units), 0);
-    return series.map((s) => ({
-      label: s.weekday || s.label,
-      heightPct: max > 0 ? (s.units / max) * 100 : 0,
-      title: `${s.weekday || s.label}: ${M.UNITS_SUFFIX(s.units)}`,
-    }));
-  }, [data?.series]);
+  const bars = useMemo<ChartBar[]>(
+    () =>
+      (data?.series ?? []).map((s) => ({
+        key: s.from || s.label,
+        label: s.weekday || s.label,
+        value: s.units,
+      })),
+    [data?.series],
+  );
 
   return {
     revenue: data?.revenue,

@@ -24,7 +24,12 @@ export function SalesTrendCard({ params }: SalesTrendCardProps) {
       title={M.SALES_TREND}
     >
       <ChartState isLoading={isLoading} isError={isError} isEmpty={isEmpty} onRetry={refetch}>
-        <AnalyticsBarChart bars={bars} variant="hi" />
+        <AnalyticsBarChart
+          bars={bars}
+          color="var(--navy-600)"
+          hoverColor="var(--navy-400)"
+          tooltipFormatter={(value) => `$${value.toLocaleString()}`}
+        />
       </ChartState>
     </SectionCard>
   );

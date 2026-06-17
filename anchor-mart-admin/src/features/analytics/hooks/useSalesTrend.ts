@@ -5,23 +5,23 @@ import type { ChartBar } from "../components/AnalyticsBarChart";
 import type { AnalyticsParams } from "../types/analytics.types";
 
 /**
- * Sales-trend chart data access. Maps the API `bars` to the design-system bar
- * chart's `{ label, heightPct, title }` shape (x-axis = weekday, height scaled to
- * the window's peak revenue) and exposes loading / error / empty flags. Refetches
- * automatically when `params` change (same params hit the RTK Query cache).
+ * Sales-trend chart data access. Maps the API `bars` to the chart's
+ * `{ key, label, value }` shape (axis = bucket date, label = weekday, value =
+ * revenue) and exposes loading / error / empty flags. Refetches automatically
+ * when `params` change (same params hit the RTK Query cache).
  */
 export function useSalesTrend(params: AnalyticsParams) {
   const query = useGetSalesTrendQuery(params);
 
-  const bars = useMemo<ChartBar[]>(() => {
-    const src = query.data?.bars ?? [];
-    const max = src.reduce((m, b) => Math.max(m, b.revenue), 0);
-    return src.map((b) => ({
-      label: b.weekday || b.label,
-      heightPct: max > 0 ? (b.revenue / max) * 100 : 0,
-      title: `${b.weekday || b.label}: $${b.revenue.toLocaleString()}`,
-    }));
-  }, [query.data?.bars]);
+  const bars = useMemo<ChartBar[]>(
+    () =>
+      (query.data?.bars ?? []).map((b) => ({
+        key: b.from || b.label,
+        label: b.weekday || b.label,
+        value: b.revenue,
+      })),
+    [query.data?.bars],
+  );
 
   return {
     bars,
