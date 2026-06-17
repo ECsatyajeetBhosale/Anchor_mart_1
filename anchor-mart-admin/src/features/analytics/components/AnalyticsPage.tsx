@@ -1,15 +1,14 @@
-import { IconCalendar, IconCurrencyDollar, IconPackage, IconUsers } from "@tabler/icons-react";
+import { IconCurrencyDollar, IconPackage, IconUsers } from "@tabler/icons-react";
 import { useState } from "react";
-import { toast } from "sonner";
+import type { DateRange } from "react-day-picker";
 
+import { DateRangePicker } from "@/components/common/DateRangePicker";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PillToggle } from "@/components/common/PillToggle";
 import { StatsGrid, type StatsGridItem } from "@/components/common/StatsGrid";
-import { Button } from "@/components/ui/button";
 import { MESSAGES } from "@/lib/messages";
 
 import type { AnalyticsPeriod } from "../data/analyticsData";
-import { ExpressPerformanceCard } from "./ExpressPerformanceCard";
 import { OrdersByCategoryCard } from "./OrdersByCategoryCard";
 import { ProductSalesCard } from "./ProductSalesCard";
 import { SalesTrendCard } from "./SalesTrendCard";
@@ -30,8 +29,6 @@ const STAT_CARDS: StatsGridItem[] = [
     value: "$284k",
     icon: <IconCurrencyDollar size={19} />,
     variant: "teal",
-    delta: { value: "18.3%", direction: "up" },
-    footer: "vs last month",
   },
   {
     id: "orders",
@@ -39,7 +36,6 @@ const STAT_CARDS: StatsGridItem[] = [
     value: "3,421",
     icon: <IconPackage size={19} />,
     variant: "navy",
-    delta: { value: "12.1%", direction: "up" },
   },
   {
     id: "sailors",
@@ -47,7 +43,6 @@ const STAT_CARDS: StatsGridItem[] = [
     value: "1,204",
     icon: <IconUsers size={19} />,
     variant: "amber",
-    delta: { value: "220 new", direction: "up" },
   },
 ];
 
@@ -59,12 +54,12 @@ const STAT_CARDS: StatsGridItem[] = [
  */
 export function AnalyticsPage() {
   const [period, setPeriod] = useState<AnalyticsPeriod>("7 Days");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   return (
     <div className="page-enter">
       <PageHeader
         title={M.TITLE}
-        subtitle={M.SUBTITLE}
         actions={
           <>
             <PillToggle<AnalyticsPeriod>
@@ -72,10 +67,7 @@ export function AnalyticsPage() {
               value={period}
               onChange={setPeriod}
             />
-            <Button variant="secondary" size="sm" onClick={() => toast.info(M.DATE_RANGE_SOON)}>
-              <IconCalendar size={14} />
-              {M.DATE_RANGE}
-            </Button>
+            <DateRangePicker value={dateRange} onChange={setDateRange} />
           </>
         }
       />
@@ -87,11 +79,7 @@ export function AnalyticsPage() {
         <OrdersByCategoryCard />
       </div>
 
-      <div className="mb20">
-        <ProductSalesCard />
-      </div>
-
-      <ExpressPerformanceCard />
+      <ProductSalesCard />
     </div>
   );
 }

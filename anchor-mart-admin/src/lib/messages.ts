@@ -101,9 +101,6 @@ export const MESSAGES = {
   },
   ANALYTICS: {
     TITLE: "Analytics & Insights",
-    SUBTITLE: "Sales · Delivery · Users · Products · Ports",
-    DATE_RANGE: "Date Range",
-    DATE_RANGE_SOON: "Date range picker coming soon",
     // Period pill toggle
     PERIOD: {
       D7: "7 Days",
@@ -128,19 +125,6 @@ export const MESSAGES = {
     },
     UNITS_SUFFIX: (n: number) => `${n} units`,
     ORDERS_SUFFIX: (n: number) => `${n} orders`,
-    // Express performance table
-    EXPRESS_PERFORMANCE: "Express Item Performance",
-    EXPORT: "Export",
-    EXPORTED: "Exported performance report",
-    COLUMNS: {
-      RANK: "#",
-      PRODUCT: "Product",
-      CATEGORY: "Category",
-      UNITS: "Units Sold",
-      REVENUE: "Revenue",
-      GROWTH: "Growth",
-      TREND: "Trend",
-    },
   },
   SAILORS: {
     TITLE: "Sailors Management",
