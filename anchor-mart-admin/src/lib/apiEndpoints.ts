@@ -76,6 +76,17 @@ export const CATEGORY_ENDPOINTS = {
   GET_CATEGORIES: "/superadmin/categories/get-categories/",
 };
 
+export const SAILOR_ENDPOINTS = {
+  GET_SAILORS: "/superadmin/sailors/sailors-list/",
+  GET_STATS: "/superadmin/sailors/stats/",
+  GET_SAILOR: (id: string) => `/superadmin/sailors/sailor/${id}/`,
+  // Create goes through the shared admin create-user endpoint (role: "customer").
+  CREATE_SAILOR: "/superadmin/admin/create-user/",
+  UPDATE_SAILOR: (id: string) => `/superadmin/sailors/sailor/${id}/update/`,
+  DELETE_SAILOR: (id: string) => `/superadmin/sailors/sailor/${id}/delete/`,
+  TOGGLE_STATUS: (id: string) => `/superadmin/sailors/sailor/${id}/status/`,
+};
+
 export const EXPRESS_ENDPOINTS = {
   GET_EXPRESS_ITEMS: "/superadmin/catalog/get-express-items/",
 };
