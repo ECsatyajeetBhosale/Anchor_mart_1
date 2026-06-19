@@ -12,7 +12,7 @@ const PERIOD_PARAM: Record<AnalyticsPeriod, AnalyticsPeriodParam> = {
   "7 Days": "7d",
   "30 Days": "30d",
   Quarter: "quarter",
-  Year: 1,
+  Year: "year",
 };
 
 /**

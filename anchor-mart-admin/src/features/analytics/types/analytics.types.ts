@@ -6,7 +6,7 @@
  */
 
 /** Predefined period values accepted by every analytics endpoint. */
-export type AnalyticsPeriodParam = "7d" | "30d" | "quarter" | 1;
+export type AnalyticsPeriodParam = "7d" | "30d" | "quarter" | "year";
 
 /**
  * Shared query parameters. Send EITHER `period` OR `from_date` + `to_date` —
