@@ -380,6 +380,7 @@ body {
   width: 380px; flex-shrink: 0;
   background: linear-gradient(155deg, var(--navy-900) 0%, var(--navy-700) 60%, #1a4080 100%);
   padding: 44px 40px; display: flex; flex-direction: column;
+  justify-content: center; align-items: center; text-align: center;
   position: relative; overflow: hidden;
 }
 .login-hero::before {
@@ -393,9 +394,9 @@ body {
   top: -50px; right: -80px;
 }
 
-.lh-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 52px; position: relative; z-index: 1; }
+.lh-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; position: relative; z-index: 1; }
 .lh-logo.logo-only { justify-content: center; }
-.logo-graphic { display: block; max-width: 180px; max-height: 52px; width: auto; height: auto; }
+.logo-graphic { display: block; max-width: 160px; max-height: 52px; width: auto; height: auto; }
 .lh-brand { font-size: 19px; font-weight: 800; color: rgba(255,255,255,.95); letter-spacing: -.3px; }
 .lh-brand span { display: block; font-size: 10.5px; font-weight: 600; color: rgba(255,255,255,.4); letter-spacing: 1.8px; text-transform: uppercase; margin-top: 2px; }
 
@@ -436,7 +437,9 @@ body {
 .fi {
   width: 100%; height: 48px; padding: 0 44px 0 44px;
   background: var(--surface-input); color: var(--t1);
-  border: 1.5px solid var(--border-md); border-radius: var(--radius-md);
+  /* Resting border matches the source project's --border-md (#FBCDBD).
+     Scoped to login inputs only; the app-wide --border-md token is left unchanged. */
+  border: 1.5px solid #FBCDBD; border-radius: var(--radius-md);
   font-size: 14px; font-family: var(--font-body); font-weight: 500;
   outline: none; transition: border-color .2s, box-shadow .2s;
 }
@@ -497,37 +500,38 @@ body {
 /* ── SIDEBAR ── */
 .sidebar {
   grid-row: 1 / -1;
-  background: var(--surface);
-  border-right: 1px solid var(--border-sm);
+  background: linear-gradient(135deg, var(--navy-900) 0%, var(--navy-700) 65%, var(--navy-500) 130%);
+  border-right: 1px solid rgba(255,255,255,.08);
   display: flex; flex-direction: column; overflow: hidden;
 }
 
 .sb-toggle {
-  margin-left: auto; width: 34px; height: 34px;
+  margin-left: auto; width: 26px; height: 26px;
   display: inline-flex; align-items: center; justify-content: center;
-  border: none; background: transparent; color: var(--t4);
+  border: none; background: rgba(255,255,255,.14); color: #fff;
   border-radius: var(--radius-sm); cursor: pointer;
   transition: all .2s;
 }
 .sb-toggle:hover {
-  background: var(--surface-alt); color: var(--t1);
+  background: rgba(255,255,255,.22); color: #fff;
 }
 
 .sb-logo {
   height: var(--topbar-h); padding: 0 18px;
-  border-bottom: 1px solid var(--border-sm);
+  border-bottom: 1px solid rgba(255,255,255,.08);
   display: flex; align-items: center; justify-content: space-between;
   gap: 0; flex-shrink: 0;
 }
 .sb-logo img { max-height: 38px; width: auto; display: block; }
 .sb-mark {
   width: 36px; height: 36px; border-radius: var(--radius-md);
-  background: var(--navy-900);
+  background: rgba(255,255,255,.1);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .sb-mark img { max-width: 100%; max-height: 100%; display: block; object-fit: contain; }
-.sb-name { font-size: 16.5px; font-weight: 800; color: var(--navy-900); letter-spacing: -.3px; }
-.sb-tag { font-size: 9.5px; font-weight: 700; color: var(--teal-600); letter-spacing: 1.5px; text-transform: uppercase; }
+.sb-mark i { font-size: 18px; color: var(--teal-300); }
+.sb-name { font-size: 16.5px; font-weight: 800; color: #fff; letter-spacing: -.3px; }
+.sb-tag { font-size: 9.5px; font-weight: 700; color: var(--teal-300); letter-spacing: 1.5px; text-transform: uppercase; }
 
 .sb-toggle-row {
   display: flex;
@@ -551,23 +555,24 @@ body {
   display: none; /* Chrome / Safari / Edge */
 }
 
-.sb-section { padding: 18px 18px 6px; font-size: 9.5px; font-weight: 800; color: var(--t4); letter-spacing: 1.6px; text-transform: uppercase; }
+.sb-section { padding: 18px 18px 6px; font-size: 9.5px; font-weight: 800; color: rgba(255,255,255,.38); letter-spacing: 1.6px; text-transform: uppercase; }
 
 .nav-item {
   display: flex; align-items: center; gap: 9px;
   padding: 8.5px 10px 8.5px 16px;
   margin: 1px 8px; border-radius: var(--radius-md);
   cursor: pointer; font-size: 13.5px; font-weight: 600;
-  color: var(--t3); transition: all .15s; user-select: none;
+  color: rgba(255,255,255,.72); transition: all .15s; user-select: none;
+  text-decoration: none;
 }
-.nav-item i { font-size: 17px; flex-shrink: 0; color: var(--t4); transition: color .15s; }
-.nav-item:hover { background: var(--surface-alt); color: var(--t2); }
-.nav-item:hover i { color: var(--t3); }
-.nav-item.active { background: var(--navy-50); color: var(--navy-700); font-weight: 700; }
-.nav-item.active i { color: var(--navy-500); }
+.nav-item i, .nav-item svg { font-size: 17px; flex-shrink: 0; color: rgba(255,255,255,.5); transition: color .15s; }
+.nav-item:hover { background: rgba(255,255,255,.06); color: #fff; }
+.nav-item:hover i, .nav-item:hover svg { color: rgba(255,255,255,.9); }
+.nav-item.active { background: rgba(10,181,168,.24); color: #fff; font-weight: 700; }
+.nav-item.active i, .nav-item.active svg { color: var(--teal-300); }
 .nav-item.active::before {
   content: ''; position: absolute; left: -8px; top: 50%; transform: translateY(-50%);
-  width: 3px; height: 20px; background: var(--navy-600); border-radius: 0 3px 3px 0;
+  width: 5px; height: 26px; background: var(--teal-400); border-radius: 0 4px 4px 0;
 }
 .nav-item { position: relative; }
 
@@ -581,22 +586,22 @@ body {
 .nav-badge.warning { background: var(--warning-bg); color: var(--warning-text); border-color: var(--warning-border); }
 
 .sb-footer {
-  padding: 12px 14px; border-top: 1px solid var(--border-sm);
+  padding: 12px 14px; border-top: 1px solid rgba(255,255,255,.08);
   flex-shrink: 0; display: flex; align-items: center; gap: 10px;
 }
 .sb-avatar {
   width: 34px; height: 34px; border-radius: 50%;
-  background: var(--navy-900); color: #fff;
+  background: rgba(255,255,255,.14); color: #fff;
   display: flex; align-items: center; justify-content: center;
   font-size: 12.5px; font-weight: 800; flex-shrink: 0;
 }
-.sb-uname { font-size: 13px; font-weight: 700; color: var(--t1); }
-.sb-urole { font-size: 11px; font-weight: 500; color: var(--t4); }
+.sb-uname { font-size: 13px; font-weight: 700; color: #fff; }
+.sb-urole { font-size: 11px; font-weight: 500; color: rgba(255,255,255,.5); }
 .sb-logout {
-  margin-left: auto; color: var(--t4); font-size: 18px; cursor: pointer;
+  margin-left: auto; color: rgba(255,255,255,.55); font-size: 18px; cursor: pointer;
   padding: 6px; border-radius: var(--radius-sm); transition: all .15s; display: flex;
 }
-.sb-logout:hover { background: var(--danger-bg); color: var(--danger-icon); }
+.sb-logout:hover { background: rgba(239,68,68,.2); color: #fca5a5; }
 
 /* Sidebar collapsed */
 .app-shell.collapsed {
@@ -605,6 +610,7 @@ body {
 .app-shell.collapsed .sidebar {
   width: 72px;
 }
+.app-shell.collapsed .sb-logo { padding: 0; justify-content: center; gap: 1px; }
 .app-shell.collapsed .sb-toggle { margin-left: 0; }
 .app-shell.collapsed .sb-section { display: none; }
 .app-shell.collapsed .nav-item {
@@ -765,6 +771,27 @@ body {
 .btn-icon { width: 38px; padding: 0; justify-content: center; }
 .btn-icon.btn-sm { width: 32px; }
 .btn-icon.btn-xs { width: 26px; }
+
+/* ── DASHBOARD HERO ── (mirrors AnchorMart-1 dashboard welcome banner) */
+.dash-hero {
+  position: relative; overflow: hidden; color: #fff;
+  background: linear-gradient(110deg, var(--teal-700) 0%, var(--teal-600) 52%, var(--teal-400) 125%);
+  border-radius: var(--radius-xl); padding: 30px 32px; margin-bottom: 26px;
+  box-shadow: var(--sh-md);
+}
+.dash-hero-glow {
+  position: absolute; width: 280px; height: 280px; border-radius: 50%;
+  background: rgba(255,255,255,.14); filter: blur(70px);
+  top: -90px; right: -40px; pointer-events: none;
+}
+.dash-hero-inner { position: relative; z-index: 1; min-width: 0; }
+.dash-hero-eyebrow {
+  font-size: 11.5px; font-weight: 800; color: rgba(255,255,255,.85);
+  letter-spacing: 1.4px; text-transform: uppercase; margin-bottom: 8px;
+}
+.dash-hero-title { font-size: 26px; font-weight: 800; letter-spacing: -.5px; margin-bottom: 8px; color: #fff; }
+.dash-hero-desc { font-size: 14px; color: rgba(255,255,255,.62); max-width: 560px; line-height: 1.65; margin: 0; }
+.dash-hero-desc b { color: #fff; }
 
 /* ── STAT CARDS ── */
 .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(188px, 1fr)); gap: 14px; margin-bottom: 22px; }
