@@ -63,6 +63,8 @@ The **Products feature** (`src/features/products/`, rendered by `ProductsPage.ts
 
 All design values live as **CSS custom properties** in `src/index.css` (defined under `:root`). **Never hardcode hex colors, px sizes, radii, or shadows** — reference the tokens (via Tailwind arbitrary values `bg-[var(--token)]` or the `.btn`/`.card`/`.form-input` utility classes). The token families: `--navy-*`, `--teal-*`, `--amber-*`, semantic `--success|danger|warning|info|neutral|purple|green-*`, surfaces `--surface|--surface-alt|--surface-hover|--surface-input|--bg`, borders `--border-xs|sm|md|lg`, text `--t1..--t5`, `--radius-xs|sm|md|lg|xl`, `--shadow-*`/`--sh-*`, `--shadow-focus-teal|navy|red`.
 
+**Design rules: see `DESIGN_RULES.md` (repo root)** — visual conventions matched to the **AnchorMart-1-react-migration** reference project (the visual source of truth). It documents the border tokens (inputs/controls use `--border-md` `#FBCDBD`; tables use `--border-sm`/`--border-xs`) and the rule that tokens declared twice (`@theme` `--color-<name>` + `:root` `--<name>`) must be updated in **both** places. Read it before applying or matching UI.
+
 ## Shadcn components — mandatory reuse (read before building any UI)
 
 **Always use the project's existing shadcn components when working on a page.** Before writing any control or piece of UI, check whether an equivalent already exists and use it. **Do not hand-roll a control (input, select, switch, dialog, table, etc.) that already exists as a shadcn component.** If you encounter UI that was **manually implemented but a shadcn component exists for it, replace the manual implementation with the shadcn component** as part of your change.

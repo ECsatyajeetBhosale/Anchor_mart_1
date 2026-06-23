@@ -10,6 +10,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { getFallbackAvatar } from "@/lib/avatar";
 
 import type { SailorData } from "../types/sailor.types";
 
@@ -85,8 +86,12 @@ export function SailorDetailDrawer({
           <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
             {/* Identity */}
             <div className="flex flex-col items-center text-center pb-2">
-              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-[var(--navy-50)] text-[var(--navy-600)] text-[24px] font-extrabold">
-                {sailor.n.charAt(0)}
+              <div className="w-16 h-16 rounded-full overflow-hidden border border-[var(--border-xs)] bg-[var(--surface-alt)]">
+                <img
+                  src={getFallbackAvatar(sailor.id || sailor.n)}
+                  alt={sailor.n}
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div className="mt-3 text-[17px] font-extrabold text-[var(--t1)]">{sailor.n}</div>
               <div className="mt-1 text-[13px] font-medium text-[var(--t4)]">{sailor.e}</div>

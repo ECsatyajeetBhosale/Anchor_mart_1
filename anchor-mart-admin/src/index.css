@@ -91,7 +91,7 @@
   /* ── BORDER COLORS ── */
   --color-border-xs: #f0f2f5;
   --color-border-sm: #e8edf5;
-  --color-border-md: #d4dce9;
+  --color-border-md: #FBCDBD;
   --color-border-lg: #b0bcce;
 
   /* ── TEXT COLORS ── */
@@ -202,7 +202,7 @@
   /* Borders */
   --border-xs: #f0f2f5;
   --border-sm: #e8edf5;
-  --border-md: #d4dce9;
+  --border-md: #FBCDBD;
   --border-lg: #b0bcce;
 
   /* Text */
@@ -437,9 +437,7 @@ body {
 .fi {
   width: 100%; height: 48px; padding: 0 44px 0 44px;
   background: var(--surface-input); color: var(--t1);
-  /* Resting border matches the source project's --border-md (#FBCDBD).
-     Scoped to login inputs only; the app-wide --border-md token is left unchanged. */
-  border: 1.5px solid #FBCDBD; border-radius: var(--radius-md);
+  border: 1.5px solid var(--border-md); border-radius: var(--radius-md);
   font-size: 14px; font-family: var(--font-body); font-weight: 500;
   outline: none; transition: border-color .2s, box-shadow .2s;
 }
@@ -837,7 +835,9 @@ body {
 .stat-delta.dn { color: var(--danger-text); }
 
 /* ── CARDS ── */
-.card { background: var(--surface); border: 1px solid var(--border-sm); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--sh-xs); }
+.card { background: var(--surface); border: 1px solid var(--border-sm); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--sh-xs); transition: box-shadow .22s ease, border-color .22s ease; }
+/* On hover the card/table outline picks up the input border colour (--border-md). */
+.card:hover { border-color: var(--border-md); box-shadow: var(--sh-md); }
 .card-hd { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border-xs); }
 .card-ttl { font-size: 14px; font-weight: 800; color: var(--t1); display: flex; align-items: center; gap: 8px; letter-spacing: -.2px; }
 .card-ttl i { font-size: 17px; color: var(--t4); }
@@ -887,7 +887,9 @@ tbody tr:hover td { color: var(--t2); }
 .badge-green   { background: var(--green-bg);   color: var(--green-text);   border-color: var(--green-border); }
 
 /* ── AVATARS ── */
-.av { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0; }
+.av { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0; overflow: hidden; }
+.av img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; display: block; }
+.av-img { padding: 0; background: var(--surface-alt); border: 1px solid var(--border-xs); }
 .av-sm { width: 26px; height: 26px; font-size: 10px; }
 .av-lg { width: 40px; height: 40px; font-size: 15px; }
 .av-xl { width: 52px; height: 52px; font-size: 20px; }

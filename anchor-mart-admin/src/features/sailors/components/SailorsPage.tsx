@@ -3,20 +3,15 @@ import {
   IconEdit,
   IconEye,
   IconGift,
-  IconMessage,
   IconPlus,
   IconShare,
-  IconTrash,
   IconUser,
-  IconUserCheck,
   IconUsers,
 } from "@tabler/icons-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { DynamicTabs } from "@/components/common/DynamicTabs";
 import { FormField } from "@/components/common/FormField";
 import { FormRow } from "@/components/common/FormRow";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -38,10 +33,10 @@ import {
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { getApiMessage } from "@/lib/apiError";
+import { getFallbackAvatar } from "@/lib/avatar";
 
 import {
   useCreateSailorMutation,
-  useDeleteSailorMutation,
   useGetSailorQuery,
   useGetSailorStatsQuery,
   useGetSailorsQuery,
@@ -57,16 +52,12 @@ const SAILOR_TABS = [
   { label: "All", value: "all" },
   { label: "Active", value: "active" },
   { label: "Inactive", value: "inactive" },
-  { label: "New Signups", value: "new" },
-  { label: "Blocked", value: "blocked" },
 ];
 
 const STATUS_OPTIONS = [
   { label: "All Status", value: "all" },
   { label: "Active", value: "active" },
   { label: "Inactive", value: "inactive" },
-  { label: "New", value: "new" },
-  { label: "Blocked", value: "blocked" },
 ];
 
 /** Splits "First Middle Last" into first_name + last_name for the API. */
@@ -126,7 +117,6 @@ export function SailorsPage() {
   const [selectedSailor, setSelectedSailor] = useState<SailorData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editSailor, setEditSailor] = useState<SailorData | null>(null);
-  const [sailorToDelete, setSailorToDelete] = useState<SailorData | null>(null);
 
   // Form state for the add/edit drawer — one field per create/update payload key.
   const [formFirstName, setFormFirstName] = useState("");
@@ -173,7 +163,6 @@ export function SailorsPage() {
   // --- Mutations ---
   const [createSailor, { isLoading: isCreating }] = useCreateSailorMutation();
   const [updateSailor, { isLoading: isUpdating }] = useUpdateSailorMutation();
-  const [deleteSailor, { isLoading: isDeleting }] = useDeleteSailorMutation();
   const [toggleStatus, { isLoading: isToggling }] = useToggleSailorStatusMutation();
 
   // Update one URL param; filter changes reset to page 1. "all"/empty clears it.
@@ -276,17 +265,6 @@ export function SailorsPage() {
     }
   };
 
-  const handleConfirmDelete = async () => {
-    if (!sailorToDelete) return;
-    try {
-      await deleteSailor(sailorToDelete.id).unwrap();
-      toast.success(`${sailorToDelete.n} has been deleted`);
-      setSailorToDelete(null);
-    } catch (error) {
-      toast.error(getApiMessage(error) ?? "Could not delete this sailor. Please try again.");
-    }
-  };
-
   const showSailorProfile = (s: SailorData) => {
     setSelectedSailor(s);
   };
@@ -302,13 +280,6 @@ export function SailorsPage() {
       value: statsLoading ? "—" : (stats?.total_sailors ?? 0).toLocaleString(),
       icon: <IconUsers size={20} />,
       variant: "navy" as const,
-    },
-    {
-      id: "active",
-      label: "Active This Month",
-      value: statsLoading ? "—" : (stats?.active ?? 0).toLocaleString(),
-      icon: <IconUserCheck size={20} />,
-      variant: "green" as const,
     },
     {
       id: "loyalty",
@@ -332,7 +303,9 @@ export function SailorsPage() {
       header: "Sailor",
       cell: (s) => (
         <div className="flex items-center gap-2.5">
-          <div className="av av-navy">{s.n[0]}</div>
+          <div className="av av-img">
+            <img src={getFallbackAvatar(s.id || s.n)} alt={s.n} loading="lazy" />
+          </div>
           <div>
             <div className="td-p">{s.n}</div>
             <div className="td-m">{s.e}</div>
@@ -342,7 +315,6 @@ export function SailorsPage() {
     },
     textColumn({ id: "contact", header: "Contact", get: (s) => s.w, className: "td-m" }),
     textColumn({ id: "joined", header: "Joined", get: (s) => s.j, className: "td-m" }),
-    textColumn({ id: "ship", header: "Ship", get: (s) => s.sh, className: "td-m" }),
     textColumn({ id: "orders", header: "Orders", get: (s) => s.o, className: "td-p w7" }),
     {
       id: "loyalty",
@@ -354,12 +326,6 @@ export function SailorsPage() {
         </>
       ),
     },
-    textColumn({
-      id: "cartwish",
-      header: "Cart/Wish",
-      get: (s) => `${s.ca} · ${s.wi}`,
-      className: "td-m",
-    }),
     {
       id: "status",
       header: "Status",
@@ -372,7 +338,7 @@ export function SailorsPage() {
     {
       id: "actions",
       header: "Actions",
-      className: "w-32 text-right",
+      className: "w-24 text-right",
       headerClassName: "text-right",
       cell: (s) => (
         <TableActions
@@ -394,23 +360,6 @@ export function SailorsPage() {
                 openAddModal(s);
               },
             },
-            {
-              icon: <IconMessage size={16} />,
-              title: "Message",
-              onClick: (e) => {
-                e.stopPropagation();
-                toast.success(`Opening WhatsApp chat to ${s.w}`);
-              },
-            },
-            {
-              icon: <IconTrash size={16} />,
-              title: "Delete",
-              variant: "danger",
-              onClick: (e) => {
-                e.stopPropagation();
-                setSailorToDelete(s);
-              },
-            },
           ]}
         />
       ),
@@ -421,13 +370,6 @@ export function SailorsPage() {
     <>
       <PageHeader
         title="Sailors Management"
-        subtitle={
-          <p className="pg-sub">
-            <span>2,847 registered</span>
-            <span className="sep">·</span>
-            <span>1,204 active this month</span>
-          </p>
-        }
         actions={
           <SearchFilters
             searchValue={searchTerm}
@@ -456,11 +398,26 @@ export function SailorsPage() {
 
       <StatsGrid items={statItems} />
 
-      <DynamicTabs
-        tabs={SAILOR_TABS}
-        value={activeTab}
-        onTabChange={(val) => setParam("tab", val)}
-      />
+      <div className="tab-row" id="sailor-tabs" role="tablist">
+        {SAILOR_TABS.map((t) => (
+          <div
+            key={t.value}
+            role="tab"
+            tabIndex={0}
+            aria-selected={activeTab === t.value}
+            className={`tab-item${activeTab === t.value ? " active" : ""}`}
+            onClick={() => setParam("tab", t.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setParam("tab", t.value);
+              }
+            }}
+          >
+            {t.label}
+          </div>
+        ))}
+      </div>
 
       <DataTable
         columns={columns}
@@ -609,20 +566,6 @@ export function SailorsPage() {
           </form>
         </SheetContent>
       </Sheet>
-
-      <ConfirmDialog
-        isOpen={!!sailorToDelete}
-        onClose={() => setSailorToDelete(null)}
-        onConfirm={handleConfirmDelete}
-        title="Delete Sailor"
-        description={
-          sailorToDelete
-            ? `Delete ${sailorToDelete.n}? This permanently removes the sailor and cannot be undone.`
-            : ""
-        }
-        confirmText="Delete"
-        isLoading={isDeleting}
-      />
     </>
   );
 }
