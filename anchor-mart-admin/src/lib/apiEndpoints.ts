@@ -97,6 +97,11 @@ export const ORDER_ENDPOINTS = {
   CANCEL_ORDER: (id: string) => `/superadmin/orders/orders/${id}/cancel/`,
 };
 
+export const INTENT_ENDPOINTS = {
+  GET_INTENTS: "/superadmin/orders/intents/",
+  GET_STATS: "/superadmin/orders/intents/stats/",
+};
+
 export const DASHBOARD_ENDPOINTS = {
   GET_STATS: "/superadmin/dashboard/dashboard/stats/",
   GET_LIVE_ORDERS: "/superadmin/dashboard/live-orders/",

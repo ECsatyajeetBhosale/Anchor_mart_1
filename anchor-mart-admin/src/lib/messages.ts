@@ -157,6 +157,7 @@ export const MESSAGES = {
       ALL: "All Status",
       NEW: "New",
       VERIFYING: "Verifying",
+      AWAITING_PAYMENT: "Awaiting Payment",
       IN_PROGRESS: "In Progress",
       DELIVERING: "Delivering",
       DELIVERED: "Delivered",
@@ -165,9 +166,11 @@ export const MESSAGES = {
     // Table
     COLUMNS: {
       ORDER_ID: "Order ID",
+      SOURCE: "Source",
       SAILOR: "Sailor",
       ITEMS: "Items",
       SHIP_TERMINAL: "Ship / Terminal",
+      CHANGED_ANCHORAGE: "Changed Anchorage",
       PARTNER: "Partner",
       PAYMENT: "Payment",
       COUPON: "Coupon",
@@ -191,11 +194,73 @@ export const MESSAGES = {
     PARTNER_REASSIGNED: "Partner reassigned successfully",
   },
   INTENTS: {
+    // Page chrome
     TITLE: "Intent Requests",
-    REVIEW: "Review Intent",
-    CONFIRMED: "Intent confirmed & payment link sent",
-    REJECTED: "Intent rejected and sailor notified",
-    EMPTY: "No intent requests found",
+    SUBTITLE: "Sailor order intents pending review & confirmation",
+    SEARCH_PLACEHOLDER: "Search intents…",
+    ALL_STATUS: "All Status",
+    EMPTY: "No intents match the current filters.",
+    EMPTY_ITEMS: "No items listed for this intent.",
+    FETCH_ERROR: "Failed to load intents.",
+    ITEM_IMAGE_ALT: "Item",
+    ACTION_REVIEW: "Review",
+    // Status filter options (values map 1:1 to the API `status` query param)
+    STATUS_FILTER: {
+      INTENT_RECEIVED: "Intent Received",
+      SOURCING: "Sourcing",
+      VERIFICATION_SUBMITTED: "Verification Submitted",
+      PARTNER_VERIFYING: "Partner Verifying",
+      PAYMENT_PENDING: "Payment Pending",
+      PENDING_CUSTOMER_RESPONSE: "Pending Customer Response",
+      PENDING_INTENT: "Pending Intent",
+      INTENT_REJECTED: "Intent Rejected",
+    },
+    // KPI cards (mapped to the intents stats API fields)
+    STATS: {
+      TOTAL: "Total Intents",
+      AWAITING_PAYMENT: "Awaiting Payment",
+      SUBSTITUTIONS: "Substitutions Needed",
+      CONFIRMED_TODAY: "Confirmed Today",
+    },
+    // Table columns
+    COLUMNS: {
+      SAILOR: "Sailor",
+      ITEMS: "Items Requested",
+      SHIP: "Ship",
+      ARRIVAL: "Arrival",
+      STAY: "Stay",
+      SUBMITTED: "Submitted",
+      STATUS: "Status",
+      ACTIONS: "Actions",
+    },
+    // Review modal
+    REVIEW: {
+      TITLE: "Review Intent Request",
+      REJECT: "Reject",
+      CONFIRM: "Confirm & Send Payment Link",
+      SAILOR: "Sailor",
+      IMO: "IMO Number",
+      TERMINAL: "Terminal",
+      ARRIVAL: "Arrival Date",
+      REQUESTED_ITEMS: "Requested Items",
+      ADMIN_RESPONSE: "Admin Response",
+      QTY: (q: number) => `Qty: ${q}`,
+      AVAILABLE: "Available",
+      UNAVAILABLE: "Unavailable",
+      CHECKING: "Checking…",
+      PRICE_LABEL: "Estimated Price ($)",
+      PRICE_PLACEHOLDER: "0.00",
+      PARTNER_LABEL: "Assign to Partner",
+      PARTNER_PLACEHOLDER: "Select a delivery partner…",
+      NOTES_LABEL: "Notes to Sailor",
+      NOTES_PLACEHOLDER: "Optional notes for the sailor…",
+    },
+    // Toasts
+    TOAST: {
+      CONFIRMED: (ref: string, sailor: string) =>
+        `Intent ${ref} confirmed & payment link sent to ${sailor}`,
+      REJECTED: (ref: string) => `Intent ${ref} rejected and sailor notified`,
+    },
   },
   PRODUCTS: {
     // Page chrome

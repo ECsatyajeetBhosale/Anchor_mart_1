@@ -279,7 +279,9 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-md);
+  /* Neutral grey thumb (matches the reference). Intentionally not --border-md,
+     which is the warm input-border tone and would tint the scrollbar orange. */
+  background: #d4dce9;
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
@@ -1219,6 +1221,10 @@ textarea.form-input { height: auto; padding: 10px 12px; resize: vertical; width:
 .form-row.triple { grid-template-columns: 1fr 1fr 1fr; }
 .form-row.single { grid-template-columns: 1fr; }
 .fg { margin-bottom: 16px; }
+
+/* Uploaded-image placeholder (special-request detail modal) */
+.srq-img { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 22px; border: 1.5px dashed var(--border-md); border-radius: var(--radius-md); background: var(--surface-alt); color: var(--teal-700); font-size: 12.5px; font-weight: 600; }
+.srq-img.empty { color: var(--t4); }
 .fg-label { display: block; font-size: 11.5px; font-weight: 800; color: var(--t2); letter-spacing: .5px; text-transform: uppercase; margin-bottom: 7px; }
 .fg-hint  { font-size: 11.5px; color: var(--t4); margin-top: 5px; }
 .fg-err   { font-size: 11.5px; color: var(--danger-icon); margin-top: 5px; display: none; }

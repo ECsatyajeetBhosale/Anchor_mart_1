@@ -32,6 +32,12 @@ export interface OrderDetail {
   partner: string;
   payment: string;
   coupon?: string;
+  /** Order channel (Mobile App / Website). Not returned by the API → "—". */
+  source?: string;
+  /** Intent reference. Not returned by the API → "—". */
+  intent?: string;
+  /** Anchorage-change summary. Not returned by the API → "—". */
+  anchorageChange?: string;
 }
 
 /** A step in the order progress timeline (from the live-order details API). */
@@ -322,6 +328,28 @@ export function OrderDetailDrawer({
               style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}
             >
               <span className="detail-k" style={{ color: "var(--t3)" }}>
+                Order Source
+              </span>
+              <span className="detail-v" style={{ fontWeight: 600, color: "var(--t1)" }}>
+                {order.source || "—"}
+              </span>
+            </div>
+            <div
+              className="detail-kv"
+              style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}
+            >
+              <span className="detail-k" style={{ color: "var(--t3)" }}>
+                Intent Ref
+              </span>
+              <span className="detail-v mono" style={{ fontWeight: 600, color: "var(--t1)" }}>
+                {order.intent || "—"}
+              </span>
+            </div>
+            <div
+              className="detail-kv"
+              style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}
+            >
+              <span className="detail-k" style={{ color: "var(--t3)" }}>
                 Ship / IMO
               </span>
               <span
@@ -340,6 +368,17 @@ export function OrderDetailDrawer({
               </span>
               <span className="detail-v" style={{ fontWeight: 600, color: "var(--t1)" }}>
                 {order.terminal}
+              </span>
+            </div>
+            <div
+              className="detail-kv"
+              style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}
+            >
+              <span className="detail-k" style={{ color: "var(--t3)" }}>
+                Anchorage Change
+              </span>
+              <span className="detail-v" style={{ fontWeight: 600, color: "var(--t1)" }}>
+                {order.anchorageChange || "—"}
               </span>
             </div>
             <div

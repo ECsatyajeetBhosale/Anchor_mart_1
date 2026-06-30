@@ -104,11 +104,13 @@ export function twoLineColumn<T>(
 
 type AvatarVariant = "navy" | "teal" | "amber";
 
-/** Avatar circle (first initial) + primary name text. */
+/** Avatar (image when `image` is given, else first initial) + primary name text. */
 export function avatarColumn<T>(
   opts: BaseColumn & {
     name: (row: T) => string;
     initial?: (row: T) => string;
+    /** When provided, renders this image URL instead of an initial. */
+    image?: (row: T) => string;
     variant?: AvatarVariant;
   },
 ): Column<T> {
@@ -122,9 +124,15 @@ export function avatarColumn<T>(
       const label = opts.name(row);
       return (
         <div className="flex items-center gap-2">
-          <div className={`av av-sm av-${variant}`}>
-            {opts.initial ? opts.initial(row) : label.charAt(0)}
-          </div>
+          {opts.image ? (
+            <div className="av av-sm av-img">
+              <img src={opts.image(row)} alt={label} loading="lazy" />
+            </div>
+          ) : (
+            <div className={`av av-sm av-${variant}`}>
+              {opts.initial ? opts.initial(row) : label.charAt(0)}
+            </div>
+          )}
           <span className="td-p">{label}</span>
         </div>
       );

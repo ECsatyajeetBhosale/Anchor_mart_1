@@ -59,6 +59,9 @@ Keep card/table hover borders on `--border-md` — don't introduce a separate ho
 - Don't introduce new border colors — reuse these four tokens.
 - Don't scope a one-off border hex onto a single component to "match" the reference;
   fix the shared token so every instance matches at once.
+- Don't use `--border-md` for scrollbar thumbs. `--border-md` is the warm input tone
+  (`#FBCDBD`) and tints scrollbars orange. Scrollbar thumbs use the neutral grey `#d4dce9`
+  (resting) / `--border-lg` (hover), matching the reference.
 
 ## Avatars / static profile images
 People (sailors, partners, etc.) get a **deterministic static avatar**, not a single

@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { useGetOrdersQuery } from "@/features/orders/api/orderApi";
 import type { Order } from "@/features/orders/types/order.types";
+import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 import { IconDownload } from "@tabler/icons-react";
 import { useState } from "react";
@@ -45,6 +46,7 @@ const STATUS_OPTIONS = [
   { value: "all", label: M.STATUS_FILTER.ALL },
   { value: "New", label: M.STATUS_FILTER.NEW },
   { value: "Verifying", label: M.STATUS_FILTER.VERIFYING },
+  { value: "awaiting", label: M.STATUS_FILTER.AWAITING_PAYMENT },
   { value: "In Progress", label: M.STATUS_FILTER.IN_PROGRESS },
   { value: "Delivering", label: M.STATUS_FILTER.DELIVERING },
   { value: "Delivered", label: M.STATUS_FILTER.DELIVERED },
@@ -99,12 +101,19 @@ function paymentLabel(order: Order): string {
   return order.payment_status_display || "Pending";
 }
 
+/** Sailor display name: "first_name last_name", falling back to full_name → email. */
+function customerName(order: Order): string {
+  const c = order.customer;
+  const firstLast = `${c?.first_name ?? ""} ${c?.last_name ?? ""}`.trim();
+  return firstLast || c?.full_name?.trim() || order.user_email || "—";
+}
+
 /** Map an API order into the flat shape the table columns render. */
 function toOrderRow(order: Order): OrderRow {
   return {
     id: order.id,
     orderNumber: order.order_number,
-    s: order.customer?.full_name || order.user_email || "—",
+    s: customerName(order),
     it: formatItems(order),
     sh: shipTerminal(order),
     pt: order.active_assignment?.partner_name || M.UNASSIGNED,
@@ -190,7 +199,13 @@ export function OrdersPage() {
   // Status dropdown + segment chips filter the current page client-side (the
   // backend status-code contract isn't wired yet); search/paging are server-side.
   const filteredOrders = orders.filter((o) => {
-    const matchesStatus = statusFilter === "all" || o.st === statusFilter;
+    // "awaiting" (dropdown or chip) keys off the pending payment, matching the source.
+    const matchesStatus =
+      statusFilter === "all"
+        ? true
+        : statusFilter === "awaiting"
+          ? o.pay === "Pending"
+          : o.st === statusFilter;
     const matchesSegment =
       segment === "all" ? true : segment === "awaiting" ? o.pay === "Pending" : o.st === segment;
     return matchesStatus && matchesSegment;
@@ -204,13 +219,32 @@ export function OrdersPage() {
 
   const columns: Column<OrderRow>[] = [
     idColumn({ id: "id", header: M.COLUMNS.ORDER_ID, get: (o) => o.orderNumber }),
-    avatarColumn({ id: "sailor", header: M.COLUMNS.SAILOR, name: (o) => o.s }),
+    // Order source (Mobile App / Website) isn't returned by the API → "-".
+    textColumn({
+      id: "source",
+      header: M.COLUMNS.SOURCE,
+      get: () => "—",
+      className: "td-m text-center",
+    }),
+    avatarColumn({
+      id: "sailor",
+      header: M.COLUMNS.SAILOR,
+      name: (o) => o.s,
+      image: (o) => getFallbackAvatar(o.s),
+    }),
     truncatedColumn({ id: "items", header: M.COLUMNS.ITEMS, get: (o) => o.it }),
     textColumn({
       id: "ship",
       header: M.COLUMNS.SHIP_TERMINAL,
       get: (o) => o.sh,
       className: "td-m",
+    }),
+    // Anchorage-change details aren't returned by the API → "-".
+    textColumn({
+      id: "changed-anchorage",
+      header: M.COLUMNS.CHANGED_ANCHORAGE,
+      get: () => "—",
+      className: "td-m text-center",
     }),
     textColumn({
       id: "partner",
@@ -234,6 +268,13 @@ export function OrdersPage() {
       header: M.COLUMNS.ACTIONS,
       className: "text-right",
       actions: () => ({
+        view: {
+          title: M.ACTIONS.VIEW,
+          onClick: (e, r) => {
+            e.stopPropagation();
+            setSelectedOrder(toOrderDetail(r));
+          },
+        },
         message: {
           title: M.ACTIONS.MESSAGE,
           onClick: (e, r) => {
@@ -250,7 +291,7 @@ export function OrdersPage() {
         },
       }),
     }),
-    ];
+  ];
 
   return (
     <>
