@@ -25,7 +25,11 @@ export const baseApi = createApi({
         headers.set("Authorization", `Token ${token}`);
       }
       headers.set("Content-Type", "application/json");
-      headers.set("Accept", "application/json");
+      // Default to JSON, but let an endpoint override `Accept` (e.g. file exports
+      // that return xlsx — forcing application/json makes DRF reply 406).
+      if (!headers.has("Accept")) {
+        headers.set("Accept", "application/json");
+      }
       // Skip ngrok browser interstitial in development
       headers.set("ngrok-skip-browser-warning", "true");
       return headers;
@@ -47,6 +51,7 @@ export const baseApi = createApi({
     "Notifications",
     "Sellers",
     "Support",
+    "SpecialRequests",
   ],
   endpoints: () => ({}),
 });

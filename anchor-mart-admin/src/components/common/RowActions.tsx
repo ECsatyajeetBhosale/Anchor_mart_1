@@ -1,4 +1,4 @@
-import { IconEdit, IconEye, IconMessage, IconTrash, IconX } from "@tabler/icons-react";
+import { IconEdit, IconEye, IconMessage, IconTrash, IconUserOff, IconX } from "@tabler/icons-react";
 import type * as React from "react";
 import { type ActionItem, TableActions } from "./TableActions";
 
@@ -7,7 +7,7 @@ import { type ActionItem, TableActions } from "./TableActions";
  * all tables share one set of icons/variants. A page renders only the actions it
  * passes in `actions` — the rest are omitted.
  */
-export type RowActionKey = "view" | "edit" | "message" | "cancel" | "delete";
+export type RowActionKey = "view" | "edit" | "message" | "cancel" | "deactivate" | "delete";
 
 interface CatalogEntry {
   icon: React.ReactNode;
@@ -21,11 +21,12 @@ const ACTION_CATALOG: Record<RowActionKey, CatalogEntry> = {
   edit: { icon: <IconEdit size={16} />, title: "Edit" },
   message: { icon: <IconMessage size={16} />, title: "Message" },
   cancel: { icon: <IconX size={16} />, title: "Cancel", variant: "danger" },
+  deactivate: { icon: <IconUserOff size={16} />, title: "Deactivate", variant: "danger" },
   delete: { icon: <IconTrash size={16} />, title: "Delete", variant: "danger" },
 };
 
 /** Canonical left-to-right render order, independent of prop key order. */
-const ACTION_ORDER: RowActionKey[] = ["view", "edit", "message", "cancel", "delete"];
+const ACTION_ORDER: RowActionKey[] = ["view", "edit", "message", "cancel", "deactivate", "delete"];
 
 /** Per-page config for one action: a bare handler, or a handler + title override. */
 export type RowActionConfig<T> =

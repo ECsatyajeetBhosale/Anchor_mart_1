@@ -102,6 +102,26 @@ export const INTENT_ENDPOINTS = {
   GET_STATS: "/superadmin/orders/intents/stats/",
 };
 
+export const PARTNER_ENDPOINTS = {
+  GET_LIST: "/superadmin/partner/list/",
+  CREATE: "/superadmin/partner/create/",
+  // Detail is fetched by the row's user id via the `user_id` query param.
+  GET_DETAIL: "/superadmin/partner/partner_detail/",
+  // Delete by the row's user id via the `user_id` query param.
+  DELETE: "/superadmin/partner/delete/",
+  // Update partner detail; user id sent as the `user_id` query param.
+  UPDATE: "/superadmin/partner/partner_detail_update/",
+};
+
+export const SPECIAL_REQUEST_ENDPOINTS = {
+  GET_LIST: "/superadmin/special-requests/get-special-products/",
+  GET_STATS: "/superadmin/special-requests/special-request-stats/",
+  // Detail is fetched by the row id via the `product_id` query param.
+  GET_DETAIL: "/superadmin/special-requests/get-special-interests/",
+  // Excel export; accepts the same optional `status` filter as the list.
+  EXPORT: "/superadmin/special-requests/export-to-excel/",
+};
+
 export const DASHBOARD_ENDPOINTS = {
   GET_STATS: "/superadmin/dashboard/dashboard/stats/",
   GET_LIVE_ORDERS: "/superadmin/dashboard/live-orders/",
