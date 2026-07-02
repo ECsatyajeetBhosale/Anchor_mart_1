@@ -122,6 +122,15 @@ export const SPECIAL_REQUEST_ENDPOINTS = {
   EXPORT: "/superadmin/special-requests/export-to-excel/",
 };
 
+export const SELLER_ENDPOINTS = {
+  GET_LIST: "/superadmin/sellers/requests/",
+  GET_STATS: "/superadmin/sellers/stats/",
+  // Detail is fetched by the row id via the `seller_id` query param.
+  GET_DETAIL: "/superadmin/sellers/seller-detail/",
+  APPROVE: (id: string) => `/superadmin/sellers/${id}/approve/`,
+  REJECT: (id: string) => `/superadmin/sellers/${id}/reject/`,
+};
+
 export const DASHBOARD_ENDPOINTS = {
   GET_STATS: "/superadmin/dashboard/dashboard/stats/",
   GET_LIVE_ORDERS: "/superadmin/dashboard/live-orders/",

@@ -1,36 +1,38 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { APP_ROUTES } from "@/lib/constants";
-import { ProtectedRoute } from "./ProtectedRoute";
-import { Layout } from "@/components/common/Layout";
 import { AuthLayout } from "@/components/common/AuthLayout";
+import { Layout } from "@/components/common/Layout";
+import { APP_ROUTES } from "@/lib/constants";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { ProtectedRoute } from "./ProtectedRoute";
 
 // Auth — from feature
 import { LoginPage } from "@/features/auth";
 
+import { AnalyticsPage } from "@/features/analytics";
 // Dashboard — from feature
 import { DashboardPage } from "@/features/dashboard";
-import { AnalyticsPage } from "@/features/analytics";
 
+import { AssignmentsPage } from "@/pages/AssignmentsPage";
+import { ChatPage } from "@/pages/ChatPage";
+import { ExpressPage } from "@/pages/ExpressPage";
+import { IntentsPage } from "@/pages/IntentsPage";
+import { InventoryPage } from "@/pages/InventoryPage";
+import { NotificationsPage } from "@/pages/NotificationsPage";
+import { OrdersPage } from "@/pages/OrdersPage";
+import { PartnersPage } from "@/pages/PartnersPage";
+import { RewardsPage } from "@/pages/RewardsPage";
 // Pages (remain in pages/ until migrated to features)
 import { SailorsPage } from "@/pages/SailorsPage";
-import { OrdersPage } from "@/pages/OrdersPage";
-import { IntentsPage } from "@/pages/IntentsPage";
-import { ExpressPage } from "@/pages/ExpressPage";
-import { InventoryPage } from "@/pages/InventoryPage";
-import { RewardsPage } from "@/pages/RewardsPage";
-import { PartnersPage } from "@/pages/PartnersPage";
-import { AssignmentsPage } from "@/pages/AssignmentsPage";
-import { VerificationPage } from "@/pages/VerificationPage";
-import { NotificationsPage } from "@/pages/NotificationsPage";
-import { ChatPage } from "@/pages/ChatPage";
-import { SupportPage } from "@/pages/SupportPage";
-import { SellersPage } from "@/pages/SellersPage";
-import { SpecialRequestsPage } from "@/pages/SpecialRequestsPage";
-import { SparesPage } from "@/pages/SparesPage";
 import { SettingsPage } from "@/pages/SettingsPage";
+import { SparesPage } from "@/pages/SparesPage";
+import { SpecialRequestsPage } from "@/pages/SpecialRequestsPage";
+import { SupportPage } from "@/pages/SupportPage";
+import { VerificationPage } from "@/pages/VerificationPage";
 
 // Products — from feature
 import { ProductsPage } from "@/features/products";
+
+// Sellers — from feature
+import { SellerRequestsPage } from "@/features/sellers";
 
 export function AppRouter() {
   return (
@@ -62,7 +64,7 @@ export function AppRouter() {
             <Route path={APP_ROUTES.NOTIFICATIONS} element={<NotificationsPage />} />
             <Route path={APP_ROUTES.CHAT} element={<ChatPage />} />
             <Route path={APP_ROUTES.SUPPORT} element={<SupportPage />} />
-             <Route path={APP_ROUTES.SELLERS} element={<SellersPage />} />
+            <Route path={APP_ROUTES.SELLERS} element={<SellerRequestsPage />} />
             <Route path={APP_ROUTES.SETTINGS} element={<SettingsPage />} />
             <Route path={APP_ROUTES.REQUESTS} element={<SpecialRequestsPage />} />
             <Route path={APP_ROUTES.SPARES} element={<SparesPage />} />

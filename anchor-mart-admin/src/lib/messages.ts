@@ -355,6 +355,87 @@ export const MESSAGES = {
       PAYMENT_SENT: "Payment link sent to sailor",
     },
   },
+  SELLERS: {
+    // Page chrome
+    TITLE: "Seller Applications",
+    SEARCH_PLACEHOLDER: "Search applications...",
+    ALL_STATUS: "All Status",
+    EMPTY: "No applications match the current filters.",
+    FETCH_ERROR: "Failed to load seller applications.",
+    // Status filter options (values map 1:1 to the API `status` query param)
+    STATUS_FILTER: {
+      PENDING: "Pending",
+      REVIEWING: "Reviewing",
+      APPROVED: "Approved",
+      REJECTED: "Rejected",
+    },
+    // KPI cards (mapped to the seller stats API fields)
+    STATS: {
+      PENDING: "Pending Applications",
+      PENDING_FOOTER: "Awaiting review",
+      APPROVED: "Approved (Month)",
+      APPROVED_FOOTER: "Now active",
+      REJECTED: "Rejected",
+      REJECTED_FOOTER: "This month",
+      ACTIVE: "Active Sellers",
+      ACTIVE_FOOTER: "On platform",
+    },
+    // Document status labels
+    DOCS: {
+      UPLOADED: "Uploaded",
+      MISSING: "Missing",
+    },
+    // Table columns
+    COLUMNS: {
+      APPLICANT: "Applicant",
+      EMAIL: "Email",
+      BUSINESS: "Business",
+      PRODUCTS: "Products",
+      DOCUMENTS: "Documents",
+      SUBMITTED: "Submitted",
+      STATUS: "Status",
+      ACTIONS: "Actions",
+    },
+    // Review drawer
+    DETAIL: {
+      TITLE: "Seller Application",
+      LOADING: "Loading data...",
+      FETCH_ERROR: "Failed to load application details.",
+      EMPTY: "No details available for this application.",
+      RETRY: "Retry",
+      FALLBACK: "-",
+      APPLICANT: "Applicant",
+      BUSINESS_INFO: "Business Information",
+      APPLICANT_NAME: "Applicant Name",
+      EMAIL: "Email",
+      PHONE: "Phone",
+      BUSINESS_NAME: "Business Name",
+      PRODUCTS: "Products / Categories",
+      DOCUMENTS: "Documents",
+      SUBMITTED: "Submitted",
+      DECISION: "Decision",
+      REJECTION_REASON: "Rejection Reason",
+      MESSAGE: "Message to Applicant",
+      MESSAGE_PLACEHOLDER: "Provide a detailed message explaining the issue...",
+      APPROVE: "Approve",
+      REJECT: "Reject & Notify",
+    },
+    // Rejection-reason options (drawer decision section)
+    REJECT_REASONS: [
+      "Incomplete documentation",
+      "Products not eligible",
+      "Duplicate account",
+      "Policy violation",
+      "Other",
+    ],
+    // Toasts
+    TOAST: {
+      APPROVED: "Seller approved — onboarding email sent",
+      APPROVE_ERROR: "Failed to approve seller application",
+      REJECTED: "Application rejected. Applicant notified.",
+      REJECT_ERROR: "Failed to reject seller application",
+    },
+  },
   PARTNERS: {
     // Page chrome
     TITLE: "Delivery Partners",
