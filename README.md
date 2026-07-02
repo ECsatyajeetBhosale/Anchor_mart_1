@@ -24,5 +24,5 @@ Install the Live Server extension, then open `index.html` and click **Open with 
 
 ## Notes
 
-- Login is mocked. Use `admin@anchormart.io` and `password123`.
+- Login is mocked. Use `admin@gmail.com` and `Admin@123`.
 - The project is static; no backend is required.
