@@ -80,36 +80,53 @@ export interface Order {
   order_number: string;
   status: string;
   status_display: string;
-  user: string;
-  user_email: string;
-  customer: OrderCustomer | null;
-  shipping_address: OrderShippingAddress | null;
-  port: OrderPort | null;
-  anchorage: OrderAnchorage | null;
-  subtotal: string;
-  shipping_fee: string;
-  tax_amount: string;
-  discount_amount: string;
+
+  // --- Flat fields returned by the LIST endpoint -------------------------
+  // The list serializer returns a lightweight, flattened row (not the nested
+  // objects below). These are the fields the table actually renders.
+  customer_name?: string;
+  customer_email?: string;
+  item_count?: number;
+  port_name?: string | null;
+  anchorage_name?: string | null;
+  payment_completed_at?: string | null;
+  is_emergency?: boolean;
+  partner_allocated?: boolean;
+  partner_name?: string | null;
+  has_location_request?: boolean;
+
+  // --- Nested fields returned by the DETAIL endpoint ---------------------
+  // Optional so the list rows (which omit them) still type-check.
+  user?: string;
+  user_email?: string;
+  customer?: OrderCustomer | null;
+  shipping_address?: OrderShippingAddress | null;
+  port?: OrderPort | null;
+  anchorage?: OrderAnchorage | null;
+  subtotal?: string;
+  shipping_fee?: string;
+  tax_amount?: string;
+  discount_amount?: string;
   total_amount: string;
-  applied_coupon: string | null;
-  coupon_used: boolean;
-  payment_method: string;
-  payment_method_display: string;
-  payment_status: string;
-  payment_status_display: string;
-  transaction_id: string | null;
-  is_express: boolean;
-  is_fastest_delivery: boolean;
-  ship_arrival_date: string | null;
-  expected_stay: string | null;
-  notes: string;
-  items: OrderItem[];
-  items_count: number;
-  total_quantity: number;
-  active_assignment: OrderAssignment | null;
-  assignments: OrderAssignment[];
+  applied_coupon?: string | null;
+  coupon_used?: boolean;
+  payment_method?: string;
+  payment_method_display?: string;
+  payment_status?: string;
+  payment_status_display?: string;
+  transaction_id?: string | null;
+  is_express?: boolean;
+  is_fastest_delivery?: boolean;
+  ship_arrival_date?: string | null;
+  expected_stay?: string | null;
+  notes?: string;
+  items?: OrderItem[];
+  items_count?: number;
+  total_quantity?: number;
+  active_assignment?: OrderAssignment | null;
+  assignments?: OrderAssignment[];
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 /**

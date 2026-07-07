@@ -23,7 +23,6 @@ import { RewardsPage } from "@/pages/RewardsPage";
 // Pages (remain in pages/ until migrated to features)
 import { SailorsPage } from "@/pages/SailorsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
-import { SparesPage } from "@/pages/SparesPage";
 import { SpecialRequestsPage } from "@/pages/SpecialRequestsPage";
 import { SupportPage } from "@/pages/SupportPage";
 import { VerificationPage } from "@/pages/VerificationPage";
@@ -33,6 +32,9 @@ import { ProductsPage } from "@/features/products";
 
 // Sellers — from feature
 import { SellerRequestsPage } from "@/features/sellers";
+
+// Spares — from feature
+import { SparesPage } from "@/features/spares";
 
 export function AppRouter() {
   return (

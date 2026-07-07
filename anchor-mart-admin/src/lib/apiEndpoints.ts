@@ -18,7 +18,7 @@ export const API_ROUTES = {
   },
   ORDERS: {
     LIST: "/superadmin/orders/",
-    DETAIL: (id: string) => `/superadmin/orders/${id}/`,
+    DETAIL: (id: string) => `/superadmin/orders/orders//${id}/`,
     CANCEL: (id: string) => `/superadmin/orders/${id}/cancel/`,
     ASSIGN: (id: string) => `/superadmin/orders/${id}/assign/`,
   },
@@ -88,7 +88,7 @@ export const SAILOR_ENDPOINTS = {
 };
 
 export const EXPRESS_ENDPOINTS = {
-  GET_EXPRESS_ITEMS: "/superadmin/catalog/get-express-items/",
+  GET_EXPRESS_ITEMS: "/superadmin/product-variants/get-express-items/",
 };
 
 export const ORDER_ENDPOINTS = {
@@ -131,6 +131,11 @@ export const SELLER_ENDPOINTS = {
   REJECT: (id: string) => `/superadmin/sellers/${id}/reject/`,
 };
 
+export const SPARE_ENDPOINTS = {
+  GET_LIST: "/superadmin/emergency-spares/products/",
+  GET_STATS: "/superadmin/emergency-spares/products/stats/",
+};
+
 export const DASHBOARD_ENDPOINTS = {
   GET_STATS: "/superadmin/dashboard/dashboard/stats/",
   GET_LIVE_ORDERS: "/superadmin/dashboard/live-orders/",
@@ -146,4 +151,12 @@ export const ANALYTICS_ENDPOINTS = {
   GET_SALES_TREND: "/superadmin/analytics/sales-trend/",
   GET_ORDERS_BY_CATEGORY: "/superadmin/analytics/orders-by-category/",
   GET_PRODUCT_SALES: "/superadmin/analytics/product-sales/",
+};
+
+export const REWARD_ENDPOINTS = {
+  GET_LOYALTY_OVERVIEW: "/superadmin/promotion/loyalty/overview/",
+  GET_COUPONS: "/superadmin/promotion/coupons/",
+  CREATE_COUPON: "/superadmin/promotion/coupons/add/",
+  UPDATE_COUPON: (id: string) => `/superadmin/orders/coupons/update/${id}/`,
+  DELETE_COUPON: (id: string) => `/superadmin/orders/coupons/delete/${id}/`,
 };

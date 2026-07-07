@@ -68,12 +68,20 @@ const ORDER_CHIPS = [
 
 const LIMIT = 10;
 
-/** Join order items into the compact "Name ×qty, Name" string the table shows. */
+/**
+ * Compact item summary. The list endpoint returns only `item_count`; the detail
+ * endpoint returns the full `items` array. Prefer the item names when present,
+ * otherwise fall back to the count ("4 items").
+ */
 function formatItems(order: Order): string {
-  if (!order.items?.length) return "—";
-  return order.items
-    .map((it) => (it.quantity > 1 ? `${it.product_name} ×${it.quantity}` : it.product_name))
-    .join(", ");
+  if (order.items?.length) {
+    return order.items
+      .map((it) => (it.quantity > 1 ? `${it.product_name} ×${it.quantity}` : it.product_name))
+      .join(", ");
+  }
+  const count = order.item_count ?? order.items_count;
+  if (count != null) return `${count} ${count === 1 ? "item" : "items"}`;
+  return "—";
 }
 
 /** Vessel name (or IMO) used in the ship column / drawer. */
@@ -83,29 +91,51 @@ function shipLabel(order: Order): string {
 
 /** Berth / anchorage (or port) used as the terminal in the ship column / drawer. */
 function terminalLabel(order: Order): string {
-  return order.anchorage?.anchorage_name || order.port?.port_name || "—";
+  return (
+    order.anchorage?.anchorage_name ||
+    order.anchorage_name ||
+    order.port?.port_name ||
+    order.port_name ||
+    "—"
+  );
 }
 
-/** Compact "Ship · Terminal" cell value. */
+/** Compact "Ship · Terminal" cell value. Falls back to the flat list fields. */
 function shipTerminal(order: Order): string {
-  const loc = order.anchorage?.anchorage_code || order.port?.port_code || "";
-  return loc ? `${shipLabel(order)} · ${loc}` : shipLabel(order);
+  const ship = order.shipping_address?.vessel_name || order.shipping_address?.imo;
+  const loc = order.anchorage?.anchorage_code || order.port?.port_code;
+  const terminal = terminalLabel(order);
+  if (ship) return loc ? `${ship} · ${loc}` : ship;
+  // List rows have no vessel name — show the anchorage/port instead of "—".
+  return terminal;
 }
 
 /** Payment cell text, normalised to the tokens `paymentClass` understands. */
 function paymentLabel(order: Order): string {
-  const status = order.payment_status.toLowerCase();
-  if (status === "completed" || status === "paid") return `${order.payment_method_display} ✓`;
-  if (status === "refunded" || order.status.toLowerCase() === "cancelled") return "Refund";
+  const status = (order.payment_status ?? "").toLowerCase();
+  const orderStatus = (order.status ?? "").toLowerCase();
+  if (status === "completed" || status === "paid") {
+    return order.payment_method_display ? `${order.payment_method_display} ✓` : "Paid ✓";
+  }
+  if (status === "refunded" || orderStatus === "cancelled") return "Refund";
   if (status === "pending") return "Pending";
-  return order.payment_status_display || "Pending";
+  if (order.payment_status_display) return order.payment_status_display;
+  // List rows have no payment_status — infer from `payment_completed_at`.
+  return order.payment_completed_at ? "Paid ✓" : "Pending";
 }
 
 /** Sailor display name: "first_name last_name", falling back to full_name → email. */
 function customerName(order: Order): string {
   const c = order.customer;
   const firstLast = `${c?.first_name ?? ""} ${c?.last_name ?? ""}`.trim();
-  return firstLast || c?.full_name?.trim() || order.user_email || "—";
+  return (
+    firstLast ||
+    c?.full_name?.trim() ||
+    order.customer_name ||
+    order.customer_email ||
+    order.user_email ||
+    "—"
+  );
 }
 
 /** Map an API order into the flat shape the table columns render. */
@@ -116,7 +146,7 @@ function toOrderRow(order: Order): OrderRow {
     s: customerName(order),
     it: formatItems(order),
     sh: shipTerminal(order),
-    pt: order.active_assignment?.partner_name || M.UNASSIGNED,
+    pt: order.active_assignment?.partner_name || order.partner_name || M.UNASSIGNED,
     pay: paymentLabel(order),
     cp: order.applied_coupon || "—",
     t: `$${Number(order.total_amount).toFixed(2)}`,
@@ -143,11 +173,11 @@ function toOrderDetail(o: OrderRow): OrderDetail {
     ship: o.shipName,
     terminal: o.terminalName,
     partner: o.pt,
-    payment: `${order.payment_method_display} · ${order.payment_status_display}`,
+    payment: o.pay,
     coupon: o.cp === "—" ? "" : o.cp,
     total: o.t,
     status: o.st,
-    items: order.items.map((it) => ({
+    items: (order.items ?? []).map((it) => ({
       name: it.product_name,
       qty: it.quantity,
       price: `$${Number(it.unit_price).toFixed(2)}`,
