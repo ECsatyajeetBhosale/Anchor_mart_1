@@ -35,6 +35,32 @@ export interface UnassignedOrder {
   priority: "High" | "Normal";
 }
 
+/**
+ * An unassigned order as returned by GET /superadmin/partner/unassigned-orders/.
+ * The list is a plain DRF paginated array (not the wrapped `results.data` envelope).
+ */
+export interface ApiUnassignedOrder {
+  id: string;
+  order_number: string;
+  customer_name: string;
+  /** Machine status, e.g. "payment_pending". */
+  status: string;
+  /** Human status label, e.g. "Payment Pending". */
+  status_display: string;
+  /** Decimal string, e.g. "1000.00". */
+  total_amount: string;
+  /** Pre-formatted timestamp, e.g. "July 07, 2026, 09:29 AM". */
+  created_at: string;
+}
+
+/** DRF paginated envelope for the unassigned-orders list (plain `results` array). */
+export interface ApiUnassignedOrdersResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: ApiUnassignedOrder[];
+}
+
 /** A delivery partner available for assignment. */
 export interface AvailablePartner {
   /** Partner code, e.g. "DP-00056". */

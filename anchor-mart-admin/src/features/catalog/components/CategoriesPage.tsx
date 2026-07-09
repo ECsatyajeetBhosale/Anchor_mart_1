@@ -4,12 +4,22 @@ import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import { DataTable } from "@/components/ui/data-table";
 import { MESSAGES } from "@/lib/messages";
-import { IconBoxSeam, IconCategory, IconCircleCheck, IconPlus } from "@tabler/icons-react";
+import {
+  IconCategory,
+  IconCategoryPlus,
+  IconCircleCheck,
+  IconCircleOff,
+  IconPlus,
+} from "@tabler/icons-react";
 import type React from "react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { useDeleteCategoryMutation, useGetCategoriesQuery } from "../api/categoryApi";
+import {
+  useDeleteCategoryMutation,
+  useGetCategoriesQuery,
+  useGetCategoryStatsQuery,
+} from "../api/categoryApi";
 import type { Category } from "../types/category.types";
 import { CategoryFormModal } from "./CategoryFormModal";
 import { useCategoryColumns } from "./categoryColumns";
@@ -43,11 +53,9 @@ export function CategoriesPage() {
   const totalCount = data?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / LIMIT));
 
-  // No aggregate stats endpoint yet — derive the secondary KPIs from the loaded
-  // page so they stay honest (they reflect the current view, not the grand total).
-  const activeOnPage = categories.filter((c) => c.is_active).length;
-  const productsOnPage = categories.reduce((sum, c) => sum + (c.product_count ?? 0), 0);
-
+  // Aggregate KPI counts { total, active, inactive, empty } from the stats API.
+  const { data: stats } = useGetCategoryStatsQuery();
+   console.log("category stats ", stats)
   // --- Handlers ---
   // Update one URL param and reset to page 1; an empty value clears the param.
   const setFilterParam = (key: string, value: string) => {
@@ -105,23 +113,23 @@ export function CategoriesPage() {
     {
       id: "total-categories",
       label: MESSAGES.CATEGORIES.STATS.TOTAL_CATEGORIES,
-      value: totalCount,
+      value: stats?.total ?? totalCount,
       icon: <IconCategory size={19} />,
       variant: "navy" as const,
     },
     {
       id: "active-categories",
       label: MESSAGES.CATEGORIES.STATS.ACTIVE_CATEGORIES,
-      value: activeOnPage,
+      value: stats?.active ?? "-",
       icon: <IconCircleCheck size={19} />,
       variant: "teal" as const,
     },
     {
-      id: "products-in-categories",
-      label: MESSAGES.CATEGORIES.STATS.PRODUCTS,
-      value: productsOnPage,
-      icon: <IconBoxSeam size={19} />,
-      variant: "amber" as const,
+      id: "inactive-categories",
+      label: MESSAGES.CATEGORIES.STATS.INACTIVE_CATEGORIES,
+      value: stats?.inactive ?? "-",
+      icon: <IconCircleOff size={19} />,
+      variant: "red" as const,
     },
   ];
 

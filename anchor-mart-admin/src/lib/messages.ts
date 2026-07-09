@@ -660,8 +660,9 @@ export const MESSAGES = {
     // KPI cards
     STATS: {
       TOTAL_CATEGORIES: "Total Categories",
-      ACTIVE_CATEGORIES: "Active (this page)",
-      PRODUCTS: "Products (this page)",
+      ACTIVE_CATEGORIES: "Active",
+      INACTIVE_CATEGORIES: "Inactive",
+      EMPTY_CATEGORIES: "Empty",
     },
     // Table
     COLUMNS: {

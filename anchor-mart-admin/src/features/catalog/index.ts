@@ -6,12 +6,14 @@ export { CategoryEditDrawer } from "./components/CategoryEditDrawer";
 export { useCategoryColumns } from "./components/categoryColumns";
 export {
   useGetCategoriesQuery,
+  useGetCategoryStatsQuery,
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
   useDeleteCategoryMutation,
 } from "./api/categoryApi";
 export type {
   Category,
+  CategoryStats,
   AddCategoryPayload,
   UpdateCategoryPayload,
 } from "./types/category.types";

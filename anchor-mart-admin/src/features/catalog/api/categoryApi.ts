@@ -1,19 +1,16 @@
-// src/features/catalog/api/categoryApi.ts
 import { CATEGORY_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
 import type {
   AddCategoryPayload,
   CategoryListResponse,
+  CategoryStats,
   UpdateCategoryPayload,
 } from "../types/category.types";
 
-// Query parameters for fetching categories
 export interface GetCategoriesParams {
   page?: number;
   limit?: number;
-  // Free-text search term, sent to the backend as `?search=...`. Omitted when empty.
   search?: string;
-  // Status filter, sent as `?is_active=True|False`. Omit for "all".
   isActive?: boolean;
 }
 
@@ -23,8 +20,7 @@ export const categoryApi = baseApi.injectEndpoints({
       query: (params) => ({
         url: CATEGORY_ENDPOINTS.GET_CATEGORIES,
         method: "GET",
-        // DRF pagination expects `page_size`, not `limit`; empty params are
-        // omitted; Django expects capitalized booleans for `is_active`.
+     
         params: params
           ? {
               page: params.page,
@@ -44,14 +40,22 @@ export const categoryApi = baseApi.injectEndpoints({
           : [{ type: "Categories", id: "PARTIAL-LIST" }],
     }),
 
+   
+    getCategoryStats: builder.query<CategoryStats, void>({
+      query: () => ({ url: CATEGORY_ENDPOINTS.GET_STATS, method: "GET" }),
+      providesTags: [{ type: "Categories", id: "STATS" }],
+    }),
+
     createCategory: builder.mutation<unknown, AddCategoryPayload>({
       query: (body) => ({
         url: CATEGORY_ENDPOINTS.ADD_CATEGORY,
         method: "POST",
         body,
       }),
-      // Invalidate the list so the new category shows up without a manual refresh.
-      invalidatesTags: [{ type: "Categories", id: "PARTIAL-LIST" }],
+      invalidatesTags: [
+        { type: "Categories", id: "PARTIAL-LIST" },
+        { type: "Categories", id: "STATS" },
+      ],
     }),
 
     updateCategory: builder.mutation<unknown, { id: string; body: UpdateCategoryPayload }>({
@@ -60,10 +64,11 @@ export const categoryApi = baseApi.injectEndpoints({
         method: "PATCH",
         body,
       }),
-      // Refetch the updated category and the list so the table reflects changes.
+    
       invalidatesTags: (_result, _error, { id }) => [
         { type: "Categories", id },
         { type: "Categories", id: "PARTIAL-LIST" },
+        { type: "Categories", id: "STATS" },
       ],
     }),
 
@@ -75,15 +80,17 @@ export const categoryApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, id) => [
         { type: "Categories", id },
         { type: "Categories", id: "PARTIAL-LIST" },
+        { type: "Categories", id: "STATS" },
       ],
     }),
   }),
   overrideExisting: false,
 });
 
-// Export hooks for usage in components
+
 export const {
   useGetCategoriesQuery,
+  useGetCategoryStatsQuery,
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
   useDeleteCategoryMutation,

@@ -73,13 +73,11 @@ export const PRODUCT_ENDPOINTS = {
 };
 
 export const CATEGORY_ENDPOINTS = {
+  GET_STATS: "/superadmin/categories/category-stats/",
   GET_CATEGORIES: "/superadmin/categories/get-categories/",
-  // NOTE: the live list lives under `/categories/…` while the write endpoints
-  // are documented under `/catalog/…` (per the Postman collection). Kept as
-  // documented — flip the prefix here if the backend consolidates them.
-  ADD_CATEGORY: "/superadmin/catalog/add-category/",
-  UPDATE_CATEGORY: (id: string) => `/superadmin/catalog/update-category/${id}/`,
-  DELETE_CATEGORY: (id: string) => `/superadmin/catalog/delete-category/${id}/`,
+  ADD_CATEGORY: "/superadmin/categories/add-category/",
+  UPDATE_CATEGORY: (id: string) => `/superadmin/categories/update-category/${id}/`,
+  DELETE_CATEGORY: (id: string) => `/superadmin/categories/delete-category/${id}/`,
 };
 
 export const SAILOR_ENDPOINTS = {
@@ -121,6 +119,10 @@ export const PARTNER_ENDPOINTS = {
 
 export const VERIFICATION_ENDPOINTS = {
   GET_REPORTS: "/superadmin/partner/verification-reports/",
+};
+
+export const ASSIGNMENT_ENDPOINTS = {
+  GET_UNASSIGNED_ORDERS: "/superadmin/partner/unassigned-orders/",
 };
 
 export const SPECIAL_REQUEST_ENDPOINTS = {

@@ -16,10 +16,17 @@ export function UnassignedOrdersCard({ orders, onAssign }: UnassignedOrdersCardP
 
   return (
     <SectionCard
+      // No body padding + relative positioning: the scroll list is absolutely
+      // positioned so its content never grows the grid row. The grid then
+      // stretches this card to the assignments table's height, and the list
+      // fills and scrolls inside it — so the two sections always match height.
+      bodyPadding="none"
+      bodyClassName="relative"
       title={M.TITLE}
       actions={urgentCount > 0 && <Badge variant="danger">{M.URGENT(urgentCount)}</Badge>}
     >
-      <div className="flex flex-col gap-2.5">
+      {/* Absolutely fill the card body; padding lives here (pr trimmed for the scrollbar). */}
+      <div className="absolute inset-0 flex flex-col gap-2.5 overflow-y-auto p-5 pr-4">
         {orders.length === 0 ? (
           <div className="text-[13px] text-[var(--t4)]">{M.EMPTY}</div>
         ) : (

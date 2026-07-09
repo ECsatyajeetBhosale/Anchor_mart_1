@@ -35,6 +35,19 @@ export interface CategoryListResponse {
   results: CategoryListResponseData;
 }
 
+/**
+ * Aggregate KPI counts for the categories page.
+ * Plain object (not the DRF wrapped envelope), e.g.
+ * `{ total: 26, active: 25, inactive: 1, empty: 8 }`.
+ */
+export interface CategoryStats {
+  total: number;
+  active: number;
+  inactive: number;
+  /** Categories that have no products assigned. */
+  empty: number;
+}
+
 /** Request body for POST /superadmin/catalog/add-category/. */
 export interface AddCategoryPayload {
   name: string;

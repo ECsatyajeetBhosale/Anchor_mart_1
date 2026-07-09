@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { MESSAGES } from "@/lib/messages";
 import { IconPlus } from "@tabler/icons-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { MOCK_ASSIGNMENTS, MOCK_PARTNERS, MOCK_UNASSIGNED } from "../data/mockAssignments";
+import { useGetUnassignedOrdersQuery } from "../api/assignmentApi";
+import { MOCK_ASSIGNMENTS, MOCK_PARTNERS } from "../data/mockAssignments";
 import type { Assignment, UnassignedOrder } from "../types/assignment.types";
 import { AssignPartnerDrawer } from "./AssignPartnerDrawer";
 import { UnassignedOrdersCard } from "./UnassignedOrdersCard";
@@ -17,10 +18,17 @@ const M = MESSAGES.ASSIGNMENTS;
 
 export function AssignmentsPage() {
   const [assignments, setAssignments] = useState<Assignment[]>(MOCK_ASSIGNMENTS);
-  const [unassigned, setUnassigned] = useState<UnassignedOrder[]>(MOCK_UNASSIGNED);
   const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null);
   const [assignOrderId, setAssignOrderId] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
+
+  // Unassigned orders come from the live API; seed local state from it so the
+  // assign flow can still optimistically remove a row on assignment.
+  const { data: unassignedData } = useGetUnassignedOrdersQuery();
+  const [unassigned, setUnassigned] = useState<UnassignedOrder[]>([]);
+  useEffect(() => {
+    if (unassignedData) setUnassigned(unassignedData);
+  }, [unassignedData]);
 
   const openAssign = (orderId: string) => {
     setAssignOrderId(orderId);
