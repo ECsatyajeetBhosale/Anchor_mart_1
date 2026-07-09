@@ -6,15 +6,14 @@ import type {
   UpdateCouponPayload,
 } from "../types/reward.types";
 
-// Coupon endpoints for the "Active Coupons" panel. `is_active` on the list is
-// sent as the Python-style "True" the backend expects.
+// Coupon endpoints for the "Active Coupons" panel. The list is fetched without
+// any status filter so both active and inactive coupons are returned.
 export const couponApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getActiveCoupons: builder.query<ApiCouponListResponse, void>({
       query: () => ({
         url: REWARD_ENDPOINTS.GET_COUPONS,
         method: "GET",
-        params: { is_active: "True" },
       }),
       providesTags: [{ type: "Coupons", id: "ACTIVE-LIST" }],
     }),

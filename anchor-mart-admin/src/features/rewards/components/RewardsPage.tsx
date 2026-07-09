@@ -16,8 +16,13 @@ import {
   useGetActiveCouponsQuery,
   useUpdateCouponMutation,
 } from "../api/couponApi";
-import { useGetLoyaltyOverviewQuery } from "../api/loyaltyApi";
+import {
+  useGetLoyaltyConfigQuery,
+  useGetLoyaltyOverviewQuery,
+  useUpdateLoyaltyConfigMutation,
+} from "../api/loyaltyApi";
 import type { CouponFormData } from "../schemas/coupon.schema";
+import type { LoyaltyConfigFormData } from "../schemas/loyaltyConfig.schema";
 import type {
   ApiCoupon,
   Coupon,
@@ -26,6 +31,7 @@ import type {
 } from "../types/reward.types";
 import { ActiveCouponsCard } from "./ActiveCouponsCard";
 import { CouponFormDrawer } from "./CouponFormDrawer";
+import { LoyaltyConfigDrawer } from "./LoyaltyConfigDrawer";
 
 const M = MESSAGES.REWARDS;
 
@@ -114,6 +120,7 @@ export function RewardsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editCoupon, setEditCoupon] = useState<Coupon | null>(null);
   const [couponToDelete, setCouponToDelete] = useState<Coupon | null>(null);
+  const [configOpen, setConfigOpen] = useState(false);
 
   // Active coupons (live API). Seed local state so the existing add/edit UI
   // keeps working optimistically until those mutation endpoints are wired up.
@@ -132,6 +139,10 @@ export function RewardsPage() {
 
   // Loyalty Program Overview KPIs (live API). Values fall back to "—" until loaded.
   const { data: loyalty } = useGetLoyaltyOverviewQuery();
+
+  // Loyalty points configuration (live API) — seeds the "Configure Points" drawer.
+  const { data: loyaltyConfig } = useGetLoyaltyConfigQuery();
+  const [updateLoyaltyConfig, { isLoading: isSavingConfig }] = useUpdateLoyaltyConfigMutation();
   const dash = "—";
   const loyaltyView = {
     pointsIssued: loyalty ? loyalty.points_issued.toLocaleString("en-US") : dash,
@@ -182,6 +193,20 @@ export function RewardsPage() {
     }
   };
 
+  const handleConfigSubmit = async (data: LoyaltyConfigFormData) => {
+    try {
+      await updateLoyaltyConfig({
+        points_per_delivery: data.points_per_delivery,
+        points_per_referral: data.points_per_referral,
+        point_value: data.point_value,
+      }).unwrap();
+      setConfigOpen(false);
+      toast.success(M.POINTS_SAVED);
+    } catch (err) {
+      toast.error(getApiMessage(err) ?? M.POINTS_SAVE_ERROR);
+    }
+  };
+
   const couponColumns: Column<Coupon>[] = [
     idColumn({ id: "code", header: M.TABLE.COLUMNS.CODE, get: (r) => r.code }),
     textColumn({
@@ -226,7 +251,7 @@ export function RewardsPage() {
               <IconTicket size={14} className="mr-1" />
               {M.CREATE_COUPON}
             </Button>
-            <Button variant="primary" size="sm" onClick={() => toast.success(M.POINTS_SAVED)}>
+            <Button variant="primary" size="sm" onClick={() => setConfigOpen(true)}>
               <IconSettings size={14} className="mr-1" />
               {M.CONFIGURE_POINTS}
             </Button>
@@ -315,6 +340,14 @@ export function RewardsPage() {
         onClose={() => setDrawerOpen(false)}
         onSubmit={handleSubmit}
         isSubmitting={isCreating || isUpdating}
+      />
+
+      <LoyaltyConfigDrawer
+        open={configOpen}
+        config={loyaltyConfig ?? null}
+        onClose={() => setConfigOpen(false)}
+        onSubmit={handleConfigSubmit}
+        isSubmitting={isSavingConfig}
       />
 
       <ConfirmDialog

@@ -10,6 +10,7 @@ export const APP_ROUTES = {
   ORDERS: "/orders",
   INTENTS: "/intents",
   PRODUCTS: "/products",
+  CATEGORIES: "/categories",
   EXPRESS: "/express",
   INVENTORY: "/inventory",
   REWARDS: "/rewards",

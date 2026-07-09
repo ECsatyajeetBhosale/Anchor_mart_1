@@ -45,6 +45,30 @@ export interface LoyaltyOverview {
 }
 
 /**
+ * Loyalty points configuration.
+ * GET /superadmin/promotion/loyalty/config/ — returns a plain object.
+ */
+export interface LoyaltyConfig {
+  id: number;
+  points_per_delivery: number;
+  points_per_referral: number;
+  /** Cash value of a single point, as a decimal string (e.g. "1.0000"). */
+  point_value: string;
+  /** Pre-formatted timestamp, e.g. "June 19, 2026, 06:37 AM". */
+  updated_at: string;
+}
+
+/**
+ * Request body for POST /superadmin/promotion/loyalty/config/update/.
+ * Mirrors the config minus the `id`/`updated_at` fields.
+ */
+export interface UpdateLoyaltyConfigPayload {
+  points_per_delivery: number;
+  points_per_referral: number;
+  point_value: string;
+}
+
+/**
  * A coupon record as returned by GET /superadmin/promotion/coupons/.
  * Only the fields the UI consumes are typed strictly.
  */

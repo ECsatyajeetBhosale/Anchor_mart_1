@@ -1,36 +1,35 @@
 import { EXPRESS_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
-import type { ExpressItemListResponse } from "../types/expressItem.types";
+import type { ExpressOrderListResponse } from "../types/expressItem.types";
 
-// Query parameters for fetching express items (mirrors the products query).
+// Query parameters for fetching express orders.
 export interface GetExpressItemsParams {
   page?: number;
   limit?: number;
   // Free-text search term, sent to the backend as `?search=...`.
   search?: string;
-  // Status filter, sent as `?is_active=True|False`. Omit for "all".
-  isActive?: boolean;
+  // Order status filter, sent as `?status=<value>`. Omit for "all".
+  status?: string;
 }
 
 export const expressApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getExpressItems: builder.query<ExpressItemListResponse, GetExpressItemsParams>({
+    getExpressItems: builder.query<ExpressOrderListResponse, GetExpressItemsParams>({
       query: (params) => ({
         url: EXPRESS_ENDPOINTS.GET_EXPRESS_ITEMS,
         method: "GET",
-        // DRF pagination uses `page_size` (not `limit`); `search` is omitted when
-        // empty; Django expects capitalized booleans for `is_active`.
+        // DRF pagination uses `page_size` (not `limit`); empty params are omitted.
         params: {
           page: params.page,
           page_size: params.limit,
           search: params.search || undefined,
-          is_active: params.isActive === undefined ? undefined : params.isActive ? "True" : "False",
+          status: params.status || undefined,
         },
       }),
       providesTags: (result) =>
-        result?.results.data
+        result?.results
           ? [
-              ...result.results.data.map(({ id }) => ({ type: "ExpressItems" as const, id })),
+              ...result.results.map(({ id }) => ({ type: "ExpressItems" as const, id })),
               { type: "ExpressItems", id: "PARTIAL-LIST" },
             ]
           : [{ type: "ExpressItems", id: "PARTIAL-LIST" }],

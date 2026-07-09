@@ -30,12 +30,6 @@ export function ActiveCouponsCard({ coupons, onAdd, onEdit, onDelete }: ActiveCo
       // inflating the grid row (which would make Loyalty taller too).
       bodyPadding="none"
       bodyClassName="relative min-h-0"
-      actions={
-        <Button variant="primary" size="xs" onClick={onAdd}>
-          <IconPlus size={14} className="mr-1" />
-          {M.ADD}
-        </Button>
-      }
     >
       {/* Fills the card height; overflowing coupons scroll. `pt-4` sets the
           space above the first coupon; `pb-2.5` the space below the last. */}
@@ -63,7 +57,6 @@ export function ActiveCouponsCard({ coupons, onAdd, onEdit, onDelete }: ActiveCo
                   <span className="mono text-[14px] font-extrabold text-[var(--teal-600)]">
                     {cp.code}
                   </span>
-                  <Badge variant="success">{M.COUPONS.ACTIVE}</Badge>
                 </div>
                 <div className="text-[12px] font-semibold text-[var(--t2)]">
                   {cp.d} · {cp.m}

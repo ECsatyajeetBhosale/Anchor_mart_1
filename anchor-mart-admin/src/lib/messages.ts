@@ -648,49 +648,192 @@ export const MESSAGES = {
       FREE_SHIPPING: "Free Shipping",
     },
   },
-  EXPRESS: {
+  CATEGORIES: {
     // Page chrome
-    TITLE: "Express Items",
-    SUBTITLE: "Fast-delivery everyday essentials",
-    SEARCH_PLACEHOLDER: "Search express items…",
-    FETCH_ERROR: "Failed to fetch express items",
-    EMPTY: "No express items found.",
-    IMAGE_ALT: "Express item",
+    TITLE: "Categories",
+    SUBTITLE: "Organize your catalog into categories",
+    SEARCH_PLACEHOLDER: "Search categories…",
+    ADD_CATEGORY: "Add Category",
+    FETCH_ERROR: "Failed to fetch categories",
+    EMPTY: "No categories found.",
+    IMAGE_ALT: "Category",
+    // KPI cards
+    STATS: {
+      TOTAL_CATEGORIES: "Total Categories",
+      ACTIVE_CATEGORIES: "Active (this page)",
+      PRODUCTS: "Products (this page)",
+    },
     // Table
     COLUMNS: {
-      PRODUCT: "Product",
       CATEGORY: "Category",
-      PRICE: "Price",
-      SALES: "Sales",
-      SOURCEABLE: "Sourceable",
+      SCOPE: "Scope",
+      PARENT: "Parent",
+      PRODUCTS: "Products",
       STATUS: "Status",
-      EXPRESS: "Express",
-      CREATED: "Created",
-      UPDATED: "Updated",
       ACTIONS: "Actions",
     },
     STATUS_FILTER: {
       ACTIVE: "Active",
       INACTIVE: "Inactive",
     },
+    ACTION_EDIT: "Edit",
+    ACTION_REMOVE: "Remove",
+    // Toasts
+    TOAST: {
+      DELETE_SUCCESS: "Category deleted successfully",
+      DELETE_ERROR: "Failed to delete category",
+      ADD_SUCCESS: "Category created successfully",
+      ADD_ERROR: "Failed to create category. Please try again.",
+      UPDATE_SUCCESS: "Category updated successfully",
+      UPDATE_ERROR: "Failed to update category. Please try again.",
+    },
+    // Delete confirmation dialog
+    DELETE_CONFIRM: {
+      TITLE: "Delete Category",
+      MESSAGE: "Are you sure you want to delete this category? This action cannot be undone.",
+      CONFIRM: "Delete",
+    },
+    // Add drawer
+    ADD: {
+      TITLE: "Add New Category",
+      SUBTITLE: "Create a new category for your catalog",
+      SUBMIT: "Add Category",
+      SAVING: "Saving…",
+    },
+    // Edit drawer
+    EDIT: {
+      TITLE: "Edit Category",
+      SUBTITLE: "Update your category details",
+      SUBMIT: "Save Changes",
+      SAVING: "Saving…",
+    },
+    // Drawer section headings
+    SECTIONS: {
+      BASIC: "Basic Information",
+      MEDIA: "Category Media",
+      ADDITIONAL: "Additional Settings",
+    },
+    // Toggle labels
+    TOGGLES: {
+      ACTIVE: "Active",
+    },
+  },
+  EXPRESS: {
+    // Page chrome
+    TITLE: "Express Orders",
+    SUBTITLE: "Fast-delivery orders to vessels",
+    SEARCH_PLACEHOLDER: "Search express orders…",
+    FETCH_ERROR: "Failed to fetch express orders",
+    EMPTY: "No express orders found.",
+    DASH: "—",
+    // Table
+    COLUMNS: {
+      ORDER: "Order",
+      CUSTOMER: "Customer",
+      LOCATION: "Port / Anchorage",
+      ITEMS: "Items",
+      AMOUNT: "Amount",
+      FLAGS: "Flags",
+      PARTNER: "Partner",
+      ARRIVAL: "Ship Arrival",
+      STATUS: "Status",
+      ACTIONS: "Actions",
+    },
+    // Order status filter (sent to the backend as `?status=<value>`)
+    STATUS_FILTER: {
+      PENDING: "Pending",
+      CONFIRMED: "Confirmed",
+      PROCESSING: "Processing",
+      DELIVERING: "Delivering",
+      DELIVERED: "Delivered",
+      CANCELLED: "Cancelled",
+    },
     // Boolean flag badge labels
     FLAGS: {
       EXPRESS: "Express",
-      NON_EXPRESS: "Non-Express",
-      SOURCEABLE: "Sourceable",
-      NOT_SOURCEABLE: "Not Sourceable",
+      EMERGENCY: "Emergency",
+      FASTEST: "Fastest",
+      LOCATION_REQ: "Location Req.",
     },
+    // Partner allocation
+    UNALLOCATED: "Unallocated",
     ACTION_VIEW: "View details",
     // Detail drawer
     DRAWER: {
-      TITLE_FALLBACK: "Express Item",
+      TITLE_FALLBACK: "Express Order",
       CLOSE: "Close",
       SECTIONS: {
         OVERVIEW: "Overview",
-        ATTRIBUTES: "Attributes",
-        MATERIAL: "Material",
-        CARE: "Care Instructions",
+        CUSTOMER: "Customer",
+        DELIVERY: "Delivery",
+        TIMELINE: "Timeline",
       },
+      ITEM_COUNT: (n: number) => `${n} item${n === 1 ? "" : "s"}`,
+    },
+  },
+  VERIFICATION: {
+    // Page chrome
+    TITLE: "Product Verifications",
+    DASH: "—",
+    // KPI cards
+    STATS: {
+      IN_VERIFICATION: "In Verification",
+      IN_VERIFICATION_FOOTER: "Currently active",
+      VERIFIED_TODAY: "Verified Today",
+      VERIFIED_TODAY_FOOTER: "Reports submitted",
+      UNAVAILABLE: "Unavailable Items",
+      UNAVAILABLE_FOOTER: "Action needed",
+      SUBSTITUTIONS: "Substitutions",
+      SUBSTITUTIONS_FOOTER: "Awaiting approval",
+    },
+    // Reports table
+    TABLE: {
+      TITLE: "Verification Reports",
+      EMPTY: "No verification reports found.",
+      COLUMNS: {
+        ENQ: "ENQ",
+        PARTNER: "Partner",
+        SHOP: "Shop",
+        TOTAL: "Total Items",
+        AVAILABLE: "Available",
+        UNAVAILABLE: "Unavailable",
+        STATUS: "Status",
+        ACTION: "Action",
+      },
+      SUGGEST: "Suggest Substitute",
+      NO_ACTION: "No action needed",
+    },
+    // Item-detail panel (active check)
+    ITEMS: {
+      TITLE: (enq: string) => `${enq} — Item Detail`,
+      PDF: "PDF Report",
+      PDF_DONE: "PDF report downloaded",
+      NOTIFY: "Notify Sailor",
+      NOTIFY_DONE: "Sailor notified of item checks",
+      FIND_ALT: "Find Alt",
+      STATUS: {
+        AVAILABLE: "Available",
+        UNAVAILABLE: "Unavailable",
+        SUB_SUGGESTED: "Sub suggested",
+      },
+    },
+    // Suggest-substitute dialog
+    DIALOG: {
+      TITLE: "Suggest Substitute",
+      ITEM: (name: string) => `Item: ${name}`,
+      UNAVAILABLE_LABEL: "Unavailable Item",
+      UNAVAILABLE_NOTE: (shop: string) => `Partner confirmed out of stock at ${shop}`,
+      NAME_LABEL: "Substitute Product Name",
+      NAME_PLACEHOLDER: "Search substitute product…",
+      PRICE_LABEL: "Price Difference",
+      PRICE: {
+        SAME: "Same Price",
+        INCREASE: "Price Increase",
+        DECREASE: "Price Decrease",
+      },
+      SEND: "Send Suggestion",
+      SENT: (name: string) => `Substitute suggestion "${name}" sent to sailor`,
+      NAME_REQUIRED: "Please enter a substitute product name",
     },
   },
   REWARDS: {
@@ -699,7 +842,22 @@ export const MESSAGES = {
     CREATE_COUPON: "Create Coupon",
     EDIT_COUPON: "Edit Coupon",
     CONFIGURE_POINTS: "Configure Points",
-    POINTS_SAVED: "Loyalty points guidelines saved",
+    POINTS_SAVED: "Loyalty points configuration saved",
+    POINTS_SAVE_ERROR: "Failed to save the points configuration. Please try again.",
+    // Loyalty points configuration drawer
+    CONFIG: {
+      TITLE: "Configure Loyalty Points",
+      SUBTITLE: "Set how many points sailors earn and what each point is worth.",
+      SECTION: "Points Rules",
+      POINTS_PER_DELIVERY: "Points Per Delivery",
+      POINTS_PER_DELIVERY_HINT: "Awarded for each completed delivery.",
+      POINTS_PER_REFERRAL: "Points Per Referral",
+      POINTS_PER_REFERRAL_HINT: "Awarded for each successful referral.",
+      POINT_VALUE: "Point Value ($)",
+      POINT_VALUE_HINT: "Cash value of a single point.",
+      UPDATED_AT: "Last Updated",
+      UPDATED_AT_HINT: "Not sent — updated automatically on save.",
+    },
     ADD: "Add",
     EXPORT: "Export",
     EXPORTED: "Exported activity log",
@@ -831,6 +989,43 @@ export const MESSAGES = {
       ACTIVE: "Active",
       INACTIVE: "Inactive",
       CLOSE: "Close",
+    },
+  },
+  ASSIGNMENTS: {
+    // Page chrome
+    TITLE: "Order Assignments",
+    NEW_ASSIGNMENT: "New Assignment",
+    // Active assignments table
+    ACTIVE: {
+      TITLE: "Active Assignments",
+      EMPTY: "No active assignments.",
+      REASSIGN: "Reassign partner",
+      COLUMNS: {
+        ENQ: "ENQ",
+        PARTNER: "Partner",
+        ORDER: "Order",
+        SHOP: "Shop",
+        DELIVER_TO: "Deliver To",
+        STATUS: "Status",
+        ETA: "ETA",
+      },
+    },
+    // Unassigned orders panel
+    UNASSIGNED: {
+      TITLE: "Unassigned Orders",
+      URGENT: (n: number) => `${n} urgent`,
+      EMPTY: "No unassigned orders.",
+      ASSIGN: "Assign",
+    },
+    // Assign-partner drawer
+    DRAWER: {
+      TITLE: "Assign Delivery Partner",
+      SUBTITLE: (id: string) => `Order ID: ${id}`,
+      SELECT_PARTNER: "Select Partner",
+      CONFIRM: "Assign Partner",
+      SELECT_REQUIRED: "Please select a partner",
+      ASSIGNED: (partner: string, order: string) =>
+        `Partner ${partner} assigned successfully to ${order}`,
     },
   },
   COMMON: {

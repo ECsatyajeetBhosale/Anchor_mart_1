@@ -74,6 +74,12 @@ export const PRODUCT_ENDPOINTS = {
 
 export const CATEGORY_ENDPOINTS = {
   GET_CATEGORIES: "/superadmin/categories/get-categories/",
+  // NOTE: the live list lives under `/categories/…` while the write endpoints
+  // are documented under `/catalog/…` (per the Postman collection). Kept as
+  // documented — flip the prefix here if the backend consolidates them.
+  ADD_CATEGORY: "/superadmin/catalog/add-category/",
+  UPDATE_CATEGORY: (id: string) => `/superadmin/catalog/update-category/${id}/`,
+  DELETE_CATEGORY: (id: string) => `/superadmin/catalog/delete-category/${id}/`,
 };
 
 export const SAILOR_ENDPOINTS = {
@@ -88,7 +94,7 @@ export const SAILOR_ENDPOINTS = {
 };
 
 export const EXPRESS_ENDPOINTS = {
-  GET_EXPRESS_ITEMS: "/superadmin/product-variants/get-express-items/",
+  GET_EXPRESS_ITEMS: "/superadmin/express/orders/",
 };
 
 export const ORDER_ENDPOINTS = {
@@ -111,6 +117,10 @@ export const PARTNER_ENDPOINTS = {
   DELETE: "/superadmin/partner/delete/",
   // Update partner detail; user id sent as the `user_id` query param.
   UPDATE: "/superadmin/partner/partner_detail_update/",
+};
+
+export const VERIFICATION_ENDPOINTS = {
+  GET_REPORTS: "/superadmin/partner/verification-reports/",
 };
 
 export const SPECIAL_REQUEST_ENDPOINTS = {
@@ -155,6 +165,8 @@ export const ANALYTICS_ENDPOINTS = {
 
 export const REWARD_ENDPOINTS = {
   GET_LOYALTY_OVERVIEW: "/superadmin/promotion/loyalty/overview/",
+  GET_LOYALTY_CONFIG: "/superadmin/promotion/loyalty/config/",
+  UPDATE_LOYALTY_CONFIG: "/superadmin/promotion/loyalty/config/update/",
   GET_COUPONS: "/superadmin/promotion/coupons/",
   CREATE_COUPON: "/superadmin/promotion/coupons/add/",
   UPDATE_COUPON: (id: string) => `/superadmin/orders/coupons/update/${id}/`,

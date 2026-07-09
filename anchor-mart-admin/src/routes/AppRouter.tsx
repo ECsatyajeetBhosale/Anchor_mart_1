@@ -30,6 +30,9 @@ import { VerificationPage } from "@/pages/VerificationPage";
 // Products — from feature
 import { ProductsPage } from "@/features/products";
 
+// Categories — from catalog feature
+import { CategoriesPage } from "@/features/catalog";
+
 // Sellers — from feature
 import { SellerRequestsPage } from "@/features/sellers";
 
@@ -57,6 +60,7 @@ export function AppRouter() {
             <Route path={APP_ROUTES.ORDERS} element={<OrdersPage />} />
             <Route path={APP_ROUTES.INTENTS} element={<IntentsPage />} />
             <Route path={APP_ROUTES.PRODUCTS} element={<ProductsPage />} />
+            <Route path={APP_ROUTES.CATEGORIES} element={<CategoriesPage />} />
             <Route path={APP_ROUTES.EXPRESS} element={<ExpressPage />} />
             <Route path={APP_ROUTES.INVENTORY} element={<InventoryPage />} />
             <Route path={APP_ROUTES.REWARDS} element={<RewardsPage />} />

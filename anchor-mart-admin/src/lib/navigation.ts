@@ -1,24 +1,25 @@
-import {
-  IconLayoutDashboard,
-  IconChartAreaLine,
-  IconUsers,
-  IconPackage,
-  IconFileInvoice,
-  IconClipboardText,
-  IconBoxSeam,
-  IconEngine,
-  IconBolt,
-  IconStar,
-  IconMotorbike,
-  IconClipboardList,
-  IconChecklist,
-  IconBell,
-  IconMessages,
-  IconLifebuoy,
-  IconBuildingStore,
-  IconSettings,
-} from "@tabler/icons-react";
 import { APP_ROUTES } from "@/lib/constants";
+import {
+  IconBell,
+  IconBolt,
+  IconBoxSeam,
+  IconBuildingStore,
+  IconCategory,
+  IconChartAreaLine,
+  IconChecklist,
+  IconClipboardList,
+  IconClipboardText,
+  IconEngine,
+  IconFileInvoice,
+  IconLayoutDashboard,
+  IconLifebuoy,
+  IconMessages,
+  IconMotorbike,
+  IconPackage,
+  IconSettings,
+  IconStar,
+  IconUsers,
+} from "@tabler/icons-react";
 import type { ComponentType } from "react";
 
 export interface NavItem {
@@ -90,6 +91,12 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "Products",
         icon: IconBoxSeam,
         path: APP_ROUTES.PRODUCTS,
+      },
+      {
+        key: "categories",
+        label: "Categories",
+        icon: IconCategory,
+        path: APP_ROUTES.CATEGORIES,
       },
       {
         key: "spares",
