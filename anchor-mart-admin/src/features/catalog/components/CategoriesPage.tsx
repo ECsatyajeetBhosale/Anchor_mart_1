@@ -55,9 +55,7 @@ export function CategoriesPage() {
 
   // Aggregate KPI counts { total, active, inactive, empty } from the stats API.
   const { data: stats } = useGetCategoryStatsQuery();
-   console.log("category stats ", stats)
-  // --- Handlers ---
-  // Update one URL param and reset to page 1; an empty value clears the param.
+
   const setFilterParam = (key: string, value: string) => {
     const next = new URLSearchParams(searchParams);
     next.set("page", "1");

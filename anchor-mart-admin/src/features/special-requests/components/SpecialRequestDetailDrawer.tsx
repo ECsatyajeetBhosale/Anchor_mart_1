@@ -39,6 +39,28 @@ function dash(value: unknown): string {
   return s === "" ? M.DETAIL.FALLBACK : s;
 }
 
+/** Currency-code → symbol map for the budget/price display. */
+const CURRENCY_SYMBOL: Record<string, string> = {
+  USD: "$",
+  INR: "₹",
+  EUR: "€",
+  GBP: "£",
+  SGD: "S$",
+  AED: "AED ",
+};
+
+/**
+ * Formats a string/number money amount with its currency symbol, e.g.
+ * `("34.00", "USD") → "$34.00"`. Returns "-" for a null/blank amount.
+ */
+function money(amount: unknown, currency?: string | null): string {
+  if (amount === null || amount === undefined || String(amount).trim() === "") {
+    return M.DETAIL.FALLBACK;
+  }
+  const symbol = currency ? (CURRENCY_SYMBOL[currency] ?? `${currency} `) : "";
+  return `${symbol}${amount}`;
+}
+
 export interface SpecialRequestDetailDrawerProps {
   /** Row id (UUID) sent to the detail API as `product_id`; null when none selected. */
   requestId: string | null;
@@ -91,6 +113,14 @@ export function SpecialRequestDetailDrawer({
   const statusVar = specialRequestStatusVariant(detail?.status ?? "");
   const images = detail?.images ?? [];
   const productName = dash(detail?.product_name);
+  const maxBudget = money(detail?.max_budget, detail?.currency);
+  const fastestDelivery = detail?.is_fastest_delivery ? M.DETAIL.YES : M.DETAIL.NO;
+  const fastDeliveryCharge = money(detail?.fast_delivery_charge, detail?.currency);
+  const quotedPrice = money(detail?.quoted_price, detail?.currency);
+  // Rebill summary, e.g. "Requested · 1 / 2" or "Not requested · 0 / 2".
+  const rebillSummary = `${detail?.rebill_requested ? M.DETAIL.YES : M.DETAIL.NO} · ${
+    detail?.rebill_count ?? 0
+  } / ${detail?.rebill_cap ?? 0}`;
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -117,7 +147,7 @@ export function SpecialRequestDetailDrawer({
           </div>
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div key={detail?.id ?? requestId ?? "none"} className="flex-1 overflow-y-auto p-6">
           {isBusy ? (
             <div className="flex flex-col items-center justify-center gap-2.5 py-16">
               <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-[var(--border-md)] border-t-[var(--teal-500)]" />
@@ -187,10 +217,15 @@ export function SpecialRequestDetailDrawer({
                 <FormField label={M.DETAIL.QUANTITY}>
                   <div className="ecard">{dash(detail.quantity)}</div>
                 </FormField>
-                <div className="fg" />
+                <FormField label={M.DETAIL.MAX_BUDGET}>
+                  <div className="ecard">{maxBudget}</div>
+                </FormField>
               </div>
               <FormField label={M.DETAIL.DESCRIPTION}>
                 <div className="ecard leading-relaxed">{dash(detail.description)}</div>
+              </FormField>
+              <FormField label={M.DETAIL.CUSTOMER_NOTE}>
+                <div className="ecard leading-relaxed">{dash(detail.customer_note)}</div>
               </FormField>
               <FormField label={M.DETAIL.UPLOADED_IMAGE}>
                 {images.length > 0 ? (
@@ -212,6 +247,28 @@ export function SpecialRequestDetailDrawer({
                 )}
               </FormField>
 
+              {/* Request Preferences (read-only, sailor-submitted) */}
+              <div className="sec-label mt-4">{M.DETAIL.REQUEST_PREFERENCES}</div>
+              <div className="form-row">
+                <FormField label={M.DETAIL.FASTEST_DELIVERY}>
+                  <div className="ecard">{fastestDelivery}</div>
+                </FormField>
+                <FormField label={M.DETAIL.FAST_DELIVERY_CHARGE}>
+                  <div className="ecard">{fastDeliveryCharge}</div>
+                </FormField>
+              </div>
+              <div className="form-row">
+                <FormField label={M.DETAIL.QUOTED_PRICE}>
+                  <div className="ecard">{quotedPrice}</div>
+                </FormField>
+                <FormField label={M.DETAIL.REBILL}>
+                  <div className="ecard">{rebillSummary}</div>
+                </FormField>
+              </div>
+              <FormField label={M.DETAIL.ADMIN_RESPONSE}>
+                <div className="ecard leading-relaxed">{dash(detail.admin_response)}</div>
+              </FormField>
+
               {/* Ship & Delivery Information */}
               <div className="sec-label mt-4">{M.DETAIL.SHIP_DELIVERY}</div>
               <div className="form-row">
@@ -227,7 +284,7 @@ export function SpecialRequestDetailDrawer({
                   <Input placeholder={M.DETAIL.STROKE_TERMINAL_PLACEHOLDER} />
                 </FormField>
                 <FormField label={M.DETAIL.ARRIVAL_DATE}>
-                  <Input type="date" />
+                  <Input type="date" defaultValue={detail.ship_arrival_date ?? undefined} />
                 </FormField>
                 <FormField label={M.DETAIL.ARRIVAL_TIME}>
                   <Input type="time" />
@@ -235,7 +292,10 @@ export function SpecialRequestDetailDrawer({
               </div>
               <div className="form-row">
                 <FormField label={M.DETAIL.EXPECTED_STAY}>
-                  <Input placeholder={M.DETAIL.EXPECTED_STAY_PLACEHOLDER} />
+                  <Input
+                    placeholder={M.DETAIL.EXPECTED_STAY_PLACEHOLDER}
+                    defaultValue={detail.expected_stay ?? undefined}
+                  />
                 </FormField>
                 <FormField label={M.DETAIL.COMM_PREF}>
                   <DropdownSelect
@@ -257,7 +317,11 @@ export function SpecialRequestDetailDrawer({
               <div className="sec-label mt-4">{M.DETAIL.PRICING}</div>
               <div className="form-row">
                 <FormField label={M.DETAIL.ESTIMATED_PRICE}>
-                  <Input type="number" placeholder={M.DETAIL.ESTIMATED_PRICE_PLACEHOLDER} />
+                  <Input
+                    type="number"
+                    placeholder={M.DETAIL.ESTIMATED_PRICE_PLACEHOLDER}
+                    defaultValue={detail.quoted_price ?? undefined}
+                  />
                 </FormField>
                 <div className="fg" />
               </div>

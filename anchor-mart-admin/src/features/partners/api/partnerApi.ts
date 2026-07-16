@@ -64,6 +64,10 @@ function toPartner(row: PartnerApi): PartnerData {
     // Prefer the business partner id (shown in the ID column); fall back to the UUID.
     id: str(row.partner_id) || str(row.id),
     userId: str(row.user_id),
+    // Partner's user id — the assign-order API expects this as delivery_partner_id
+    // (like every other partner endpoint, which keys on user_id). Falls back to
+    // the partner record UUID when user_id is absent.
+    deliveryPartnerId: str(row.user_id) || str(row.id),
     n: dash(row.name),
     p: dash(row.port ?? row.assigned_port),
     j: formatJoined(row.joined),

@@ -1,19 +1,21 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  IconBell,
-  IconChecks,
-  IconClock,
-  IconCreditCard,
-  IconFileInvoice,
-  IconMotorbike,
-  IconPackage,
-  IconTransfer,
-  IconUserCheck,
-  IconX,
-} from "@tabler/icons-react";
-import type { ReactNode } from "react";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { MESSAGES } from "@/lib/messages";
+import { IconBell, IconClock, IconPackage, IconTransfer, IconX } from "@tabler/icons-react";
+import { useState } from "react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { Timeline } from "./Timeline";
+
+const M = MESSAGES.ORDERS;
 
 export interface OrderItem {
   name: string;
@@ -49,16 +51,6 @@ export interface OrderTimelineItem {
   detail?: string | null;
 }
 
-/** Per-step icons, keyed by the timeline `key` (falls back to a generic icon). */
-const TIMELINE_ICONS: Record<string, ReactNode> = {
-  intent_submitted: <IconFileInvoice size={14} />,
-  intent_confirmed: <IconChecks size={14} />,
-  payment_confirmed: <IconCreditCard size={14} />,
-  assigned: <IconUserCheck size={14} />,
-  out_for_delivery: <IconMotorbike size={14} />,
-  delivered: <IconPackage size={14} />,
-};
-
 interface OrderDetailDrawerProps {
   order: OrderDetail | null;
   onClose: () => void;
@@ -69,6 +61,79 @@ interface OrderDetailDrawerProps {
   timelineLoading?: boolean;
 }
 
+/** Map an order status to a `Badge` variant (shared with `DashboardOrderDrawer`). */
+function getStatusVariant(status: string) {
+  switch (status.toLowerCase()) {
+    case "delivered":
+      return "success" as const;
+    case "in progress":
+    case "delivering":
+      return "teal" as const;
+    case "verifying":
+      return "info" as const;
+    case "new":
+      return "neutral" as const;
+    case "cancelled":
+      return "danger" as const;
+    default:
+      return "warning" as const;
+  }
+}
+
+/** Static fallback timeline for callers that don't supply a live one. */
+function fallbackTimeline(order: OrderDetail): OrderTimelineItem[] {
+  const delivered = order.status.toLowerCase() === "delivered";
+  return [
+    {
+      key: "intent_submitted",
+      label: "Intent submitted",
+      at: "22 Apr",
+      detail: "#INT20260422-0047",
+      is_done: true,
+    },
+    {
+      key: "intent_confirmed",
+      label: "Intent confirmed by admin",
+      at: "22 Apr · 14:58",
+      detail: null,
+      is_done: true,
+    },
+    {
+      key: "payment_confirmed",
+      label: `Payment confirmed — ${order.total}`,
+      at: "22 Apr · 15:24",
+      detail: null,
+      is_done: true,
+    },
+    {
+      key: "assigned",
+      label: `Assigned to ${order.partner}`,
+      at: "22 Apr · 15:30",
+      detail: null,
+      is_done: true,
+    },
+    {
+      key: "out_for_delivery",
+      label: "Out for delivery",
+      at: delivered ? "Delivered to ship" : "En route to Terminal",
+      detail: null,
+      is_done: delivered,
+    },
+    {
+      key: "delivered",
+      label: "Delivery confirmed",
+      at: delivered ? "Completed · 16:12" : "Awaiting arrival",
+      detail: null,
+      is_done: delivered,
+    },
+  ];
+}
+
+/**
+ * Order-details drawer built on the shared shadcn `Sheet` (the canonical drawer
+ * pattern), reusing the `Timeline` component. Presentational only — a caller
+ * may pass a live `timeline`; otherwise a static fallback is shown.
+ */
 export function OrderDetailDrawer({
   order,
   onClose,
@@ -76,444 +141,172 @@ export function OrderDetailDrawer({
   timeline,
   timelineLoading,
 }: OrderDetailDrawerProps) {
-  if (!order) return null;
+  // Cancel confirmation is a shadcn `ConfirmDialog` (matches the row-action
+  // cancel on the Orders page), replacing the native window.confirm.
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
 
-  // Static fallback steps for callers that don't supply a live timeline.
-  const fallbackTimeline = [
-    {
-      s: "done",
-      icon: <IconFileInvoice size={14} />,
-      t: "Intent submitted",
-      d: "22 Apr · #INT20260422-0047",
-    },
-    {
-      s: "done",
-      icon: <IconChecks size={14} />,
-      t: "Intent confirmed by admin",
-      d: "22 Apr · 14:58",
-    },
-    {
-      s: "done",
-      icon: <IconCreditCard size={14} />,
-      t: `Payment confirmed — ${order.total}`,
-      d: "22 Apr · 15:24",
-    },
-    {
-      s: "done",
-      icon: <IconUserCheck size={14} />,
-      t: `Assigned to ${order.partner}`,
-      d: "22 Apr · 15:30",
-    },
-    {
-      s: order.status.toLowerCase() === "delivered" ? "done" : "active",
-      icon: <IconMotorbike size={14} />,
-      t: "Out for delivery",
-      d: order.status.toLowerCase() === "delivered" ? "Delivered to ship" : "En route to Terminal",
-    },
-    {
-      s: order.status.toLowerCase() === "delivered" ? "done" : "pend",
-      icon: <IconPackage size={14} />,
-      t: "Delivery confirmed",
-      d: order.status.toLowerCase() === "delivered" ? "Completed · 16:12" : "Awaiting arrival",
-    },
-  ];
-
-  // Map the live timeline to the row model; the first incomplete step is "active".
-  const firstPendingIdx = timeline ? timeline.findIndex((t) => !t.is_done) : -1;
-  const timelineRows = timeline
-    ? timeline.map((item, i) => ({
-        s: item.is_done ? "done" : i === firstPendingIdx ? "active" : "pend",
-        icon: TIMELINE_ICONS[item.key] ?? <IconFileInvoice size={14} />,
-        t: item.label,
-        d: [item.at, item.detail].filter(Boolean).join(" · "),
-      }))
-    : fallbackTimeline;
-
-  const getStatusVariant = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "delivered":
-        return "success";
-      case "in progress":
-      case "delivering":
-        return "teal";
-      case "verifying":
-        return "info";
-      case "new":
-        return "neutral";
-      case "cancelled":
-        return "danger";
-      default:
-        return "warning";
-    }
+  const handleCancelConfirmed = () => {
+    if (!order) return;
+    setConfirmCancelOpen(false);
+    toast.error(M.ORDER_CANCELLED(order.id));
+    onClose();
   };
 
-  const handleCancel = () => {
-    const confirmCancel = window.confirm(
-      `This will cancel order ${order.id} and trigger refund processing. This cannot be undone. Are you sure?`,
-    );
-    if (confirmCancel) {
-      toast.error(`Order ${order.id} has been cancelled`);
-      onClose();
-    }
-  };
+  const timelineItems = timeline ?? (order ? fallbackTimeline(order) : undefined);
 
   return (
-    <div
-      className="drawer-overlay show"
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "rgba(5, 14, 28, 0.45)",
-        backdropFilter: "blur(4px)",
-        zIndex: 999,
-        display: "flex",
-        justifyContent: "flex-end",
-        transition: "opacity 0.2s ease",
-      }}
-    >
-      <div
-        className="drawer open lg"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: "var(--surface)",
-          boxShadow: "-4px 0 24px rgba(5,14,28,0.15)",
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          animation: "slideLeft 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards",
-        }}
+    <Sheet open={!!order} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent
+        side="right"
+        adjustable
+        defaultWidth={640}
+        className="flex flex-col gap-0 p-0 sm:max-w-none overflow-hidden bg-[var(--surface)]"
       >
-        {/* Drawer Header */}
-        <div
-          className="drawer-hd"
-          style={{ padding: "20px 22px", borderBottom: "1px solid var(--border-xs)" }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span className="drawer-title" style={{ fontSize: "17px", fontWeight: 800 }}>
-              Order {order.id}
-            </span>
-            <button
-              onClick={onClose}
-              className="modal-close"
-              style={{
-                background: "transparent",
-                border: "none",
-                fontSize: "20px",
-                cursor: "pointer",
-                color: "var(--t4)",
-                padding: "4px 8px",
-                borderRadius: "var(--radius-sm)",
-              }}
-            >
-              <IconX size={18} />
-            </button>
-          </div>
-        </div>
-
-        {/* Drawer Body */}
-        <div className="drawer-body" style={{ flex: 1, overflowY: "auto", padding: "20px 22px" }}>
-          {/* Status Badges */}
-          <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
-            <Badge
-              variant={getStatusVariant(order.status)}
-              style={{ fontSize: "12px", padding: "4px 10px" }}
-            >
-              {order.status}
-            </Badge>
-            <Badge variant="teal" style={{ fontSize: "12px", padding: "4px 10px" }}>
-              <IconClock size={12} style={{ marginRight: "4px", display: "inline" }} />
-              Live Tracking
-            </Badge>
-          </div>
-
-          {/* Timeline Compact */}
-          <div
-            className="tl-compact mb20"
-            style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px" }}
-          >
-            {timelineLoading ? (
-              <div
-                className="tl-c-sub"
-                style={{ fontSize: "12px", color: "var(--t4)", fontWeight: 500 }}
-              >
-                Loading timeline…
-              </div>
-            ) : timelineRows.length === 0 ? (
-              <div
-                className="tl-c-sub"
-                style={{ fontSize: "12px", color: "var(--t4)", fontWeight: 500 }}
-              >
-                No timeline available
-              </div>
-            ) : (
-              timelineRows.map((tl, i) => (
-                <div
-                  key={i}
-                  className="tl-c-item"
-                  style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}
-                >
-                  <div
-                    className={`tl-c-dot ${tl.s}`}
-                    style={{
-                      width: "28px",
-                      height: "28px",
-                      borderRadius: "50%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background:
-                        tl.s === "done"
-                          ? "var(--teal-500)"
-                          : tl.s === "active"
-                            ? "var(--amber-500)"
-                            : "var(--border-md)",
-                      color: tl.s === "done" || tl.s === "active" ? "#fff" : "var(--t4)",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {tl.icon}
-                  </div>
-                  <div className="tl-c-body">
-                    <div
-                      className="tl-c-title"
-                      style={{ fontSize: "13px", fontWeight: 700, color: "var(--t1)" }}
-                    >
-                      {tl.t}
-                    </div>
-                    <div
-                      className="tl-c-sub"
-                      style={{ fontSize: "11px", color: "var(--t4)", fontWeight: 500 }}
-                    >
-                      {tl.d}
-                    </div>
-                  </div>
+        {order && (
+          <>
+            {/* Header */}
+            <SheetHeader className="p-6 pb-4 border-b border-[var(--border-md)]">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--teal-50)] text-[var(--teal-600)]">
+                  <IconPackage size={22} />
                 </div>
-              ))
-            )}
-          </div>
-
-          <hr style={{ border: 0, borderTop: "1px solid var(--border-xs)", margin: "20px 0" }} />
-
-          {/* Details */}
-          <div
-            className="sec-label"
-            style={{
-              fontSize: "11px",
-              fontWeight: 800,
-              color: "var(--t4)",
-              textTransform: "uppercase",
-              letterSpacing: "1px",
-              marginBottom: "12px",
-            }}
-          >
-            Order Information
-          </div>
-          <div
-            style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "20px" }}
-          >
-            <div
-              className="detail-kv"
-              style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}
-            >
-              <span className="detail-k" style={{ color: "var(--t3)" }}>
-                Sailor
-              </span>
-              <span className="detail-v" style={{ fontWeight: 600, color: "var(--t1)" }}>
-                {order.sailor}
-              </span>
-            </div>
-            <div
-              className="detail-kv"
-              style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}
-            >
-              <span className="detail-k" style={{ color: "var(--t3)" }}>
-                Order Source
-              </span>
-              <span className="detail-v" style={{ fontWeight: 600, color: "var(--t1)" }}>
-                {order.source || "—"}
-              </span>
-            </div>
-            <div
-              className="detail-kv"
-              style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}
-            >
-              <span className="detail-k" style={{ color: "var(--t3)" }}>
-                Intent Ref
-              </span>
-              <span className="detail-v mono" style={{ fontWeight: 600, color: "var(--t1)" }}>
-                {order.intent || "—"}
-              </span>
-            </div>
-            <div
-              className="detail-kv"
-              style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}
-            >
-              <span className="detail-k" style={{ color: "var(--t3)" }}>
-                Ship / IMO
-              </span>
-              <span
-                className="detail-v mono cteal"
-                style={{ fontWeight: 700, color: "var(--teal-600)" }}
-              >
-                {order.ship}
-              </span>
-            </div>
-            <div
-              className="detail-kv"
-              style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}
-            >
-              <span className="detail-k" style={{ color: "var(--t3)" }}>
-                Terminal
-              </span>
-              <span className="detail-v" style={{ fontWeight: 600, color: "var(--t1)" }}>
-                {order.terminal}
-              </span>
-            </div>
-            <div
-              className="detail-kv"
-              style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}
-            >
-              <span className="detail-k" style={{ color: "var(--t3)" }}>
-                Anchorage Change
-              </span>
-              <span className="detail-v" style={{ fontWeight: 600, color: "var(--t1)" }}>
-                {order.anchorageChange || "—"}
-              </span>
-            </div>
-            <div
-              className="detail-kv"
-              style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}
-            >
-              <span className="detail-k" style={{ color: "var(--t3)" }}>
-                Delivery Partner
-              </span>
-              <span className="detail-v" style={{ fontWeight: 600, color: "var(--t1)" }}>
-                {order.partner}
-              </span>
-            </div>
-            <div
-              className="detail-kv"
-              style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}
-            >
-              <span className="detail-k" style={{ color: "var(--t3)" }}>
-                Payment
-              </span>
-              <span
-                className="detail-v csuccess"
-                style={{ fontWeight: 700, color: "var(--green-text)" }}
-              >
-                {order.payment}
-              </span>
-            </div>
-            <div
-              className="detail-kv"
-              style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}
-            >
-              <span className="detail-k" style={{ color: "var(--t3)" }}>
-                Coupon
-              </span>
-              <span className="detail-v" style={{ fontWeight: 600, color: "var(--t1)" }}>
-                {order.coupon || "None"}
-              </span>
-            </div>
-          </div>
-
-          <hr style={{ border: 0, borderTop: "1px solid var(--border-xs)", margin: "20px 0" }} />
-
-          {/* Items */}
-          <div
-            className="sec-label"
-            style={{
-              fontSize: "11px",
-              fontWeight: 800,
-              color: "var(--t4)",
-              textTransform: "uppercase",
-              letterSpacing: "1px",
-              marginBottom: "12px",
-            }}
-          >
-            Items
-          </div>
-          <div
-            style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "20px" }}
-          >
-            {order.items.map((item, i) => (
-              <div
-                key={i}
-                className="detail-kv"
-                style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}
-              >
-                <span className="detail-k w5 c4" style={{ color: "var(--t3)" }}>
-                  {item.name} &times;{item.qty}
-                </span>
-                <span className="detail-v" style={{ fontWeight: 600, color: "var(--t1)" }}>
-                  {item.price}
-                </span>
+                <div>
+                  <SheetTitle className="text-[15px] font-extrabold">Order {order.id}</SheetTitle>
+                  <SheetDescription>{order.terminal}</SheetDescription>
+                </div>
               </div>
-            ))}
-          </div>
+            </SheetHeader>
 
-          {/* Total */}
-          <div
-            style={{
-              background: "var(--surface-alt)",
-              borderRadius: "var(--radius-md)",
-              padding: "14px 16px",
-              marginTop: "14px",
-              border: "1px solid var(--border-sm)",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--t2)" }}>
-                Order Total
-              </span>
-              <span style={{ fontSize: "18px", fontWeight: 800, color: "var(--t1)" }}>
-                {order.total}
-              </span>
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {/* Status badges */}
+              <div className="flex gap-2 mb-5">
+                <Badge
+                  variant={getStatusVariant(order.status)}
+                  className="h-auto text-[12px] px-3 py-[5px]"
+                >
+                  {order.status}
+                </Badge>
+                <Badge variant="teal" className="h-auto text-[12px] px-3 py-[5px]">
+                  <IconClock size={13} className="mr-1 inline" />
+                  Live Tracking
+                </Badge>
+              </div>
+
+              {/* Timeline */}
+              <Timeline items={timelineItems} loading={timelineLoading} className="mb-5" />
+
+              {/* Order Information */}
+              <div className="sec-label">Order Information</div>
+              <div className="detail-kv">
+                <div className="detail-k">Sailor</div>
+                <div className="detail-v">{order.sailor}</div>
+              </div>
+              <div className="detail-kv">
+                <div className="detail-k">Order Source</div>
+                <div className="detail-v">{order.source || "—"}</div>
+              </div>
+              <div className="detail-kv">
+                <div className="detail-k">Intent Ref</div>
+                <div className="detail-v mono">{order.intent || "—"}</div>
+              </div>
+              <div className="detail-kv">
+                <div className="detail-k">Ship / IMO</div>
+                <div className="detail-v mono cteal">{order.ship}</div>
+              </div>
+              <div className="detail-kv">
+                <div className="detail-k">Terminal</div>
+                <div className="detail-v">{order.terminal}</div>
+              </div>
+              <div className="detail-kv">
+                <div className="detail-k">Anchorage Change</div>
+                <div className="detail-v">{order.anchorageChange || "—"}</div>
+              </div>
+              <div className="detail-kv">
+                <div className="detail-k">Delivery Partner</div>
+                <div className="detail-v">{order.partner}</div>
+              </div>
+              <div className="detail-kv">
+                <div className="detail-k">Payment</div>
+                <div className="detail-v csuccess">{order.payment}</div>
+              </div>
+              <div className="detail-kv">
+                <div className="detail-k">Coupon</div>
+                <div className="detail-v">{order.coupon || "None"}</div>
+              </div>
+
+              {/* Items */}
+              <div className="sec-label mt16">Items</div>
+              {order.items.length === 0 ? (
+                <div className="detail-kv">
+                  <div className="detail-v c4 w5">No items</div>
+                </div>
+              ) : (
+                order.items.map((item) => (
+                  <div key={`${item.name}-${item.qty}-${item.price}`} className="detail-kv">
+                    <div className="detail-k w5 c4">
+                      {item.name} &times;{item.qty}
+                    </div>
+                    <div className="detail-v">{item.price}</div>
+                  </div>
+                ))
+              )}
+
+              {/* Total */}
+              <div className="mt16 rounded-[var(--radius-md)] bg-[var(--navy-25)] px-4 py-3.5">
+                <div className="flex jb aic">
+                  <span className="sm c3 w6">Order Total</span>
+                  <span className="lg w8">{order.total}</span>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* Drawer Footer / Actions */}
-        <div
-          className="drawer-foot"
-          style={{
-            padding: "16px 20px",
-            borderTop: "1px solid var(--border-xs)",
-            display: "flex",
-            gap: "8px",
-            background: "var(--surface-alt)",
-          }}
-        >
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              if (onReassign) {
-                onReassign(order.id);
-              } else {
-                toast.success(`Assigning partner flow triggered for ${order.id}`);
-              }
-            }}
-          >
-            <IconTransfer size={15} style={{ marginRight: "4px" }} />
-            Reassign
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => toast.success(`Notification sent to Sailor ${order.sailor}`)}
-          >
-            <IconBell size={15} style={{ marginRight: "4px" }} />
-            Notify Sailor
-          </Button>
-          <Button variant="danger" size="sm" style={{ marginLeft: "auto" }} onClick={handleCancel}>
-            <IconX size={15} style={{ marginRight: "4px" }} />
-            Cancel Order
-          </Button>
-        </div>
-      </div>
-    </div>
+            {/* Footer actions */}
+            <SheetFooter className="p-5 border-t border-[var(--border-md)] bg-[var(--surface-alt)]">
+              <div className="flex gap-2 w-full">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() =>
+                    onReassign
+                      ? onReassign(order.id)
+                      : toast.success(`Assigning partner flow triggered for ${order.id}`)
+                  }
+                >
+                  <IconTransfer size={15} />
+                  Reassign
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => toast.success(`Notification sent to Sailor ${order.sailor}`)}
+                >
+                  <IconBell size={15} />
+                  Notify Sailor
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  className="ml-auto"
+                  onClick={() => setConfirmCancelOpen(true)}
+                >
+                  <IconX size={15} />
+                  Cancel Order
+                </Button>
+              </div>
+            </SheetFooter>
+
+            <ConfirmDialog
+              isOpen={confirmCancelOpen}
+              onClose={() => setConfirmCancelOpen(false)}
+              onConfirm={handleCancelConfirmed}
+              title={M.CANCEL_CONFIRM_TITLE}
+              description={M.CANCEL_CONFIRM_MSG}
+              confirmText={M.CANCEL_CONFIRM_CONFIRM}
+            />
+          </>
+        )}
+      </SheetContent>
+    </Sheet>
   );
 }

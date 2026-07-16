@@ -11,6 +11,8 @@ export interface PartnerData {
   id: string;
   /** Backing user id (UUID) — sent to the detail API as `user_id`. */
   userId: string;
+  /** Partner user id — sent to the assign-order API as `delivery_partner_id`. */
+  deliveryPartnerId: string;
   /** Port zone. */
   p: string;
   /** Joined date label (e.g. "Mar 2023"). */

@@ -24,8 +24,10 @@ export interface Assignment {
 
 /** An order awaiting partner assignment. */
 export interface UnassignedOrder {
-  /** Order number, e.g. "#AM2467". */
+  /** Order number, e.g. "#AM2467" (shown in the UI, also the row key). */
   id: string;
+  /** Order record UUID — sent to the assign-order API as `order_id`. */
+  orderId: string;
   /** Sailor name. */
   sailor: string;
   /** Items summary, e.g. "Express items ×6". */
@@ -59,6 +61,16 @@ export interface ApiUnassignedOrdersResponse {
   next: string | null;
   previous: string | null;
   results: ApiUnassignedOrder[];
+}
+
+/** Request body for POST /superadmin/partner/assign-order/. */
+export interface AssignOrderPayload {
+  order_id: string;
+  delivery_partner_id: string;
+  /** Delivery date as `YYYY-MM-DD`. */
+  deliver_by: string;
+  /** `false` for an initial assignment; `true` to confirm a reassignment. */
+  confirm: boolean;
 }
 
 /** A delivery partner available for assignment. */

@@ -108,6 +108,25 @@ export interface SpecialRequestDetail {
   /** Human-readable status label (e.g. "Approved") — shown in the UI. */
   status_display?: string | null;
   admin_response?: string | null;
+  /** Free-text note the sailor added to the request. */
+  customer_note?: string | null;
+  /** Whether the sailor opted into the fastest-delivery upsell. */
+  is_fastest_delivery?: boolean | null;
+  /** Admin-set quote for the item (string decimal), or null before quoting. */
+  quoted_price?: string | null;
+  /** Charge applied for fast delivery (string decimal), or null. */
+  fast_delivery_charge?: string | null;
+  /** Requested ship arrival date (ISO/date string), or null. */
+  ship_arrival_date?: string | null;
+  /** Sailor's expected stay at the port/terminal. */
+  expected_stay?: string | null;
+  /** Whether a rebill was requested for this item. */
+  rebill_requested?: boolean | null;
+  /** Rebill attempts used / allowed. */
+  rebill_count?: number | null;
+  rebill_cap?: number | null;
+  /** Primary image URL (first of `images`). */
+  primary_image?: string | null;
   images?: string[] | null;
   created_at?: string | null;
   updated_at?: string | null;

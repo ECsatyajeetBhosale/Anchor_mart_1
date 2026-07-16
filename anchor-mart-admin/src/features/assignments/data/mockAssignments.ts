@@ -49,6 +49,7 @@ export const MOCK_ASSIGNMENTS: Assignment[] = [
 export const MOCK_UNASSIGNED: UnassignedOrder[] = [
   {
     id: "#AM2467",
+    orderId: "AM2467",
     sailor: "Ravi Patel",
     items: "Express items ×6",
     port: "PSA Terminal",
@@ -56,6 +57,7 @@ export const MOCK_UNASSIGNED: UnassignedOrder[] = [
   },
   {
     id: "#AM2469",
+    orderId: "AM2469",
     sailor: "Omar Karim",
     items: "Water Bottle, Tablets ×2",
     port: "Keppel",

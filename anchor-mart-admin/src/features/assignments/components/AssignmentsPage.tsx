@@ -3,12 +3,14 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { SectionCard } from "@/components/common/SectionCard";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
+import { type PartnerData, useGetPartnersQuery } from "@/features/partners";
+import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { IconPlus } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { useGetUnassignedOrdersQuery } from "../api/assignmentApi";
-import { MOCK_ASSIGNMENTS, MOCK_PARTNERS } from "../data/mockAssignments";
+import { useAssignOrderMutation, useGetUnassignedOrdersQuery } from "../api/assignmentApi";
+import { MOCK_ASSIGNMENTS } from "../data/mockAssignments";
 import type { Assignment, UnassignedOrder } from "../types/assignment.types";
 import { AssignPartnerDrawer } from "./AssignPartnerDrawer";
 import { UnassignedOrdersCard } from "./UnassignedOrdersCard";
@@ -30,42 +32,62 @@ export function AssignmentsPage() {
     if (unassignedData) setUnassigned(unassignedData);
   }, [unassignedData]);
 
+  // Delivery partners — same API + mapping the Partners page uses.
+  const { data: partnersData } = useGetPartnersQuery();
+  const partners: PartnerData[] = partnersData?.partners ?? [];
+
+  const [assignOrder, { isLoading: isAssigning }] = useAssignOrderMutation();
+
   const openAssign = (orderId: string) => {
     setAssignOrderId(orderId);
     setAssignOpen(true);
   };
 
-  const confirmAssign = (partnerName: string) => {
-    if (!partnerName) {
-      toast.error(M.DRAWER.SELECT_REQUIRED);
+  const confirmAssign = async (partner: PartnerData, deliverBy: string) => {
+    const pending = unassigned.find((u) => u.id === assignOrderId);
+
+    if (pending) {
+      // Real unassigned order → assign via the live API (initial assignment).
+      try {
+        await assignOrder({
+          order_id: pending.orderId,
+          delivery_partner_id: partner.deliveryPartnerId,
+          deliver_by: deliverBy,
+          confirm: false,
+        }).unwrap();
+
+        // Optimistically move it into the active-assignments list for instant
+        // feedback; the unassigned list also refreshes via tag invalidation.
+        setUnassigned((prev) => prev.filter((u) => u.id !== assignOrderId));
+        setAssignments((prev) => [
+          {
+            id: pending.id,
+            enquiry: pending.id.replace("#AM", "ENQ-"),
+            partner: partner.n,
+            order: pending.id,
+            shop: pending.port,
+            deliverTo: pending.sailor,
+            status: "New",
+            eta: "ASAP",
+          },
+          ...prev,
+        ]);
+
+        toast.success(M.DRAWER.ASSIGNED(partner.n, pending.id));
+        setAssignOpen(false);
+      } catch (error) {
+        // Keep the drawer open so the user can retry.
+        toast.error(getApiMessage(error) ?? M.DRAWER.ASSIGN_ERROR);
+      }
       return;
     }
 
-    const pending = unassigned.find((u) => u.id === assignOrderId);
-    if (pending) {
-      // Promote the unassigned order into the active-assignments list.
-      setUnassigned((prev) => prev.filter((u) => u.id !== assignOrderId));
-      setAssignments((prev) => [
-        {
-          id: pending.id,
-          enquiry: pending.id.replace("#AM", "ENQ-"),
-          partner: partnerName,
-          order: pending.id,
-          shop: pending.port,
-          deliverTo: pending.sailor,
-          status: "New",
-          eta: "ASAP",
-        },
-        ...prev,
-      ]);
-    } else {
-      // Reassign an existing row to the chosen partner.
-      setAssignments((prev) =>
-        prev.map((a) => (a.order === assignOrderId ? { ...a, partner: partnerName } : a)),
-      );
-    }
-
-    toast.success(M.DRAWER.ASSIGNED(partnerName, assignOrderId ?? ""));
+    // Reassign an existing (mock) active row — no live order UUID yet, so update
+    // locally to keep the existing behaviour until that list is API-backed.
+    setAssignments((prev) =>
+      prev.map((a) => (a.order === assignOrderId ? { ...a, partner: partner.n } : a)),
+    );
+    toast.success(M.DRAWER.ASSIGNED(partner.n, assignOrderId ?? ""));
     setAssignOpen(false);
   };
 
@@ -129,7 +151,8 @@ export function AssignmentsPage() {
       <AssignPartnerDrawer
         open={assignOpen}
         orderId={assignOrderId}
-        partners={MOCK_PARTNERS}
+        partners={partners}
+        isSubmitting={isAssigning}
         onClose={() => setAssignOpen(false)}
         onConfirm={confirmAssign}
       />

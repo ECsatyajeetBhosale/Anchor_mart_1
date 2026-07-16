@@ -3,6 +3,7 @@ import { baseApi } from "@/lib/fetchUtils";
 import type {
   ApiUnassignedOrder,
   ApiUnassignedOrdersResponse,
+  AssignOrderPayload,
   UnassignedOrder,
 } from "../types/assignment.types";
 
@@ -20,6 +21,7 @@ function formatAmount(amount: string): string {
 function mapUnassignedOrder(o: ApiUnassignedOrder): UnassignedOrder {
   return {
     id: o.order_number || o.id,
+    orderId: o.id,
     sailor: o.customer_name || "-",
     items: o.status_display || "-",
     port: formatAmount(o.total_amount),
@@ -36,8 +38,19 @@ export const assignmentApi = baseApi.injectEndpoints({
         (res?.results ?? []).map(mapUnassignedOrder),
       providesTags: [{ type: "Assignments", id: "UNASSIGNED-LIST" }],
     }),
+
+    // Assign (or reassign) an order to a delivery partner.
+    assignOrder: builder.mutation<unknown, AssignOrderPayload>({
+      query: (body) => ({
+        url: ASSIGNMENT_ENDPOINTS.ASSIGN_ORDER,
+        method: "POST",
+        body,
+      }),
+      // Refresh the unassigned list so the newly assigned order drops off it.
+      invalidatesTags: [{ type: "Assignments", id: "UNASSIGNED-LIST" }],
+    }),
   }),
   overrideExisting: false,
 });
 
-export const { useGetUnassignedOrdersQuery } = assignmentApi;
+export const { useGetUnassignedOrdersQuery, useAssignOrderMutation } = assignmentApi;

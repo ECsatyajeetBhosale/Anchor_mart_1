@@ -123,13 +123,14 @@ export const VERIFICATION_ENDPOINTS = {
 
 export const ASSIGNMENT_ENDPOINTS = {
   GET_UNASSIGNED_ORDERS: "/superadmin/partner/unassigned-orders/",
+  ASSIGN_ORDER: "/superadmin/partner/assign-order/",
 };
 
 export const SPECIAL_REQUEST_ENDPOINTS = {
-  GET_LIST: "/superadmin/special-requests/get-special-products/",
+  GET_LIST: "/superadmin/special-requests/get-all-special-requests/",
   GET_STATS: "/superadmin/special-requests/special-request-stats/",
   // Detail is fetched by the row id via the `product_id` query param.
-  GET_DETAIL: "/superadmin/special-requests/get-special-interests/",
+  GET_DETAIL: "/superadmin/special-requests/get-special-requests/",
   // Excel export; accepts the same optional `status` filter as the list.
   EXPORT: "/superadmin/special-requests/export-to-excel/",
 };
