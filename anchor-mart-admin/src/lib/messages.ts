@@ -15,6 +15,36 @@ export const MESSAGES = {
     LOGGING_IN: "Signing in…",
     INVALID_CREDENTIALS: "Invalid email or password. Please try again.",
     NETWORK_ERROR: "Unable to connect. Please check your connection.",
+    OTP: {
+      // Step A — email
+      EMAIL_STEP_TITLE: "Sign in with OTP",
+      EMAIL_STEP_SUB: "We'll email you a 4-digit code to verify it's you.",
+      SEND_BUTTON: "Send OTP",
+      SENDING: "Sending…",
+      // Step B — code
+      CODE_STEP_TITLE: "Enter your code",
+      CODE_STEP_SUB: "We sent a 4-digit code to",
+      CODE_LABEL: "4-Digit Verification Code",
+      VERIFY_BUTTON: "Verify & Sign In",
+      VERIFYING: "Verifying…",
+      RESEND: "Resend OTP",
+      RESEND_IN: (seconds: number) => `Resend OTP in ${seconds}s`,
+      CHANGE_EMAIL: "Use a different email",
+      // Cross-links between the two sign-in methods
+      PREFER_OTP: "Prefer a one-time code?",
+      USE_OTP_LINK: "Sign in with OTP",
+      PREFER_PASSWORD: "Have your password?",
+      USE_PASSWORD_LINK: "Sign in with password",
+      OTP_SENT: "Code sent to your email",
+      // Errors — mapped from HTTP status, never from the response key
+      EMAIL_REQUIRED: "Email is required",
+      OTP_REQUIRED: "Enter the 4-digit code sent to your email",
+      NO_ACCOUNT: "No admin account found for this email. Please contact support.",
+      BLOCKED: "Your account has been blocked. Please contact support.",
+      NOT_ADMIN: "This account can't access the admin console. Please contact support.",
+      GENERIC_ERROR: "Something went wrong, please try again.",
+      EXPIRED_HINT: "That code has expired. Request a new one to continue.",
+    },
   },
   DASHBOARD: {
     TITLE: "Operations Dashboard",

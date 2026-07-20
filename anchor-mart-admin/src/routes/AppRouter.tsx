@@ -5,7 +5,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "./ProtectedRoute";
 
 // Auth — from feature
-import { LoginPage } from "@/features/auth";
+import { LoginPage, OtpLoginPage } from "@/features/auth";
 
 import { AnalyticsPage } from "@/features/analytics";
 // Dashboard — from feature
@@ -49,6 +49,7 @@ export function AppRouter() {
         {/* Auth routes (unauthenticated) */}
         <Route element={<AuthLayout />}>
           <Route path={APP_ROUTES.LOGIN} element={<LoginPage />} />
+          <Route path={APP_ROUTES.LOGIN_OTP} element={<OtpLoginPage />} />
         </Route>
 
         {/* Protected dashboard routes */}

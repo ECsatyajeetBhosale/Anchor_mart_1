@@ -4,6 +4,7 @@
  */
 export const APP_ROUTES = {
   LOGIN: "/login",
+  LOGIN_OTP: "/login/otp",
   DASHBOARD: "/dashboard",
   ANALYTICS: "/analytics",
   SAILORS: "/sailors",
@@ -36,6 +37,10 @@ export const API_ROUTES = {
     LOGIN: "/superadmin/admin/login/",
     LOGOUT: "/superadmin/admin/logout/",
     ME: "/superadmin/auth/me/",
+    // OTP login (two-step). /superadmin/ is exempt from the server-secret-key
+    // header — do not add it for these two endpoints.
+    LOGIN_WITH_OTP: "/superadmin/admin/login-with-otp/",
+    VERIFY_OTP: "/superadmin/admin/verify-otp/",
   },
   DASHBOARD: {
     STATS: "/superadmin/dashboard/dashboard/",

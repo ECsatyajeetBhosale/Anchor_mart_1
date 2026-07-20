@@ -25,3 +25,27 @@ export interface LoginResponse {
   token: string;
   user: AdminUser;
 }
+
+/** Step 1 — POST /superadmin/admin/login-with-otp/ */
+export interface RequestOtpRequest {
+  email: string;
+}
+
+export interface RequestOtpResponse {
+  message: string;
+}
+
+/** Step 2 — POST /superadmin/admin/verify-otp/ */
+export interface VerifyOtpRequest {
+  email: string;
+  otp: string;
+  /**
+   * Human-readable client string (browser + OS). Accepted but NOT persisted by
+   * this endpoint — sent for parity with the customer/partner flows. Omitted
+   * when it cannot be reliably detected rather than sent as a placeholder.
+   */
+  device?: string;
+}
+
+/** Identical shape to LoginResponse — the admin token never expires. */
+export type VerifyOtpResponse = LoginResponse;

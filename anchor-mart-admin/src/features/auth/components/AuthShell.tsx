@@ -1,63 +1,10 @@
-import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  IconAlertCircle,
-  IconEye,
-  IconEyeOff,
-  IconLock,
-  IconLogin,
-  IconMail,
-} from "@tabler/icons-react";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { Link, useNavigate } from "react-router-dom";
+import type { ReactNode } from "react";
 
-import { useLoginMutation } from "@/features/auth/api/authApi";
-import { type LoginFormData, loginSchema } from "@/features/auth/schemas/auth.schema";
-import { setCredentials } from "@/features/auth/slice/authSlice";
-import { useAppDispatch } from "@/hooks/useAppDispatch";
-import { APP_ROUTES } from "@/lib/constants";
-import { MESSAGES } from "@/lib/messages";
-import { toast } from "sonner";
-
-export function LoginPage() {
-  const dispatch = useAppDispatch();
-  const navigate = useNavigate();
-  const [showPassword, setShowPassword] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
-
-  const [login, { isLoading }] = useLoginMutation();
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  });
-
-  const onSubmit = async (data: LoginFormData) => {
-    setApiError(null);
-    try {
-      const response = await login(data).unwrap();
-      dispatch(setCredentials({ token: response.token, user: response.user }));
-      toast.success(response.message || "Login successful");
-      navigate(APP_ROUTES.DASHBOARD, { replace: true });
-    } catch (err: unknown) {
-      const error = err as { status?: string | number; data?: Record<string, unknown> };
-      const errorData = error?.data as Record<string, string | string[]> | undefined;
-      const errorMsg =
-        (Array.isArray(errorData?.non_field_errors) ? errorData.non_field_errors[0] : null) ??
-        (typeof errorData?.detail === "string" ? errorData.detail : null) ??
-        (typeof errorData?.message === "string" ? errorData.message : null) ??
-        "Invalid email or password. Please try again.";
-      setApiError(errorMsg);
-    }
-  };
-
+/**
+ * The shared split-panel auth shell: decorative background, branded hero panel,
+ * and a right-hand form panel that each auth screen fills via `children`.
+ */
+export function AuthShell({ children }: { children: ReactNode }) {
   return (
     <div className="login-screen" id="ls">
       {/* Background decoration */}
@@ -153,96 +100,7 @@ export function LoginPage() {
         </div>
 
         {/* Right Form Panel */}
-        <div className="login-form">
-          <p className="lf-eyebrow">Admin Console</p>
-          <h1 className="lf-title">Welcome back</h1>
-          <p className="lf-sub">Sign in to access the AnchorMart control center.</p>
-
-          {/* API Error Banner */}
-          <div className={`l-alert err ${apiError ? "show" : ""}`}>
-            <IconAlertCircle />
-            <span>{apiError}</span>
-          </div>
-
-          <form onSubmit={handleSubmit(onSubmit)}>
-            {/* Email Field */}
-            <div className="fg">
-              <span className="fg-label">Email Address</span>
-              <div className="fi-wrap">
-                <IconMail className="fi-il" />
-                <input
-                  type="email"
-                  className={`fi ${errors.email ? "err" : ""}`}
-                  placeholder="admin@anchormart.io"
-                  {...register("email")}
-                />
-              </div>
-              <div className={`fi-err ${errors.email ? "show" : ""}`}>
-                <IconAlertCircle />
-                {errors.email?.message}
-              </div>
-            </div>
-
-            {/* Password Field */}
-            <div className="fg">
-              <span className="fg-label">Password</span>
-              <div className="fi-wrap">
-                <IconLock className="fi-il" />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  className={`fi ${errors.password ? "err" : ""}`}
-                  placeholder="Your password"
-                  {...register("password")}
-                />
-                <button
-                  type="button"
-                  className="fi-ir"
-                  onClick={() => setShowPassword((s) => !s)}
-                  tabIndex={-1}
-                >
-                  {showPassword ? <IconEyeOff size={17} /> : <IconEye size={17} />}
-                </button>
-              </div>
-              <div className={`fi-err ${errors.password ? "show" : ""}`}>
-                <IconAlertCircle />
-                {errors.password?.message}
-              </div>
-            </div>
-
-            {/* Forgot password */}
-            <div className="l-row">
-              <span
-                className="l-link"
-                onClick={() =>
-                  toast.info("Password reset must be initiated via system administrator.")
-                }
-              >
-                Forgot password?
-              </span>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              className={`l-btn ${isLoading ? "loading" : ""}`}
-              disabled={isLoading}
-            >
-              <div className="spin" />
-              <span className="lbl flex aic justify-center gap-1.5">
-                <IconLogin size={17} />
-                Sign In to Console
-              </span>
-            </button>
-          </form>
-
-          {/* Sibling auth method — OTP sign-in */}
-          <p className="lf-footer">
-            {MESSAGES.AUTH.OTP.PREFER_OTP}{" "}
-            <Link className="l-link" to={APP_ROUTES.LOGIN_OTP}>
-              {MESSAGES.AUTH.OTP.USE_OTP_LINK}
-            </Link>
-          </p>
-        </div>
+        <div className="login-form">{children}</div>
       </div>
     </div>
   );

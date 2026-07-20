@@ -1,7 +1,7 @@
 import { useAppDispatch, useAppSelector } from "@/hooks/useAppDispatch";
-import { setCredentials, setLoading, logout } from "../slice/authSlice";
 import { useLoginMutation, useLogoutMutation } from "../api/authApi";
 import type { LoginFormData } from "../schemas/auth.schema";
+import { logout, setCredentials, setLoading } from "../slice/authSlice";
 
 /**
  * Custom hook encapsulating auth logic.
