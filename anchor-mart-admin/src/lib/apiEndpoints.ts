@@ -99,6 +99,9 @@ export const ORDER_ENDPOINTS = {
   GET_ORDERS: "/superadmin/orders/orders/",
   ORDER_DETAIL: (id: string) => `/superadmin/orders/orders/${id}/`,
   CANCEL_ORDER: (id: string) => `/superadmin/orders/orders/${id}/cancel/`,
+  // Flow 27 — order ownership. Note the singular `order/` segment here; it does
+  // not follow the doubled `orders/orders/` shape used by the list/detail paths.
+  CLAIM_ORDER: (id: string) => `/superadmin/orders/order/${id}/claim/`,
 };
 
 export const INTENT_ENDPOINTS = {

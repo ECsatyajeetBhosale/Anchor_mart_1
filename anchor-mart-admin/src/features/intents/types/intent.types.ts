@@ -1,3 +1,5 @@
+import type { AssignedAdmin } from "@/features/orders";
+
 /** Badge colour variants used for an intent's status pill. */
 export type IntentBadgeVariant = "warning" | "info" | "teal" | "danger" | "neutral" | "success";
 
@@ -35,6 +37,11 @@ export interface IntentShippingAddress {
 /** Raw intent row from `GET /superadmin/orders/intents/`. */
 export interface IntentApi {
   id: string;
+  /**
+   * Owning admin (Flow 27). The intent list serializer exposes this alongside
+   * the order list and detail serializers; `null` when unassigned.
+   */
+  assigned_admin?: AssignedAdmin | null;
   order_number?: string;
   sailor_name?: string;
   sailor_email?: string;
@@ -75,6 +82,8 @@ export interface IntentData {
   terminal: string; // anchorage
   contact: string;
   total: string; // total_amount
+  /** Owning admin, or null when unassigned — drives the Flow 27 ownership gate. */
+  assignedAdmin: AssignedAdmin | null;
 }
 
 /** Query params for the intents list (search + status are omitted when empty). */

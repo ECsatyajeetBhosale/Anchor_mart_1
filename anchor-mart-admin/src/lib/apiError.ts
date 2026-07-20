@@ -31,9 +31,12 @@ function extractMessage(value: unknown, keyPath = ""): string | undefined {
   if (!value || typeof value !== "object") return undefined;
 
   const record = value as Record<string, unknown>;
-  // Prefer explicit top-level message keys.
+  // Prefer explicit top-level message keys. `error` is what most of this
+  // backend's failure bodies use ({"error": "Email is required"}); without it
+  // the field-walker below would label the value and render "error: ...".
   if (typeof record.message === "string") return record.message;
   if (typeof record.detail === "string") return record.detail;
+  if (typeof record.error === "string") return record.error;
 
   // Otherwise walk field errors (including nested objects), labelling by field.
   for (const [key, child] of Object.entries(record)) {

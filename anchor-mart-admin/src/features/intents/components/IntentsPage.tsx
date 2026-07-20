@@ -15,6 +15,13 @@ import { StatsGrid } from "@/components/common/StatsGrid";
 import { avatarColumn, badgeColumn, textColumn } from "@/components/common/tableColumns";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
+import {
+  type ClaimConflict,
+  OwnerCell,
+  useClaimOrderMutation,
+  useOrderOwnership,
+} from "@/features/orders";
+import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 import { toast } from "sonner";
@@ -23,6 +30,7 @@ import type { IntentData, IntentStats } from "../types/intent.types";
 import { IntentReviewDrawer } from "./IntentReviewDrawer";
 
 const M = MESSAGES.INTENTS;
+const O = MESSAGES.INTENTS.OWNERSHIP;
 
 const LIMIT = 10;
 
@@ -89,6 +97,11 @@ export function IntentsPage() {
 
   const [selectedIntent, setSelectedIntent] = useState<IntentData | null>(null);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  /** Which row's claim is in flight — scopes the spinner to that button. */
+  const [claimingId, setClaimingId] = useState<string | null>(null);
+
+  const { stateOf, canManage, canClaim, isSuperAdmin } = useOrderOwnership();
+  const [claimOrder] = useClaimOrderMutation();
 
   // Intents list — search + status filter server-side; paginated by DRF.
   const statusParam = statusFilter !== "all" ? statusFilter : undefined;
@@ -134,6 +147,31 @@ export function IntentsPage() {
   const handleOpenReview = (intent: IntentData) => {
     setSelectedIntent(intent);
     setIsReviewOpen(true);
+  };
+
+  /**
+   * Flow 27 API 1 — claim the order behind this intent. Ownership is the
+   * precondition for every gated write, including intent rejection.
+   *
+   * A 409 is not a failure to retry: it means another admin got there first,
+   * and the body names them so we can say who.
+   */
+  const handleClaim = async (intent: IntentData) => {
+    setClaimingId(intent.id);
+    try {
+      await claimOrder(intent.id).unwrap();
+      toast.success(O.CLAIMED(intent.r));
+    } catch (err) {
+      const status = (err as { status?: unknown })?.status;
+      if (status === 409) {
+        const owner = (err as { data?: ClaimConflict })?.data?.assigned_admin;
+        toast.error(owner ? O.HELD_BY(owner.name) : O.HELD_BY_UNKNOWN);
+        return;
+      }
+      toast.error(getApiMessage(err) ?? O.CLAIM_FAILED);
+    } finally {
+      setClaimingId(null);
+    }
   };
 
   const handleConfirmIntent = () => {
@@ -183,10 +221,34 @@ export function IntentsPage() {
     }),
     badgeColumn({ id: "status", header: M.COLUMNS.STATUS, get: (i) => i.st, variant: (i) => i.sc }),
     {
+      id: "owner",
+      header: M.COLUMNS.OWNER,
+      cell: (i) => <OwnerCell assignedAdmin={i.assignedAdmin} state={stateOf(i.assignedAdmin)} />,
+    },
+    {
       id: "actions",
       header: M.COLUMNS.ACTIONS,
+      className: "w-40 text-right",
       cell: (i) => (
         <div className="td-acts">
+          {/* Claim is offered only while unassigned — on a held order it would 409. */}
+          {canClaim(i.assignedAdmin) && (
+            <Button
+              variant="teal"
+              size="xs"
+              // Same xs box (26px tall) — the label just stacks inside it: smaller
+              // font and tight leading so two lines clear the height, leaving the
+              // breathing room above and below instead of between the words.
+              className="max-w-[4.25rem] whitespace-normal px-2 text-[9px] leading-[1.05]"
+              disabled={claimingId === i.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClaim(i);
+              }}
+            >
+              {claimingId === i.id ? O.CLAIMING : O.MANAGE}
+            </Button>
+          )}
           <Button
             variant="primary"
             size="xs"
@@ -253,6 +315,12 @@ export function IntentsPage() {
         onClose={() => setIsReviewOpen(false)}
         onConfirm={handleConfirmIntent}
         onReject={handleRejectIntent}
+        ownership={selectedIntent ? stateOf(selectedIntent.assignedAdmin) : "unassigned"}
+        canManage={canManage(selectedIntent?.assignedAdmin)}
+        canClaim={canClaim(selectedIntent?.assignedAdmin)}
+        isSuperAdmin={isSuperAdmin}
+        isClaiming={!!selectedIntent && claimingId === selectedIntent.id}
+        onClaim={() => selectedIntent && handleClaim(selectedIntent)}
       />
     </>
   );

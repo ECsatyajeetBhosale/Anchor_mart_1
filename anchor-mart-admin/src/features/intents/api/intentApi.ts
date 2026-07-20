@@ -1,3 +1,4 @@
+import type { AssignedAdmin } from "@/features/orders";
 import { INTENT_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
 import type {
@@ -74,6 +75,19 @@ function formatDate(value?: string): string {
   return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
+/**
+ * Maps the owner descriptor, tolerating a partial payload. `name` falls back to
+ * the email, mirroring the backend's own `_assigned_admin_brief` behaviour.
+ * Returns null unless there is at least an id or an email to identify them by.
+ */
+function mapAssignedAdmin(value: unknown): AssignedAdmin | null {
+  if (!value || typeof value !== "object") return null;
+  const id = str(getProp(value, "id"));
+  const email = str(getProp(value, "email"));
+  if (!id && !email) return null;
+  return { id, email, name: str(getProp(value, "name")) || email };
+}
+
 /** Maps a raw API item into the drawer item model. */
 function mapItem(item: IntentApiItem, index: number): IntentItem {
   const name =
@@ -132,6 +146,7 @@ export function toIntentData(intent: IntentApi): IntentData {
       "—",
     contact: str(sa.contact),
     total: str(intent.total_amount),
+    assignedAdmin: mapAssignedAdmin(intent.assigned_admin),
   };
 }
 

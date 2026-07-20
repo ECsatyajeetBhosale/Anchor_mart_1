@@ -261,7 +261,25 @@ export const MESSAGES = {
       STAY: "Stay",
       SUBMITTED: "Submitted",
       STATUS: "Status",
+      OWNER: "Owner",
       ACTIONS: "Actions",
+    },
+    // Order ownership (Flow 27) — claiming is the precondition for any write
+    OWNERSHIP: {
+      UNASSIGNED: "Unassigned",
+      MANAGE: "Manage Order",
+      CLAIMING: "Claiming…",
+      MANAGED_BY: (name: string) => `Managed by ${name}`,
+      YOU: "You",
+      CLAIMED: (ref: string) => `You are now managing ${ref}`,
+      CLAIM_FAILED: "Could not claim this order. Please try again.",
+      // 409 — the response names the current owner so we can too
+      HELD_BY: (name: string) => `Already being handled by ${name}`,
+      HELD_BY_UNKNOWN: "This order is already being handled by another admin.",
+      // Why the footer actions are disabled
+      CLAIM_FIRST: "Claim this order before responding to the intent.",
+      OWNED_BY_OTHER: (name: string) => `${name} owns this order — ask them to hand it over.`,
+      SUPER_ADMIN_OVERRIDE: "Super admin — you can act on this order without claiming it.",
     },
     // Review modal
     REVIEW: {

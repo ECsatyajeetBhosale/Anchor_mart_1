@@ -12,12 +12,14 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { OwnerCell, type OwnershipState } from "@/features/orders";
 import { MESSAGES } from "@/lib/messages";
-import { IconFileInvoice, IconPackage, IconSend, IconX } from "@tabler/icons-react";
+import { IconFileInvoice, IconPackage, IconSend, IconUserCheck, IconX } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import type { IntentData } from "../types/intent.types";
 
 const M = MESSAGES.INTENTS;
+const O = MESSAGES.INTENTS.OWNERSHIP;
 
 // Delivery partners available to assign an intent to.
 const PARTNER_OPTIONS = [
@@ -34,6 +36,15 @@ export interface IntentReviewDrawerProps {
   onClose: () => void;
   onConfirm: () => void;
   onReject: () => void;
+  /** Flow 27 ownership of the underlying order. */
+  ownership: OwnershipState;
+  /** May the signed-in admin perform gated writes on this order? */
+  canManage: boolean;
+  /** Should the claim action be offered (unassigned only)? */
+  canClaim: boolean;
+  isSuperAdmin: boolean;
+  isClaiming: boolean;
+  onClaim: () => void;
 }
 
 /**
@@ -47,6 +58,12 @@ export function IntentReviewDrawer({
   onClose,
   onConfirm,
   onReject,
+  ownership,
+  canManage,
+  canClaim,
+  isSuperAdmin,
+  isClaiming,
+  onClaim,
 }: IntentReviewDrawerProps) {
   // Admin response fields — reset each time the drawer opens.
   const [estimatedPrice, setEstimatedPrice] = useState("");
@@ -61,6 +78,17 @@ export function IntentReviewDrawer({
   }, [isOpen]);
 
   if (!intent) return null;
+
+  const owner = intent.assignedAdmin;
+  // One line explaining the footer's state. A super admin writes regardless of
+  // ownership, so they never see a blocking hint.
+  const gateHint = canManage
+    ? isSuperAdmin && ownership !== "mine"
+      ? O.SUPER_ADMIN_OVERRIDE
+      : ""
+    : ownership === "other" && owner
+      ? O.OWNED_BY_OTHER(owner.name)
+      : O.CLAIM_FIRST;
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -83,6 +111,10 @@ export function IntentReviewDrawer({
               <SheetDescription className="text-[12.5px] text-[var(--t3)]">
                 {intent.r}
               </SheetDescription>
+            </div>
+            {/* Ownership at a glance — who, if anyone, is accountable for this order. */}
+            <div className="ml-auto">
+              <OwnerCell assignedAdmin={owner} state={ownership} />
             </div>
           </div>
         </SheetHeader>
@@ -168,15 +200,26 @@ export function IntentReviewDrawer({
         </div>
 
         <SheetFooter className="p-6 border-t border-[var(--border-md)] bg-[var(--surface)]">
-          <div className="flex justify-end gap-3 w-full">
-            <Button variant="danger" size="sm" onClick={onReject}>
-              <IconX size={15} className="mr-1" />
-              {M.REVIEW.REJECT}
-            </Button>
-            <Button variant="primary" size="sm" onClick={onConfirm}>
-              <IconSend size={15} className="mr-1" />
-              {M.REVIEW.CONFIRM}
-            </Button>
+          <div className="flex w-full items-center justify-between gap-3">
+            {/* Why the actions are (or aren't) available — Flow 27 ownership gate. */}
+            <span className="trunc text-[12px] font-semibold text-[var(--t4)]">{gateHint}</span>
+
+            <div className="flex shrink-0 gap-3">
+              {canClaim && (
+                <Button variant="teal" size="sm" disabled={isClaiming} onClick={onClaim}>
+                  <IconUserCheck size={15} className="mr-1" />
+                  {isClaiming ? O.CLAIMING : O.MANAGE}
+                </Button>
+              )}
+              <Button variant="danger" size="sm" onClick={onReject} disabled={!canManage}>
+                <IconX size={15} className="mr-1" />
+                {M.REVIEW.REJECT}
+              </Button>
+              <Button variant="primary" size="sm" onClick={onConfirm} disabled={!canManage}>
+                <IconSend size={15} className="mr-1" />
+                {M.REVIEW.CONFIRM}
+              </Button>
+            </div>
           </div>
         </SheetFooter>
       </SheetContent>
