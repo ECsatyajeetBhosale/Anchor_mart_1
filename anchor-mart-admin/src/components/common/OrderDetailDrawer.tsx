@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/sheet";
 import { MESSAGES } from "@/lib/messages";
 import { IconBell, IconClock, IconPackage, IconTransfer, IconX } from "@tabler/icons-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Timeline } from "./Timeline";
@@ -55,10 +55,22 @@ interface OrderDetailDrawerProps {
   order: OrderDetail | null;
   onClose: () => void;
   onReassign?: (orderId: string) => void;
+  /**
+   * Real cancel handler. When provided, the "Cancel Order" button delegates to
+   * it (the caller owns the confirm + API call); otherwise the drawer falls back
+   * to its own local confirm dialog with a mock toast.
+   */
+  onCancel?: () => void;
   /** Live timeline; when provided it replaces the static fallback timeline. */
   timeline?: OrderTimelineItem[];
   /** True while the live timeline is being fetched. */
   timelineLoading?: boolean;
+  /**
+   * Optional feature-owned section rendered below Order Information (e.g. the
+   * ship-agent binding, Flow 02 · API 17). Kept as a slot so this shared drawer
+   * stays presentational and doesn't depend on any feature.
+   */
+  shipAgentSlot?: ReactNode;
 }
 
 /** Map an order status to a `Badge` variant (shared with `DashboardOrderDrawer`). */
@@ -138,8 +150,10 @@ export function OrderDetailDrawer({
   order,
   onClose,
   onReassign,
+  onCancel,
   timeline,
   timelineLoading,
+  shipAgentSlot,
 }: OrderDetailDrawerProps) {
   // Cancel confirmation is a shadcn `ConfirmDialog` (matches the row-action
   // cancel on the Orders page), replacing the native window.confirm.
@@ -235,6 +249,9 @@ export function OrderDetailDrawer({
                 <div className="detail-v">{order.coupon || "None"}</div>
               </div>
 
+              {/* Ship-agent binding (feature-owned slot — Flow 02 · API 17) */}
+              {shipAgentSlot}
+
               {/* Items */}
               <div className="sec-label mt16">Items</div>
               {order.items.length === 0 ? (
@@ -288,7 +305,7 @@ export function OrderDetailDrawer({
                   variant="danger"
                   size="sm"
                   className="ml-auto"
-                  onClick={() => setConfirmCancelOpen(true)}
+                  onClick={() => (onCancel ? onCancel() : setConfirmCancelOpen(true))}
                 >
                   <IconX size={15} />
                   Cancel Order

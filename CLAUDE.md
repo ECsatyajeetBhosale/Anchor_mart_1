@@ -10,6 +10,8 @@ The repo root also contains a **legacy static-HTML demo** (`index.html`, `css/`,
 
 `PROJECT_RULES.md` (repo root) is the authoritative coding-convention doc. Read it before writing feature code; the conventions below are the load-bearing subset plus things not obvious from a single file.
 
+**Order/intent statuses:** `docs/ORDER_STATUSES.md` is the PM-provided source of truth for the 18 order (intent) lifecycle statuses — the exact backend `status` keys, display labels, canonical ordering, which actor acts next, terminal/cancellation rules, and the `StatusBadge` variant mapping. Consult it before implementing or labeling any order/intent state (Intents, Orders, Assignments, Verification, etc.); use those keys and labels verbatim — never invent new ones.
+
 ## Commands
 
 All from `anchor-mart-admin/`:

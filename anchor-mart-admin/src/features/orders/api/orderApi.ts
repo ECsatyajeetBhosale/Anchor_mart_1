@@ -12,6 +12,15 @@ export interface GetOrdersParams {
   status?: string;
 }
 
+/**
+ * Success body of the cancel endpoint. The exact shape is documented in Flow 12
+ * (not this doc), so only `message` is relied on — surfaced via `getApiMessage`.
+ */
+export interface CancelOrderResponse {
+  message?: string;
+  order_id?: string;
+}
+
 export const ordersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getOrders: builder.query<OrderListResponse, GetOrdersParams>({
@@ -35,8 +44,30 @@ export const ordersApi = baseApi.injectEndpoints({
             ]
           : [{ type: "Orders", id: "PARTIAL-LIST" }],
     }),
+
+    /**
+     * Cancel a pre-payment order (Flow 27 gate-enforced; full contract in
+     * Flow 12). `POST /superadmin/orders/order/<id>/cancel/`, no body.
+     *
+     * Runs through the Flow 27 ownership gate — a 409 means the order is
+     * unclaimed (claim it first) or another admin owns it; surface it via
+     * `getApiMessage`. Moves the order to CANCELLED, so both the orders and
+     * intents lists are invalidated to refresh status everywhere.
+     */
+    cancelOrder: builder.mutation<CancelOrderResponse, string>({
+      query: (orderId) => ({
+        url: ORDER_ENDPOINTS.CANCEL_ORDER(orderId),
+        method: "POST",
+      }),
+      invalidatesTags: (_result, _error, orderId) => [
+        { type: "Orders", id: orderId },
+        { type: "Orders", id: "PARTIAL-LIST" },
+        { type: "Intents", id: orderId },
+        { type: "Intents", id: "PARTIAL-LIST" },
+      ],
+    }),
   }),
   overrideExisting: false,
 });
 
-export const { useGetOrdersQuery } = ordersApi;
+export const { useGetOrdersQuery, useCancelOrderMutation } = ordersApi;

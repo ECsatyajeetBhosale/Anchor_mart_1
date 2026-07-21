@@ -220,8 +220,29 @@ export const MESSAGES = {
     CANCEL_CONFIRM_MSG:
       "This will cancel the order and trigger refund processing. This cannot be undone.",
     CANCEL_CONFIRM_CONFIRM: "Cancel Order",
+    CANCEL_SUCCESS: "Order cancelled",
+    CANCEL_ERROR: "Failed to cancel the order. Please try again.",
     ORDER_CANCELLED: (id: string) => `Order ${id} has been cancelled`,
     PARTNER_REASSIGNED: "Partner reassigned successfully",
+    // Flow 02 · API 17 — bind/clear a ship agent on an order.
+    SHIP_AGENT: {
+      SECTION: "Ship Agent",
+      NONE: "No agent assigned",
+      PICK_PLACEHOLDER: "Select a ship agent…",
+      ASSIGN: "Assign",
+      UPDATE: "Update Agent",
+      CLEAR: "Clear",
+      LOADING: "Saving…",
+      ASSIGNED: "Ship agent updated",
+      CLEARED: "Ship agent cleared",
+      MANAGE_ORDER: "Manage Order",
+      CLAIMING: "Claiming…",
+      CLAIM_SUCCESS: "Order claimed — you can now assign a ship agent",
+      // Gate / disabled hints
+      CLAIM_FIRST: "Claim this order (Manage Order) before changing its ship agent.",
+      CLOSED: "This order is closed — its ship agent can no longer be changed.",
+      OTHER_ADMIN: "This order is managed by another admin.",
+    },
   },
   INTENTS: {
     // Page chrome
@@ -777,6 +798,93 @@ export const MESSAGES = {
     // Toggle labels
     TOGGLES: {
       ACTIVE: "Active",
+    },
+  },
+  SHIP_AGENTS: {
+    // Page chrome
+    TITLE: "Ship Agents",
+    SUBTITLE: "Manage the global port-side contact directory",
+    SEARCH_PLACEHOLDER: "Search by name, company, email, mobile…",
+    ADD_AGENT: "Add Agent",
+    FETCH_ERROR: "Failed to fetch ship agents",
+    EMPTY: "No ship agents found.",
+    DASH: "—",
+    GLOBAL_DIRECTORY: "Global directory",
+    // KPI cards
+    STATS: {
+      TOTAL: "Total Agents",
+      GLOBAL: "Global",
+      OWNED: "Sailor-Owned",
+    },
+    // Table
+    COLUMNS: {
+      AGENT: "Agent",
+      CONTACT: "Contact",
+      SCOPE: "Scope",
+      OWNER: "Owner",
+      ORDERS: "Orders",
+      CREATED: "Created",
+      ACTIONS: "Actions",
+    },
+    SCOPE_LABEL: {
+      GLOBAL: "Global",
+      OWNED: "Owned",
+    },
+    SCOPE_FILTER: {
+      GLOBAL: "Global",
+      OWNED: "Sailor-owned",
+    },
+    ACTION_EDIT: "Edit",
+    ACTION_REMOVE: "Delete",
+    // Toasts
+    TOAST: {
+      DELETE_SUCCESS: "Ship agent deleted successfully",
+      DELETE_ERROR: "Failed to delete ship agent",
+      ADD_SUCCESS: "Ship agent created successfully",
+      ADD_ERROR: "Failed to create ship agent. Please try again.",
+      UPDATE_SUCCESS: "Ship agent updated successfully",
+      UPDATE_ERROR: "Failed to update ship agent. Please try again.",
+    },
+    // Delete confirmation dialog
+    DELETE_CONFIRM: {
+      TITLE: "Delete Ship Agent",
+      MESSAGE:
+        "Are you sure you want to delete this ship agent? Orders already bound to it keep their saved snapshot, but the agent will no longer be selectable.",
+      CONFIRM: "Delete",
+    },
+    // Add drawer
+    ADD: {
+      TITLE: "Add Ship Agent",
+      SUBTITLE: "Create a global agent selectable by every sailor",
+      SUBMIT: "Add Agent",
+      SAVING: "Saving…",
+    },
+    // Edit drawer
+    EDIT: {
+      TITLE: "Edit Ship Agent",
+      SUBTITLE: "Update this agent's contact details",
+      SUBMIT: "Save Changes",
+      SAVING: "Saving…",
+    },
+    // Drawer section headings
+    SECTIONS: {
+      BASIC: "Basic Information",
+      CONTACT: "Contact Details",
+    },
+    // Field labels / hints
+    FIELDS: {
+      NAME: "Agent Name *",
+      NAME_PLACEHOLDER: "e.g. Singapore Marine Services",
+      COMPANY: "Company",
+      COMPANY_PLACEHOLDER: "e.g. SMS Pte Ltd",
+      COUNTRY_CODE: "Country Code",
+      COUNTRY_CODE_PLACEHOLDER: "+65",
+      MOBILE: "Mobile",
+      MOBILE_PLACEHOLDER: "9876543210",
+      EMAIL: "Email",
+      EMAIL_PLACEHOLDER: "ops@example.com",
+      CONTACT_HINT: "Provide at least a mobile number or an email so the agent is reachable.",
+      GLOBAL_HINT: "Agents created here are global — every sailor can select them at checkout.",
     },
   },
   EXPRESS: {

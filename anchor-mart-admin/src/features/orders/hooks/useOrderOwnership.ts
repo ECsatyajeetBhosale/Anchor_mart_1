@@ -48,5 +48,16 @@ export function useOrderOwnership() {
     return stateOf(assignedAdmin) === "unassigned";
   }
 
-  return { isSuperAdmin, currentEmail, stateOf, canManage, canClaim };
+  /**
+   * May the signed-in admin hand this order to someone else?
+   *
+   * Deliberately a different rule from `canManage`: reassign requires being the
+   * *current owner* or a super admin. A sub-admin cannot reassign an unassigned
+   * order, because there is no current owner to match against.
+   */
+  function canReassign(assignedAdmin?: AssignedAdmin | null): boolean {
+    return isSuperAdmin || stateOf(assignedAdmin) === "mine";
+  }
+
+  return { isSuperAdmin, currentEmail, stateOf, canManage, canClaim, canReassign };
 }

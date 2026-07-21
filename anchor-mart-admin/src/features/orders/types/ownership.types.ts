@@ -36,3 +36,29 @@ export interface ClaimConflict {
   detail: string;
   assigned_admin?: AssignedAdmin;
 }
+
+/**
+ * Body of `POST /superadmin/orders/order/<id>/reassign/`.
+ *
+ * `admin_id` must resolve to an `is_active=True` account with role `admin` or
+ * `super_admin`. Note the panel has no way to *obtain* this id — no endpoint
+ * lists admin accounts (doc finding F-03) — so this contract is implemented
+ * ahead of a backend admin-list endpoint.
+ */
+export interface ReassignOrderPayload {
+  orderId: string;
+  admin_id: string;
+}
+
+/** Success body of the reassign endpoint — same shape as a claim. */
+export type ReassignOrderResponse = ClaimOrderResponse;
+
+/**
+ * Reassign failures come in two shapes: `{detail}` for order/authorisation
+ * errors, and a DRF field body for `admin_id`. Note the "no active admin with
+ * this id" case is a **404 carrying the field shape**, not a 400.
+ */
+export interface ReassignError {
+  detail?: string;
+  admin_id?: string[];
+}

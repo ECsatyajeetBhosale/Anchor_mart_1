@@ -16,6 +16,10 @@ export default defineConfig(({ mode }) => {
         server: {
             port: 3000,
             open: true,
+            // Allow the dev server to be reached through an ngrok tunnel (Vite 6 blocks
+            // unknown hosts by default, otherwise showing a "Blocked request" page).
+            // Free ngrok tunnels now use *.ngrok-free.dev.
+            allowedHosts: [".ngrok-free.dev", ".ngrok-free.app", ".ngrok.dev", ".ngrok.io", ".ngrok.app"],
             proxy: {
                 // Proxy all /api/* requests to the backend server-side — no CORS needed
                 "/api": {

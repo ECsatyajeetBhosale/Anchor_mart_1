@@ -80,6 +80,16 @@ export const CATEGORY_ENDPOINTS = {
   DELETE_CATEGORY: (id: string) => `/superadmin/categories/delete-category/${id}/`,
 };
 
+export const SHIP_AGENT_ENDPOINTS = {
+  // Flow 02 — admin ship-agent directory (APIs 13–16).
+  GET_SHIP_AGENTS: "/superadmin/ship-agents/",
+  ADD_SHIP_AGENT: "/superadmin/ship-agents/create/",
+  UPDATE_SHIP_AGENT: (id: string) => `/superadmin/ship-agents/${id}/update/`,
+  DELETE_SHIP_AGENT: (id: string) => `/superadmin/ship-agents/${id}/delete/`,
+  // API 17 — bind/clear an agent on an order (used from the order-detail side).
+  SET_ORDER_SHIP_AGENT: (orderId: string) => `/superadmin/ship-agents/order/${orderId}/set/`,
+};
+
 export const SAILOR_ENDPOINTS = {
   GET_SAILORS: "/superadmin/sailors/sailors-list/",
   GET_STATS: "/superadmin/sailors/stats/",
@@ -98,10 +108,14 @@ export const EXPRESS_ENDPOINTS = {
 export const ORDER_ENDPOINTS = {
   GET_ORDERS: "/superadmin/orders/orders/",
   ORDER_DETAIL: (id: string) => `/superadmin/orders/orders/${id}/`,
-  CANCEL_ORDER: (id: string) => `/superadmin/orders/orders/${id}/cancel/`,
+  // Cancel uses the singular `order/` segment (like claim/reassign), per the doc
+  // — NOT the doubled `orders/orders/` shape of the list/detail paths. Full
+  // request/error contract is Flow 12 (Order Cancellation & Refund), not in this doc.
+  CANCEL_ORDER: (id: string) => `/superadmin/orders/order/${id}/cancel/`,
   // Flow 27 — order ownership. Note the singular `order/` segment here; it does
   // not follow the doubled `orders/orders/` shape used by the list/detail paths.
   CLAIM_ORDER: (id: string) => `/superadmin/orders/order/${id}/claim/`,
+  REASSIGN_ORDER: (id: string) => `/superadmin/orders/order/${id}/reassign/`,
 };
 
 export const INTENT_ENDPOINTS = {

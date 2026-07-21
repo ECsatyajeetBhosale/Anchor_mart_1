@@ -13,8 +13,10 @@ import {
 } from "@/components/common/tableColumns";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
-import { useGetOrdersQuery } from "@/features/orders/api/orderApi";
+import { useCancelOrderMutation, useGetOrdersQuery } from "@/features/orders/api/orderApi";
+import { OrderShipAgentSection } from "@/features/orders/components/OrderShipAgentSection";
 import type { Order } from "@/features/orders/types/order.types";
+import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 import { IconDownload } from "@tabler/icons-react";
@@ -188,8 +190,12 @@ function toOrderDetail(o: OrderRow): OrderDetail {
 export function OrdersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null);
+  // Full API record for the open order — the drawer's synthetic `OrderDetail`
+  // drops the UUID / ship_agent / assigned_admin that API 17 needs.
+  const [selectedRaw, setSelectedRaw] = useState<Order | null>(null);
   const [orderToCancel, setOrderToCancel] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [cancelOrder, { isLoading: isCancelling }] = useCancelOrderMutation();
 
   // URL-driven filter state (shareable, refresh-safe).
   const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
@@ -241,10 +247,18 @@ export function OrdersPage() {
     return matchesStatus && matchesSegment;
   });
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     if (!orderToCancel) return;
-    toast.error(M.ORDER_CANCELLED(orderToCancel));
-    setOrderToCancel(null);
+    try {
+      const res = await cancelOrder(orderToCancel).unwrap();
+      // Success: tag invalidation refreshes the row's status automatically.
+      toast.success(getApiMessage(res) ?? M.CANCEL_SUCCESS);
+      setOrderToCancel(null);
+    } catch (error) {
+      // Failure (e.g. 409 unclaimed / already paid): surface the real reason,
+      // keep the dialog open so the user can retry after claiming.
+      toast.error(getApiMessage(error) ?? M.CANCEL_ERROR);
+    }
   };
 
   const columns: Column<OrderRow>[] = [
@@ -302,6 +316,7 @@ export function OrdersPage() {
           title: M.ACTIONS.VIEW,
           onClick: (e, r) => {
             e.stopPropagation();
+            setSelectedRaw(r.raw);
             setSelectedOrder(toOrderDetail(r));
           },
         },
@@ -383,16 +398,44 @@ export function OrdersPage() {
         emptyMessage={
           search || statusFilter !== "all" || segment !== "all" ? M.EMPTY_FILTERED : M.EMPTY
         }
-        onRowClick={(o) => setSelectedOrder(toOrderDetail(o))}
+        onRowClick={(o) => {
+          setSelectedRaw(o.raw);
+          setSelectedOrder(toOrderDetail(o));
+        }}
       />
 
       <OrderDetailDrawer
         order={selectedOrder}
-        onClose={() => setSelectedOrder(null)}
+        onClose={() => {
+          setSelectedOrder(null);
+          setSelectedRaw(null);
+        }}
         onReassign={() => {
           setSelectedOrder(null);
+          setSelectedRaw(null);
           toast.success(M.PARTNER_REASSIGNED);
         }}
+        onCancel={
+          selectedRaw
+            ? () => {
+                const id = selectedRaw.id;
+                setSelectedOrder(null);
+                setSelectedRaw(null);
+                setOrderToCancel(id);
+              }
+            : undefined
+        }
+        shipAgentSlot={
+          selectedRaw ? (
+            <OrderShipAgentSection
+              orderId={selectedRaw.id}
+              status={selectedRaw.status}
+              shipAgent={selectedRaw.ship_agent}
+              shipAgentSnapshot={selectedRaw.ship_agent_snapshot}
+              assignedAdmin={selectedRaw.assigned_admin}
+            />
+          ) : null
+        }
       />
 
       <ConfirmDialog
@@ -402,6 +445,7 @@ export function OrdersPage() {
         title={M.CANCEL_CONFIRM_TITLE}
         description={M.CANCEL_CONFIRM_MSG}
         confirmText={M.CANCEL_CONFIRM_CONFIRM}
+        isLoading={isCancelling}
       />
     </>
   );

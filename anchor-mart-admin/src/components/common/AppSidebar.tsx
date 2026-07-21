@@ -155,7 +155,9 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
         <div className="sb-footer">
           <div className="sb-avatar">{user?.email?.[0]?.toUpperCase() ?? "A"}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="sb-uname">{user?.email ?? "Admin"}</div>
+            <div className="sb-uname" title={user?.email ?? "Admin"}>
+              {user?.email ?? "Admin"}
+            </div>
             <div className="sb-urole">{user?.role ?? "Admin"}</div>
           </div>
           <div className="sb-logout" onClick={handleLogout} title="Sign out">

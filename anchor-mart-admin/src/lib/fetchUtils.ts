@@ -54,6 +54,7 @@ export const baseApi = createApi({
     "Support",
     "SpecialRequests",
     "Spares",
+    "ShipAgents",
   ],
   endpoints: () => ({}),
 });

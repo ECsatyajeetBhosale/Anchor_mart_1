@@ -2,6 +2,24 @@
 // Only the fields the UI consumes are typed strictly; the rest are kept optional
 // so the table keeps working if the backend adds/removes peripheral data.
 
+import type { ShipAgent } from "@/features/ship-agents";
+import type { AssignedAdmin } from "./ownership.types";
+
+/**
+ * Frozen copy of the bound ship agent written onto the order at bind time
+ * (`ship_agent_snapshot`, 6 keys). Survives even if the agent is later
+ * soft-deleted — prefer it for display when `ship_agent` is null but a snapshot
+ * exists. See Flow 02 · API 17.
+ */
+export interface OrderShipAgentSnapshot {
+  id: string;
+  name: string;
+  mobile: string | null;
+  country_code: string | null;
+  email: string | null;
+  company: string | null;
+}
+
 export interface OrderCustomer {
   id: string;
   email: string;
@@ -125,6 +143,13 @@ export interface Order {
   total_quantity?: number;
   active_assignment?: OrderAssignment | null;
   assignments?: OrderAssignment[];
+  // --- Flow 27 ownership + Flow 02 ship-agent (API 17) --------------------
+  /** The accountable admin (Flow 27); null when unclaimed. */
+  assigned_admin?: AssignedAdmin | null;
+  /** Currently bound ship agent (admin read body); null when none. */
+  ship_agent?: ShipAgent | null;
+  /** Frozen contact copy written at bind time; survives agent soft-delete. */
+  ship_agent_snapshot?: OrderShipAgentSnapshot | null;
   created_at: string;
   updated_at?: string;
 }

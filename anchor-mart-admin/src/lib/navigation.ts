@@ -1,5 +1,6 @@
 import { APP_ROUTES } from "@/lib/constants";
 import {
+  IconAnchor,
   IconBell,
   IconBolt,
   IconBoxSeam,
@@ -97,6 +98,12 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "Categories",
         icon: IconCategory,
         path: APP_ROUTES.CATEGORIES,
+      },
+      {
+        key: "ship-agents",
+        label: "Ship Agents",
+        icon: IconAnchor,
+        path: APP_ROUTES.SHIP_AGENTS,
       },
       {
         key: "spares",

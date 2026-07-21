@@ -595,7 +595,10 @@ body {
   display: flex; align-items: center; justify-content: center;
   font-size: 12.5px; font-weight: 800; flex-shrink: 0;
 }
-.sb-uname { font-size: 13px; font-weight: 700; color: #fff; }
+.sb-uname {
+  font-size: 12.5px; font-weight: 700; color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
 .sb-urole { font-size: 11px; font-weight: 500; color: rgba(255,255,255,.5); }
 .sb-logout {
   margin-left: auto; color: rgba(255,255,255,.55); font-size: 18px; cursor: pointer;
@@ -830,9 +833,9 @@ body {
 .sc-purple .stat-icon { background: var(--purple-bg); color: var(--purple-icon); }
 .sc-blue   .stat-icon { background: var(--info-bg);   color: var(--info-icon); }
 
-.stat-val { font-size: 34px; font-weight: 800; color: var(--t1); line-height: 1; margin-bottom: 10px; letter-spacing: -2px; font-variant-numeric: tabular-nums; }
+.stat-val { font-size: 32px; font-weight: 700; color: var(--t1); line-height: 1; margin-bottom: 10px; letter-spacing: -2px; font-variant-numeric: tabular-nums; }
 .stat-foot { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: var(--t4); }
-.stat-delta { font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 2px; }
+.stat-delta { font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 2px; font-variant-numeric: tabular-nums; }
 .stat-delta.up { color: var(--green-text); }
 .stat-delta.dn { color: var(--danger-text); }
 
@@ -859,7 +862,7 @@ thead th {
 }
 thead th.sortable { cursor: pointer; }
 thead th.sortable:hover { color: var(--t2); background: var(--surface-hover); }
-tbody td { padding: 13px 16px; color: var(--t3); border-bottom: 1px solid var(--border-xs); vertical-align: middle; font-weight: 500; }
+tbody td { padding: 13px 16px; color: var(--t3); border-bottom: 1px solid var(--border-xs); vertical-align: middle; font-weight: 500; font-variant-numeric: tabular-nums; }
 tbody tr:last-child td { border-bottom: none; }
 tbody tr { transition: background .1s; }
 tbody tr:hover { background: var(--surface-alt); }
@@ -1087,6 +1090,9 @@ textarea.form-input { height: auto; padding: 10px 12px; resize: vertical; width:
 .cteal{color:var(--teal-700)}.cnavy{color:var(--navy-700)}.camber{color:var(--amber-600)}
 .csuccess{color:var(--success-text)}.cdanger{color:var(--danger-text)}.cwarning{color:var(--warning-text)}
 .mono{font-family:var(--font-mono)}.trunc{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Tabular (equal-width) figures for numbers rendered outside tables/stat cards,
+   e.g. inline counts, totals, prices. Same treatment as .stat-val. */
+.num{font-variant-numeric:tabular-nums}
 
 /* ══════════════════════════════════════
    MODAL / DRAWER / TOAST SYSTEM
@@ -1344,7 +1350,7 @@ textarea.form-input { height: auto; padding: 10px 12px; resize: vertical; line-h
 
 /* Stats mini */
 .mini-stat { background:var(--surface-alt);border:1px solid var(--border-sm);border-radius:var(--radius-md);padding:12px 14px; }
-.mini-stat-val { font-size:20px;font-weight:800;color:var(--t1);letter-spacing:-1px; }
+.mini-stat-val { font-size:20px;font-weight:800;color:var(--t1);letter-spacing:-1px;font-variant-numeric:tabular-nums; }
 .mini-stat-lbl { font-size:10.5px;font-weight:700;color:var(--t4);text-transform:uppercase;letter-spacing:.8px;margin-top:2px; }
 
 /* Table search row */
