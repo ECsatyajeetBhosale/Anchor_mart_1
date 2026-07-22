@@ -2,7 +2,6 @@ import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { FormField } from "@/components/common/FormField";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Sheet,
   SheetContent,
@@ -11,8 +10,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Textarea } from "@/components/ui/textarea";
 import { OwnerCell, type OwnershipState } from "@/features/orders";
+import { useGetPartnersQuery } from "@/features/partners";
 import { MESSAGES } from "@/lib/messages";
 import { IconFileInvoice, IconPackage, IconSend, IconUserCheck, IconX } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
@@ -20,15 +19,6 @@ import type { IntentData } from "../types/intent.types";
 
 const M = MESSAGES.INTENTS;
 const O = MESSAGES.INTENTS.OWNERSHIP;
-
-// Delivery partners available to assign an intent to.
-const PARTNER_OPTIONS = [
-  "Rahul Singh · DP-00124 · On Duty",
-  "Pita Havili · DP-00087 · On Duty",
-  "Marco Reyes · DP-00201 · On Duty",
-  "Aisha Karimi · DP-00056 · Available",
-  "David Lim · DP-00098 · Available",
-];
 
 export interface IntentReviewDrawerProps {
   intent: IntentData | null;
@@ -65,21 +55,35 @@ export function IntentReviewDrawer({
   isClaiming,
   onClaim,
 }: IntentReviewDrawerProps) {
-  // Admin response fields — reset each time the drawer opens.
-  const [estimatedPrice, setEstimatedPrice] = useState("");
+  // Assign-partner selection — reset each time the drawer opens.
   const [assignPartner, setAssignPartner] = useState("");
-  const [adminNotes, setAdminNotes] = useState("");
 
   useEffect(() => {
     if (!isOpen) return;
-    setEstimatedPrice("");
     setAssignPartner("");
-    setAdminNotes("");
   }, [isOpen]);
+
+  // Live delivery partners for the assign dropdown (fetched only while open).
+  // `deliveryPartnerId` is the id the assign-order API expects. Inactive
+  // partners can't take orders, so they're filtered out.
+  const { data: partnerList, isLoading: partnersLoading } = useGetPartnersQuery(undefined, {
+    skip: !isOpen,
+  });
+  const partnerOptions = (partnerList?.partners ?? [])
+    .filter((p) => p.s !== "Inactive")
+    .map((p) => ({ value: p.deliveryPartnerId, label: `${p.n} · ${p.id} · ${p.s}` }));
+  const partnerPlaceholder = partnersLoading
+    ? M.REVIEW.PARTNER_LOADING
+    : partnerOptions.length === 0
+      ? M.REVIEW.PARTNER_EMPTY
+      : M.REVIEW.PARTNER_PLACEHOLDER;
 
   if (!intent) return null;
 
   const owner = intent.assignedAdmin;
+  // A rejected intent is terminal — no partner can be assigned to it, so the
+  // whole assign-to-partner option (section + primary action) is hidden.
+  const isRejected = intent.status === "intent_rejected";
   // One line explaining the footer's state. A super admin writes regardless of
   // ownership, so they never see a blocking hint.
   const gateHint = canManage
@@ -169,34 +173,21 @@ export function IntentReviewDrawer({
             </div>
           )}
 
-          {/* Admin Response Fields */}
-          <div className="sec-label mt16">{M.REVIEW.ADMIN_RESPONSE}</div>
-          <FormField label={M.REVIEW.PRICE_LABEL}>
-            <Input
-              type="number"
-              step="0.01"
-              placeholder={M.REVIEW.PRICE_PLACEHOLDER}
-              value={estimatedPrice}
-              onChange={(e) => setEstimatedPrice(e.target.value)}
-            />
-          </FormField>
-          <FormField label={M.REVIEW.PARTNER_LABEL}>
-            <DropdownSelect
-              value={assignPartner}
-              onValueChange={setAssignPartner}
-              placeholder={M.REVIEW.PARTNER_PLACEHOLDER}
-              options={PARTNER_OPTIONS.map((p) => ({ value: p, label: p }))}
-              width="100%"
-            />
-          </FormField>
-          <FormField label={M.REVIEW.NOTES_LABEL}>
-            <Textarea
-              placeholder={M.REVIEW.NOTES_PLACEHOLDER}
-              value={adminNotes}
-              onChange={(e) => setAdminNotes(e.target.value)}
-              className="min-h-[70px] h-[70px]"
-            />
-          </FormField>
+          {/* Assign a partner (Flow 28) — hidden once the intent is rejected. */}
+          {!isRejected && (
+            <>
+              <div className="sec-label mt16">{M.REVIEW.ASSIGN_SECTION}</div>
+              <FormField label={M.REVIEW.PARTNER_LABEL}>
+                <DropdownSelect
+                  value={assignPartner}
+                  onValueChange={setAssignPartner}
+                  placeholder={partnerPlaceholder}
+                  options={partnerOptions}
+                  width="100%"
+                />
+              </FormField>
+            </>
+          )}
         </div>
 
         <SheetFooter className="p-6 border-t border-[var(--border-md)] bg-[var(--surface)]">
@@ -215,10 +206,12 @@ export function IntentReviewDrawer({
                 <IconX size={15} className="mr-1" />
                 {M.REVIEW.REJECT}
               </Button>
-              <Button variant="primary" size="sm" onClick={onConfirm} disabled={!canManage}>
-                <IconSend size={15} className="mr-1" />
-                {M.REVIEW.CONFIRM}
-              </Button>
+              {!isRejected && (
+                <Button variant="primary" size="sm" onClick={onConfirm} disabled={!canManage}>
+                  <IconSend size={15} className="mr-1" />
+                  {M.REVIEW.ASSIGN}
+                </Button>
+              )}
             </div>
           </div>
         </SheetFooter>

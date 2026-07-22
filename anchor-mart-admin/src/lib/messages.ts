@@ -306,29 +306,40 @@ export const MESSAGES = {
     REVIEW: {
       TITLE: "Review Intent Request",
       REJECT: "Reject",
-      CONFIRM: "Confirm & Send Payment Link",
+      // Primary action: hand the (claimed) order to a delivery partner (Flow 28).
+      ASSIGN: "Assign",
       SAILOR: "Sailor",
       IMO: "IMO Number",
       TERMINAL: "Terminal",
       ARRIVAL: "Arrival Date",
       REQUESTED_ITEMS: "Requested Items",
-      ADMIN_RESPONSE: "Admin Response",
+      ASSIGN_SECTION: "Assign Delivery Partner",
       QTY: (q: number) => `Qty: ${q}`,
       AVAILABLE: "Available",
       UNAVAILABLE: "Unavailable",
       CHECKING: "Checking…",
-      PRICE_LABEL: "Estimated Price ($)",
-      PRICE_PLACEHOLDER: "0.00",
       PARTNER_LABEL: "Assign to Partner",
       PARTNER_PLACEHOLDER: "Select a delivery partner…",
-      NOTES_LABEL: "Notes to Sailor",
-      NOTES_PLACEHOLDER: "Optional notes for the sailor…",
+      PARTNER_LOADING: "Loading partners…",
+      PARTNER_EMPTY: "No delivery partners available",
+    },
+    // Reject-intent popup (Flow 05 API 6 — reason is required)
+    REJECT_DIALOG: {
+      TITLE: "Reject Intent",
+      DESCRIPTION: (ref: string) =>
+        `Tell the sailor why order ${ref} can't be fulfilled. This is terminal and cannot be undone.`,
+      REASON_LABEL: "Reason for rejection",
+      REASON_PLACEHOLDER: "e.g. Nothing sourceable at this port",
+      REASON_REQUIRED: "A reason is required — tell the sailor why their order can't be fulfilled.",
+      CONFIRM: "Reject Intent",
+      REJECTING: "Rejecting…",
+      CANCEL: "Cancel",
     },
     // Toasts
     TOAST: {
-      CONFIRMED: (ref: string, sailor: string) =>
-        `Intent ${ref} confirmed & payment link sent to ${sailor}`,
       REJECTED: (ref: string) => `Intent ${ref} rejected and sailor notified`,
+      REJECT_FAILED: "Could not reject this intent. Please try again.",
+      ASSIGN_PENDING: "Partner assignment isn't wired up yet.",
     },
   },
   SPECIAL_REQUESTS: {

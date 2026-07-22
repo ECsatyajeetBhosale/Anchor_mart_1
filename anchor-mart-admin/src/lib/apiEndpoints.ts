@@ -116,6 +116,9 @@ export const ORDER_ENDPOINTS = {
   // not follow the doubled `orders/orders/` shape used by the list/detail paths.
   CLAIM_ORDER: (id: string) => `/superadmin/orders/order/${id}/claim/`,
   REASSIGN_ORDER: (id: string) => `/superadmin/orders/order/${id}/reassign/`,
+  // Flow 05 API 6 — terminal intent rejection. Requires a `reason`; gated by
+  // Flow 27 ownership (409 if unclaimed, 403 if owned by another admin).
+  REJECT_INTENT: (id: string) => `/superadmin/orders/order/${id}/reject-intent/`,
 };
 
 export const INTENT_ENDPOINTS = {

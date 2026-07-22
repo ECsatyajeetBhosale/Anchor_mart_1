@@ -86,6 +86,22 @@ export interface IntentData {
   assignedAdmin: AssignedAdmin | null;
 }
 
+/**
+ * Body of `POST /superadmin/orders/order/<id>/reject-intent/` (Flow 05 API 6).
+ * `reason` is required — it is quoted back to the sailor in their notification.
+ */
+export interface RejectIntentPayload {
+  orderId: string;
+  reason: string;
+}
+
+/** Success body of the reject-intent endpoint. */
+export interface RejectIntentResponse {
+  message: string;
+  order_id: string;
+  status: string;
+}
+
 /** Query params for the intents list (search + status are omitted when empty). */
 export interface GetIntentsParams {
   page?: number;

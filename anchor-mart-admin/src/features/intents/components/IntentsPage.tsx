@@ -25,9 +25,14 @@ import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 import { toast } from "sonner";
-import { useGetIntentStatsQuery, useGetIntentsQuery } from "../api/intentApi";
+import {
+  useGetIntentStatsQuery,
+  useGetIntentsQuery,
+  useRejectIntentMutation,
+} from "../api/intentApi";
 import type { IntentData, IntentStats } from "../types/intent.types";
 import { IntentReviewDrawer } from "./IntentReviewDrawer";
+import { RejectIntentDialog } from "./RejectIntentDialog";
 
 const M = MESSAGES.INTENTS;
 const O = MESSAGES.INTENTS.OWNERSHIP;
@@ -97,11 +102,13 @@ export function IntentsPage() {
 
   const [selectedIntent, setSelectedIntent] = useState<IntentData | null>(null);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [isRejectOpen, setIsRejectOpen] = useState(false);
   /** Which row's claim is in flight — scopes the spinner to that button. */
   const [claimingId, setClaimingId] = useState<string | null>(null);
 
   const { stateOf, canManage, canClaim, isSuperAdmin } = useOrderOwnership();
   const [claimOrder] = useClaimOrderMutation();
+  const [rejectIntent, { isLoading: isRejecting }] = useRejectIntentMutation();
 
   // Intents list — search + status filter server-side; paginated by DRF.
   const statusParam = statusFilter !== "all" ? statusFilter : undefined;
@@ -155,12 +162,25 @@ export function IntentsPage() {
    *
    * A 409 is not a failure to retry: it means another admin got there first,
    * and the body names them so we can say who.
+   *
+   * `openReview` opens the review drawer once the claim succeeds — used by the
+   * row-level "Manage Order" button so the admin lands straight in the drawer.
    */
-  const handleClaim = async (intent: IntentData) => {
+  const handleClaim = async (intent: IntentData, openReview = false) => {
     setClaimingId(intent.id);
     try {
-      await claimOrder(intent.id).unwrap();
+      const res = await claimOrder(intent.id).unwrap();
       toast.success(O.CLAIMED(intent.r));
+      // Reflect the new owner on the drawer's snapshot immediately so the
+      // ownership-derived buttons flip: the "Manage Order" claim button hides
+      // and Assign/Reject enable, without waiting for the list refetch.
+      const claimed: IntentData = { ...intent, assignedAdmin: res.assigned_admin };
+      if (openReview) {
+        setSelectedIntent(claimed);
+        setIsReviewOpen(true);
+      } else {
+        setSelectedIntent((prev) => (prev && prev.id === intent.id ? claimed : prev));
+      }
     } catch (err) {
       const status = (err as { status?: unknown })?.status;
       if (status === 409) {
@@ -174,16 +194,48 @@ export function IntentsPage() {
     }
   };
 
+  /**
+   * Assign a delivery partner (Flow 28). That flow's API is not documented in
+   * the current `flow/` folder, so the action is a placeholder for now — the
+   * drawer's partner dropdown is UI-only until the assign endpoint is wired.
+   */
   const handleConfirmIntent = () => {
     if (!selectedIntent) return;
-    toast.success(M.TOAST.CONFIRMED(selectedIntent.r, selectedIntent.s));
-    setIsReviewOpen(false);
+    toast.info(M.TOAST.ASSIGN_PENDING);
   };
 
+  /**
+   * Reject button in the drawer → open the reason popup. The drawer closes
+   * first: the custom Dialog isn't portaled to <body>, so it would otherwise
+   * render behind the Sheet overlay. `selectedIntent` is retained, so the
+   * popup still has its order reference and id.
+   */
   const handleRejectIntent = () => {
     if (!selectedIntent) return;
-    toast.error(M.TOAST.REJECTED(selectedIntent.r));
     setIsReviewOpen(false);
+    setIsRejectOpen(true);
+  };
+
+  /**
+   * Flow 05 API 6 — submit the terminal rejection with the required reason.
+   * Surfaces the documented gate errors: 409 (claim first), 403 (wrong owner),
+   * and 400 (blank reason / past the rejectable stage).
+   */
+  const handleConfirmReject = async (reason: string) => {
+    if (!selectedIntent) return;
+    try {
+      await rejectIntent({ orderId: selectedIntent.id, reason }).unwrap();
+      toast.success(M.TOAST.REJECTED(selectedIntent.r));
+      setIsRejectOpen(false);
+      setIsReviewOpen(false);
+    } catch (err) {
+      const status = (err as { status?: unknown })?.status;
+      if (status === 409) {
+        toast.error(O.CLAIM_FIRST);
+        return;
+      }
+      toast.error(getApiMessage(err) ?? M.TOAST.REJECT_FAILED);
+    }
   };
 
   const columns: Column<IntentData>[] = [
@@ -243,7 +295,7 @@ export function IntentsPage() {
               disabled={claimingId === i.id}
               onClick={(e) => {
                 e.stopPropagation();
-                handleClaim(i);
+                handleClaim(i, true);
               }}
             >
               {claimingId === i.id ? O.CLAIMING : O.MANAGE}
@@ -321,6 +373,15 @@ export function IntentsPage() {
         isSuperAdmin={isSuperAdmin}
         isClaiming={!!selectedIntent && claimingId === selectedIntent.id}
         onClaim={() => selectedIntent && handleClaim(selectedIntent)}
+      />
+
+      {/* Reject-intent reason popup (Flow 05 API 6) */}
+      <RejectIntentDialog
+        isOpen={isRejectOpen}
+        orderRef={selectedIntent?.r ?? ""}
+        isLoading={isRejecting}
+        onClose={() => setIsRejectOpen(false)}
+        onConfirm={handleConfirmReject}
       />
     </>
   );

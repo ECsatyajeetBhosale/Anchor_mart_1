@@ -1,5 +1,5 @@
 import type { AssignedAdmin } from "@/features/orders";
-import { INTENT_ENDPOINTS } from "@/lib/apiEndpoints";
+import { INTENT_ENDPOINTS, ORDER_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
 import type {
   GetIntentsParams,
@@ -10,6 +10,8 @@ import type {
   IntentItem,
   IntentListResult,
   IntentStats,
+  RejectIntentPayload,
+  RejectIntentResponse,
 } from "../types/intent.types";
 
 /** Coerces an unknown to a trimmed string; non-strings/numbers → "". */
@@ -202,8 +204,27 @@ export const intentApi = baseApi.injectEndpoints({
       transformResponse: (res: unknown): IntentStats => unwrap<IntentStats>(res) ?? {},
       providesTags: [{ type: "Intents", id: "STATS" }],
     }),
+
+    /**
+     * Flow 05 API 6 — reject an intent (terminal). `reason` is required; the
+     * order must be claimed by the caller (Flow 27 gate returns 409 unclaimed /
+     * 403 wrong owner). On success the order moves to `intent_rejected` and the
+     * sailor is notified. Invalidates the list + stats so both refresh.
+     */
+    rejectIntent: builder.mutation<RejectIntentResponse, RejectIntentPayload>({
+      query: ({ orderId, reason }) => ({
+        url: ORDER_ENDPOINTS.REJECT_INTENT(orderId),
+        method: "POST",
+        body: { reason },
+      }),
+      invalidatesTags: (_res, _err, { orderId }) => [
+        { type: "Intents", id: orderId },
+        { type: "Intents", id: "PARTIAL-LIST" },
+        { type: "Intents", id: "STATS" },
+      ],
+    }),
   }),
   overrideExisting: false,
 });
 
-export const { useGetIntentsQuery, useGetIntentStatsQuery } = intentApi;
+export const { useGetIntentsQuery, useGetIntentStatsQuery, useRejectIntentMutation } = intentApi;
