@@ -16,13 +16,11 @@ export function UnassignedOrdersCard({ orders, onAssign }: UnassignedOrdersCardP
 
   return (
     <SectionCard
-
       bodyPadding="none"
       bodyClassName="relative"
       title={M.TITLE}
       actions={urgentCount > 0 && <Badge variant="danger">{M.URGENT(urgentCount)}</Badge>}
     >
-    
       <div className="absolute inset-0 flex flex-col gap-2.5 overflow-y-auto p-5 pr-4">
         {orders.length === 0 ? (
           <div className="text-[13px] text-[var(--t4)]">{M.EMPTY}</div>

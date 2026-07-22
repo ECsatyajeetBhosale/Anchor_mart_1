@@ -63,14 +63,25 @@ export interface ApiUnassignedOrdersResponse {
   results: ApiUnassignedOrder[];
 }
 
-/** Request body for POST /superadmin/partner/assign-order/. */
+/** Request body for POST /superadmin/partner/assign-order/ (Flow 28 API 12). */
 export interface AssignOrderPayload {
   order_id: string;
   delivery_partner_id: string;
-  /** Delivery date as `YYYY-MM-DD`. */
-  deliver_by: string;
-  /** `false` for an initial assignment; `true` to confirm a reassignment. */
-  confirm: boolean;
+  /** Optional admin override; the SLA policy computes it when omitted. */
+  deliver_by?: string;
+  /** `true` to reassign an order currently held by another partner. */
+  confirm?: boolean;
+}
+
+/** A partner returned by the assignable-partners endpoint (Flow 28 API 11). */
+export interface AssignablePartner {
+  /** The id the assign-order API expects as `delivery_partner_id` (the user id). */
+  deliveryPartnerId: string;
+  /** Business partner code, e.g. "DP-00056". */
+  code: string;
+  name: string;
+  port: string;
+  isAvailable: boolean;
 }
 
 /** A delivery partner available for assignment. */

@@ -90,16 +90,29 @@ function mapAssignedAdmin(value: unknown): AssignedAdmin | null {
   return { id, email, name: str(getProp(value, "name")) || email };
 }
 
-/** Maps a raw API item into the drawer item model. */
+/** Maps a raw API item into the drawer item model, including Flow 06 signals. */
 function mapItem(item: IntentApiItem, index: number): IntentItem {
   const name =
     str(item.product_name) || str(item.name) || str(item.title) || str(item.item_name) || "Item";
-  const qty = num(item.quantity ?? item.qty) || 1;
+  const qty = num(item.quantity ?? item.qty ?? item.requested_qty) || 1;
+  const availableQty = typeof item.available_qty === "number" ? item.available_qty : null;
+  // Derive the shortfall when the backend doesn't send it explicitly.
+  const shortfall =
+    typeof item.shortfall === "number"
+      ? item.shortfall
+      : availableQty !== null
+        ? Math.max(0, qty - availableQty)
+        : 0;
   return {
-    id: str(item.id) || `${name}-${index}`,
+    id: str(item.id) || str(item.order_item_id) || `${name}-${index}`,
+    orderItemId: str(item.order_item_id) || str(item.id),
     name,
     qty,
     available: typeof item.is_available === "boolean" ? item.is_available : null,
+    availableQty,
+    shortfall,
+    needsSuggestion: item.needs_suggestion === true || item.is_available === false || shortfall > 0,
+    reason: str(item.reason) || str(item.note),
   };
 }
 
@@ -118,7 +131,7 @@ export function toIntentData(intent: IntentApi): IntentData {
 
   const status = str(intent.status);
   const vessel = str(sa.vessel_name);
-  const imo = str(sa.imo);
+  const imo = str(sa.imo_number) || str(sa.imo);
 
   return {
     id: str(intent.id),
@@ -146,9 +159,12 @@ export function toIntentData(intent: IntentApi): IntentData {
       str(intent.port) ||
       str(sa.port_name) ||
       "—",
-    contact: str(sa.contact),
+    contact: str(sa.phone) || str(sa.contact),
     total: str(intent.total_amount),
     assignedAdmin: mapAssignedAdmin(intent.assigned_admin),
+    portId: str(intent.port_id) || str(sa.port_id),
+    substitutionNeeded:
+      intent.substitution_needed === true || reqItems.some((i) => i.needsSuggestion),
   };
 }
 

@@ -126,6 +126,34 @@ export const INTENT_ENDPOINTS = {
   GET_STATS: "/superadmin/orders/intents/stats/",
 };
 
+// Flow 07 — Order Billing & Payment (admin billing surface).
+// `generate-link` (Stripe) is intentionally omitted — the flow doc says not to
+// build it yet.
+export const PAYMENT_ENDPOINTS = {
+  // API 1 — set fees, move order to PAYMENT_PENDING, notify the customer (no link).
+  CREATE_BILL: "/superadmin/payments/create-bill/",
+  // API 2 — recompute a pending bill (available for a later step).
+  UPDATE_BILL: "/superadmin/payments/update-bill/",
+};
+
+// Flow 06 — Stock Verification & Substitution (admin substitution surface).
+export const SUBSTITUTION_ENDPOINTS = {
+  // API 6 — drill-in: latest report lines (with order_item_id, shortfall,
+  // needs_suggestion), partner, and order block. Query: `order_id`.
+  VERIFICATION_DETAIL: "/superadmin/partner/verification-detail/",
+  // API 9 — staged (unreleased) + released suggestions for an order. Query: `order_id`.
+  FETCH_SUGGESTED_ITEMS: "/superadmin/orders/fetch-suggested-items/",
+  // API 10 — variant picker: products carried at a port, with variants.
+  // Query: `port_id` (required), optional `search`, `page`.
+  SUGGESTION_PRODUCTS: "/superadmin/dashboard/products/suggestion/",
+  // API 11 — stage an existing catalog variant as a suggestion.
+  SUGGEST: "/superadmin/orders/suggest/",
+  // API 12 — create a brand-new product + variant and suggest it.
+  SUGGEST_NEW_PRODUCT: "/superadmin/orders/suggest-new-product/",
+  // API 13 — release ALL staged suggestions for an order to the sailor.
+  RELEASE_SUGGESTION: "/superadmin/orders/release-suggestion/",
+};
+
 export const PARTNER_ENDPOINTS = {
   GET_LIST: "/superadmin/partner/list/",
   CREATE: "/superadmin/partner/create/",
@@ -144,6 +172,8 @@ export const VERIFICATION_ENDPOINTS = {
 export const ASSIGNMENT_ENDPOINTS = {
   GET_UNASSIGNED_ORDERS: "/superadmin/partner/unassigned-orders/",
   ASSIGN_ORDER: "/superadmin/partner/assign-order/",
+  // Flow 28 API 11 — partners scoped to an order's capability (verify/deliver) + port.
+  ASSIGNABLE_PARTNERS: "/superadmin/partner/assignable-partners/",
 };
 
 export const SPECIAL_REQUEST_ENDPOINTS = {

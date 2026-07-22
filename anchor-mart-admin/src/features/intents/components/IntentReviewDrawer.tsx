@@ -10,21 +10,30 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useAssignOrderMutation, useGetAssignablePartnersQuery } from "@/features/assignments";
 import { OwnerCell, type OwnershipState } from "@/features/orders";
-import { useGetPartnersQuery } from "@/features/partners";
+import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { IconFileInvoice, IconPackage, IconSend, IconUserCheck, IconX } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
-import type { IntentData } from "../types/intent.types";
+import { toast } from "sonner";
+import { useGetSuggestedItemsQuery } from "../api/substitutionApi";
+import { deriveIntentAction } from "../lib/intentAction";
+import type { IntentAction, IntentData } from "../types/intent.types";
+import { SuggestReplacementPanel } from "./SuggestReplacementPanel";
 
 const M = MESSAGES.INTENTS;
 const O = MESSAGES.INTENTS.OWNERSHIP;
+const A = MESSAGES.INTENTS.ACTION;
+const S = MESSAGES.INTENTS.SUBSTITUTION;
+const T = MESSAGES.INTENTS.TOAST;
 
 export interface IntentReviewDrawerProps {
   intent: IntentData | null;
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  /** Runs the primary action for the intent's derived state (assign/suggest→release/bill). */
+  onPrimaryAction: (action: IntentAction) => void;
   onReject: () => void;
   /** Flow 27 ownership of the underlying order. */
   ownership: OwnershipState;
@@ -34,6 +43,8 @@ export interface IntentReviewDrawerProps {
   canClaim: boolean;
   isSuperAdmin: boolean;
   isClaiming: boolean;
+  /** Release-suggestions mutation in flight. */
+  isReleasing: boolean;
   onClaim: () => void;
 }
 
@@ -46,53 +57,130 @@ export function IntentReviewDrawer({
   intent,
   isOpen,
   onClose,
-  onConfirm,
+  onPrimaryAction,
   onReject,
   ownership,
   canManage,
   canClaim,
   isSuperAdmin,
   isClaiming,
+  isReleasing,
   onClaim,
 }: IntentReviewDrawerProps) {
-  // Assign-partner selection — reset each time the drawer opens.
+  // Assign-partner form — reset each time the drawer opens. `forceReassign`
+  // flips to true after a 409 requires_confirmation, so the next click reassigns.
   const [assignPartner, setAssignPartner] = useState("");
+  const [forceReassign, setForceReassign] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
     setAssignPartner("");
+    setForceReassign(false);
   }, [isOpen]);
 
-  // Live delivery partners for the assign dropdown (fetched only while open).
-  // `deliveryPartnerId` is the id the assign-order API expects. Inactive
-  // partners can't take orders, so they're filtered out.
-  const { data: partnerList, isLoading: partnersLoading } = useGetPartnersQuery(undefined, {
-    skip: !isOpen,
-  });
-  const partnerOptions = (partnerList?.partners ?? [])
-    .filter((p) => p.s !== "Inactive")
-    .map((p) => ({ value: p.deliveryPartnerId, label: `${p.n} · ${p.id} · ${p.s}` }));
+  // Derived next-action + whether the substitution panel applies. Hooks must
+  // run before the early return, so read fields defensively off a nullable intent.
+  const status = intent?.status ?? "";
+  const orderId = intent?.id ?? "";
+  const action = deriveIntentAction(status, intent?.substitutionNeeded ?? false);
+  // First assignment at the intent stage; reassignment while a partner verifies.
+  const showAssign = action === "assign";
+  const showReassign = status === "partner_verifying";
+  const showPartnerPicker = showAssign || showReassign;
+  const showSubstitution =
+    status === "verification_submitted" || status === "pending_customer_response";
+
+  // Flow 28 API 11 — all available partners (order_id omitted for now, so the
+  // list isn't port/capability-scoped while backend test data is set up).
+  // API 12 still assigns using this order's id.
+  const { data: assignablePartners = [], isLoading: partnersLoading } =
+    useGetAssignablePartnersQuery({}, { skip: !isOpen || !showPartnerPicker });
+  const [assignOrder, { isLoading: assigning }] = useAssignOrderMutation();
+
+  const partnerOptions = assignablePartners.map((p) => ({
+    value: p.deliveryPartnerId,
+    label: `${p.name}${p.code ? ` · ${p.code}` : ""}${p.port ? ` · ${p.port}` : ""}`,
+  }));
   const partnerPlaceholder = partnersLoading
     ? M.REVIEW.PARTNER_LOADING
     : partnerOptions.length === 0
       ? M.REVIEW.PARTNER_EMPTY
       : M.REVIEW.PARTNER_PLACEHOLDER;
 
+  // Staged suggestions — gates the Release button (shared cache with the panel).
+  const { data: staged = [] } = useGetSuggestedItemsQuery(orderId, {
+    skip: !isOpen || !showSubstitution || !orderId,
+  });
+  const hasUnreleased = staged.some((s) => !s.released);
+
+  /**
+   * Flow 28 API 12 — assign (`reassign=false`) or reassign (`reassign=true`) the
+   * selected partner. First assignment moves the order to `partner_verifying`;
+   * reassignment closes the current partner's assignment and opens a new one.
+   *
+   * `confirm` is true for an explicit reassign, or once a prior 409
+   * `requires_confirmation` flipped `forceReassign`. Gate errors (409 unclaimed
+   * / 403 wrong owner) surface via the message.
+   */
+  const handleAssign = async (reassign: boolean) => {
+    if (!assignPartner) {
+      toast.error(T.ASSIGN_SELECT_PARTNER);
+      return;
+    }
+    try {
+      await assignOrder({
+        order_id: orderId,
+        delivery_partner_id: assignPartner,
+        confirm: reassign || forceReassign,
+      }).unwrap();
+      toast.success(reassign ? T.REASSIGNED(intent?.r ?? "") : T.ASSIGNED(intent?.r ?? ""));
+      onClose();
+    } catch (err) {
+      const e = err as { status?: unknown; data?: { requires_confirmation?: boolean } };
+      if (e?.status === 409 && e?.data?.requires_confirmation) {
+        setForceReassign(true);
+        toast.error(T.REASSIGN_CONFIRM);
+        return;
+      }
+      toast.error(getApiMessage(err) ?? T.ASSIGN_FAILED);
+    }
+  };
+
   if (!intent) return null;
 
   const owner = intent.assignedAdmin;
-  // A rejected intent is terminal — no partner can be assigned to it, so the
-  // whole assign-to-partner option (section + primary action) is hidden.
-  const isRejected = intent.status === "intent_rejected";
   // One line explaining the footer's state. A super admin writes regardless of
   // ownership, so they never see a blocking hint.
+  const actionHint = showReassign ? M.REVIEW.REASSIGN_HINT : A[action];
   const gateHint = canManage
     ? isSuperAdmin && ownership !== "mine"
       ? O.SUPER_ADMIN_OVERRIDE
-      : ""
+      : actionHint
     : ownership === "other" && owner
       ? O.OWNED_BY_OTHER(owner.name)
       : O.CLAIM_FIRST;
+
+  // Primary footer action, driven by the derived state.
+  const primary = showAssign
+    ? { label: assigning ? M.REVIEW.ASSIGNING : M.REVIEW.ASSIGN, disabled: !canManage || assigning }
+    : showReassign
+      ? {
+          label: assigning ? M.REVIEW.REASSIGNING : M.REVIEW.REASSIGN,
+          disabled: !canManage || assigning,
+        }
+      : action === "suggest"
+        ? { label: isReleasing ? S.RELEASING : S.RELEASE, disabled: !canManage || !hasUnreleased }
+        : action === "bill"
+          ? { label: M.REVIEW.BILL, disabled: !canManage }
+          : null;
+
+  // Assign/reassign are handled here (the partner selection lives in this
+  // drawer); release/bill are dispatched to the page (mutation/dialog owner).
+  const handlePrimary = () => {
+    if (showAssign) return handleAssign(false);
+    if (showReassign) return handleAssign(true);
+    return onPrimaryAction(action);
+  };
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -173,10 +261,12 @@ export function IntentReviewDrawer({
             </div>
           )}
 
-          {/* Assign a partner (Flow 28) — hidden once the intent is rejected. */}
-          {!isRejected && (
+          {/* Assign (intent stage) or reassign (while a partner verifies) — Flow 28. */}
+          {showPartnerPicker && (
             <>
-              <div className="sec-label mt16">{M.REVIEW.ASSIGN_SECTION}</div>
+              <div className="sec-label mt16">
+                {showReassign ? M.REVIEW.REASSIGN_SECTION : M.REVIEW.ASSIGN_SECTION}
+              </div>
               <FormField label={M.REVIEW.PARTNER_LABEL}>
                 <DropdownSelect
                   value={assignPartner}
@@ -186,6 +276,19 @@ export function IntentReviewDrawer({
                   width="100%"
                 />
               </FormField>
+            </>
+          )}
+
+          {/* Stock verification & substitution (Flow 06) — the report lines,
+              staging a replacement per short/unavailable line, and staged list. */}
+          {showSubstitution && (
+            <>
+              <div className="sec-label mt16">{S.SECTION}</div>
+              <SuggestReplacementPanel
+                orderId={intent.id}
+                portId={intent.portId}
+                canManage={canManage}
+              />
             </>
           )}
         </div>
@@ -202,14 +305,21 @@ export function IntentReviewDrawer({
                   {isClaiming ? O.CLAIMING : O.MANAGE}
                 </Button>
               )}
-              <Button variant="danger" size="sm" onClick={onReject} disabled={!canManage}>
-                <IconX size={15} className="mr-1" />
-                {M.REVIEW.REJECT}
-              </Button>
-              {!isRejected && (
-                <Button variant="primary" size="sm" onClick={onConfirm} disabled={!canManage}>
+              {action !== "rejected" && (
+                <Button variant="danger" size="sm" onClick={onReject} disabled={!canManage}>
+                  <IconX size={15} className="mr-1" />
+                  {M.REVIEW.REJECT}
+                </Button>
+              )}
+              {primary && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handlePrimary}
+                  disabled={primary.disabled}
+                >
                   <IconSend size={15} className="mr-1" />
-                  {M.REVIEW.ASSIGN}
+                  {primary.label}
                 </Button>
               )}
             </div>

@@ -4,8 +4,27 @@ import type {
   ApiUnassignedOrder,
   ApiUnassignedOrdersResponse,
   AssignOrderPayload,
+  AssignablePartner,
   UnassignedOrder,
 } from "../types/assignment.types";
+
+/** Safe property read off an unknown value. */
+function getProp(value: unknown, key: string): unknown {
+  return value && typeof value === "object" ? (value as Record<string, unknown>)[key] : undefined;
+}
+/** Returns the value when it's an array, otherwise null. */
+function asArray(value: unknown): unknown[] | null {
+  return Array.isArray(value) ? value : null;
+}
+/** First present key off an object, coerced to a trimmed string; else "". */
+function pick(obj: unknown, ...keys: string[]): string {
+  for (const k of keys) {
+    const v = getProp(obj, k);
+    if (typeof v === "string" && v.trim()) return v.trim();
+    if (typeof v === "number") return String(v);
+  }
+  return "";
+}
 
 /** Format the API's decimal string amount as `$1000.00`, falling back to "-". */
 function formatAmount(amount: string): string {
@@ -39,18 +58,60 @@ export const assignmentApi = baseApi.injectEndpoints({
       providesTags: [{ type: "Assignments", id: "UNASSIGNED-LIST" }],
     }),
 
-    // Assign (or reassign) an order to a delivery partner.
+    // Flow 28 API 11 — assignable partners. Passing `orderId` scopes to the
+    // order's capability + port; omitting it returns ALL available partners
+    // (capability-unfiltered, per the doc). We currently omit it while the
+    // backend port/capability test data is being set up.
+    getAssignablePartners: builder.query<AssignablePartner[], { orderId?: string } | void>({
+      query: (arg) => ({
+        url: ASSIGNMENT_ENDPOINTS.ASSIGNABLE_PARTNERS,
+        method: "GET",
+        params: { order_id: arg?.orderId || undefined, page_size: 100 },
+      }),
+      transformResponse: (res: unknown): AssignablePartner[] => {
+        const results = getProp(res, "results");
+        const rows =
+          asArray(getProp(results, "data")) ??
+          asArray(results) ??
+          asArray(getProp(res, "data")) ??
+          asArray(res) ??
+          [];
+        return rows.map((r) => ({
+          // assign-order keys on the user id, like every other partner endpoint.
+          deliveryPartnerId: pick(r, "user_id", "delivery_partner_id", "id"),
+          code: pick(r, "partner_id", "code"),
+          name: pick(r, "name", "full_name", "email") || "-",
+          port: pick(r, "port", "assigned_port"),
+          isAvailable: getProp(r, "is_available") !== false,
+        }));
+      },
+      providesTags: (_r, _e, arg) => [
+        { type: "Assignments", id: `ASSIGNABLE-${arg?.orderId ?? "ALL"}` },
+      ],
+    }),
+
+    // Flow 28 API 12 — assign (or reassign) an order to a delivery partner.
     assignOrder: builder.mutation<unknown, AssignOrderPayload>({
       query: (body) => ({
         url: ASSIGNMENT_ENDPOINTS.ASSIGN_ORDER,
         method: "POST",
         body,
       }),
-      // Refresh the unassigned list so the newly assigned order drops off it.
-      invalidatesTags: [{ type: "Assignments", id: "UNASSIGNED-LIST" }],
+      // Refresh the unassigned list AND the intent queue/stats — an intent-stage
+      // assignment moves the order to `partner_verifying`.
+      invalidatesTags: (_r, _e, { order_id }) => [
+        { type: "Assignments", id: "UNASSIGNED-LIST" },
+        { type: "Intents", id: order_id },
+        { type: "Intents", id: "PARTIAL-LIST" },
+        { type: "Intents", id: "STATS" },
+      ],
     }),
   }),
   overrideExisting: false,
 });
 
-export const { useGetUnassignedOrdersQuery, useAssignOrderMutation } = assignmentApi;
+export const {
+  useGetUnassignedOrdersQuery,
+  useGetAssignablePartnersQuery,
+  useAssignOrderMutation,
+} = assignmentApi;

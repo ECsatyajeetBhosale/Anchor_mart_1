@@ -25,12 +25,15 @@ import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 import { toast } from "sonner";
+import { useCreateBillMutation } from "../api/billingApi";
 import {
   useGetIntentStatsQuery,
   useGetIntentsQuery,
   useRejectIntentMutation,
 } from "../api/intentApi";
-import type { IntentData, IntentStats } from "../types/intent.types";
+import { useReleaseSuggestionsMutation } from "../api/substitutionApi";
+import type { IntentAction, IntentData, IntentStats } from "../types/intent.types";
+import { type BillFees, CreateBillDialog } from "./CreateBillDialog";
 import { IntentReviewDrawer } from "./IntentReviewDrawer";
 import { RejectIntentDialog } from "./RejectIntentDialog";
 
@@ -103,12 +106,15 @@ export function IntentsPage() {
   const [selectedIntent, setSelectedIntent] = useState<IntentData | null>(null);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isRejectOpen, setIsRejectOpen] = useState(false);
+  const [isBillOpen, setIsBillOpen] = useState(false);
   /** Which row's claim is in flight — scopes the spinner to that button. */
   const [claimingId, setClaimingId] = useState<string | null>(null);
 
   const { stateOf, canManage, canClaim, isSuperAdmin } = useOrderOwnership();
   const [claimOrder] = useClaimOrderMutation();
   const [rejectIntent, { isLoading: isRejecting }] = useRejectIntentMutation();
+  const [releaseSuggestions, { isLoading: isReleasing }] = useReleaseSuggestionsMutation();
+  const [createBill, { isLoading: isBilling }] = useCreateBillMutation();
 
   // Intents list — search + status filter server-side; paginated by DRF.
   const statusParam = statusFilter !== "all" ? statusFilter : undefined;
@@ -195,13 +201,62 @@ export function IntentsPage() {
   };
 
   /**
-   * Assign a delivery partner (Flow 28). That flow's API is not documented in
-   * the current `flow/` folder, so the action is a placeholder for now — the
-   * drawer's partner dropdown is UI-only until the assign endpoint is wired.
+   * The drawer's primary action, dispatched on the intent's derived state:
+   *  - `suggest`   → release staged suggestions to the sailor (Flow 06 API 13)
+   *  - `assign`    → partner assignment (Flow 28 — endpoint not yet wired)
+   *  - `bill`      → generate payment link (Flow 7 — not yet wired)
    */
-  const handleConfirmIntent = () => {
+  const handlePrimaryAction = async (action: IntentAction) => {
     if (!selectedIntent) return;
+    if (action === "suggest") {
+      try {
+        const res = (await releaseSuggestions({ order_id: selectedIntent.id }).unwrap()) as {
+          released_count?: number;
+        };
+        toast.success(M.TOAST.RELEASED(res?.released_count ?? 0));
+        setIsReviewOpen(false);
+      } catch (err) {
+        const status = (err as { status?: unknown })?.status;
+        if (status === 409) {
+          toast.error(O.CLAIM_FIRST);
+          return;
+        }
+        toast.error(getApiMessage(err) ?? M.TOAST.RELEASE_FAILED);
+      }
+      return;
+    }
+    if (action === "bill") {
+      // Close the drawer first — the fee popup (a custom Dialog) would render
+      // behind the Sheet overlay otherwise. `selectedIntent` is retained.
+      setIsReviewOpen(false);
+      setIsBillOpen(true);
+      return;
+    }
+    // assign (and any other) — partner assignment isn't wired yet.
     toast.info(M.TOAST.ASSIGN_PENDING);
+  };
+
+  /**
+   * Flow 07 API 1 — create the payment bill with the entered fees. The subtotal
+   * is computed server-side. Surfaces the gate/stage errors: 409 (claim first /
+   * already billed / unconfirmed substitutions), 403 (wrong owner), 400.
+   */
+  const handleConfirmBill = async (fees: BillFees) => {
+    if (!selectedIntent) return;
+    try {
+      const res = await createBill({ order_id: selectedIntent.id, ...fees }).unwrap();
+      toast.success(M.TOAST.BILLED(res.order_number || selectedIntent.r, res.amount ?? ""));
+      setIsBillOpen(false);
+    } catch (err) {
+      const status = (err as { status?: unknown })?.status;
+      if (status === 409) {
+        // 409 covers unclaimed as well as "already billed / unconfirmed subs" —
+        // surface the backend's specific message when present.
+        toast.error(getApiMessage(err) ?? O.CLAIM_FIRST);
+        return;
+      }
+      toast.error(getApiMessage(err) ?? M.TOAST.BILL_FAILED);
+    }
   };
 
   /**
@@ -365,13 +420,14 @@ export function IntentsPage() {
         intent={selectedIntent}
         isOpen={isReviewOpen}
         onClose={() => setIsReviewOpen(false)}
-        onConfirm={handleConfirmIntent}
+        onPrimaryAction={handlePrimaryAction}
         onReject={handleRejectIntent}
         ownership={selectedIntent ? stateOf(selectedIntent.assignedAdmin) : "unassigned"}
         canManage={canManage(selectedIntent?.assignedAdmin)}
         canClaim={canClaim(selectedIntent?.assignedAdmin)}
         isSuperAdmin={isSuperAdmin}
         isClaiming={!!selectedIntent && claimingId === selectedIntent.id}
+        isReleasing={isReleasing}
         onClaim={() => selectedIntent && handleClaim(selectedIntent)}
       />
 
@@ -382,6 +438,15 @@ export function IntentsPage() {
         isLoading={isRejecting}
         onClose={() => setIsRejectOpen(false)}
         onConfirm={handleConfirmReject}
+      />
+
+      {/* Create-bill fee popup (Flow 07 API 1) */}
+      <CreateBillDialog
+        isOpen={isBillOpen}
+        orderRef={selectedIntent?.r ?? ""}
+        isLoading={isBilling}
+        onClose={() => setIsBillOpen(false)}
+        onConfirm={handleConfirmBill}
       />
     </>
   );
