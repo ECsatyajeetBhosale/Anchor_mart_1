@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 180" width="280" height="180">
+  <rect width="280" height="180" fill="#e7ecf3"/>
+  <rect y="120" width="280" height="60" fill="#d4dce5"/>
+  <path d="M104 58h72l-6 62h-60z" fill="#c79a6a"/>
+  <path d="M104 58h72l-8 15h-56z" fill="#dcb487"/>
+  <path d="M140 73v47" stroke="#b9885a" stroke-width="2"/>
+  <circle cx="212" cy="40" r="15" fill="#10b5a8"/>
+  <path d="M205 40l5 5 9-10" stroke="#fff" stroke-width="3.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="140" y="152" font-family="Nunito Sans, sans-serif" font-size="13" fill="#5b6b80" text-anchor="middle">Delivered · photo by partner</text>
+</svg>
