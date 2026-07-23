@@ -10,7 +10,11 @@ import { IconBoxSeam, IconCategory, IconPlus, IconStar } from "@tabler/icons-rea
 import React, { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { useDeleteProductMutation, useGetProductsQuery } from "../api/productApi";
+import {
+  useDeleteProductMutation,
+  useGetProductStatsQuery,
+  useGetProductsQuery,
+} from "../api/productApi";
 import type { Product } from "../types/product.types";
 import { ProductFormModal } from "./ProductFormModal";
 import { useProductColumns } from "./productColumns";
@@ -18,7 +22,7 @@ import { useProductColumns } from "./productColumns";
 const productTabs = [
   { label: MESSAGES.PRODUCTS.TABS.ALL, value: "all" },
   { label: MESSAGES.PRODUCTS.TABS.DEAL, value: "deal" },
-  { label: MESSAGES.PRODUCTS.TABS.SPECIAL, value: "special" },
+  { label: MESSAGES.PRODUCTS.TABS.TOP_RATED, value: "top_rated" },
 ];
 
 const LIMIT = 10;
@@ -40,14 +44,23 @@ export function ProductsPage() {
   const isActive =
     statusFilter === "active" ? true : statusFilter === "inactive" ? false : undefined;
 
-  // Products list — search, status, and category all filter server-side.
+  // The "deal"/"top_rated" tabs are server-side filters (on_deal / is_top_rated).
+  const onDeal = activeTab === "deal" ? true : undefined;
+  const isTopRated = activeTab === "top_rated" ? true : undefined;
+
+  // Products list — search, status, category, deal, and top-rated all filter server-side.
   const { data, isLoading, isError, refetch } = useGetProductsQuery({
     page,
     limit: LIMIT,
     search: searchTerm,
     isActive,
     category: categoryFilter !== "all" ? categoryFilter : undefined,
+    onDeal,
+    isTopRated,
   });
+
+  // Aggregate KPI counts from the product-stats API.
+  const { data: productStats } = useGetProductStatsQuery();
 
   // Category options for the filter dropdown (value = id, label = name).
   const { data: categoriesData } = useGetCategoriesQuery({ limit: 100 });
@@ -64,19 +77,16 @@ export function ProductsPage() {
   const totalCount = data?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / LIMIT));
 
-  // Client-side refinements: the "deal" tab heuristic, plus a category fallback
-  // that still works if the backend ignores the `?category=` filter.
+  // Client-side refinement: a category fallback that still works if the backend
+  // ignores the `?category=` filter. (Deal/top-rated are now server-side.)
   const selectedCategoryName = categories.find((c) => c.id === categoryFilter)?.name;
   const filteredProducts = React.useMemo(() => {
     let result = productsData;
-    if (activeTab === "deal") {
-      result = result.filter((p) => p.is_featured || p.average_rating >= 4.5);
-    }
     if (categoryFilter !== "all" && selectedCategoryName) {
       result = result.filter((p) => p.category_name === selectedCategoryName);
     }
     return result;
-  }, [productsData, activeTab, categoryFilter, selectedCategoryName]);
+  }, [productsData, categoryFilter, selectedCategoryName]);
 
   // --- Handlers ---
   // Update one URL param and reset to page 1; an empty value clears the param.
@@ -94,6 +104,14 @@ export function ProductsPage() {
   const handlePageChange = (newPage: number) => {
     const next = new URLSearchParams(searchParams);
     next.set("page", newPage.toString());
+    setSearchParams(next);
+  };
+
+  // Switching tabs changes a server-side filter, so reset to page 1.
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    const next = new URLSearchParams(searchParams);
+    next.set("page", "1");
     setSearchParams(next);
   };
 
@@ -135,22 +153,23 @@ export function ProductsPage() {
     {
       id: "total-products",
       label: MESSAGES.PRODUCTS.STATS.TOTAL_PRODUCTS,
-      value: totalCount,
+      // Prefer the stats API total; fall back to the paginated list count.
+      value: productStats?.total ?? totalCount,
       icon: <IconBoxSeam size={19} />,
       variant: "navy" as const,
     },
     {
       id: "total-categories",
       label: MESSAGES.PRODUCTS.STATS.TOTAL_CATEGORIES,
-      value: categoriesData?.count ?? categories.length,
+      value: productStats?.total_categories ?? categoriesData?.count ?? categories.length,
       icon: <IconCategory size={19} />,
       variant: "teal" as const,
     },
     {
-      // The API doesn't return a featured/deals count yet — show a placeholder.
       id: "featured-deals",
       label: MESSAGES.PRODUCTS.STATS.FEATURED_DEALS,
-      value: "-",
+      // Top-rated ("featured") count from the stats API.
+      value: productStats?.top_rated ?? "-",
       icon: <IconStar size={19} />,
       variant: "amber" as const,
     },
@@ -191,7 +210,7 @@ export function ProductsPage() {
       <DynamicTabs
         tabs={productTabs}
         value={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         triggerClassName="data-[state=active]:!text-black data-[state=active]:!border-black"
       />
 

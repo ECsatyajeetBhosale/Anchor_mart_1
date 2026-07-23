@@ -7,13 +7,17 @@ import { z } from "zod";
  */
 export const productUpdateSchema = z.object({
   category: z.string().min(1, "Category is required"),
-  shop: z.string().min(1, "Shop is required"),
   name: z.string().min(1, "Product name is required"),
   description: z.string().min(1, "Description is required"),
   base_price: z.coerce
     .number({ invalid_type_error: "Price must be a number" })
     .min(0, "Price must be 0 or more"),
   images: z.array(z.string()).default([]),
+  // Merchandising / sourcing flags accepted by update-product (PATCH).
+  is_express: z.boolean().default(false),
+  on_deal: z.boolean().default(false),
+  is_top_rated: z.boolean().default(false),
+  admin_sourceable: z.boolean().default(true),
 });
 
 export type ProductUpdateFormData = z.infer<typeof productUpdateSchema>;

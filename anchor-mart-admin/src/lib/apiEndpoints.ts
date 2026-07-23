@@ -66,7 +66,9 @@ export const API_ROUTES = {
 } as const;
 
 export const PRODUCT_ENDPOINTS = {
+  GET_STATS: "/superadmin/products/product-stats/",
   GET_PRODUCTS: "/superadmin/products/get-products/",
+  GET_PRODUCT: (id: string) => `/superadmin/products/get-product/${id}/`,
   ADD_PRODUCT: "/superadmin/products/add-product/",
   UPDATE_PRODUCT: (id: string) => `/superadmin/products/update-product/${id}/`,
   DELETE_PRODUCT: (id: string) => `/superadmin/products/delete-product/${id}/`,

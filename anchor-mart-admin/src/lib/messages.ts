@@ -740,7 +740,7 @@ export const MESSAGES = {
     TABS: {
       ALL: "All Products",
       DEAL: "Deal Products",
-      SPECIAL: "Special Requests",
+      TOP_RATED: "Top Rated",
     },
     // KPI cards
     STATS: {
@@ -815,12 +815,16 @@ export const MESSAGES = {
       SHIPPING: "Shipping & Delivery",
       OPTIONS: "Product Options",
       VARIANTS: "Variants",
+      FLAGS: "Catalog & Merchandising",
     },
     // Toggle labels
     TOGGLES: {
       ON_DISCOUNT: "On discount",
       ADMIN_SOURCEABLE: "Admin sourceable",
       EXPRESS_ITEM: "Express item",
+      EXPRESS: "Express item",
+      ON_DEAL: "On deal",
+      TOP_RATED: "Top rated",
       TAXABLE: "Taxable",
       PHYSICAL: "Physical Product",
       FREE_SHIPPING: "Free Shipping",

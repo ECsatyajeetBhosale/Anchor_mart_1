@@ -29,7 +29,7 @@ import {
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { useUpdateProductMutation } from "../api/productApi";
+import { useGetProductQuery, useUpdateProductMutation } from "../api/productApi";
 import { type ProductUpdateFormData, productUpdateSchema } from "../schemas/product.schema";
 import type { Product, ProductImage, UpdateProductPayload } from "../types/product.types";
 
@@ -77,8 +77,8 @@ const VARIANT_STATUS_OPTIONS = [
 ];
 
 /** Extract the stored relative path (e.g. "product_images/x.png") from an image. */
-function toImagePath(img: ProductImage): string {
-  const raw = img.image || img.image_url || "";
+function toImagePath(img: ProductImage | string): string {
+  const raw = typeof img === "string" ? img : img.image || img.image_url || "";
   const idx = raw.indexOf("/media/");
   return idx >= 0 ? raw.slice(idx + "/media/".length) : raw;
 }
@@ -86,6 +86,13 @@ function toImagePath(img: ProductImage): string {
 export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawerProps) {
   const [activeTab, setActiveTab] = useState("pt-basic");
   const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
+
+  // The list serializer omits description/images, so load the full record.
+  // Fall back to the row while the detail request is in flight.
+  const { data: detail, isFetching: isLoadingDetail } = useGetProductQuery(product.id, {
+    skip: !isOpen,
+  });
+  const source = detail ?? product;
 
   // Category options for the editable category dropdown (value = UUID).
   const { data: categoriesData } = useGetCategoriesQuery({ limit: 100 });
@@ -111,16 +118,21 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
     setActiveTab("pt-basic");
     const cats = categoriesData?.results?.data ?? [];
     const categoryId =
-      product.category || cats.find((c) => c.name === product.category_name)?.id || "";
+      source.category || cats.find((c) => c.name === source.category_name)?.id || "";
+    const rawImages = (source.images ?? []) as unknown as (ProductImage | string)[];
     reset({
       category: categoryId,
-      shop: product.shop ?? "",
-      name: product.name ?? "",
-      description: product.description ?? "",
-      base_price: Number(product.base_price) || 0,
-      images: (product.images ?? []).map(toImagePath).filter(Boolean),
+      name: source.name ?? "",
+      description: source.description ?? "",
+      base_price: Number(source.base_price) || 0,
+      images: rawImages.map(toImagePath).filter(Boolean),
+      // Flags come back from get-products, so these reflect the real current state.
+      is_express: source.is_express ?? false,
+      on_deal: source.on_deal ?? false,
+      is_top_rated: source.is_top_rated ?? false,
+      admin_sourceable: source.admin_sourceable ?? true,
     });
-  }, [isOpen, product, categoriesData, reset]);
+  }, [isOpen, source, categoriesData, reset]);
 
   const images = watch("images") ?? [];
   const setImages = (next: string[]) => setValue("images", next, { shouldDirty: true });
@@ -130,11 +142,14 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
     // read-only UI state leaks into the request.
     const payload: UpdateProductPayload = {
       category: formData.category,
-      shop: formData.shop,
       name: formData.name,
       description: formData.description,
       base_price: formData.base_price,
       images: formData.images.filter(Boolean),
+      is_express: formData.is_express,
+      on_deal: formData.on_deal,
+      is_top_rated: formData.is_top_rated,
+      admin_sourceable: formData.admin_sourceable,
     };
 
     try {
@@ -239,13 +254,90 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                 </FormField>
               </FormRow>
               <FormRow>
-                <FormField label="Shop *" error={errors.shop?.message} hint="Shop UUID">
-                  <Input className="mono" placeholder="Shop ID" {...register("shop")} />
-                </FormField>
                 <FormField label="Status" hint="Read-only — not sent on update">
                   <DropdownSelect options={STATUS_OPTIONS} value="Active" width="100%" disabled />
                 </FormField>
               </FormRow>
+
+              <div className="sec-label mt-2">{MESSAGES.PRODUCTS.SECTIONS.FLAGS}</div>
+              <div className="grid grid-cols-2 gap-3">
+                <Controller
+                  control={control}
+                  name="admin_sourceable"
+                  render={({ field }) => (
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="pf-admin-sourceable"
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                      <label
+                        htmlFor="pf-admin-sourceable"
+                        className="text-[13px] font-semibold text-[var(--t2)]"
+                      >
+                        {MESSAGES.PRODUCTS.TOGGLES.ADMIN_SOURCEABLE}
+                      </label>
+                    </div>
+                  )}
+                />
+                <Controller
+                  control={control}
+                  name="is_express"
+                  render={({ field }) => (
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="pf-express"
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                      <label
+                        htmlFor="pf-express"
+                        className="text-[13px] font-semibold text-[var(--t2)]"
+                      >
+                        {MESSAGES.PRODUCTS.TOGGLES.EXPRESS}
+                      </label>
+                    </div>
+                  )}
+                />
+                <Controller
+                  control={control}
+                  name="on_deal"
+                  render={({ field }) => (
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="pf-on-deal"
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                      <label
+                        htmlFor="pf-on-deal"
+                        className="text-[13px] font-semibold text-[var(--t2)]"
+                      >
+                        {MESSAGES.PRODUCTS.TOGGLES.ON_DEAL}
+                      </label>
+                    </div>
+                  )}
+                />
+                <Controller
+                  control={control}
+                  name="is_top_rated"
+                  render={({ field }) => (
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="pf-top-rated"
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                      <label
+                        htmlFor="pf-top-rated"
+                        className="text-[13px] font-semibold text-[var(--t2)]"
+                      >
+                        {MESSAGES.PRODUCTS.TOGGLES.TOP_RATED}
+                      </label>
+                    </div>
+                  )}
+                />
+              </div>
             </div>
           )}
 
@@ -468,7 +560,7 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
               type="button"
               className="btn btn-primary"
               onClick={handleSubmit(onSubmit)}
-              disabled={isUpdating}
+              disabled={isUpdating || isLoadingDetail}
             >
               <IconCheck size={16} />
               {isUpdating ? MESSAGES.PRODUCTS.EDIT.SAVING : MESSAGES.PRODUCTS.EDIT.SUBMIT}

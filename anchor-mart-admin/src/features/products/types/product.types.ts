@@ -18,8 +18,19 @@ export interface Product {
   average_rating: number;
   is_active: boolean;
   created_at: string;
+  updated_at?: string;
   images: ProductImage[];
+  /** Single thumbnail URL returned by the list serializer (may be null). */
+  image?: string | null;
   is_featured?: boolean;
+  // Catalog + merchandising flags returned by get-products (used by the edit form).
+  catalog_type?: string;
+  is_express?: boolean;
+  on_deal?: boolean;
+  is_top_rated?: boolean;
+  admin_sourceable?: boolean;
+  variant_count?: number;
+  purchase_count?: number;
 }
 
 export interface ProductListResponseData {
@@ -28,16 +39,38 @@ export interface ProductListResponseData {
 }
 
 /**
- * Payload contract for PUT update-product/{id}/.
+ * Payload contract for PATCH update-product/{id}/.
  * Only these fields are accepted by the API — nothing else is submitted.
+ * (`shop` is NOT part of the update contract per the Postman collection.)
  */
 export interface UpdateProductPayload {
   category: string;
-  shop: string;
   name: string;
   description: string;
   images: string[];
   base_price: number;
+  is_express: boolean;
+  on_deal: boolean;
+  is_top_rated: boolean;
+  admin_sourceable: boolean;
+}
+
+/**
+ * Aggregate KPI counts for the products page from GET product-stats/.
+ * Keys confirmed against a live response.
+ */
+export interface ProductStats {
+  total: number;
+  active: number;
+  regular: number;
+  express: number;
+  emergency: number;
+  top_rated: number;
+  on_deal: number;
+  deal_of_the_day: number;
+  total_categories: number;
+  general_categories: number;
+  marine_emergency_categories: number;
 }
 
 /** Nested material composition inside a product's attributes. */
