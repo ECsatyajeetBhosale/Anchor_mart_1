@@ -12,6 +12,7 @@ export const APP_ROUTES = {
   INTENTS: "/intents",
   PRODUCTS: "/products",
   CATEGORIES: "/categories",
+  EMERGENCY_CATEGORIES: "/emergency-categories",
   SHIP_AGENTS: "/ship-agents",
   EXPRESS: "/express",
   INVENTORY: "/inventory",

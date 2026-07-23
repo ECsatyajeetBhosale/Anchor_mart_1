@@ -6,6 +6,7 @@ import {
   IconBoxSeam,
   IconBuildingStore,
   IconCategory,
+  IconCategory2,
   IconChartAreaLine,
   IconChecklist,
   IconClipboardList,
@@ -98,6 +99,12 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "Categories",
         icon: IconCategory,
         path: APP_ROUTES.CATEGORIES,
+      },
+      {
+        key: "emergency-categories",
+        label: "Emergency Categories",
+        icon: IconCategory2,
+        path: APP_ROUTES.EMERGENCY_CATEGORIES,
       },
       {
         key: "ship-agents",

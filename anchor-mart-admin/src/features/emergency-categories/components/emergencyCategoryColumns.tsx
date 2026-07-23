@@ -1,0 +1,108 @@
+import {
+  actionsColumn,
+  badgeColumn,
+  statusColumn,
+  textColumn,
+  twoLineColumn,
+} from "@/components/common/tableColumns";
+import type { Column } from "@/components/ui/data-table";
+import { MESSAGES } from "@/lib/messages";
+import { IconCategory } from "@tabler/icons-react";
+import type React from "react";
+import type { EmergencyCategory } from "../types/emergencyCategory.types";
+
+const STATUS_FILTER_OPTIONS = [
+  { label: MESSAGES.EMERGENCY_CATEGORIES.STATUS_FILTER.ACTIVE, value: "active" },
+  { label: MESSAGES.EMERGENCY_CATEGORIES.STATUS_FILTER.INACTIVE, value: "inactive" },
+];
+
+/** Category thumbnail, falling back to a category icon when no image is set. */
+function getCategoryImage(image: EmergencyCategory["image"]) {
+  if (!image) {
+    return <IconCategory size={18} />;
+  }
+  return (
+    <img
+      src={image}
+      alt={MESSAGES.EMERGENCY_CATEGORIES.IMAGE_ALT}
+      className="h-8 w-8 rounded object-cover"
+    />
+  );
+}
+
+export interface UseEmergencyCategoryColumnsOptions {
+  /** Current status filter value ("", "active", "inactive") for the header dropdown. */
+  statusFilter: string;
+  onStatusFilter: (value: string) => void;
+  onEdit: (e: React.MouseEvent, category: EmergencyCategory) => void;
+  onDelete: (e: React.MouseEvent, id: string) => void;
+}
+
+/**
+ * Column definitions for the emergency categories table. Mirrors the regular
+ * categories table so both pages present data identically.
+ */
+export function useEmergencyCategoryColumns({
+  statusFilter,
+  onStatusFilter,
+  onEdit,
+  onDelete,
+}: UseEmergencyCategoryColumnsOptions): Column<EmergencyCategory>[] {
+  return [
+    {
+      id: "image",
+      header: "",
+      cell: (row) => <div className="prod-thumb">{getCategoryImage(row.image)}</div>,
+      className: "w-12",
+    },
+    twoLineColumn({
+      id: "name",
+      header: MESSAGES.EMERGENCY_CATEGORIES.COLUMNS.CATEGORY,
+      primary: (row) => row.name,
+      secondary: (row) => row.description || "—",
+    }),
+    badgeColumn({
+      id: "scope",
+      header: MESSAGES.EMERGENCY_CATEGORIES.COLUMNS.SCOPE,
+      get: (row) => row.scope || "—",
+      variant: "neutral",
+    }),
+    textColumn({
+      id: "parent",
+      header: MESSAGES.EMERGENCY_CATEGORIES.COLUMNS.PARENT,
+      get: (row) => row.parent_name || "—",
+      cellClassName: "td-m",
+    }),
+    textColumn({
+      id: "products",
+      header: MESSAGES.EMERGENCY_CATEGORIES.COLUMNS.PRODUCTS,
+      get: (row) => row.product_count ?? 0,
+      cellClassName: "td-p",
+    }),
+    statusColumn({
+      id: "status",
+      header: MESSAGES.EMERGENCY_CATEGORIES.COLUMNS.STATUS,
+      get: (row) => row.is_active,
+      badgeClassName: "text-[10px] h-[24px]",
+      // Server-side status filter via the clickable header (?is_active=True|False).
+      filter: {
+        value: statusFilter,
+        options: STATUS_FILTER_OPTIONS,
+        onChange: onStatusFilter,
+      },
+    }),
+    actionsColumn({
+      header: MESSAGES.EMERGENCY_CATEGORIES.COLUMNS.ACTIONS,
+      actions: () => ({
+        edit: {
+          title: MESSAGES.EMERGENCY_CATEGORIES.ACTION_EDIT,
+          onClick: (e, r) => onEdit(e, r),
+        },
+        delete: {
+          title: MESSAGES.EMERGENCY_CATEGORIES.ACTION_REMOVE,
+          onClick: (e, r) => onDelete(e, r.id),
+        },
+      }),
+    }),
+  ];
+}

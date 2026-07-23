@@ -33,6 +33,9 @@ import { ProductsPage } from "@/features/products";
 // Categories — from catalog feature
 import { CategoriesPage } from "@/features/catalog";
 
+// Emergency Categories — from feature (marine emergency spares catalog)
+import { EmergencyCategoriesPage } from "@/features/emergency-categories";
+
 // Ship Agents — from feature (Flow 02 admin directory)
 import { ShipAgentsPage } from "@/features/ship-agents";
 
@@ -65,6 +68,7 @@ export function AppRouter() {
             <Route path={APP_ROUTES.INTENTS} element={<IntentsPage />} />
             <Route path={APP_ROUTES.PRODUCTS} element={<ProductsPage />} />
             <Route path={APP_ROUTES.CATEGORIES} element={<CategoriesPage />} />
+            <Route path={APP_ROUTES.EMERGENCY_CATEGORIES} element={<EmergencyCategoriesPage />} />
             <Route path={APP_ROUTES.SHIP_AGENTS} element={<ShipAgentsPage />} />
             <Route path={APP_ROUTES.EXPRESS} element={<ExpressPage />} />
             <Route path={APP_ROUTES.INVENTORY} element={<InventoryPage />} />

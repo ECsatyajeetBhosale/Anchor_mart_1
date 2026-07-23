@@ -897,6 +897,78 @@ export const MESSAGES = {
       ACTIVE: "Active",
     },
   },
+  EMERGENCY_CATEGORIES: {
+    // Page chrome
+    TITLE: "Emergency Categories",
+    SUBTITLE: "Organize the marine emergency spares catalog into categories",
+    SEARCH_PLACEHOLDER: "Search emergency categories…",
+    ADD_CATEGORY: "Add Category",
+    FETCH_ERROR: "Failed to fetch emergency categories",
+    EMPTY: "No emergency categories found.",
+    IMAGE_ALT: "Emergency category",
+    // KPI cards
+    STATS: {
+      TOTAL_CATEGORIES: "Total Categories",
+      ACTIVE_CATEGORIES: "Active",
+      INACTIVE_CATEGORIES: "Inactive",
+      EMPTY_CATEGORIES: "Empty",
+    },
+    // Table
+    COLUMNS: {
+      CATEGORY: "Category",
+      SCOPE: "Scope",
+      PARENT: "Parent",
+      PRODUCTS: "Products",
+      STATUS: "Status",
+      ACTIONS: "Actions",
+    },
+    STATUS_FILTER: {
+      ACTIVE: "Active",
+      INACTIVE: "Inactive",
+    },
+    ACTION_EDIT: "Edit",
+    ACTION_REMOVE: "Remove",
+    // Toasts
+    TOAST: {
+      DELETE_SUCCESS: "Emergency category deleted successfully",
+      DELETE_ERROR: "Failed to delete emergency category",
+      ADD_SUCCESS: "Emergency category created successfully",
+      ADD_ERROR: "Failed to create emergency category. Please try again.",
+      UPDATE_SUCCESS: "Emergency category updated successfully",
+      UPDATE_ERROR: "Failed to update emergency category. Please try again.",
+    },
+    // Delete confirmation dialog
+    DELETE_CONFIRM: {
+      TITLE: "Delete Emergency Category",
+      MESSAGE:
+        "Are you sure you want to delete this emergency category? This action cannot be undone.",
+      CONFIRM: "Delete",
+    },
+    // Add drawer
+    ADD: {
+      TITLE: "Add New Emergency Category",
+      SUBTITLE: "Create a new category for the marine emergency spares catalog",
+      SUBMIT: "Add Category",
+      SAVING: "Saving…",
+    },
+    // Edit drawer
+    EDIT: {
+      TITLE: "Edit Emergency Category",
+      SUBTITLE: "Update your emergency category details",
+      SUBMIT: "Save Changes",
+      SAVING: "Saving…",
+    },
+    // Drawer section headings
+    SECTIONS: {
+      BASIC: "Basic Information",
+      MEDIA: "Category Media",
+      ADDITIONAL: "Additional Settings",
+    },
+    // Toggle labels
+    TOGGLES: {
+      ACTIVE: "Active",
+    },
+  },
   SHIP_AGENTS: {
     // Page chrome
     TITLE: "Ship Agents",

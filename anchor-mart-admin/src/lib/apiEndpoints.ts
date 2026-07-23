@@ -80,6 +80,19 @@ export const CATEGORY_ENDPOINTS = {
   DELETE_CATEGORY: (id: string) => `/superadmin/categories/delete-category/${id}/`,
 };
 
+/**
+ * Marine Emergency Categories — the emergency-spares catalog's own category set.
+ * Mirrors CATEGORY_ENDPOINTS but under the emergency-spares namespace.
+ */
+export const EMERGENCY_CATEGORY_ENDPOINTS = {
+  GET_STATS: "/superadmin/emergency-spares/categories/stats/",
+  GET_CATEGORIES: "/superadmin/emergency-spares/categories/",
+  GET_CATEGORY: (id: string) => `/superadmin/emergency-spares/categories/${id}/`,
+  ADD_CATEGORY: "/superadmin/emergency-spares/categories/add/",
+  UPDATE_CATEGORY: (id: string) => `/superadmin/emergency-spares/categories/${id}/update/`,
+  DELETE_CATEGORY: (id: string) => `/superadmin/emergency-spares/categories/${id}/delete/`,
+};
+
 export const SHIP_AGENT_ENDPOINTS = {
   // Flow 02 — admin ship-agent directory (APIs 13–16).
   GET_SHIP_AGENTS: "/superadmin/ship-agents/",
