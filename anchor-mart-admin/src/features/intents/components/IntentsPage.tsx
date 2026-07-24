@@ -2,6 +2,7 @@ import {
   IconCheck,
   IconClock,
   IconFileInvoice,
+  IconInfoCircle,
   IconPackage,
   IconRefresh,
 } from "@tabler/icons-react";
@@ -24,6 +25,7 @@ import {
 import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
+import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
 import { toast } from "sonner";
 import { useCreateBillMutation } from "../api/billingApi";
 import {
@@ -36,6 +38,7 @@ import type { IntentAction, IntentData, IntentStats } from "../types/intent.type
 import { type BillFees, CreateBillDialog } from "./CreateBillDialog";
 import { IntentReviewDrawer } from "./IntentReviewDrawer";
 import { RejectIntentDialog } from "./RejectIntentDialog";
+import { StatusLegendDialog } from "./StatusLegendDialog";
 
 const M = MESSAGES.INTENTS;
 const O = MESSAGES.INTENTS.OWNERSHIP;
@@ -82,17 +85,27 @@ const STAT_CONFIG: {
   },
 ];
 
-// Status dropdown options — values map 1:1 to the API `status` query param.
+// Status filter values the intents endpoint accepts (backend-enforced). Only
+// pre-confirmation statuses live here — confirmed/fulfilment statuses belong to
+// the Orders screen. Listed in canonical lifecycle order (src/lib/orderStatuses.ts).
+const INTENT_FILTER_KEYS = [
+  "intent_received",
+  "pending_intent",
+  "sourcing",
+  "partner_verifying",
+  "verification_submitted",
+  "pending_customer_response",
+  "payment_pending",
+  "intent_rejected",
+];
+
+// Descriptive views the endpoint also accepts — these are cross-status filters,
+// not real lifecycle statuses, so they sit after the status list.
 const STATUS_OPTIONS = [
   { value: "all", label: M.ALL_STATUS },
-  { value: "intent_received", label: M.STATUS_FILTER.INTENT_RECEIVED },
-  { value: "sourcing", label: M.STATUS_FILTER.SOURCING },
-  { value: "verification_submitted", label: M.STATUS_FILTER.VERIFICATION_SUBMITTED },
-  { value: "partner_verifying", label: M.STATUS_FILTER.PARTNER_VERIFYING },
-  { value: "payment_pending", label: M.STATUS_FILTER.PAYMENT_PENDING },
-  { value: "pending_customer_response", label: M.STATUS_FILTER.PENDING_CUSTOMER_RESPONSE },
-  { value: "pending_intent", label: M.STATUS_FILTER.PENDING_INTENT },
-  { value: "intent_rejected", label: M.STATUS_FILTER.INTENT_REJECTED },
+  ...INTENT_FILTER_KEYS.map((key) => ({ value: key, label: ORDER_STATUS_BY_KEY[key].label })),
+  { value: "ready_to_bill", label: M.STATUS_VIEW.READY_TO_BILL },
+  { value: "awaiting_customer", label: M.STATUS_VIEW.AWAITING_CUSTOMER },
 ];
 
 export function IntentsPage() {
@@ -107,6 +120,7 @@ export function IntentsPage() {
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isRejectOpen, setIsRejectOpen] = useState(false);
   const [isBillOpen, setIsBillOpen] = useState(false);
+  const [isLegendOpen, setIsLegendOpen] = useState(false);
   /** Which row's claim is in flight — scopes the spinner to that button. */
   const [claimingId, setClaimingId] = useState<string | null>(null);
 
@@ -393,7 +407,18 @@ export function IntentsPage() {
                 onValueChange: (val) => setParam("status", val),
               },
             ]}
-          />
+          >
+            {/* Info icon beside the status filter → opens the status-meaning legend. */}
+            <button
+              type="button"
+              className="btn btn-ghost btn-icon"
+              aria-label={M.STATUS_LEGEND.OPEN_LABEL}
+              title={M.STATUS_LEGEND.OPEN_LABEL}
+              onClick={() => setIsLegendOpen(true)}
+            >
+              <IconInfoCircle size={18} />
+            </button>
+          </SearchFilters>
         }
       />
 
@@ -448,6 +473,9 @@ export function IntentsPage() {
         onClose={() => setIsBillOpen(false)}
         onConfirm={handleConfirmBill}
       />
+
+      {/* Status terminology legend (opened from the info icon by the filter) */}
+      <StatusLegendDialog isOpen={isLegendOpen} onClose={() => setIsLegendOpen(false)} />
     </>
   );
 }

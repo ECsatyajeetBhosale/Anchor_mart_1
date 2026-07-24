@@ -255,6 +255,19 @@ export const MESSAGES = {
     FETCH_ERROR: "Failed to load intents.",
     ITEM_IMAGE_ALT: "Item",
     ACTION_REVIEW: "Review",
+    // Status legend (info popup explaining every lifecycle status)
+    STATUS_LEGEND: {
+      OPEN_LABEL: "What do these statuses mean?",
+      TITLE: "Order Status Guide",
+      DESCRIPTION: "The 18 order lifecycle statuses, in order, and what each means.",
+      ACTOR: "Acts next",
+      CLOSE: "Got it",
+    },
+    // Descriptive filter views (not real statuses) accepted by the intents endpoint.
+    STATUS_VIEW: {
+      READY_TO_BILL: "Ready to Bill",
+      AWAITING_CUSTOMER: "Awaiting Customer",
+    },
     // Status filter options (values map 1:1 to the API `status` query param)
     STATUS_FILTER: {
       INTENT_RECEIVED: "Intent Received",

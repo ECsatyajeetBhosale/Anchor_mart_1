@@ -1,6 +1,7 @@
 import type { AssignedAdmin } from "@/features/orders";
 import { INTENT_ENDPOINTS, ORDER_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
+import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
 import type {
   GetIntentsParams,
   IntentApi,
@@ -44,20 +45,13 @@ function unwrap<T>(res: unknown): T {
   return res as T;
 }
 
-/** Maps a raw API status token to its badge colour variant. */
-const STATUS_VARIANT: Record<string, IntentBadgeVariant> = {
-  intent_received: "info",
-  intent_rejected: "danger",
-  partner_verifying: "info",
-  payment_pending: "warning",
-  pending_customer_response: "warning",
-  pending_intent: "neutral",
-  sourcing: "teal",
-  verification_submitted: "teal",
-};
-
+/**
+ * Maps a raw API status token to its badge colour variant, sourced from the
+ * canonical status reference (`src/lib/orderStatuses.ts`) so the table badges,
+ * the status legend, and every other surface stay in sync.
+ */
 function statusVariant(status: string): IntentBadgeVariant {
-  return STATUS_VARIANT[status] ?? "neutral";
+  return (ORDER_STATUS_BY_KEY[status]?.variant as IntentBadgeVariant) ?? "neutral";
 }
 
 /** Title-cases a raw status token as a fallback label (e.g. "in_sourcing" → "In Sourcing"). */
