@@ -1,5 +1,6 @@
 # Flow 09 — Express Order Placement
 
+
 > **OUTPUT 1 — Flow Documentation.**
 > Validation findings live in a separate report:
 > [`09-express-order-placement-validation.md`](./09-express-order-placement-validation.md).
@@ -7,11 +8,15 @@
 >
 > Index: [`../BUSINESS_FLOWS.md`](../BUSINESS_FLOWS.md)
 
+
 > ⚠️ **`#NN` in source comments are issue numbers, not flow numbers.**
+
 
 ---
 
+
 # Executive Summary
+
 
 | | |
 |---|---|
@@ -28,16 +33,21 @@
 | **Documentation Version** | 1.1 — 2026-07-22 (F-01 fixed: zero-total settles like the pay path) |
 | **Documentation Status** | ✅ Owned routes documented in full; shared cart/browse/payment/delivery cross-referenced |
 
+
 > **Thin on endpoints, thick on *rules*.** Express is essentially **one create call**, but its
 > rules diverge from the standard journey end-to-end — which is why it's its own chapter. The
 > cart, catalog browse, Stripe webhook, and delivery are the **same** machinery as the standard
 > flow; this doc states *how express differs*.
 
+
 ---
+
 
 # Phase 1 — Understand the Flow
 
+
 ## How express differs from the standard order journey
+
 
 | | Standard order (Flows 5→7) | **Express** |
 |---|---|---|
@@ -49,45 +59,54 @@
 | Amendable? | yes (unpaid: merge; paid: child order) | **never** (Flow 15 refuses express) |
 | Sailor-cancellable? | yes, within the window | **never** — the money-back route is returns/refunds (Flow 12) |
 
+
 Everything else — the cart model, the Stripe webhook that confirms payment, and the delivery
 ladder — is shared.
 
+
 ## The checkout, step by step (`express/create/`)
 
+
 1. **Validate the shipping/location payload** (`OrderCreateRequestSerializer`, same contract as
-   the standard intent) — pure input validation, done *before* the lock.
+  the standard intent) — pure input validation, done *before* the lock.
 2. **Under a cart-row lock** (`select_for_update` on the express `Cart`) — this is the
-   **double-submit guard**: two taps / a retry would otherwise build two paid orders from one
-   cart; the second request blocks, then finds the cart already consumed and is rejected:
-   - Empty cart → **400**.
-   - **Re-check express catalog type** — a variant may have lost its `is_express` flag since it
-     was added → **400** listing the SKUs.
-   - **Availability gate** — never charge for something unfulfillable: reject any line whose
-     variant is deleted/inactive or not sourceable (`admin_sourceable` on **product AND variant**,
-     the "in stock, ship now" signal — there is no numeric stock) → **400**.
-   - **Total = item prices only** (`Σ variant.price × qty`), no fees.
-   - `create_order(status=payment_pending, is_express=True, subtotal=…)` → `total_amount = subtotal`.
-   - Save the delivery address to the book, `bulk_create` the order lines, **delete the cart**
-     (consume it inside the lock).
+  **double-submit guard**: two taps / a retry would otherwise build two paid orders from one
+  cart; the second request blocks, then finds the cart already consumed and is rejected:
+  - Empty cart → **400**.
+  - **Re-check express catalog type** — a variant may have lost its `is_express` flag since it
+    was added → **400** listing the SKUs.
+  - **Availability gate** — never charge for something unfulfillable: reject any line whose
+    variant is deleted/inactive or not sourceable (`admin_sourceable` on **product AND variant**,
+    the "in stock, ship now" signal — there is no numeric stock) → **400**.
+  - **Total = item prices only** (`Σ variant.price × qty`), no fees.
+  - `create_order(status=payment_pending, is_express=True, subtotal=…)` → `total_amount = subtotal`.
+  - Save the delivery address to the book, `bulk_create` the order lines, **delete the cart**
+    (consume it inside the lock).
 3. **Create the Stripe session** — deliberately **outside** the transaction (never hold a DB lock
-   across a network round-trip). On a Stripe error → **502**, but the order is already committed at
-   `payment_pending` with the cart cleared, so the sailor completes it via **pay-order** (Flow 7) —
-   no duplicate.
+  across a network round-trip). On a Stripe error → **502**, but the order is already committed at
+  `payment_pending` with the cart cleared, so the sailor completes it via **pay-order** (Flow 7) —
+  no duplicate.
 4. **Return** the order id, total, and the Stripe **checkout link**.
 
+
 ## What confirms and delivers it
+
 
 Once the sailor pays, the **same webhook as Flow 7** (`checkout.session.completed`) marks the
 payment complete and advances `payment_received → order_confirmed` — then it's **Flow 10**
 delivery (assign → transit → proof). Express skips only the *front* of the journey.
 
+
 > An **unpaid** express order sits at `payment_pending`, so it appears in the sailor's **intents**
 > list (Flow 14), not history, until paid.
 
+
 ## The admin express console
+
 
 Three admin-only read surfaces (a "saved view" so an express-desk admin doesn't re-filter every
 time):
+
 
 | Surface | Endpoint | Shows |
 |---|---|---|
@@ -95,36 +114,43 @@ time):
 | Express items | `superadmin/express/items/` | The express variant catalog, with validated filters + sorting |
 | Express stats | `superadmin/express/stats/` | Express product/variant catalog counts + order volume by status |
 
+
 ---
+
 
 # Phase 2 — Discover the Complete Flow
 
+
 ```
 SAILOR  (express cart = Flow 4; browse express products = Flow 3)
-  └─ POST /api/orders/express/create/   { shipping_address, expected_departure, platform, … }
-       ├─ validate location payload
-       ├── transaction.atomic + cart-row lock (double-submit guard) ──────────────┐
-       │     ├─ 400 empty cart                                                     │
-       │     ├─ 400 a line lost its express flag                                   │
-       │     ├─ 400 a line is unavailable (deleted/inactive/not sourceable)        │
-       │     ├─ total = Σ price×qty (no fees)                                       │
-       │     ├─ create Order(payment_pending, is_express=True) + lines             │
-       │     └─ delete the express cart                                            │
-       └── commit ─────────────────────────────────────────────────────────────────┘
-             └─ create Stripe session (OUTSIDE the lock) → 502 on Stripe error (recoverable via pay-order)
-                → 201 { order_id, total_amount, checkout_url, expires_at }
+ └─ POST /api/orders/express/create/   { shipping_address, expected_departure, platform, … }
+      ├─ validate location payload
+      ├── transaction.atomic + cart-row lock (double-submit guard) ──────────────┐
+      │     ├─ 400 empty cart                                                     │
+      │     ├─ 400 a line lost its express flag                                   │
+      │     ├─ 400 a line is unavailable (deleted/inactive/not sourceable)        │
+      │     ├─ total = Σ price×qty (no fees)                                       │
+      │     ├─ create Order(payment_pending, is_express=True) + lines             │
+      │     └─ delete the express cart                                            │
+      └── commit ─────────────────────────────────────────────────────────────────┘
+            └─ create Stripe session (OUTSIDE the lock) → 502 on Stripe error (recoverable via pay-order)
+               → 201 { order_id, total_amount, checkout_url, expires_at }
 
-  sailor pays ▼
+
+ sailor pays ▼
 STRIPE → POST /api/payments/stripe/webhook/   (Flow 7) → payment_received → order_confirmed
-       → Flow 10 delivery
+      → Flow 10 delivery
+
 
 ADMIN
-  ├─ GET /superadmin/express/orders/    is_express Orders list  (?status ?date ?partner_id ?search)
-  ├─ GET /superadmin/express/items/     express variant catalog (filters + sort)
-  └─ GET /superadmin/express/stats/     express catalog + order-volume aggregates
+ ├─ GET /superadmin/express/orders/    is_express Orders list  (?status ?date ?partner_id ?search)
+ ├─ GET /superadmin/express/items/     express variant catalog (filters + sort)
+ └─ GET /superadmin/express/stats/     express catalog + order-volume aggregates
 ```
 
+
 ## API sequence table
+
 
 | Step | Platform | API | Owner |
 |---|---|---|---|
@@ -136,30 +162,40 @@ ADMIN
 | 4 | ADMIN | `GET /api/superadmin/express/items/` | **Flow 9** |
 | 5 | ADMIN | `GET /api/superadmin/express/stats/` | **Flow 9** |
 
+
 ---
+
 
 # Phase 3 — API Documentation
 
+
 ## Flow-wide conventions
+
 
 | Header | Notes |
 |---|---|
 | `Authorization: Token <key>` | All |
 | `server-secret-key` | `/api/orders/…` (checkout); **`/api/superadmin/…` exempt** (console) |
 
+
 Checkout is `[IsAuthenticated]`, scoped to the caller's own express cart. Console endpoints are
 `[IsAuthenticated, IsAdminUser]`.
 
+
 ---
 
+
 ## API 1 · Create an express order (checkout)
+
 
 | Field | Value |
 |---|---|
 | **Endpoint** | `/api/orders/express/create/` · `POST` |
 | **View** | `CreateExpressOrderView` · payload serializer `OrderCreateRequestSerializer` |
 
+
 **Request body** — the delivery/location contract (same as the standard intent):
+
 
 | Field | Required | Type / rules |
 |---|---|---|
@@ -173,28 +209,33 @@ Checkout is `[IsAuthenticated]`, scoped to the caller's own express cart. Consol
 | `note` | ✖ | ≤ 2000 chars |
 | `ship_agent_id` | ✖ | UUID (nullable) — an agent from the sailor's directory |
 
+
 *(No `items` in the body — the lines come from the sailor's express cart.)*
+
 
 **Success — 201** (with a Stripe link)
 ```json
 {
-  "message": "Express order created.",
-  "order_id": "…",
-  "total_amount": "349.00",
-  "checkout_url": "https://checkout.stripe.com/c/pay/cs_test_…",
-  "expires_at": "2026-07-23T09:41:00+00:00"
+ "message": "Express order created.",
+ "order_id": "…",
+ "total_amount": "349.00",
+ "checkout_url": "https://checkout.stripe.com/c/pay/cs_test_…",
+ "expires_at": "2026-07-23T09:41:00+00:00"
 }
 ```
+
 
 **Success — 201** (zero-total → settled without Stripe, e.g. a fully-free express item):
 ```json
 { "message": "Express order confirmed — no payment required.",
-  "settled": true, "order_id": "…", "total_amount": "0.00" }
+ "settled": true, "order_id": "…", "total_amount": "0.00" }
 ```
 A `total_amount <= 0` order is confirmed via `settle_free_order` (same as Flow 7's pay path) and
 **never reaches Stripe** — no `checkout_url`.
 
+
 **Error responses**
+
 
 | Status | Body | Condition |
 |---|---|---|
@@ -204,21 +245,27 @@ A `total_amount <= 0` order is confirmed via `settle_free_order` (same as Flow 7
 | 400 | serializer errors | Bad/missing `shipping_address` / `expected_departure` / `platform`; past `ship_arrival_date` |
 | 502 | `{"detail": "Payment provider error: …", "order_id": "…"}` | Stripe failed — order exists at `payment_pending`, pay via Flow 7 pay-order |
 
+
 **Side effects** (one transaction): create the `Order` (`payment_pending`, `is_express=True`),
 save the address to the book, `bulk_create` the lines, **delete the express cart**. After commit:
 create the Stripe session.
 
+
 ---
 
+
 ## API 2 · Admin — express orders
+
 
 | Field | Value |
 |---|---|
 | **Endpoint** | `/api/superadmin/express/orders/` · `GET` |
 | **View** | `ListExpressOrdersView` |
 
+
 The post-payment Orders list **pre-scoped to `is_express=True`**, with the **same validated
 filters** as the main Orders screen (`_apply_order_list_filters`):
+
 
 | Param | Values |
 |---|---|
@@ -228,19 +275,25 @@ filters** as the main Orders screen (`_apply_order_list_filters`):
 | `search` | order number / customer name / email |
 | `page` / `page_size` | pagination |
 
+
 **Success — 200** — paginated lean rows (`OrderListSerializer`).
+
 
 ---
 
+
 ## API 3 · Admin — express items
+
 
 | Field | Value |
 |---|---|
 | **Endpoint** | `/api/superadmin/express/items/` · `GET` |
 | **View** | `ListExpressItemsView` |
 
+
 The express **variant** catalog. Filters are **validated up front** (a bad UUID/number → **400**,
 never a 500):
+
 
 | Param | Values |
 |---|---|
@@ -254,19 +307,26 @@ never a 500):
 | `sort_by_relevance` | `newest_first` / `oldest_first` |
 | `page` / `page_size` | pagination |
 
+
 **Success — 200** — `{ "message", "data": [ …ProductVariantSerializer… ] }` (paginated).
+
 
 ---
 
+
 ## API 4 · Admin — express stats
+
 
 `GET /api/superadmin/express/stats/` · `ExpressStatsView` — three aggregates in one call:
 express **products** (total / active / sourceable / top-rated / on-deal), express **variants**
 (effective sourceable = product AND variant), and express **order volume by status**. No params.
 
+
 ---
 
+
 ## What happens next
+
 
 | Outcome | Next |
 |---|---|
@@ -275,9 +335,12 @@ express **products** (total / active / sourceable / top-rated / on-deal), expres
 | Wants to change it | Can't — express is never amendable (**Flow 15**) or sailor-cancellable (**Flow 12**) |
 | Unpaid express order | Shows in the **intents** list (**Flow 14**) until paid |
 
+
 ---
 
+
 ## Source reference
+
 
 | Concern | Location |
 |---|---|
@@ -288,3 +351,6 @@ express **products** (total / active / sourceable / top-rated / on-deal), expres
 | Admin console | `admin_panel/views/express_views.py` |
 | Express flag on a variant | `admin_panel/views/variant_views.py` (`SetVariantExpressView`) — Flow 29 |
 | Express browse | `catalog/views.py` (`ExpressProductListView`) — Flow 3 |
+
+
+
