@@ -105,6 +105,22 @@ export interface OrderTimeline {
   terminalState: string;
 }
 
+/**
+ * One row of an order's assignment history (Flow 28 API 13). Closed rows are
+ * included — a `reassigned` entry is how the trail explains a hand-over.
+ */
+export interface OrderAssignmentHistory {
+  id: string;
+  partnerName: string;
+  partnerCode: string;
+  status: string;
+  statusDisplay: string;
+  assignedBy: string;
+  assignedAt: string;
+  deliverBy: string;
+  isActive: boolean;
+}
+
 /** A delivery partner available for assignment. */
 export interface AvailablePartner {
   /** Partner code, e.g. "DP-00056". */

@@ -1,31 +1,61 @@
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { DateRangePicker } from "@/components/common/DateRangePicker";
 import { type OrderDetail, OrderDetailDrawer } from "@/components/common/OrderDetailDrawer";
 import { PageHeader } from "@/components/common/PageHeader";
 import { SearchFilters } from "@/components/common/SearchFilters";
+import { StatsGrid } from "@/components/common/StatsGrid";
+import { StatusBadge } from "@/components/common/StatusBadge";
 import {
-  actionsColumn,
   avatarColumn,
   idColumn,
-  statusColumn,
   textColumn,
   truncatedColumn,
 } from "@/components/common/tableColumns";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
-import { useCancelOrderMutation, useGetOrdersQuery } from "@/features/orders/api/orderApi";
+import { useGetOrderTimelineQuery } from "@/features/assignments";
+import { StatusLegendDialog } from "@/features/intents";
+// Deep paths on purpose: the orders barrel re-exports this very page, so
+// importing it through the barrel would close an import cycle.
+import {
+  type OrderStats,
+  useCancelOrderMutation,
+  useGetOrderDetailQuery,
+  useGetOrderStatsQuery,
+  useGetOrdersQuery,
+  useLazyGetOrderSlipQuery,
+} from "@/features/orders/api/orderApi";
+import { useClaimOrderMutation } from "@/features/orders/api/orderOwnershipApi";
+import { CancelOrderDialog } from "@/features/orders/components/CancelOrderDialog";
+import { OrderAssignPartnerSection } from "@/features/orders/components/OrderAssignPartnerSection";
+import { OrderLocationDeltaSection } from "@/features/orders/components/OrderLocationDeltaSection";
 import { OrderShipAgentSection } from "@/features/orders/components/OrderShipAgentSection";
+import { OwnerCell } from "@/features/orders/components/OwnerCell";
+import { RefundOrderDialog } from "@/features/orders/components/RefundOrderDialog";
+import { useOrderOwnership } from "@/features/orders/hooks/useOrderOwnership";
 import type { Order } from "@/features/orders/types/order.types";
+import type { ClaimConflict } from "@/features/orders/types/ownership.types";
 import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
-import { IconDownload } from "@tabler/icons-react";
-import { useState } from "react";
+import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
+import {
+  IconBan,
+  IconCircleCheck,
+  IconInfoCircle,
+  IconPackage,
+  IconTruckDelivery,
+} from "@tabler/icons-react";
+import { type ReactNode, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 const M = MESSAGES.ORDERS;
+// Flow 27 ownership copy and the status legend are shared with the Intents
+// queue — same gate, same 18 statuses — so the strings are reused, not copied.
+const O = MESSAGES.INTENTS.OWNERSHIP;
+const L = MESSAGES.INTENTS.STATUS_LEGEND;
 
 interface OrderRow {
   id: string; // order UUID (stable row key + drawer lookup)
@@ -43,30 +73,89 @@ interface OrderRow {
   raw: Order; // full API record for the detail drawer
 }
 
-// Status dropdown options (top-right filter).
-const STATUS_OPTIONS = [
-  { value: "all", label: M.STATUS_FILTER.ALL },
-  { value: "New", label: M.STATUS_FILTER.NEW },
-  { value: "Verifying", label: M.STATUS_FILTER.VERIFYING },
-  { value: "awaiting", label: M.STATUS_FILTER.AWAITING_PAYMENT },
-  { value: "In Progress", label: M.STATUS_FILTER.IN_PROGRESS },
-  { value: "Delivering", label: M.STATUS_FILTER.DELIVERING },
-  { value: "Delivered", label: M.STATUS_FILTER.DELIVERED },
-  { value: "Cancelled", label: M.STATUS_FILTER.CANCELLED },
+/**
+ * Status values the orders list accepts — the post-payment tail only, exactly
+ * as documented in the API collection. Pre-payment statuses belong to the
+ * Intents screen, and sending one here is a 400.
+ */
+const ORDER_FILTER_KEYS = [
+  "order_confirmed",
+  "partner_assigned",
+  "items_collected",
+  "at_port",
+  "at_berth",
+  "delivered",
+  "delivery_failed",
+  "cancelled",
+  "refunded",
 ];
 
-// Segmented filter chips. Counts are placeholder figures from the design mock
-// (no orders API yet); the value drives the client-side filter.
-const ORDER_CHIPS = [
-  { label: "All (184)", value: "all" },
-  { label: "New (12)", value: "New" },
-  { label: "Verifying (8)", value: "Verifying" },
-  { label: "Awaiting Payment (12)", value: "awaiting" },
-  { label: "In Progress (47)", value: "In Progress" },
-  { label: "Delivering (38)", value: "Delivering" },
-  { label: "Delivered (129)", value: "Delivered" },
-  { label: "Cancelled (6)", value: "Cancelled" },
+// Listed in canonical lifecycle order, labelled from the single source of truth.
+const STATUS_OPTIONS = [
+  { value: "all", label: M.STATUS_FILTER.ALL },
+  ...ORDER_FILTER_KEYS.map((key) => ({ value: key, label: ORDER_STATUS_BY_KEY[key].label })),
 ];
+
+type StatVariant = "navy" | "teal" | "amber" | "red" | "green" | "purple" | "blue";
+
+/**
+ * KPI cards. The stats response isn't pinned by an example, so each card lists
+ * candidate field names and takes the first one present.
+ */
+const STAT_CONFIG: {
+  id: string;
+  label: string;
+  keys: string[];
+  icon: ReactNode;
+  variant: StatVariant;
+}[] = [
+  {
+    id: "total",
+    label: M.STATS.TOTAL,
+    keys: ["total_orders", "total", "orders"],
+    icon: <IconPackage size={20} />,
+    variant: "navy",
+  },
+  {
+    id: "in-transit",
+    label: M.STATS.IN_TRANSIT,
+    keys: ["in_transit", "in_progress", "delivering"],
+    icon: <IconTruckDelivery size={20} />,
+    variant: "teal",
+  },
+  {
+    id: "delivered",
+    label: M.STATS.DELIVERED,
+    keys: ["delivered"],
+    icon: <IconCircleCheck size={20} />,
+    variant: "green",
+  },
+  {
+    id: "cancelled",
+    label: M.STATS.CANCELLED,
+    keys: ["cancelled", "cancelled_orders"],
+    icon: <IconBan size={20} />,
+    variant: "red",
+  },
+];
+
+/** First present counter among the candidate keys; 0 when none are returned. */
+function pickStat(stats: OrderStats | undefined, keys: string[]): number {
+  if (!stats) return 0;
+  for (const key of keys) {
+    const value = stats[key];
+    if (typeof value === "number") return value;
+  }
+  return 0;
+}
+
+/** `Date` → the `YYYY-MM-DD` the list endpoint expects. */
+function toApiDate(date?: Date): string | undefined {
+  if (!date) return undefined;
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
 
 const LIMIT = 10;
 
@@ -167,18 +256,18 @@ function paymentClass(pay: string): string {
 }
 
 /** Map a table row to the detail-drawer shape. */
-function toOrderDetail(o: OrderRow): OrderDetail {
-  const order = o.raw;
+function toOrderDetail(order: Order): OrderDetail {
   return {
-    id: o.orderNumber,
-    sailor: o.s,
-    ship: o.shipName,
-    terminal: o.terminalName,
-    partner: o.pt,
-    payment: o.pay,
-    coupon: o.cp === "—" ? "" : o.cp,
-    total: o.t,
-    status: o.st,
+    id: order.order_number,
+    sailor: customerName(order),
+    ship: shipLabel(order),
+    terminal: terminalLabel(order),
+    partner: order.active_assignment?.partner_name || order.partner_name || M.UNASSIGNED,
+    payment: paymentLabel(order),
+    coupon: order.applied_coupon || "",
+    total: `$${Number(order.total_amount).toFixed(2)}`,
+    status: order.status_display,
+    // Only the detail read returns `items`; a list row has just `item_count`.
     items: (order.items ?? []).map((it) => ({
       name: it.product_name,
       qty: it.quantity,
@@ -189,26 +278,68 @@ function toOrderDetail(o: OrderRow): OrderDetail {
 
 export function OrdersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null);
-  // Full API record for the open order — the drawer's synthetic `OrderDetail`
-  // drops the UUID / ship_agent / assigned_admin that API 17 needs.
+  /** The clicked row's record — opens the drawer and seeds it before detail lands. */
   const [selectedRaw, setSelectedRaw] = useState<Order | null>(null);
-  const [orderToCancel, setOrderToCancel] = useState<string | null>(null);
+  /** The order awaiting a cancel reason, or null when the popup is closed. */
+  const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
+  /** The order being refunded (Flow 12 §3–4), or null when closed. */
+  const [orderToRefund, setOrderToRefund] = useState<Order | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  /** Which row's claim is in flight — scopes the spinner to that button. */
+  const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [fetchSlip, { isFetching: slipLoading }] = useLazyGetOrderSlipQuery();
   const [cancelOrder, { isLoading: isCancelling }] = useCancelOrderMutation();
+
+  // Flow 27 — every admin order write is gated on ownership, so the claim
+  // action has to live here too, not only on the Intents queue.
+  const { stateOf, canClaim } = useOrderOwnership();
+  const [claimOrder] = useClaimOrderMutation();
+
+  const [isLegendOpen, setIsLegendOpen] = useState(false);
 
   // URL-driven filter state (shareable, refresh-safe).
   const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
   const search = searchParams.get("search") ?? "";
   const statusFilter = searchParams.get("status") ?? "all";
-  const segment = searchParams.get("seg") ?? "all";
 
-  // Server-side: pagination + free-text search (DRF `page` / `search`).
-  const { data, isLoading, isError, refetch } = useGetOrdersQuery({
+  // Every filter is applied server-side, so pagination stays truthful.
+  const { data, isLoading, isFetching, isError, refetch } = useGetOrdersQuery({
     page,
     limit: LIMIT,
     search,
+    status: statusFilter !== "all" ? statusFilter : undefined,
+    dateFrom: toApiDate(dateRange?.from),
+    dateTo: toApiDate(dateRange?.to),
   });
+
+  // Live KPI stats; cards show "—" while loading and 0 when a field is absent.
+  const { data: stats, isLoading: statsLoading } = useGetOrderStatsQuery();
+  const statItems = STAT_CONFIG.map((c) => ({
+    id: c.id,
+    label: c.label,
+    value: statsLoading ? "—" : pickStat(stats, c.keys).toLocaleString(),
+    icon: c.icon,
+    variant: c.variant,
+  }));
+
+  // Flow 11 §14 — the full record for the open order. The list row only carries
+  // a summary (no `items`, usually no `assigned_admin`), so the drawer opens on
+  // the row and upgrades in place the moment the detail lands.
+  const { data: orderDetail } = useGetOrderDetailQuery(selectedRaw?.id ?? "", {
+    skip: !selectedRaw?.id,
+  });
+  // `selectedRaw` alone decides whether the drawer is open. Falling back to the
+  // detail result here would keep the drawer mounted on close if RTK Query
+  // still held the last response, so the row gates it explicitly.
+  const openOrder = selectedRaw ? (orderDetail ?? selectedRaw) : null;
+  const selectedOrder = openOrder ? toOrderDetail(openOrder) : null;
+
+  // Flow 28 API 16 — the real milestone ladder for the open order. Fetched only
+  // while the drawer is open; the drawer shows an empty state until it lands.
+  const { data: timeline, isFetching: timelineLoading } = useGetOrderTimelineQuery(
+    selectedRaw?.id ?? "",
+    { skip: !selectedRaw?.id },
+  );
 
   const totalCount = data?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / LIMIT));
@@ -232,32 +363,65 @@ export function OrdersPage() {
     setSearchParams(next);
   };
 
-  // Status dropdown + segment chips filter the current page client-side (the
-  // backend status-code contract isn't wired yet); search/paging are server-side.
-  const filteredOrders = orders.filter((o) => {
-    // "awaiting" (dropdown or chip) keys off the pending payment, matching the source.
-    const matchesStatus =
-      statusFilter === "all"
-        ? true
-        : statusFilter === "awaiting"
-          ? o.pay === "Pending"
-          : o.st === statusFilter;
-    const matchesSegment =
-      segment === "all" ? true : segment === "awaiting" ? o.pay === "Pending" : o.st === segment;
-    return matchesStatus && matchesSegment;
-  });
-
-  const handleCancel = async () => {
+  /**
+   * Flow 12 §2 — cancel a pre-payment order with the required reason. The
+   * documented failures all arrive as the backend's own message: 409 unclaimed
+   * or already paid ("use the refund flow"), 403 another admin's order, 400 for
+   * a post-payment status.
+   */
+  const handleCancel = async (reason: string) => {
     if (!orderToCancel) return;
     try {
-      const res = await cancelOrder(orderToCancel).unwrap();
+      const res = await cancelOrder({ orderId: orderToCancel.id, reason }).unwrap();
       // Success: tag invalidation refreshes the row's status automatically.
       toast.success(getApiMessage(res) ?? M.CANCEL_SUCCESS);
       setOrderToCancel(null);
     } catch (error) {
-      // Failure (e.g. 409 unclaimed / already paid): surface the real reason,
-      // keep the dialog open so the user can retry after claiming.
+      // Failure: keep the popup open (the typed reason is preserved) and
+      // surface why.
       toast.error(getApiMessage(error) ?? M.CANCEL_ERROR);
+    }
+  };
+
+  /**
+   * Flow 10 API 10 — download the picking slip. The endpoint streams a PDF, so
+   * the blob is turned into a temporary object URL and clicked; the URL is
+   * revoked immediately after, since the file is regenerated per request.
+   */
+  const handleDownloadSlip = async (order: Order) => {
+    try {
+      const blob = await fetchSlip(order.id).unwrap();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = M.SLIP_FILENAME(order.order_number);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error(getApiMessage(error, { labelFields: false }) ?? M.SLIP_FAILED);
+    }
+  };
+
+  /**
+   * Flow 27 API 1 — claim the order ("Manage Order"). A 409 isn't a retryable
+   * failure: another admin holds it, and the body names them.
+   */
+  const handleClaim = async (order: Order) => {
+    setClaimingId(order.id);
+    try {
+      await claimOrder(order.id).unwrap();
+      toast.success(O.CLAIMED(order.order_number || order.id));
+    } catch (err) {
+      if ((err as { status?: unknown })?.status === 409) {
+        const owner = (err as { data?: ClaimConflict })?.data?.assigned_admin;
+        toast.error(owner ? O.HELD_BY(owner.name) : O.HELD_BY_UNKNOWN);
+        return;
+      }
+      toast.error(getApiMessage(err) ?? O.CLAIM_FAILED);
+    } finally {
+      setClaimingId(null);
     }
   };
 
@@ -307,35 +471,66 @@ export function OrdersPage() {
     }),
     textColumn({ id: "coupon", header: M.COLUMNS.COUPON, get: (o) => o.cp, className: "td-m" }),
     textColumn({ id: "total", header: M.COLUMNS.TOTAL, get: (o) => o.t, className: "td-p w7" }),
-    statusColumn({ id: "status", header: M.COLUMNS.STATUS, get: (o) => o.st }),
-    actionsColumn({
+    {
+      id: "status",
+      header: M.COLUMNS.STATUS,
+      cell: (o) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <StatusBadge status={o.st} />
+          {/* Flow 11 §17 — self-clearing "needs attention" flag: true only while
+              an unactioned pending location report exists. */}
+          {o.raw.has_location_request && (
+            <Badge variant="warning" className="h-[22px] text-[10px]">
+              {M.LOCATION_REQUEST}
+            </Badge>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "owner",
+      header: M.COLUMNS.OWNER,
+      cell: (o) => (
+        <OwnerCell
+          assignedAdmin={o.raw.assigned_admin ?? null}
+          state={stateOf(o.raw.assigned_admin)}
+        />
+      ),
+    },
+    {
+      id: "actions",
       header: M.COLUMNS.ACTIONS,
-      className: "text-right",
-      actions: () => ({
-        view: {
-          title: M.ACTIONS.VIEW,
-          onClick: (e, r) => {
-            e.stopPropagation();
-            setSelectedRaw(r.raw);
-            setSelectedOrder(toOrderDetail(r));
-          },
-        },
-        message: {
-          title: M.ACTIONS.MESSAGE,
-          onClick: (e, r) => {
-            e.stopPropagation();
-            toast.success(M.MESSAGE_SENT(r.s));
-          },
-        },
-        cancel: {
-          title: M.ACTIONS.CANCEL,
-          onClick: (e, r) => {
-            e.stopPropagation();
-            setOrderToCancel(r.id);
-          },
-        },
-      }),
-    }),
+      className: "w-40 text-right",
+      cell: (o) => (
+        <div className="td-acts">
+          {/* Claim is offered only while unassigned — on a held order it 409s. */}
+          {canClaim(o.raw.assigned_admin) && (
+            <Button
+              variant="teal"
+              size="xs"
+              className="max-w-[4.25rem] whitespace-normal px-2 text-[9px] leading-[1.05]"
+              disabled={claimingId === o.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClaim(o.raw);
+              }}
+            >
+              {claimingId === o.id ? O.CLAIMING : O.MANAGE}
+            </Button>
+          )}
+          <Button
+            variant="primary"
+            size="xs"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedRaw(o.raw);
+            }}
+          >
+            {M.ACTION_VIEW}
+          </Button>
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -348,7 +543,7 @@ export function OrdersPage() {
             onSearchChange={(val) => setParam("search", val)}
             searchPlaceholder={M.SEARCH_PLACEHOLDER}
             searchDebounceMs={180}
-            searchLoading={isLoading}
+            searchLoading={isFetching}
             filters={[
               {
                 id: "status",
@@ -360,32 +555,29 @@ export function OrdersPage() {
               },
             ]}
           >
+            {/* Info icon beside the status filter → the shared status legend. */}
+            <button
+              type="button"
+              className="btn btn-ghost btn-icon"
+              aria-label={L.OPEN_LABEL}
+              title={L.OPEN_LABEL}
+              onClick={() => setIsLegendOpen(true)}
+            >
+              <IconInfoCircle size={18} />
+            </button>
             <DateRangePicker value={dateRange} onChange={setDateRange} placeholder={M.DATE_RANGE} />
-            <Button variant="primary" size="sm" onClick={() => toast.success(M.EXPORTED)}>
-              <IconDownload size={14} className="mr-1" />
-              {M.EXPORT}
-            </Button>
+            {/* No Export button: neither the flow docs nor the API collection
+                document an orders-export endpoint, and the old one reported a
+                success it never performed. */}
           </SearchFilters>
         }
       />
 
-      {/* Segmented status chips */}
-      <div className="filter-row">
-        {ORDER_CHIPS.map((chip) => (
-          <button
-            key={chip.value}
-            type="button"
-            className={`fchip ${segment === chip.value ? "active" : ""}`}
-            onClick={() => setParam("seg", chip.value)}
-          >
-            {chip.label}
-          </button>
-        ))}
-      </div>
+      <StatsGrid items={statItems} />
 
       <DataTable
         columns={columns}
-        data={filteredOrders}
+        data={orders}
         rowKey="id"
         page={page}
         pages={totalPages}
@@ -395,57 +587,93 @@ export function OrdersPage() {
         onRetry={refetch}
         onPageChange={handlePageChange}
         showPagination
-        emptyMessage={
-          search || statusFilter !== "all" || segment !== "all" ? M.EMPTY_FILTERED : M.EMPTY
-        }
-        onRowClick={(o) => {
-          setSelectedRaw(o.raw);
-          setSelectedOrder(toOrderDetail(o));
-        }}
+        emptyMessage={search || statusFilter !== "all" ? M.EMPTY_FILTERED : M.EMPTY}
+        onRowClick={(o) => setSelectedRaw(o.raw)}
       />
 
       <OrderDetailDrawer
         order={selectedOrder}
-        onClose={() => {
-          setSelectedOrder(null);
-          setSelectedRaw(null);
-        }}
-        onReassign={() => {
-          setSelectedOrder(null);
-          setSelectedRaw(null);
-          toast.success(M.PARTNER_REASSIGNED);
-        }}
+        timeline={timeline?.steps}
+        timelineLoading={timelineLoading}
+        onClose={() => setSelectedRaw(null)}
+        // No `onReassign`: the drawer's own partner section owns assignment now.
+        // Both popups are custom Dialogs, which would render behind the Sheet
+        // overlay — so the drawer closes first and the order is retained.
         onCancel={
-          selectedRaw
+          openOrder
             ? () => {
-                const id = selectedRaw.id;
-                setSelectedOrder(null);
+                const order = openOrder;
                 setSelectedRaw(null);
-                setOrderToCancel(id);
+                setOrderToCancel(order);
               }
             : undefined
         }
-        shipAgentSlot={
-          selectedRaw ? (
-            <OrderShipAgentSection
-              orderId={selectedRaw.id}
-              status={selectedRaw.status}
-              shipAgent={selectedRaw.ship_agent}
-              shipAgentSnapshot={selectedRaw.ship_agent_snapshot}
-              assignedAdmin={selectedRaw.assigned_admin}
-            />
+        onRefund={
+          openOrder
+            ? () => {
+                const order = openOrder;
+                setSelectedRaw(null);
+                setOrderToRefund(order);
+              }
+            : undefined
+        }
+        // The slip downloads in place — no need to close the drawer.
+        onDownloadSlip={openOrder ? () => handleDownloadSlip(openOrder) : undefined}
+        slipLoading={slipLoading}
+        detailSlot={
+          openOrder ? (
+            // Remount per order so picker/claim state never leaks across orders.
+            <div key={openOrder.id}>
+              <OrderAssignPartnerSection
+                orderId={openOrder.id}
+                status={openOrder.status}
+                activeAssignment={openOrder.active_assignment}
+                // Detail carries the owning admin the list row usually omits, so
+                // the ownership gate resolves properly once it lands.
+                assignedAdmin={openOrder.assigned_admin}
+              />
+              {/* Flow 02 · API 17 — ship-agent binding. Kept alongside partner
+                  assignment rather than replaced by it: they are different
+                  relationships (the vessel's agent vs. who delivers). */}
+              <OrderShipAgentSection
+                orderId={openOrder.id}
+                status={openOrder.status}
+                shipAgent={openOrder.ship_agent}
+                shipAgentSnapshot={openOrder.ship_agent_snapshot}
+                assignedAdmin={openOrder.assigned_admin}
+              />
+              {/* Flow 11 — reports and surcharges, both embedded on the detail. */}
+              <OrderLocationDeltaSection
+                orderId={openOrder.id}
+                orderRef={openOrder.order_number}
+                locationReports={openOrder.location_reports}
+                deltas={openOrder.deltas}
+                assignedAdmin={openOrder.assigned_admin}
+              />
+            </div>
           ) : null
         }
       />
 
-      <ConfirmDialog
+      {/* Status terminology legend (opened from the info icon by the filter) */}
+      <StatusLegendDialog isOpen={isLegendOpen} onClose={() => setIsLegendOpen(false)} />
+
+      {/* Refund popup — quote preview + full/partial refund (Flow 12 §3–4) */}
+      <RefundOrderDialog
+        isOpen={!!orderToRefund}
+        orderId={orderToRefund?.id ?? ""}
+        orderRef={orderToRefund?.order_number ?? ""}
+        status={orderToRefund?.status ?? ""}
+        onClose={() => setOrderToRefund(null)}
+      />
+
+      {/* Cancel-order reason popup (Flow 12 §2 — `reason` is required) */}
+      <CancelOrderDialog
         isOpen={!!orderToCancel}
+        orderRef={orderToCancel?.order_number ?? ""}
+        isLoading={isCancelling}
         onClose={() => setOrderToCancel(null)}
         onConfirm={handleCancel}
-        title={M.CANCEL_CONFIRM_TITLE}
-        description={M.CANCEL_CONFIRM_MSG}
-        confirmText={M.CANCEL_CONFIRM_CONFIRM}
-        isLoading={isCancelling}
       />
     </>
   );

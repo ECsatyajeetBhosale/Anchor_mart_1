@@ -5,6 +5,7 @@ import type {
   ApiUnassignedOrdersResponse,
   AssignOrderPayload,
   AssignablePartner,
+  OrderAssignmentHistory,
   OrderTimeline,
   OrderTimelineStep,
   UnassignedOrder,
@@ -127,6 +128,40 @@ export const assignmentApi = baseApi.injectEndpoints({
       providesTags: (_r, _e, orderId) => [{ type: "Assignments", id: `TIMELINE-${orderId}` }],
     }),
 
+    /**
+     * Flow 28 API 13 — every assignment ever made on one order, newest first.
+     * Closed rows (`reassigned`, `rejected`) are included, which is the point:
+     * the active assignment alone doesn't explain how the order got here.
+     */
+    getOrderAssignments: builder.query<OrderAssignmentHistory[], string>({
+      query: (orderId) => ({
+        url: ASSIGNMENT_ENDPOINTS.ORDER_ASSIGNMENTS,
+        method: "GET",
+        params: { order_id: orderId },
+      }),
+      transformResponse: (res: unknown): OrderAssignmentHistory[] => {
+        const results = getProp(res, "results");
+        const rows =
+          asArray(getProp(results, "data")) ??
+          asArray(results) ??
+          asArray(getProp(res, "data")) ??
+          asArray(res) ??
+          [];
+        return rows.map((r, idx) => ({
+          id: pick(r, "id") || `assignment-${idx}`,
+          partnerName: pick(r, "partner_name", "partner", "name") || "-",
+          partnerCode: pick(r, "partner_code", "code"),
+          status: pick(r, "status"),
+          statusDisplay: pick(r, "status_display", "status"),
+          assignedBy: pick(r, "assigned_by_email", "assigned_by"),
+          assignedAt: pick(r, "assigned_at", "created_at"),
+          deliverBy: pick(r, "deliver_by"),
+          isActive: getProp(r, "is_active") === true,
+        }));
+      },
+      providesTags: (_r, _e, orderId) => [{ type: "Assignments", id: `HISTORY-${orderId}` }],
+    }),
+
     // Flow 28 API 12 — assign (or reassign) an order to a delivery partner.
     assignOrder: builder.mutation<unknown, AssignOrderPayload>({
       query: (body) => ({
@@ -139,6 +174,7 @@ export const assignmentApi = baseApi.injectEndpoints({
       invalidatesTags: (_r, _e, { order_id }) => [
         { type: "Assignments", id: "UNASSIGNED-LIST" },
         { type: "Assignments", id: `TIMELINE-${order_id}` },
+        { type: "Assignments", id: `HISTORY-${order_id}` },
         { type: "Intents", id: order_id },
         { type: "Intents", id: "PARTIAL-LIST" },
         { type: "Intents", id: "STATS" },
@@ -152,5 +188,6 @@ export const {
   useGetUnassignedOrdersQuery,
   useGetAssignablePartnersQuery,
   useGetOrderTimelineQuery,
+  useGetOrderAssignmentsQuery,
   useAssignOrderMutation,
 } = assignmentApi;

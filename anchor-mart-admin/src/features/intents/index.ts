@@ -4,6 +4,9 @@ export { RejectIntentDialog } from "./components/RejectIntentDialog";
 export { CreateBillDialog } from "./components/CreateBillDialog";
 export { SuggestReplacementPanel } from "./components/SuggestReplacementPanel";
 export { IntentLifecycleRail } from "./components/IntentLifecycleRail";
+// Shared with the Orders screen — the legend covers all 18 lifecycle statuses,
+// not just the intent funnel.
+export { StatusLegendDialog } from "./components/StatusLegendDialog";
 export {
   useGetIntentsQuery,
   useGetIntentStatsQuery,

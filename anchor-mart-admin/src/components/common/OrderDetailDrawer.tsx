@@ -9,10 +9,15 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { MESSAGES } from "@/lib/messages";
-import { IconBell, IconClock, IconPackage, IconTransfer, IconX } from "@tabler/icons-react";
-import { type ReactNode, useState } from "react";
-import { toast } from "sonner";
-import { ConfirmDialog } from "./ConfirmDialog";
+import {
+  IconClock,
+  IconCoin,
+  IconFileDownload,
+  IconPackage,
+  IconTransfer,
+  IconX,
+} from "@tabler/icons-react";
+import type { ReactNode } from "react";
 import { Timeline } from "./Timeline";
 
 const M = MESSAGES.ORDERS;
@@ -61,16 +66,25 @@ interface OrderDetailDrawerProps {
    * to its own local confirm dialog with a mock toast.
    */
   onCancel?: () => void;
-  /** Live timeline; when provided it replaces the static fallback timeline. */
+  /**
+   * Opens the refund flow (Flow 12 §3–4). Rendered only when supplied — a paid
+   * order is refunded, never "cancelled".
+   */
+  onRefund?: () => void;
+  /** Downloads the picking-slip PDF (Flow 10 API 10). */
+  onDownloadSlip?: () => void;
+  /** True while the slip is being generated. */
+  slipLoading?: boolean;
+  /** Live milestone ladder; nothing is invented when it's absent. */
   timeline?: OrderTimelineItem[];
   /** True while the live timeline is being fetched. */
   timelineLoading?: boolean;
   /**
    * Optional feature-owned section rendered below Order Information (e.g. the
-   * ship-agent binding, Flow 02 · API 17). Kept as a slot so this shared drawer
-   * stays presentational and doesn't depend on any feature.
+   * delivery-partner assignment, Flow 28 · APIs 11–12). Kept as a slot so this
+   * shared drawer stays presentational and doesn't depend on any feature.
    */
-  shipAgentSlot?: ReactNode;
+  detailSlot?: ReactNode;
 }
 
 /** Map an order status to a `Badge` variant (shared with `DashboardOrderDrawer`). */
@@ -92,82 +106,27 @@ function getStatusVariant(status: string) {
   }
 }
 
-/** Static fallback timeline for callers that don't supply a live one. */
-function fallbackTimeline(order: OrderDetail): OrderTimelineItem[] {
-  const delivered = order.status.toLowerCase() === "delivered";
-  return [
-    {
-      key: "intent_submitted",
-      label: "Intent submitted",
-      at: "22 Apr",
-      detail: "#INT20260422-0047",
-      is_done: true,
-    },
-    {
-      key: "intent_confirmed",
-      label: "Intent confirmed by admin",
-      at: "22 Apr · 14:58",
-      detail: null,
-      is_done: true,
-    },
-    {
-      key: "payment_confirmed",
-      label: `Payment confirmed — ${order.total}`,
-      at: "22 Apr · 15:24",
-      detail: null,
-      is_done: true,
-    },
-    {
-      key: "assigned",
-      label: `Assigned to ${order.partner}`,
-      at: "22 Apr · 15:30",
-      detail: null,
-      is_done: true,
-    },
-    {
-      key: "out_for_delivery",
-      label: "Out for delivery",
-      at: delivered ? "Delivered to ship" : "En route to Terminal",
-      detail: null,
-      is_done: delivered,
-    },
-    {
-      key: "delivered",
-      label: "Delivery confirmed",
-      at: delivered ? "Completed · 16:12" : "Awaiting arrival",
-      detail: null,
-      is_done: delivered,
-    },
-  ];
-}
-
 /**
  * Order-details drawer built on the shared shadcn `Sheet` (the canonical drawer
- * pattern), reusing the `Timeline` component. Presentational only — a caller
- * may pass a live `timeline`; otherwise a static fallback is shown.
+ * pattern), reusing the `Timeline` component. Presentational only.
+ *
+ * Every action here is caller-supplied: a button renders **only** when its
+ * handler is passed. There are deliberately no built-in fallbacks — a drawer
+ * that invents milestones or reports a success it never performed is worse than
+ * one that shows nothing.
  */
 export function OrderDetailDrawer({
   order,
   onClose,
   onReassign,
   onCancel,
+  onRefund,
+  onDownloadSlip,
+  slipLoading,
   timeline,
   timelineLoading,
-  shipAgentSlot,
+  detailSlot,
 }: OrderDetailDrawerProps) {
-  // Cancel confirmation is a shadcn `ConfirmDialog` (matches the row-action
-  // cancel on the Orders page), replacing the native window.confirm.
-  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
-
-  const handleCancelConfirmed = () => {
-    if (!order) return;
-    setConfirmCancelOpen(false);
-    toast.error(M.ORDER_CANCELLED(order.id));
-    onClose();
-  };
-
-  const timelineItems = timeline ?? (order ? fallbackTimeline(order) : undefined);
-
   return (
     <Sheet open={!!order} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
@@ -208,7 +167,7 @@ export function OrderDetailDrawer({
               </div>
 
               {/* Timeline */}
-              <Timeline items={timelineItems} loading={timelineLoading} className="mb-5" />
+              <Timeline items={timeline} loading={timelineLoading} className="mb-5" />
 
               {/* Order Information */}
               <div className="sec-label">Order Information</div>
@@ -249,8 +208,8 @@ export function OrderDetailDrawer({
                 <div className="detail-v">{order.coupon || "None"}</div>
               </div>
 
-              {/* Ship-agent binding (feature-owned slot — Flow 02 · API 17) */}
-              {shipAgentSlot}
+              {/* Feature-owned section (Orders passes partner assignment) */}
+              {detailSlot}
 
               {/* Items */}
               <div className="sec-label mt16">Items</div>
@@ -278,49 +237,47 @@ export function OrderDetailDrawer({
               </div>
             </div>
 
-            {/* Footer actions */}
-            <SheetFooter className="p-5 border-t border-[var(--border-md)] bg-[var(--surface-alt)]">
-              <div className="flex gap-2 w-full">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() =>
-                    onReassign
-                      ? onReassign(order.id)
-                      : toast.success(`Assigning partner flow triggered for ${order.id}`)
-                  }
-                >
-                  <IconTransfer size={15} />
-                  Reassign
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => toast.success(`Notification sent to Sailor ${order.sailor}`)}
-                >
-                  <IconBell size={15} />
-                  Notify Sailor
-                </Button>
-                <Button
-                  variant="danger"
-                  size="sm"
-                  className="ml-auto"
-                  onClick={() => (onCancel ? onCancel() : setConfirmCancelOpen(true))}
-                >
-                  <IconX size={15} />
-                  Cancel Order
-                </Button>
-              </div>
-            </SheetFooter>
-
-            <ConfirmDialog
-              isOpen={confirmCancelOpen}
-              onClose={() => setConfirmCancelOpen(false)}
-              onConfirm={handleCancelConfirmed}
-              title={M.CANCEL_CONFIRM_TITLE}
-              description={M.CANCEL_CONFIRM_MSG}
-              confirmText={M.CANCEL_CONFIRM_CONFIRM}
-            />
+            {/* Footer actions — each renders only when the caller owns it. */}
+            {(onReassign || onCancel || onRefund || onDownloadSlip) && (
+              <SheetFooter className="p-5 border-t border-[var(--border-md)] bg-[var(--surface-alt)]">
+                <div className="flex gap-2 w-full">
+                  {onReassign && (
+                    <Button variant="secondary" size="sm" onClick={() => onReassign(order.id)}>
+                      <IconTransfer size={15} />
+                      {M.ACTIONS.REASSIGN}
+                    </Button>
+                  )}
+                  {onDownloadSlip && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={onDownloadSlip}
+                      disabled={slipLoading}
+                    >
+                      <IconFileDownload size={15} />
+                      {slipLoading ? M.SLIP_DOWNLOADING : M.SLIP}
+                    </Button>
+                  )}
+                  {onRefund && (
+                    <Button variant="secondary" size="sm" className="ml-auto" onClick={onRefund}>
+                      <IconCoin size={15} />
+                      {M.ACTIONS.REFUND}
+                    </Button>
+                  )}
+                  {onCancel && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      className={onRefund ? undefined : "ml-auto"}
+                      onClick={onCancel}
+                    >
+                      <IconX size={15} />
+                      {M.ACTIONS.CANCEL_ORDER}
+                    </Button>
+                  )}
+                </div>
+              </SheetFooter>
+            )}
           </>
         )}
       </SheetContent>

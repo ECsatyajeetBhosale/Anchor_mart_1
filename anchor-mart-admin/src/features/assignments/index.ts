@@ -7,6 +7,7 @@ export {
   useGetUnassignedOrdersQuery,
   useGetAssignablePartnersQuery,
   useGetOrderTimelineQuery,
+  useGetOrderAssignmentsQuery,
   useAssignOrderMutation,
 } from "./api/assignmentApi";
 export type {
@@ -14,6 +15,7 @@ export type {
   AssignablePartner,
   AssignOrderPayload,
   AvailablePartner,
+  OrderAssignmentHistory,
   OrderTimeline,
   OrderTimelineStep,
   UnassignedOrder,

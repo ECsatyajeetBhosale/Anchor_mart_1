@@ -3,6 +3,7 @@
 // so the table keeps working if the backend adds/removes peripheral data.
 
 import type { ShipAgent } from "@/features/ship-agents";
+import type { DeltaPayment, LocationReport } from "./delta.types";
 import type { AssignedAdmin } from "./ownership.types";
 
 /**
@@ -150,6 +151,11 @@ export interface Order {
   ship_agent?: ShipAgent | null;
   /** Frozen contact copy written at bind time; survives agent soft-delete. */
   ship_agent_snapshot?: OrderShipAgentSnapshot | null;
+  // --- Flow 11 (embedded on the detail read only) -------------------------
+  /** Every delivery surcharge raised on this order, newest first. */
+  deltas?: DeltaPayment[];
+  /** Every location change the sailor reported, with its review outcome. */
+  location_reports?: LocationReport[];
   created_at: string;
   updated_at?: string;
 }

@@ -123,6 +123,8 @@ export const EXPRESS_ENDPOINTS = {
 
 export const ORDER_ENDPOINTS = {
   GET_ORDERS: "/superadmin/orders/orders/",
+  // Post-payment KPI counters for the Orders screen (Flow 11 §16). No params.
+  GET_ORDER_STATS: "/superadmin/orders/orders/stats/",
   ORDER_DETAIL: (id: string) => `/superadmin/orders/orders/${id}/`,
   // Cancel uses the singular `order/` segment (like claim/reassign), per the doc
   // — NOT the doubled `orders/orders/` shape of the list/detail paths. Full
@@ -135,6 +137,29 @@ export const ORDER_ENDPOINTS = {
   // Flow 05 API 6 — terminal intent rejection. Requires a `reason`; gated by
   // Flow 27 ownership (409 if unclaimed, 403 if owned by another admin).
   REJECT_INTENT: (id: string) => `/superadmin/orders/order/${id}/reject-intent/`,
+  // Flow 12 §3 — side-effect-free preview of what a refund would return.
+  // Optional `?override=true` previews forcing it past the auto window.
+  REFUND_QUOTE: (id: string) => `/superadmin/orders/order/${id}/refund-quote/`,
+  // Flow 12 §4 — refund a paid order. Full (no `amount`) or partial (`amount`
+  // + an `Idempotency-Key` header, `partially_delivered` orders only).
+  REFUND: (id: string) => `/superadmin/orders/order/${id}/refund/`,
+  // Flow 11 §2 — location-report review queue. Omit `order_id` for the
+  // cross-order pending queue; pass it for one order's full history.
+  LOCATION_REPORTS: "/superadmin/orders/location-reports/",
+  // Flow 11 §3 — price the order's pending `delta` report into a DeltaPayment.
+  RAISE_DELTA: (id: string) => `/superadmin/orders/order/${id}/raise-delta/`,
+  // Flow 11 §4 — dismiss a location report (either kind).
+  DISMISS_LOCATION_REPORT: (orderId: string, reportId: string) =>
+    `/superadmin/orders/order/${orderId}/location-reports/${reportId}/dismiss/`,
+  // Flow 11 §5 — apply a `rebill` report: relocate + kill the stale Stripe link.
+  APPLY_LOCATION_REPORT: (orderId: string, reportId: string) =>
+    `/superadmin/orders/order/${orderId}/location-reports/${reportId}/apply/`,
+  // Flow 11 §13 — withdraw an open (unpaid) delta; the delivery hold lifts.
+  WITHDRAW_DELTA: (orderId: string, deltaId: string) =>
+    `/superadmin/orders/order/${orderId}/deltas/${deltaId}/withdraw/`,
+  // Flow 10 API 10 — picking-slip PDF for any order. Streams a binary
+  // attachment, so the caller must read it as a blob, not JSON.
+  ORDER_SLIP: (id: string) => `/superadmin/orders/order/${id}/slip/`,
 };
 
 export const INTENT_ENDPOINTS = {
@@ -193,6 +218,9 @@ export const ASSIGNMENT_ENDPOINTS = {
   // Flow 28 API 16 — milestone ladder for one order (`steps` / `terminal_state` /
   // raw `history`), shared with the customer track screen. Query: `order_id`.
   ORDER_TIMELINE: "/superadmin/partner/order-timeline/",
+  // Flow 28 API 13 — every assignment ever made on one order, newest first
+  // (including ones closed as `reassigned`). Query: `order_id` (required).
+  ORDER_ASSIGNMENTS: "/superadmin/partner/order-assignments/",
 };
 
 export const SPECIAL_REQUEST_ENDPOINTS = {
