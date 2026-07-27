@@ -1,8 +1,10 @@
 import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { FormField } from "@/components/common/FormField";
+import { StringListField } from "@/components/common/StringListField";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useGetCategoriesQuery } from "@/features/catalog";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
@@ -69,6 +71,10 @@ export function SuggestReplacementPanel({
   const [npSku, setNpSku] = useState("");
   const [npPrice, setNpPrice] = useState("");
   const [npCategory, setNpCategory] = useState("");
+  const [npDescription, setNpDescription] = useState("");
+  const [npImages, setNpImages] = useState<string[]>([]);
+  /** Raw JSON text for `attributes`; parsed (and validated) only on submit. */
+  const [npAttributes, setNpAttributes] = useState("");
 
   // Categories for the new-product form (fetched only when the panel renders).
   const { data: categoryData, isLoading: categoriesLoading } = useGetCategoriesQuery(
@@ -97,6 +103,9 @@ export function SuggestReplacementPanel({
     setNpSku("");
     setNpPrice("");
     setNpCategory("");
+    setNpDescription("");
+    setNpImages([]);
+    setNpAttributes("");
     if (effectivePortId) fetchVariants({ portId: effectivePortId });
   };
 
@@ -104,7 +113,25 @@ export function SuggestReplacementPanel({
     if (effectivePortId) fetchVariants({ portId: effectivePortId, search });
   };
 
-  const qty = () => Math.max(1, Number.parseInt(quantity, 10) || 1);
+  /** Normalised quantity, sent as a string to match the documented request. */
+  const qty = () => String(Math.max(1, Number.parseInt(quantity, 10) || 1));
+
+  /**
+   * Parse the optional `attributes` JSON. Returns `undefined` when blank (the
+   * key is then omitted) and `null` when the text isn't a JSON object, which
+   * the caller treats as a validation failure.
+   */
+  const parseAttributes = (): Record<string, unknown> | undefined | null => {
+    const raw = npAttributes.trim();
+    if (!raw) return undefined;
+    try {
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+      return parsed as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  };
 
   // API 11 — stage an existing catalog variant.
   const handleStage = async (line: VerificationLine) => {
@@ -131,6 +158,12 @@ export function SuggestReplacementPanel({
       toast.error(S.NP_REQUIRED);
       return;
     }
+    const attributes = parseAttributes();
+    if (attributes === null) {
+      toast.error(S.NP_ATTRIBUTES_INVALID);
+      return;
+    }
+    const images = npImages.map((i) => i.trim()).filter(Boolean);
     try {
       await suggestNewProduct({
         orderId,
@@ -141,7 +174,11 @@ export function SuggestReplacementPanel({
           name: npName.trim(),
           base_price: npPrice.trim(),
           sku: npSku.trim(),
+          description: npDescription.trim() || undefined,
           note: note.trim() || undefined,
+          // Optional keys are omitted entirely rather than sent empty.
+          attributes,
+          images: images.length ? images : undefined,
         },
       }).unwrap();
       toast.success(T.STAGED);
@@ -309,6 +346,31 @@ export function SuggestReplacementPanel({
                         }
                         options={categoryOptions}
                         width="100%"
+                      />
+                    </FormField>
+                    <FormField label={S.NP_DESCRIPTION}>
+                      <Input
+                        placeholder={S.NP_DESCRIPTION_PLACEHOLDER}
+                        value={npDescription}
+                        onChange={(e) => setNpDescription(e.target.value)}
+                      />
+                    </FormField>
+                    <FormField label={S.NP_IMAGES}>
+                      <StringListField
+                        values={npImages}
+                        onChange={setNpImages}
+                        placeholder={S.NP_IMAGES_PLACEHOLDER}
+                        addLabel={S.NP_IMAGES_ADD}
+                        emptyHint={S.NP_IMAGES_EMPTY}
+                        mono
+                      />
+                    </FormField>
+                    <FormField label={S.NP_ATTRIBUTES} hint={S.NP_ATTRIBUTES_HINT}>
+                      <Textarea
+                        className="mono h-20"
+                        placeholder={S.NP_ATTRIBUTES_PLACEHOLDER}
+                        value={npAttributes}
+                        onChange={(e) => setNpAttributes(e.target.value)}
                       />
                     </FormField>
                     <FormField label={S.NOTE}>

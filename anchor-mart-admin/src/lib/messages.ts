@@ -345,6 +345,105 @@ export const MESSAGES = {
       DELIVER_BY: "Deliver by (optional)",
       DELIVER_BY_HINT: "Leave blank to let the system compute the SLA date.",
       ASSIGNING: "Assigning…",
+      // Drawer detail sections (order detail API)
+      LOADING: "Loading order details…",
+      ERROR: "Could not load order details.",
+      RETRY: "Retry",
+      // Section headings
+      ORDER_SUMMARY: "Order Summary",
+      CUSTOMER_INFO: "Customer Information",
+      VESSEL_SHIPPING: "Vessel & Shipping",
+      PRICING: "Pricing Breakdown",
+      PAYMENT_INFO: "Payment Information",
+      DELIVERY_PARTNER: "Delivery Partner",
+      NOTES_SECTION: "Notes",
+      // Field labels
+      EMAIL: "Email",
+      PHONE: "Phone",
+      VESSEL: "Vessel",
+      PORT: "Port",
+      ANCHORAGE: "Anchorage / Terminal",
+      EXPECTED_STAY: "Expected Stay",
+      ORDER_DATE: "Order Date",
+      SUBTOTAL: "Subtotal",
+      SHIPPING_FEE: "Shipping Fee",
+      TAX: "Tax",
+      DISCOUNT: "Discount",
+      TOTAL: "Total",
+      PAYMENT_STATUS: "Payment Status",
+      PAYMENT_METHOD: "Payment Method",
+      COUPON: "Coupon Applied",
+      PARTNER_NAME: "Partner",
+      PARTNER_STATUS_LABEL: "Status",
+      EXPRESS: "Express",
+      EMERGENCY: "Emergency",
+      NO_ITEMS: "No items in this order.",
+      NO_PARTNER: "Not yet assigned",
+      NO_NOTES: "No notes.",
+      UNIT_PRICE: (p: string) => `@ ${p}`,
+      ITEM_SUBTOTAL: (s: string) => s,
+      SKU: (sku: string) => `SKU: ${sku}`,
+      // ── Drawer information architecture (summary strip + tabs) ──────────
+      TABS: {
+        OVERVIEW: "Overview",
+        ITEMS: (n: number) => (n > 0 ? `Items & Pricing · ${n}` : "Items & Pricing"),
+        FULFILMENT: "Fulfilment",
+      },
+      // Summary strip — the at-a-glance facts above the tabs
+      SUMMARY: {
+        TOTAL: "Order Total",
+        ITEMS: "Items",
+        SUBMITTED: "Created Intent on",
+        PORT: "Port",
+        ARRIVAL: "Ship Arrival",
+      },
+      // Lifecycle rail — grouped stages of the pre-delivery journey
+      STAGES: {
+        RECEIVED: "Received",
+        SOURCING: "Sourcing",
+        VERIFYING: "Verifying",
+        REVIEWED: "Reviewed",
+        BILLING: "Billing",
+        CONFIRMED: "Confirmed",
+      },
+      STAGE_OF: (current: number, total: number) => `Stage ${current} of ${total}`,
+      TERMINAL_NOTICE: (label: string) => `${label} — this order is closed.`,
+      // Colour key for the progress rail — the segment colours carry meaning, so
+      // they are explained rather than left to be inferred.
+      RAIL_LEGEND: {
+        OPEN_LABEL: "What do these colours mean?",
+        TITLE: "Timeline colours",
+        DONE: "Completed",
+        DONE_HINT: "This step has already happened.",
+        ACTIVE: "In progress",
+        ACTIVE_HINT: "Where the order sits right now.",
+        PENDING: "Not started",
+        PENDING_HINT: "Still ahead of this order.",
+        CLOSED: "Closed",
+        CLOSED_HINT: "Rejected, cancelled or refunded — the bar is replaced by a red notice.",
+      },
+      // Next-step / blocked callout above the tabs
+      NEXT_STEP: "Next step",
+      BLOCKED: "Action blocked",
+      // Items table columns
+      ITEM_COLUMNS: {
+        ITEM: "Item",
+        QTY: "Qty",
+        UNIT: "Unit Price",
+        SUBTOTAL: "Subtotal",
+        AVAILABILITY: "Availability",
+      },
+      NO_EMAIL: "No email on file",
+      NO_PHONE: "No phone on file",
+      NO_VERIFICATION: "No verification report yet — nothing to substitute.",
+      // Flow 28 API 16 — live milestone ladder
+      TIMELINE_SECTION: "Order Timeline",
+      TIMELINE_LOADING: "Loading timeline…",
+      TIMELINE_EMPTY: "No milestones recorded yet.",
+      // Flow 07 API 2 — re-price a bill that is already pending
+      UPDATE_BILL: "Update Bill",
+      COPY_REF: "Copy order number",
+      COPIED: "Order number copied",
     },
     // Reject-intent popup (Flow 05 API 6 — reason is required)
     REJECT_DIALOG: {
@@ -396,6 +495,16 @@ export const MESSAGES = {
       NP_CATEGORY_PLACEHOLDER: "Select a category…",
       NP_CATEGORY_LOADING: "Loading categories…",
       NP_REQUIRED: "Name, SKU, price and category are required.",
+      NP_DESCRIPTION: "Description (optional)",
+      NP_DESCRIPTION_PLACEHOLDER: "What this product is…",
+      NP_IMAGES: "Image paths (optional)",
+      NP_IMAGES_PLACEHOLDER: "variant_images/example.jpeg",
+      NP_IMAGES_ADD: "Add image path",
+      NP_IMAGES_EMPTY: "No images yet.",
+      NP_ATTRIBUTES: "Attributes (optional JSON)",
+      NP_ATTRIBUTES_PLACEHOLDER: '{ "color": "red", "size": "M" }',
+      NP_ATTRIBUTES_HINT: "A JSON object. Leave blank to omit.",
+      NP_ATTRIBUTES_INVALID: "Attributes must be a valid JSON object.",
       STAGE: "Stage suggestion",
       STAGING: "Staging…",
       STAGED_TITLE: "Suggestions",
@@ -419,6 +528,13 @@ export const MESSAGES = {
       CONFIRM: "Create Bill & Notify",
       CREATING: "Creating…",
       CANCEL: "Cancel",
+      // Flow 07 API 2 — update-bill reuses the same fee form in "update" mode.
+      UPDATE_TITLE: "Update Payment Bill",
+      UPDATE_DESCRIPTION: (ref: string) =>
+        `Re-price the pending bill for order ${ref}. Any open payment link is voided and the sailor is notified again.`,
+      UPDATE_CONFIRM: "Update Bill & Notify",
+      UPDATING: "Updating…",
+      UPDATE_HINT: "Leave a fee blank to keep its current value.",
     },
     // Toasts
     TOAST: {
@@ -439,6 +555,9 @@ export const MESSAGES = {
       BILLED: (ref: string, amount: string) =>
         `Bill created for ${ref} ($${amount}) — sailor notified to pay.`,
       BILL_FAILED: "Could not create the bill. Please try again.",
+      BILL_UPDATED: (ref: string, amount: string) =>
+        `Bill for ${ref} updated to $${amount} — sailor notified again.`,
+      BILL_UPDATE_FAILED: "Could not update the bill. Please try again.",
     },
   },
   SPECIAL_REQUESTS: {

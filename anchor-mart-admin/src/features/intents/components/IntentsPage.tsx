@@ -27,7 +27,7 @@ import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
 import { toast } from "sonner";
-import { useCreateBillMutation } from "../api/billingApi";
+import { useCreateBillMutation, useUpdateBillMutation } from "../api/billingApi";
 import {
   useGetIntentStatsQuery,
   useGetIntentsQuery,
@@ -99,13 +99,13 @@ const INTENT_FILTER_KEYS = [
   "intent_rejected",
 ];
 
-// Descriptive views the endpoint also accepts — these are cross-status filters,
-// not real lifecycle statuses, so they sit after the status list.
+// The eight values above are exactly the enum the API collection documents for
+// `?status=`. The flow doc also mentions two derived views (`ready_to_bill`,
+// `awaiting_customer`) but the collection doesn't list them, so they are kept
+// out of the dropdown rather than risking a 400 on an unsupported value.
 const STATUS_OPTIONS = [
   { value: "all", label: M.ALL_STATUS },
   ...INTENT_FILTER_KEYS.map((key) => ({ value: key, label: ORDER_STATUS_BY_KEY[key].label })),
-  { value: "ready_to_bill", label: M.STATUS_VIEW.READY_TO_BILL },
-  { value: "awaiting_customer", label: M.STATUS_VIEW.AWAITING_CUSTOMER },
 ];
 
 export function IntentsPage() {
@@ -120,6 +120,8 @@ export function IntentsPage() {
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isRejectOpen, setIsRejectOpen] = useState(false);
   const [isBillOpen, setIsBillOpen] = useState(false);
+  /** create → Flow 07 API 1; update → API 2 (re-price an already-pending bill). */
+  const [billMode, setBillMode] = useState<"create" | "update">("create");
   const [isLegendOpen, setIsLegendOpen] = useState(false);
   /** Which row's claim is in flight — scopes the spinner to that button. */
   const [claimingId, setClaimingId] = useState<string | null>(null);
@@ -129,6 +131,7 @@ export function IntentsPage() {
   const [rejectIntent, { isLoading: isRejecting }] = useRejectIntentMutation();
   const [releaseSuggestions, { isLoading: isReleasing }] = useReleaseSuggestionsMutation();
   const [createBill, { isLoading: isBilling }] = useCreateBillMutation();
+  const [updateBill, { isLoading: isUpdatingBill }] = useUpdateBillMutation();
 
   // Intents list — search + status filter server-side; paginated by DRF.
   const statusParam = statusFilter !== "all" ? statusFilter : undefined;
@@ -239,27 +242,37 @@ export function IntentsPage() {
       }
       return;
     }
-    if (action === "bill") {
+    // `bill` opens the fee popup in create mode; `awaiting_payment` means a bill
+    // already exists, so the same popup runs in update mode (API 2 — create-bill
+    // 409s on a second call).
+    if (action === "bill" || action === "awaiting_payment") {
       // Close the drawer first — the fee popup (a custom Dialog) would render
       // behind the Sheet overlay otherwise. `selectedIntent` is retained.
+      setBillMode(action === "bill" ? "create" : "update");
       setIsReviewOpen(false);
       setIsBillOpen(true);
-      return;
     }
-    // assign (and any other) — partner assignment isn't wired yet.
-    toast.info(M.TOAST.ASSIGN_PENDING);
+    // `assign` / `waiting_*` never reach here: assignment is handled inside the
+    // drawer (it owns the partner picker) and waiting states have no action.
   };
 
   /**
-   * Flow 07 API 1 — create the payment bill with the entered fees. The subtotal
-   * is computed server-side. Surfaces the gate/stage errors: 409 (claim first /
-   * already billed / unconfirmed substitutions), 403 (wrong owner), 400.
+   * Flow 07 API 1 (create) / API 2 (update) — set the fee breakdown. The
+   * subtotal is computed server-side in both cases and is never sent.
+   *
+   * Create surfaces 409 for unclaimed / already paid / already-pending-bill /
+   * unconfirmed substitutions; update surfaces 400 when the order isn't
+   * `payment_pending`. The backend's own message is preferred over ours.
    */
   const handleConfirmBill = async (fees: BillFees) => {
     if (!selectedIntent) return;
+    const isUpdate = billMode === "update";
+    const body = { order_id: selectedIntent.id, ...fees };
     try {
-      const res = await createBill({ order_id: selectedIntent.id, ...fees }).unwrap();
-      toast.success(M.TOAST.BILLED(res.order_number || selectedIntent.r, res.amount ?? ""));
+      const res = await (isUpdate ? updateBill(body) : createBill(body)).unwrap();
+      const ref = res.order_number || selectedIntent.r;
+      const amount = res.amount ?? "";
+      toast.success(isUpdate ? M.TOAST.BILL_UPDATED(ref, amount) : M.TOAST.BILLED(ref, amount));
       setIsBillOpen(false);
     } catch (err) {
       const status = (err as { status?: unknown })?.status;
@@ -269,7 +282,9 @@ export function IntentsPage() {
         toast.error(getApiMessage(err) ?? O.CLAIM_FIRST);
         return;
       }
-      toast.error(getApiMessage(err) ?? M.TOAST.BILL_FAILED);
+      toast.error(
+        getApiMessage(err) ?? (isUpdate ? M.TOAST.BILL_UPDATE_FAILED : M.TOAST.BILL_FAILED),
+      );
     }
   };
 
@@ -465,11 +480,12 @@ export function IntentsPage() {
         onConfirm={handleConfirmReject}
       />
 
-      {/* Create-bill fee popup (Flow 07 API 1) */}
+      {/* Fee popup — create (Flow 07 API 1) or update (API 2) the bill */}
       <CreateBillDialog
         isOpen={isBillOpen}
+        mode={billMode}
         orderRef={selectedIntent?.r ?? ""}
-        isLoading={isBilling}
+        isLoading={isBilling || isUpdatingBill}
         onClose={() => setIsBillOpen(false)}
         onConfirm={handleConfirmBill}
       />

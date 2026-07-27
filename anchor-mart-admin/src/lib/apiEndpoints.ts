@@ -109,7 +109,8 @@ export const SAILOR_ENDPOINTS = {
   GET_SAILORS: "/superadmin/sailors/sailors-list/",
   GET_STATS: "/superadmin/sailors/stats/",
   GET_SAILOR: (id: string) => `/superadmin/sailors/sailor/${id}/`,
-  // Create goes through the shared admin create-user endpoint (role: "customer").
+  // Create goes through the shared admin create-user endpoint; the `role` in the
+  // body picks the user type — a sailor is created as "customer".
   CREATE_SAILOR: "/superadmin/admin/create-user/",
   UPDATE_SAILOR: (id: string) => `/superadmin/sailors/sailor/${id}/update/`,
   DELETE_SAILOR: (id: string) => `/superadmin/sailors/sailor/${id}/delete/`,
@@ -189,6 +190,9 @@ export const ASSIGNMENT_ENDPOINTS = {
   ASSIGN_ORDER: "/superadmin/partner/assign-order/",
   // Flow 28 API 11 — partners scoped to an order's capability (verify/deliver) + port.
   ASSIGNABLE_PARTNERS: "/superadmin/partner/assignable-partners/",
+  // Flow 28 API 16 — milestone ladder for one order (`steps` / `terminal_state` /
+  // raw `history`), shared with the customer track screen. Query: `order_id`.
+  ORDER_TIMELINE: "/superadmin/partner/order-timeline/",
 };
 
 export const SPECIAL_REQUEST_ENDPOINTS = {

@@ -210,8 +210,16 @@ export function SailorsPage() {
 
   const handleSaveSailor = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formFirstName.trim() || !formEmail.trim()) {
-      toast.error("First name and email are required");
+    // create-user requires email, role, first_name, country_code and
+    // whatsapp_number; only last_name is optional. Checked here so a missing
+    // number surfaces as a field prompt rather than a 400 from the API.
+    if (
+      !formFirstName.trim() ||
+      !formEmail.trim() ||
+      !formWhatsapp.trim() ||
+      !formCountryCode.trim()
+    ) {
+      toast.error("First name, email, country code and WhatsApp number are required");
       return;
     }
 

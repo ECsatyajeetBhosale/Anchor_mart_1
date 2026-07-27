@@ -5,6 +5,8 @@ import type {
   ApiUnassignedOrdersResponse,
   AssignOrderPayload,
   AssignablePartner,
+  OrderTimeline,
+  OrderTimelineStep,
   UnassignedOrder,
 } from "../types/assignment.types";
 
@@ -58,11 +60,12 @@ export const assignmentApi = baseApi.injectEndpoints({
       providesTags: [{ type: "Assignments", id: "UNASSIGNED-LIST" }],
     }),
 
-    // Flow 28 API 11 — assignable partners. Passing `orderId` scopes to the
-    // order's capability + port; omitting it returns ALL available partners
-    // (capability-unfiltered, per the doc). We currently omit it while the
-    // backend port/capability test data is being set up.
-    getAssignablePartners: builder.query<AssignablePartner[], { orderId?: string } | void>({
+    // Flow 28 API 11 — assignable partners. Passing `orderId` scopes the list to
+    // the order's port and the capability its phase needs; omitting it returns
+    // ALL available partners, capability-unfiltered. Callers currently omit it,
+    // because the scoped list is empty until partner port/capability data is
+    // complete — the assign write enforces the rule regardless.
+    getAssignablePartners: builder.query<AssignablePartner[], { orderId?: string }>({
       query: (arg) => ({
         url: ASSIGNMENT_ENDPOINTS.ASSIGNABLE_PARTNERS,
         method: "GET",
@@ -90,6 +93,40 @@ export const assignmentApi = baseApi.injectEndpoints({
       ],
     }),
 
+    /**
+     * Flow 28 API 16 — the milestone ladder for one order. Replaces guessing a
+     * position from the current status: these steps carry real timestamps and
+     * `is_done` flags. Field names are read defensively because the response
+     * shape isn't pinned by an example in the collection.
+     */
+    getOrderTimeline: builder.query<OrderTimeline, string>({
+      query: (orderId) => ({
+        url: ASSIGNMENT_ENDPOINTS.ORDER_TIMELINE,
+        method: "GET",
+        params: { order_id: orderId },
+      }),
+      transformResponse: (res: unknown): OrderTimeline => {
+        const body = getProp(res, "data") ?? res;
+        // `steps` is the documented key; fall back to the raw history dump.
+        const rows = asArray(getProp(body, "steps")) ?? asArray(getProp(body, "history")) ?? [];
+        const steps = rows.map((raw, idx): OrderTimelineStep => {
+          const at = pick(raw, "at", "timestamp", "changed_at", "created_at");
+          const done = getProp(raw, "is_done") ?? getProp(raw, "done") ?? getProp(raw, "completed");
+          return {
+            key: pick(raw, "key", "code", "status") || `step-${idx}`,
+            label: pick(raw, "label", "title", "status_display", "status") || "—",
+            at: at || null,
+            // A missing flag means "done if it has a timestamp" — history rows
+            // are records of things that already happened.
+            is_done: typeof done === "boolean" ? done : !!at,
+            detail: pick(raw, "detail", "note", "description") || null,
+          };
+        });
+        return { steps, terminalState: pick(body, "terminal_state", "terminalState") };
+      },
+      providesTags: (_r, _e, orderId) => [{ type: "Assignments", id: `TIMELINE-${orderId}` }],
+    }),
+
     // Flow 28 API 12 — assign (or reassign) an order to a delivery partner.
     assignOrder: builder.mutation<unknown, AssignOrderPayload>({
       query: (body) => ({
@@ -101,6 +138,7 @@ export const assignmentApi = baseApi.injectEndpoints({
       // assignment moves the order to `partner_verifying`.
       invalidatesTags: (_r, _e, { order_id }) => [
         { type: "Assignments", id: "UNASSIGNED-LIST" },
+        { type: "Assignments", id: `TIMELINE-${order_id}` },
         { type: "Intents", id: order_id },
         { type: "Intents", id: "PARTIAL-LIST" },
         { type: "Intents", id: "STATS" },
@@ -113,5 +151,6 @@ export const assignmentApi = baseApi.injectEndpoints({
 export const {
   useGetUnassignedOrdersQuery,
   useGetAssignablePartnersQuery,
+  useGetOrderTimelineQuery,
   useAssignOrderMutation,
 } = assignmentApi;

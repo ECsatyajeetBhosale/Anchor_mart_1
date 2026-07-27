@@ -6,6 +6,7 @@ export { useAssignmentColumns } from "./components/assignmentColumns";
 export {
   useGetUnassignedOrdersQuery,
   useGetAssignablePartnersQuery,
+  useGetOrderTimelineQuery,
   useAssignOrderMutation,
 } from "./api/assignmentApi";
 export type {
@@ -13,5 +14,7 @@ export type {
   AssignablePartner,
   AssignOrderPayload,
   AvailablePartner,
+  OrderTimeline,
+  OrderTimelineStep,
   UnassignedOrder,
 } from "./types/assignment.types";

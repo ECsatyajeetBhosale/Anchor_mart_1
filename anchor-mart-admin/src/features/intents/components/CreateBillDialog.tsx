@@ -24,6 +24,12 @@ export interface BillFees {
 
 export interface CreateBillDialogProps {
   isOpen: boolean;
+  /**
+   * `create` → Flow 07 API 1 (first bill). `update` → API 2, for an order
+   * already at `payment_pending`: create-bill refuses a second call, so a fee
+   * correction has to go through update-bill.
+   */
+  mode?: "create" | "update";
   orderRef: string;
   isLoading: boolean;
   onClose: () => void;
@@ -43,11 +49,13 @@ function fee(value: string): string | undefined {
  */
 export function CreateBillDialog({
   isOpen,
+  mode = "create",
   orderRef,
   isLoading,
   onClose,
   onConfirm,
 }: CreateBillDialogProps) {
+  const isUpdate = mode === "update";
   const [shipping, setShipping] = useState("");
   const [tax, setTax] = useState("");
   const [platform, setPlatform] = useState("");
@@ -72,12 +80,14 @@ export function CreateBillDialog({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{B.TITLE}</DialogTitle>
-          <DialogDescription>{B.DESCRIPTION(orderRef)}</DialogDescription>
+          <DialogTitle>{isUpdate ? B.UPDATE_TITLE : B.TITLE}</DialogTitle>
+          <DialogDescription>
+            {isUpdate ? B.UPDATE_DESCRIPTION(orderRef) : B.DESCRIPTION(orderRef)}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="form-row !mb-0">
-          <FormField label={B.SHIPPING_FEE} hint={B.HINT}>
+          <FormField label={B.SHIPPING_FEE} hint={isUpdate ? B.UPDATE_HINT : B.HINT}>
             <Input
               type="number"
               step="0.01"
@@ -115,7 +125,13 @@ export function CreateBillDialog({
           </Button>
           <Button variant="primary" size="sm" onClick={handleConfirm} disabled={isLoading}>
             <IconFileInvoice size={15} className="mr-1" />
-            {isLoading ? B.CREATING : B.CONFIRM}
+            {isLoading
+              ? isUpdate
+                ? B.UPDATING
+                : B.CREATING
+              : isUpdate
+                ? B.UPDATE_CONFIRM
+                : B.CONFIRM}
           </Button>
         </DialogFooter>
       </DialogContent>

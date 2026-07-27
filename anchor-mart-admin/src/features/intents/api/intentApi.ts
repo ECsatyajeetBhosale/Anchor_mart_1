@@ -8,6 +8,8 @@ import type {
   IntentApiItem,
   IntentBadgeVariant,
   IntentData,
+  IntentDetail,
+  IntentDetailItem,
   IntentItem,
   IntentListResult,
   IntentStats,
@@ -233,8 +235,125 @@ export const intentApi = baseApi.injectEndpoints({
         { type: "Intents", id: "STATS" },
       ],
     }),
+
+    /**
+     * Fetch full order detail for the intent review drawer. Uses the shared
+     * order detail endpoint (`GET /superadmin/orders/orders/{id}/`) because the
+     * intent list only returns summary data. The full payload includes items
+     * with pricing, shipping address, payment, assignment, and notes.
+     */
+    getIntentDetail: builder.query<IntentDetail, string>({
+      query: (id) => ({
+        url: ORDER_ENDPOINTS.ORDER_DETAIL(id),
+        method: "GET",
+      }),
+      transformResponse: (res: unknown): IntentDetail => {
+        // The detail endpoint may wrap in { data } or return flat.
+        const o = (getProp(res, "data") ?? res) as Record<string, unknown>;
+        const customer = o.customer as Record<string, unknown> | null | undefined;
+        const shipping = o.shipping_address as Record<string, unknown> | null | undefined;
+        const port = o.port as Record<string, unknown> | null | undefined;
+        const anchorage = o.anchorage as Record<string, unknown> | null | undefined;
+        const assignment = o.active_assignment as Record<string, unknown> | null | undefined;
+
+        const items: IntentDetailItem[] = (asArray(o.items as unknown) ?? []).map(
+          (raw: unknown, idx: number) => {
+            const r = raw as Record<string, unknown>;
+            const variant = r.variant as Record<string, unknown> | null | undefined;
+            const requestedQty = num(r.quantity ?? r.qty ?? r.requested_qty) || 1;
+            const availableRaw = r.available_qty;
+            const availableQty = typeof availableRaw === "number" ? availableRaw : null;
+            const isAvailableRaw = r.is_available;
+            const isAvailable = typeof isAvailableRaw === "boolean" ? isAvailableRaw : null;
+            const shortfallRaw = r.shortfall;
+            const shortfall =
+              typeof shortfallRaw === "number"
+                ? shortfallRaw
+                : availableQty !== null
+                  ? Math.max(0, requestedQty - availableQty)
+                  : 0;
+            return {
+              id: str(r.id) || `item-${idx}`,
+              orderItemId: str(r.id),
+              name: str(r.product_name) || str(variant?.product_name) || "Item",
+              sku: str(r.sku) || str(variant?.sku),
+              qty: requestedQty,
+              unitPrice: str(r.unit_price),
+              subtotal: str(r.subtotal),
+              available: isAvailable,
+              availableQty,
+              shortfall,
+              needsSuggestion:
+                r.needs_suggestion === true || isAvailable === false || shortfall > 0,
+            };
+          },
+        );
+
+        const adminRaw = o.assigned_admin;
+        const assignedAdmin = mapAssignedAdmin(adminRaw);
+
+        const statusRaw = str(o.status);
+        const needsSub = o.substitution_needed === true || items.some((i) => i.needsSuggestion);
+
+        return {
+          id: str(o.id),
+          orderNumber: str(o.order_number) || str(o.id),
+          status: statusRaw,
+          statusDisplay: str(o.status_display) || titleCase(statusRaw),
+          // Customer
+          sailorName:
+            `${str(customer?.first_name)} ${str(customer?.last_name)}`.trim() ||
+            str(customer?.full_name) ||
+            str(o.customer_name) ||
+            str(o.customer_email) ||
+            "—",
+          sailorEmail: str(customer?.email) || str(o.customer_email) || str(o.user_email),
+          sailorPhone: str(customer?.whatsapp_number) || str(shipping?.contact),
+          // Vessel & shipping
+          vesselName: str(shipping?.vessel_name),
+          imo: str(shipping?.imo) || str(shipping?.imo_number),
+          portName: str(port?.port_name) || str(o.port_name),
+          portCode: str(port?.port_code),
+          anchorageName:
+            str(anchorage?.anchorage_name) || str(o.anchorage_name) || str(port?.port_name) || "—",
+          shipArrivalDate: formatDate(str(o.ship_arrival_date)),
+          expectedStay: str(o.expected_stay) || "—",
+          // Items
+          items,
+          itemCount: num(o.item_count) || num(o.items_count) || items.length,
+          // Pricing
+          subtotal: str(o.subtotal),
+          shippingFee: str(o.shipping_fee),
+          tax: str(o.tax_amount),
+          discount: str(o.discount_amount),
+          total: str(o.total_amount),
+          // Payment
+          paymentStatus: str(o.payment_status_display) || str(o.payment_status),
+          paymentMethod: str(o.payment_method_display) || str(o.payment_method),
+          coupon: str(o.applied_coupon),
+          // Delivery partner
+          partnerName: str(assignment?.partner_name) || str(o.partner_name) || "",
+          partnerStatus: str(assignment?.status_display) || str(assignment?.status),
+          // Ownership
+          assignedAdmin,
+          // Metadata
+          createdAt: formatDate(str(o.created_at)),
+          notes: str(o.notes),
+          isExpress: o.is_express === true,
+          isEmergency: o.is_emergency === true,
+          portId: str(port?.id) || str(o.port_id),
+          substitutionNeeded: needsSub,
+        };
+      },
+      providesTags: (_r, _e, id) => [{ type: "Intents", id }],
+    }),
   }),
   overrideExisting: false,
 });
 
-export const { useGetIntentsQuery, useGetIntentStatsQuery, useRejectIntentMutation } = intentApi;
+export const {
+  useGetIntentsQuery,
+  useGetIntentStatsQuery,
+  useRejectIntentMutation,
+  useGetIntentDetailQuery,
+} = intentApi;

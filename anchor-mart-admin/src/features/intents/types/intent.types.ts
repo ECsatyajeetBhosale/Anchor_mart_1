@@ -114,6 +114,78 @@ export interface IntentData {
   substitutionNeeded: boolean;
 }
 
+/* ------------------------------------------------------------------ */
+/* Intent detail — full order detail fetched on drawer open             */
+/* ------------------------------------------------------------------ */
+
+/** A line item with pricing (from the order detail API). */
+export interface IntentDetailItem {
+  id: string;
+  name: string;
+  sku: string;
+  qty: number;
+  unitPrice: string;
+  subtotal: string;
+  /** true = available, false = unavailable, null = unknown/checking. */
+  available: boolean | null;
+  availableQty: number | null;
+  shortfall: number;
+  needsSuggestion: boolean;
+  /** The `OrderItem` id — required by the suggest API (Flow 06 API 11). */
+  orderItemId: string;
+}
+
+/**
+ * Rich detail model fetched via `GET /superadmin/orders/orders/{id}/` when the
+ * review drawer opens. Supplements the list-level `IntentData` with everything
+ * the admin needs to review, approve, or reject an intent.
+ */
+export interface IntentDetail {
+  id: string;
+  orderNumber: string;
+  status: string;
+  statusDisplay: string;
+  // Customer
+  sailorName: string;
+  sailorEmail: string;
+  sailorPhone: string;
+  // Vessel & shipping
+  vesselName: string;
+  imo: string;
+  portName: string;
+  portCode: string;
+  anchorageName: string;
+  shipArrivalDate: string;
+  expectedStay: string;
+  // Items (full detail with pricing)
+  items: IntentDetailItem[];
+  itemCount: number;
+  // Pricing
+  subtotal: string;
+  shippingFee: string;
+  tax: string;
+  discount: string;
+  total: string;
+  // Payment
+  paymentStatus: string;
+  paymentMethod: string;
+  coupon: string;
+  // Delivery partner
+  partnerName: string;
+  partnerStatus: string;
+  // Ownership
+  assignedAdmin: AssignedAdmin | null;
+  // Metadata
+  createdAt: string;
+  notes: string;
+  isExpress: boolean;
+  isEmergency: boolean;
+  /** Port UUID for the variant picker (Flow 06 API 10); "" when unresolved. */
+  portId: string;
+  /** Row-level Flow 06 signal: at `verification_submitted` with a short/unavailable line. */
+  substitutionNeeded: boolean;
+}
+
 /**
  * What the admin should do next for an intent, derived from status + signals.
  * Drives the drawer's primary action and the queue's action hint.
@@ -226,11 +298,15 @@ export interface StagedSuggestion {
   released: boolean;
 }
 
-/** Request body for staging an existing variant (API 11). */
+/**
+ * Request body for staging an existing variant (API 11).
+ * `quantity` is sent as a string to match the documented request sample
+ * (`"quantity": "3"`); DRF coerces it to an integer.
+ */
 export interface StageSuggestionPayload {
   order_item_id: string;
   variant_id: string;
-  quantity: number;
+  quantity: string;
   note?: string;
 }
 
@@ -265,18 +341,33 @@ export interface CreateBillResponse {
 }
 
 /**
- * Request body for creating + suggesting a brand-new product (API 12). Wired
- * for completeness; the create-product form is a follow-up (Products territory).
+ * Body of `PATCH /superadmin/payments/update-bill/` (Flow 07 API 2). Same shape
+ * as create-bill; omitted fees keep their current value. Only valid while the
+ * order is `payment_pending` — `create-bill` 409s on a second call, so this is
+ * the only way to re-price a bill.
+ */
+export type UpdateBillPayload = CreateBillPayload;
+
+/** Success body of update-bill — same shape as create-bill. */
+export type UpdateBillResponse = CreateBillResponse;
+
+/**
+ * Request body for creating + suggesting a brand-new product (API 12).
+ * `quantity` and `base_price` are strings, matching the documented sample.
+ * `attributes` is a free-form JSON object and `images` a list of stored paths
+ * (e.g. `variant_images/…`), both optional.
  */
 export interface SuggestNewProductPayload {
   order_item_id: string;
-  quantity: number;
+  quantity: string;
   category: string;
   name: string;
   base_price: string;
   sku: string;
   description?: string;
   note?: string;
+  attributes?: Record<string, unknown>;
+  images?: string[];
   catalog_type?: string;
   admin_sourceable?: boolean;
 }

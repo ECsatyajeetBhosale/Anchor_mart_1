@@ -84,6 +84,27 @@ export interface AssignablePartner {
   isAvailable: boolean;
 }
 
+/**
+ * One milestone on an order's ladder (Flow 28 API 16 · `order-timeline`).
+ * Mirrors the `OrderTimelineItem` shape the shared `Timeline` component renders,
+ * so a mapped step can be handed to it directly.
+ */
+export interface OrderTimelineStep {
+  key: string;
+  label: string;
+  /** Display timestamp, or null when the step hasn't happened yet. */
+  at: string | null;
+  is_done: boolean;
+  detail?: string | null;
+}
+
+/** The milestone ladder for one order, plus its terminal state when closed. */
+export interface OrderTimeline {
+  steps: OrderTimelineStep[];
+  /** e.g. "cancelled" / "delivered" / "intent_rejected"; "" while in flight. */
+  terminalState: string;
+}
+
 /** A delivery partner available for assignment. */
 export interface AvailablePartner {
   /** Partner code, e.g. "DP-00056". */

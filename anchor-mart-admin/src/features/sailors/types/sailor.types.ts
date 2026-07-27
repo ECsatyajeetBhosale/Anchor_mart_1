@@ -89,7 +89,13 @@ export interface SailorStats {
   referrals?: number;
 }
 
-/** Payload for `POST admin/create-user/`. */
+/**
+ * Payload for `POST admin/create-user/`.
+ *
+ * The endpoint is shared across every user type and the role decides which one
+ * is created — a sailor is a `customer`, so the literal type keeps the other
+ * roles (seller / admin / super_admin / delivery_partner) out of this call.
+ */
 export interface CreateSailorPayload {
   email: string;
   role: "customer";
