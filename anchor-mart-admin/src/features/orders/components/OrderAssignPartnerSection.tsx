@@ -127,20 +127,21 @@ export function OrderAssignPartnerSection({
   const handleClaim = async () => {
     try {
       const res = await claimOrder(orderId).unwrap();
-      console.log("[assign-order] claim succeeded", res);
+      if (import.meta.env.DEV) console.log("[assign-order] claim succeeded", res);
       setClaimedLocal(true);
       toast.success(res.message ?? M.CLAIM_SUCCESS);
     } catch (error) {
       // Claiming is the precondition for assigning, so a failure here explains
       // a later 409 from assign-order.
       const reason = getApiMessage(error, { labelFields: false });
-      console.error("[assign-order] claim failed", {
-        status: (error as { status?: unknown })?.status,
-        data: (error as { data?: unknown })?.data,
-        message: reason,
-        orderId,
-        error,
-      });
+      if (import.meta.env.DEV)
+        console.error("[assign-order] claim failed", {
+          status: (error as { status?: unknown })?.status,
+          data: (error as { data?: unknown })?.data,
+          message: reason,
+          orderId,
+          error,
+        });
       toast.error(reason ?? M.OTHER_ADMIN);
     }
   };
@@ -164,16 +165,20 @@ export function OrderAssignPartnerSection({
     };
     // Traced end-to-end: the picker's capability/port scoping is relaxed, so an
     // assignment can legitimately be rejected server-side. Logging the exact
-    // request and the raw failure makes those rejections diagnosable.
-    console.log("[assign-order] POST /superadmin/partner/assign-order/", {
-      body,
-      partner: { id: selectedId, label: partnerName },
-      order: { id: orderId, status },
-      currentAssignment: current ? { partner: current.partner_name, status: current.status } : null,
-    });
+    // request and the raw failure makes those rejections diagnosable — dev only,
+    // so the trace never reaches a production console.
+    if (import.meta.env.DEV)
+      console.log("[assign-order] POST /superadmin/partner/assign-order/", {
+        body,
+        partner: { id: selectedId, label: partnerName },
+        order: { id: orderId, status },
+        currentAssignment: current
+          ? { partner: current.partner_name, status: current.status }
+          : null,
+      });
     try {
       const res = await assignOrder(body).unwrap();
-      console.log("[assign-order] success", res);
+      if (import.meta.env.DEV) console.log("[assign-order] success", res);
       toast.success(isReassign ? M.REASSIGNED(partnerName) : M.ASSIGNED(partnerName));
       setSelectedId("");
       setForceReassign(false);
@@ -183,13 +188,14 @@ export function OrderAssignPartnerSection({
       // delivery capability), so the backend's sentence stands on its own —
       // `labelFields: false` drops the `delivery_partner_id:` prefix.
       const reason = getApiMessage(err, { labelFields: false });
-      console.error("[assign-order] failed", {
-        status: e?.status,
-        data: e?.data,
-        message: reason,
-        body,
-        error: err,
-      });
+      if (import.meta.env.DEV)
+        console.error("[assign-order] failed", {
+          status: e?.status,
+          data: e?.data,
+          message: reason,
+          body,
+          error: err,
+        });
       if (e?.status === 409 && e?.data?.requires_confirmation) {
         setForceReassign(true);
         toast.error(M.CONFIRM_REASSIGN);

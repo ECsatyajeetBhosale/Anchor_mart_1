@@ -21,6 +21,7 @@ import type { ReactNode } from "react";
 import { Timeline } from "./Timeline";
 
 const M = MESSAGES.ORDERS;
+const D = MESSAGES.ORDERS.DRAWER;
 
 export interface OrderItem {
   name: string;
@@ -144,7 +145,9 @@ export function OrderDetailDrawer({
                   <IconPackage size={22} />
                 </div>
                 <div>
-                  <SheetTitle className="text-[15px] font-extrabold">Order {order.id}</SheetTitle>
+                  <SheetTitle className="text-[15px] font-extrabold">
+                    {D.TITLE(order.id)}
+                  </SheetTitle>
                   <SheetDescription>{order.terminal}</SheetDescription>
                 </div>
               </div>
@@ -162,7 +165,7 @@ export function OrderDetailDrawer({
                 </Badge>
                 <Badge variant="teal" className="h-auto text-[12px] px-3 py-[5px]">
                   <IconClock size={13} className="mr-1 inline" />
-                  Live Tracking
+                  {D.LIVE_TRACKING}
                 </Badge>
               </div>
 
@@ -170,52 +173,52 @@ export function OrderDetailDrawer({
               <Timeline items={timeline} loading={timelineLoading} className="mb-5" />
 
               {/* Order Information */}
-              <div className="sec-label">Order Information</div>
+              <div className="sec-label">{D.ORDER_INFO}</div>
               <div className="detail-kv">
-                <div className="detail-k">Sailor</div>
+                <div className="detail-k">{D.SAILOR}</div>
                 <div className="detail-v">{order.sailor}</div>
               </div>
               <div className="detail-kv">
-                <div className="detail-k">Order Source</div>
+                <div className="detail-k">{D.SOURCE}</div>
                 <div className="detail-v">{order.source || "—"}</div>
               </div>
               <div className="detail-kv">
-                <div className="detail-k">Intent Ref</div>
+                <div className="detail-k">{D.INTENT_REF}</div>
                 <div className="detail-v mono">{order.intent || "—"}</div>
               </div>
               <div className="detail-kv">
-                <div className="detail-k">Ship / IMO</div>
+                <div className="detail-k">{D.SHIP_IMO}</div>
                 <div className="detail-v mono cteal">{order.ship}</div>
               </div>
               <div className="detail-kv">
-                <div className="detail-k">Terminal</div>
+                <div className="detail-k">{D.TERMINAL}</div>
                 <div className="detail-v">{order.terminal}</div>
               </div>
               <div className="detail-kv">
-                <div className="detail-k">Anchorage Change</div>
+                <div className="detail-k">{D.ANCHORAGE_CHANGE}</div>
                 <div className="detail-v">{order.anchorageChange || "—"}</div>
               </div>
               <div className="detail-kv">
-                <div className="detail-k">Delivery Partner</div>
+                <div className="detail-k">{D.PARTNER}</div>
                 <div className="detail-v">{order.partner}</div>
               </div>
               <div className="detail-kv">
-                <div className="detail-k">Payment</div>
+                <div className="detail-k">{D.PAYMENT}</div>
                 <div className="detail-v csuccess">{order.payment}</div>
               </div>
               <div className="detail-kv">
-                <div className="detail-k">Coupon</div>
-                <div className="detail-v">{order.coupon || "None"}</div>
+                <div className="detail-k">{D.COUPON}</div>
+                <div className="detail-v">{order.coupon || D.COUPON_NONE}</div>
               </div>
 
               {/* Feature-owned section (Orders passes partner assignment) */}
               {detailSlot}
 
               {/* Items */}
-              <div className="sec-label mt16">Items</div>
+              <div className="sec-label mt16">{D.ITEMS}</div>
               {order.items.length === 0 ? (
                 <div className="detail-kv">
-                  <div className="detail-v c4 w5">No items</div>
+                  <div className="detail-v c4 w5">{D.NO_ITEMS}</div>
                 </div>
               ) : (
                 order.items.map((item) => (
@@ -231,7 +234,7 @@ export function OrderDetailDrawer({
               {/* Total */}
               <div className="mt16 rounded-[var(--radius-md)] bg-[var(--navy-25)] px-4 py-3.5">
                 <div className="flex jb aic">
-                  <span className="sm c3 w6">Order Total</span>
+                  <span className="sm c3 w6">{D.ORDER_TOTAL}</span>
                   <span className="lg w8">{order.total}</span>
                 </div>
               </div>

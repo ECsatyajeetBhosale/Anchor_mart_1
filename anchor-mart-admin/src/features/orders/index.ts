@@ -1,4 +1,4 @@
-export { OrdersPage } from "@/pages/OrdersPage";
+export { OrdersPage } from "./components/OrdersPage";
 export {
   useGetOrdersQuery,
   useGetOrderDetailQuery,
