@@ -1,12 +1,18 @@
-import { IconClipboardText, IconPhotoOff, IconSend, IconX } from "@tabler/icons-react";
-import { useState } from "react";
-import { toast } from "sonner";
+import {
+  IconAlertTriangle,
+  IconBolt,
+  IconClipboardText,
+  IconFileInvoice,
+  IconPhotoOff,
+  IconPlus,
+  IconX,
+} from "@tabler/icons-react";
 
-import { DropdownSelect } from "@/components/common/DropdownSelect";
-import { FormField } from "@/components/common/FormField";
+import type { ReactNode } from "react";
+
+import { DynamicTabs } from "@/components/common/DynamicTabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Sheet,
   SheetContent,
@@ -15,7 +21,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Textarea } from "@/components/ui/textarea";
 import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
@@ -23,42 +28,37 @@ import {
   specialRequestStatusVariant,
   useGetSpecialRequestDetailQuery,
 } from "../api/specialRequestApi";
+import { dash, formatDate, money, quotedTotal, symbolFor } from "../lib/specialRequestFormat";
+import {
+  canAdminReject,
+  canAllowChanges,
+  canGenerateBill,
+  isAtRebillCap,
+  isKnownStatus,
+} from "../lib/specialRequestStatus";
+import type { SpecialRequestDetail } from "../types/specialRequest.types";
+import { SpecialRequestLifecycleRail } from "./SpecialRequestLifecycleRail";
 
 const M = MESSAGES.SPECIAL_REQUESTS;
+const D = M.DETAIL;
+const RB = M.REBILL_BANNER;
 
-// Communication-preference options for the delivery form.
-const COMM_OPTIONS = [
-  { value: M.COMM_OPTIONS.WHATSAPP, label: M.COMM_OPTIONS.WHATSAPP },
-  { value: M.COMM_OPTIONS.EMAIL, label: M.COMM_OPTIONS.EMAIL },
-];
-
-/** Returns a trimmed string, or "-" when the value is null/undefined/blank. */
-function dash(value: unknown): string {
-  if (value === null || value === undefined) return M.DETAIL.FALLBACK;
-  const s = String(value).trim();
-  return s === "" ? M.DETAIL.FALLBACK : s;
-}
-
-/** Currency-code → symbol map for the budget/price display. */
-const CURRENCY_SYMBOL: Record<string, string> = {
-  USD: "$",
-  INR: "₹",
-  EUR: "€",
-  GBP: "£",
-  SGD: "S$",
-  AED: "AED ",
-};
-
-/**
- * Formats a string/number money amount with its currency symbol, e.g.
- * `("34.00", "USD") → "$34.00"`. Returns "-" for a null/blank amount.
- */
-function money(amount: unknown, currency?: string | null): string {
-  if (amount === null || amount === undefined || String(amount).trim() === "") {
-    return M.DETAIL.FALLBACK;
-  }
-  const symbol = currency ? (CURRENCY_SYMBOL[currency] ?? `${currency} `) : "";
-  return `${symbol}${amount}`;
+/** One key/value row — the Orders-drawer detail layout. */
+function Row({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className="detail-kv">
+      <div className="detail-k">{label}</div>
+      <div className={className ? `detail-v ${className}` : "detail-v"}>{value}</div>
+    </div>
+  );
 }
 
 export interface SpecialRequestDetailDrawerProps {
@@ -66,21 +66,37 @@ export interface SpecialRequestDetailDrawerProps {
   requestId: string | null;
   isOpen: boolean;
   onClose: () => void;
+  /**
+   * Opens the quote popup (Flow 13 API 10). Like the Orders drawer, each action
+   * renders **only** when its handler is supplied — and then only when the
+   * request's status actually allows it.
+   */
+  onGenerateBill?: (detail: SpecialRequestDetail) => void;
+  /** Opens the reject-reason popup (Flow 13 API 11). */
+  onReject?: (detail: SpecialRequestDetail) => void;
+  /** Opens the raise-the-rebill-cap popup (Flow 13 API 12). */
+  onAllowChanges?: (detail: SpecialRequestDetail) => void;
 }
 
 /**
- * Right-side review drawer for a special-request item — mirrors the Intent
- * review drawer (shadcn `Sheet`). Fetches the full request detail by id when
- * opened and populates the existing layout; renders loading / error / empty
- * states while the data is in flight.
+ * Right-side review drawer for a special request, built on the shared shadcn
+ * `Sheet` and matching the Orders drawer: icon-tile header, lifecycle rail,
+ * status badges, then `sec-label` sections of `detail-kv` rows and a
+ * highlighted total block.
+ *
+ * The footer actions are gated on the Flow 13 state machine: quote and reject
+ * only before the request is quoted, allow-changes on anything not closed. When
+ * no action is legal the footer explains whose move it is instead of offering a
+ * button that would 400.
  */
 export function SpecialRequestDetailDrawer({
   requestId,
   isOpen,
   onClose,
+  onGenerateBill,
+  onReject,
+  onAllowChanges,
 }: SpecialRequestDetailDrawerProps) {
-  const [commPref, setCommPref] = useState<string>(M.COMM_OPTIONS.WHATSAPP);
-
   // Fetch only when the drawer is open and a row id is present.
   const {
     data: detail,
@@ -95,54 +111,81 @@ export function SpecialRequestDetailDrawer({
   // flashes between opening the drawer and the request kicking off.
   const isBusy = isFetching || isUninitialized;
 
-  const reject = () => {
-    onClose();
-    toast.error(M.TOAST.REJECTED);
-  };
-  const confirm = () => {
-    onClose();
-    toast.success(M.TOAST.PAYMENT_SENT);
-  };
-
-  // Derived, "-"-guarded view values (only meaningful once `detail` resolves).
+  // Derived, fallback-guarded view values (meaningful once `detail` resolves).
   const user = detail?.user ?? undefined;
-  const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(" ").trim();
-  const avatarKey = user?.id || fullName || requestId || "special-request";
-  const avatarSrc = user?.profile_picture || getFallbackAvatar(avatarKey);
-  const statusLabel = dash(detail?.status_display);
-  const statusVar = specialRequestStatusVariant(detail?.status ?? "");
-  const images = detail?.images ?? [];
+  // The API frequently sends empty first/last names, so the email is the only
+  // usable identity — fall back to it rather than rendering a bare dash.
+  const fullName =
+    [user?.first_name, user?.last_name].filter(Boolean).join(" ").trim() || (user?.email ?? "");
+  // The detail endpoint does expose a real profile picture (unlike the list),
+  // so prefer it and only fall back to the deterministic placeholder.
+  const avatarSrc = user?.profile_picture || getFallbackAvatar(user?.id || fullName || "sailor");
+  const currency = detail?.currency;
   const productName = dash(detail?.product_name);
-  const maxBudget = money(detail?.max_budget, detail?.currency);
-  const fastestDelivery = detail?.is_fastest_delivery ? M.DETAIL.YES : M.DETAIL.NO;
-  const fastDeliveryCharge = money(detail?.fast_delivery_charge, detail?.currency);
-  const quotedPrice = money(detail?.quoted_price, detail?.currency);
-  // Rebill summary, e.g. "Requested · 1 / 2" or "Not requested · 0 / 2".
-  const rebillSummary = `${detail?.rebill_requested ? M.DETAIL.YES : M.DETAIL.NO} · ${
-    detail?.rebill_count ?? 0
-  } / ${detail?.rebill_cap ?? 0}`;
+  // `images` is the gallery, but a request can carry only a `primary_image` —
+  // fall back to it rather than claiming there is no image.
+  const images = detail?.images?.length
+    ? detail.images
+    : detail?.primary_image
+      ? [detail.primary_image]
+      : [];
+  const total = quotedTotal(
+    detail?.quoted_price,
+    detail?.quantity,
+    detail?.fast_delivery_charge,
+    detail?.is_fastest_delivery,
+  );
+
+  // Quote above the sailor's stated ceiling — compared on the same basis the
+  // sailor sees (the full quoted total, not the per-unit price).
+  const budget = Number(detail?.max_budget);
+  const overBudget = total !== null && !Number.isNaN(budget) && budget > 0 && total > budget;
+
+  // Flow 13 gates — which of the three admin actions this status permits.
+  const status = detail?.status ?? "";
+  const showBill = !!onGenerateBill && !!detail && canGenerateBill(status);
+  const showReject = !!onReject && !!detail && canAdminReject(status);
+  const showAllowChanges = !!onAllowChanges && !!detail && canAllowChanges(status);
+  const hasActions = showBill || showReject || showAllowChanges;
+  const atCap = isAtRebillCap(detail?.rebill_count, detail?.rebill_cap);
+
+  /**
+   * When something is unavailable, say why. `quote_sent` isn't stuck — the ball
+   * is simply in the sailor's court. The final branch covers a status outside
+   * the documented machine: without it the footer would vanish silently and
+   * leave the admin with no explanation at all.
+   */
+  const idleNotice = !detail
+    ? null
+    : status === "quote_sent"
+      ? D.AWAITING_SAILOR
+      : status === "accepted"
+        ? D.CLOSED_ACCEPTED
+        : status === "rejected"
+          ? D.CLOSED_REJECTED
+          : isKnownStatus(status)
+            ? null
+            : D.UNKNOWN_STATUS(status);
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         side="right"
         adjustable
-        defaultWidth={800}
+        defaultWidth={640}
         className="flex flex-col gap-0 p-0 sm:max-w-none overflow-hidden bg-[var(--surface)]"
       >
-        <SheetHeader className="p-6 pb-2 border-b border-[var(--border-md)]">
+        {/* Header — icon tile + title + context line, matching the Orders drawer. */}
+        <SheetHeader className="p-6 pb-4 border-b border-[var(--border-md)]">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--navy-50)] text-[var(--navy-600)]">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--teal-50)] text-[var(--teal-600)]">
               <IconClipboardText size={22} />
             </div>
             <div>
-              {/* Match the Intent drawer header typography (17px / 800, 12.5px). */}
-              <SheetTitle className="text-[17px] font-extrabold text-[var(--t1)]">
-                {M.DETAIL.TITLE}
+              <SheetTitle className="text-[15px] font-extrabold">
+                {detail?.reference ? D.TITLE(detail.reference) : D.TITLE_FALLBACK}
               </SheetTitle>
-              <SheetDescription className="text-[12.5px] text-[var(--t3)]">
-                {detail ? dash(detail.reference) : M.DETAIL.FALLBACK}
-              </SheetDescription>
+              <SheetDescription>{detail ? productName : D.FALLBACK}</SheetDescription>
             </div>
           </div>
         </SheetHeader>
@@ -151,196 +194,257 @@ export function SpecialRequestDetailDrawer({
           {isBusy ? (
             <div className="flex flex-col items-center justify-center gap-2.5 py-16">
               <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-[var(--border-md)] border-t-[var(--teal-500)]" />
-              <span className="text-[13px] font-semibold text-[var(--t4)]">{M.DETAIL.LOADING}</span>
+              <span className="text-[13px] font-semibold text-[var(--t4)]">{D.LOADING}</span>
             </div>
           ) : isError ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16">
               <span className="text-[13.5px] font-semibold text-[var(--danger-text)]">
-                {getApiMessage(error) ?? M.DETAIL.FETCH_ERROR}
+                {getApiMessage(error) ?? D.FETCH_ERROR}
               </span>
               <Button variant="secondary" size="xs" onClick={() => refetch()}>
-                {M.DETAIL.RETRY}
+                {D.RETRY}
               </Button>
             </div>
           ) : !detail ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16">
-              <span className="text-[14px] font-bold text-[var(--t3)]">{M.DETAIL.EMPTY}</span>
+              <span className="text-[14px] font-bold text-[var(--t3)]">{D.EMPTY}</span>
             </div>
           ) : (
             <>
-              {/* Requested By */}
-              <div className="sec-label">{M.DETAIL.REQUESTED_BY}</div>
-              <div className="mb-5 rounded-[var(--radius-md)] bg-[var(--navy-25)] p-4">
-                <div className="mb-3.5 flex items-center gap-3">
-                  <div className="av av-img">
-                    <img src={avatarSrc} alt={dash(fullName)} />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-[15px] font-bold text-[var(--t1)]">{dash(fullName)}</div>
-                    <div className="text-[11px] text-[var(--t4)]">{M.DETAIL.SAILOR}</div>
-                  </div>
-                  <Badge variant={statusVar}>{statusLabel}</Badge>
-                </div>
-                {/* 2×2 summary grid — matches the Intent drawer's mini-stat layout. */}
-                <div className="form-row !mb-0">
-                  <div className="mini-stat">
-                    <div className="mini-stat-val !text-[16px]">{dash(user?.email)}</div>
-                    <div className="mini-stat-lbl">{M.DETAIL.EMAIL}</div>
-                  </div>
-                  {/* Phone & Ship/Port have no field in the detail response → "-". */}
-                  <div className="mini-stat">
-                    <div className="mini-stat-val mono !text-[16px]">{M.DETAIL.FALLBACK}</div>
-                    <div className="mini-stat-lbl">{M.DETAIL.PHONE}</div>
-                  </div>
-                  <div className="mini-stat">
-                    <div className="mini-stat-val !text-[16px]">{M.DETAIL.FALLBACK}</div>
-                    <div className="mini-stat-lbl">{M.DETAIL.SHIP_PORT}</div>
-                  </div>
-                  <div className="mini-stat">
-                    <div className="mini-stat-val !text-[16px]">{dash(detail.created_at)}</div>
-                    <div className="mini-stat-lbl">{M.DETAIL.DATE_OF_REQUEST}</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Item Details */}
-              <div className="sec-label">{M.DETAIL.ITEM_DETAILS}</div>
-              <div className="form-row">
-                <FormField label={M.DETAIL.PRODUCT_NAME}>
-                  <div className="ecard">{productName}</div>
-                </FormField>
-                <FormField label={M.DETAIL.BRAND}>
-                  <div className="ecard">{dash(detail.brand)}</div>
-                </FormField>
-              </div>
-              <div className="form-row">
-                <FormField label={M.DETAIL.QUANTITY}>
-                  <div className="ecard">{dash(detail.quantity)}</div>
-                </FormField>
-                <FormField label={M.DETAIL.MAX_BUDGET}>
-                  <div className="ecard">{maxBudget}</div>
-                </FormField>
-              </div>
-              <FormField label={M.DETAIL.DESCRIPTION}>
-                <div className="ecard leading-relaxed">{dash(detail.description)}</div>
-              </FormField>
-              <FormField label={M.DETAIL.CUSTOMER_NOTE}>
-                <div className="ecard leading-relaxed">{dash(detail.customer_note)}</div>
-              </FormField>
-              <FormField label={M.DETAIL.UPLOADED_IMAGE}>
-                {images.length > 0 ? (
-                  <div className="srq-img">
-                    {images.map((src, i) => (
-                      <img
-                        key={src}
-                        src={src}
-                        alt={`${productName} ${i + 1}`}
-                        className="max-h-40 w-auto max-w-full rounded-[var(--radius-sm)] object-contain"
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="srq-img empty">
-                    <IconPhotoOff size={26} />
-                    <span>{M.DETAIL.NO_IMAGE}</span>
-                  </div>
+              {/* Status badges */}
+              <div className="flex gap-2 mb-5">
+                <Badge
+                  variant={specialRequestStatusVariant(detail.status ?? "")}
+                  className="h-auto text-[12px] px-3 py-[5px]"
+                >
+                  {dash(detail.status_display)}
+                </Badge>
+                {detail.is_fastest_delivery && (
+                  <Badge variant="amber" className="h-auto text-[12px] px-3 py-[5px]">
+                    <IconBolt size={13} className="mr-1 inline" />
+                    {D.FASTEST_BADGE}
+                  </Badge>
                 )}
-              </FormField>
+              </div>
 
-              {/* Request Preferences (read-only, sailor-submitted) */}
-              <div className="sec-label mt-4">{M.DETAIL.REQUEST_PREFERENCES}</div>
-              <div className="form-row">
-                <FormField label={M.DETAIL.FASTEST_DELIVERY}>
-                  <div className="ecard">{fastestDelivery}</div>
-                </FormField>
-                <FormField label={M.DETAIL.FAST_DELIVERY_CHARGE}>
-                  <div className="ecard">{fastDeliveryCharge}</div>
-                </FormField>
-              </div>
-              <div className="form-row">
-                <FormField label={M.DETAIL.QUOTED_PRICE}>
-                  <div className="ecard">{quotedPrice}</div>
-                </FormField>
-                <FormField label={M.DETAIL.REBILL}>
-                  <div className="ecard">{rebillSummary}</div>
-                </FormField>
-              </div>
-              <FormField label={M.DETAIL.ADMIN_RESPONSE}>
-                <div className="ecard leading-relaxed">{dash(detail.admin_response)}</div>
-              </FormField>
+              {/* Where the request sits in the sourcing/quotation lifecycle. */}
+              <SpecialRequestLifecycleRail
+                status={status}
+                statusLabel={detail.status_display ?? undefined}
+                className="mb-5"
+              />
 
-              {/* Ship & Delivery Information */}
-              <div className="sec-label mt-4">{M.DETAIL.SHIP_DELIVERY}</div>
-              <div className="form-row">
-                <FormField label={M.DETAIL.SHIP_INFO}>
-                  <Input placeholder={M.DETAIL.SHIP_INFO_PLACEHOLDER} />
-                </FormField>
-                <FormField label={M.DETAIL.IMO}>
-                  <Input className="mono" placeholder={M.DETAIL.IMO_PLACEHOLDER} />
-                </FormField>
-              </div>
-              <div className="form-row triple">
-                <FormField label={M.DETAIL.STROKE_TERMINAL}>
-                  <Input placeholder={M.DETAIL.STROKE_TERMINAL_PLACEHOLDER} />
-                </FormField>
-                <FormField label={M.DETAIL.ARRIVAL_DATE}>
-                  <Input type="date" defaultValue={detail.ship_arrival_date ?? undefined} />
-                </FormField>
-                <FormField label={M.DETAIL.ARRIVAL_TIME}>
-                  <Input type="time" />
-                </FormField>
-              </div>
-              <div className="form-row">
-                <FormField label={M.DETAIL.EXPECTED_STAY}>
-                  <Input
-                    placeholder={M.DETAIL.EXPECTED_STAY_PLACEHOLDER}
-                    defaultValue={detail.expected_stay ?? undefined}
+              {/* The sailor changed delivery details after the quote — the admin
+                  must re-quote, and the cap tells them whether that loop is
+                  still open. */}
+              {detail.rebill_requested && (
+                <div className="mb-5 flex items-start gap-2.5 rounded-[var(--radius-md)] border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3.5 py-3">
+                  <IconAlertTriangle
+                    size={16}
+                    className="mt-0.5 shrink-0 text-[var(--warning-icon)]"
                   />
-                </FormField>
-                <FormField label={M.DETAIL.COMM_PREF}>
-                  <DropdownSelect
-                    value={commPref}
-                    onValueChange={setCommPref}
-                    options={COMM_OPTIONS}
-                    width="100%"
-                  />
-                </FormField>
-              </div>
-              <FormField label={M.DETAIL.SPECIAL_INSTRUCTIONS}>
-                <Textarea
-                  className="h-16 min-h-0 py-[10px]"
-                  placeholder={M.DETAIL.SPECIAL_INSTRUCTIONS_PLACEHOLDER}
-                />
-              </FormField>
+                  <div className="min-w-0">
+                    <div className="text-[12.5px] font-extrabold text-[var(--warning-text)]">
+                      {RB.TITLE}
+                    </div>
+                    <div className="mt-0.5 text-[11.5px] font-medium leading-[1.45] text-[var(--t3)]">
+                      {atCap ? RB.AT_CAP(detail.rebill_cap ?? 0) : RB.BODY}
+                    </div>
+                  </div>
+                </div>
+              )}
 
-              {/* Pricing */}
-              <div className="sec-label mt-4">{M.DETAIL.PRICING}</div>
-              <div className="form-row">
-                <FormField label={M.DETAIL.ESTIMATED_PRICE}>
-                  <Input
-                    type="number"
-                    placeholder={M.DETAIL.ESTIMATED_PRICE_PLACEHOLDER}
-                    defaultValue={detail.quoted_price ?? undefined}
-                  />
-                </FormField>
-                <div className="fg" />
-              </div>
+              {/* The detail itself is tabbed; the state above stays pinned so
+                  it reads the same whichever tab is open. */}
+              <DynamicTabs
+                tabs={[
+                  {
+                    value: "overview",
+                    label: D.TABS.OVERVIEW,
+                    content: (
+                      <>
+                        <div className="sec-label">{D.REQUEST_INFO}</div>
+                        <Row
+                          label={D.REFERENCE}
+                          value={dash(detail.reference)}
+                          className="mono cteal"
+                        />
+                        <Row
+                          label={D.SAILOR}
+                          value={
+                            <span className="flex items-center gap-2">
+                              <span className="av av-sm av-img">
+                                <img src={avatarSrc} alt={dash(fullName)} />
+                              </span>
+                              {dash(fullName)}
+                            </span>
+                          }
+                        />
+                        <Row label={D.EMAIL} value={dash(user?.email)} />
+                        <Row label={D.REQUESTED} value={dash(detail.created_at)} />
+                        <Row label={D.UPDATED} value={dash(detail.updated_at)} />
+
+                        <div className="sec-label mt16">{D.ITEM_DETAILS}</div>
+                        <Row label={D.PRODUCT_NAME} value={productName} />
+                        <Row label={D.BRAND} value={dash(detail.brand)} />
+                        <Row label={D.QUANTITY} value={dash(detail.quantity)} />
+                        <Row
+                          label={D.MAX_BUDGET}
+                          value={
+                            <span className="flex items-center gap-2">
+                              {money(detail.max_budget, currency)}
+                              {/* The sailor may well reject a quote above what
+                                  they said they'd pay — make it obvious. */}
+                              {overBudget && (
+                                <Badge variant="warning" className="h-[20px] text-[10px]">
+                                  {D.OVER_BUDGET}
+                                </Badge>
+                              )}
+                            </span>
+                          }
+                        />
+                        <Row label={D.DESCRIPTION} value={dash(detail.description)} />
+                        <Row label={D.CUSTOMER_NOTE} value={dash(detail.customer_note)} />
+                      </>
+                    ),
+                  },
+                  {
+                    value: "delivery",
+                    label: D.TABS.DELIVERY,
+                    content: (
+                      <>
+                        <Row label={D.SHIP_ARRIVAL} value={formatDate(detail.ship_arrival_date)} />
+                        <Row
+                          label={D.EXPECTED_DEPARTURE}
+                          value={formatDate(detail.expected_departure)}
+                        />
+                        <Row
+                          label={D.FASTEST_DELIVERY}
+                          value={detail.is_fastest_delivery ? D.YES : D.NO}
+                          className={detail.is_fastest_delivery ? "camber" : undefined}
+                        />
+                        <Row
+                          label={D.REBILL}
+                          value={D.REBILL_SUMMARY(
+                            detail.rebill_requested ? D.REBILL_REQUESTED : D.REBILL_NOT_REQUESTED,
+                            detail.rebill_count ?? 0,
+                            detail.rebill_cap ?? 0,
+                          )}
+                          className={detail.rebill_requested ? "cwarning" : undefined}
+                        />
+                      </>
+                    ),
+                  },
+                  {
+                    value: "quote",
+                    label: D.TABS.QUOTE,
+                    content: (
+                      <>
+                        <Row
+                          label={D.QUOTED_PRICE}
+                          value={
+                            detail.quoted_price
+                              ? money(detail.quoted_price, currency)
+                              : D.NOT_QUOTED
+                          }
+                          className={detail.quoted_price ? "csuccess" : "c4"}
+                        />
+                        <Row
+                          label={D.FAST_DELIVERY_CHARGE}
+                          value={money(detail.fast_delivery_charge, currency)}
+                        />
+                        <Row label={D.ADMIN_RESPONSE} value={dash(detail.admin_response)} />
+
+                        {/* Quoted total — only once a quote exists. */}
+                        {total !== null && (
+                          <div className="mt16 rounded-[var(--radius-md)] bg-[var(--navy-25)] px-4 py-3.5">
+                            <div className="flex jb aic">
+                              <span className="sm c3 w6">{D.QUOTED_TOTAL}</span>
+                              <span className="lg w8 num">
+                                {`${symbolFor(currency)}${total.toFixed(2)}`}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ),
+                  },
+                  {
+                    value: "images",
+                    label: D.TABS.IMAGES(images.length),
+                    content:
+                      images.length === 0 ? (
+                        <div className="srq-img empty">
+                          <IconPhotoOff size={26} />
+                          <span>{D.NO_IMAGE}</span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-3">
+                          {images.map((src, i) => (
+                            <img
+                              key={src}
+                              src={src}
+                              alt={D.IMAGE_ALT(productName, i + 1)}
+                              className="h-28 w-28 rounded-[var(--radius-sm)] border border-[var(--border-sm)] object-cover"
+                            />
+                          ))}
+                        </div>
+                      ),
+                  },
+                ]}
+              />
             </>
           )}
         </div>
 
-        <SheetFooter className="p-6 border-t border-[var(--border-md)] bg-[var(--surface)]">
-          <div className="flex justify-end gap-3 w-full">
-            <Button variant="danger" size="sm" onClick={reject}>
-              <IconX size={15} className="mr-1" />
-              {M.DETAIL.REJECT}
-            </Button>
-            <Button variant="primary" size="sm" onClick={confirm}>
-              <IconSend size={15} className="mr-1" />
-              {M.DETAIL.CONFIRM}
-            </Button>
-          </div>
-        </SheetFooter>
+        {/* Footer — only what the current status actually permits. When no
+            action is legal, the notice says whose move it is. Suppressed while
+            loading or on a fetch error: the status driving these gates isn't
+            trustworthy then, and an action bar over an error message would
+            invite a click that is bound to fail. */}
+        {detail && !isBusy && !isError && (hasActions || idleNotice) && (
+          <SheetFooter className="p-5 border-t border-[var(--border-md)] bg-[var(--surface-alt)] flex-col gap-2.5 items-stretch">
+            {/* `quote_sent` still allows allow-changes, so the "whose move is
+                it" line can accompany the buttons rather than replace them. */}
+            {idleNotice && (
+              <div className="w-full text-[12.5px] font-semibold text-[var(--t4)]">
+                {idleNotice}
+              </div>
+            )}
+            {hasActions && (
+              <div className="flex items-center gap-2 w-full">
+                {showReject && (
+                  <Button variant="danger" size="sm" onClick={() => onReject?.(detail)}>
+                    <IconX size={15} />
+                    {D.REJECT}
+                  </Button>
+                )}
+                {showAllowChanges && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className={showReject ? undefined : "mr-auto"}
+                    onClick={() => onAllowChanges?.(detail)}
+                  >
+                    <IconPlus size={15} />
+                    {D.ALLOW_CHANGES}
+                  </Button>
+                )}
+                {showBill && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="ml-auto"
+                    onClick={() => onGenerateBill?.(detail)}
+                  >
+                    <IconFileInvoice size={15} />
+                    {D.SEND_QUOTE}
+                  </Button>
+                )}
+              </div>
+            )}
+          </SheetFooter>
+        )}
       </SheetContent>
     </Sheet>
   );

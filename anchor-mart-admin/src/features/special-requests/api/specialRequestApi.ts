@@ -1,7 +1,10 @@
 import { SPECIAL_REQUEST_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
 import type {
+  AllowChangesPayload,
+  GenerateBillPayload,
   GetSpecialRequestsParams,
+  RejectSpecialRequestPayload,
   SpecialRequest,
   SpecialRequestApi,
   SpecialRequestBadgeVariant,
@@ -38,14 +41,15 @@ function unwrap<T>(res: unknown): T {
   return res as T;
 }
 
-/** Maps a raw status token to its badge colour variant. */
+/**
+ * Maps a raw status token to its badge colour variant. Keys are the five
+ * statuses of the Flow 13 state machine — anything else falls back to neutral.
+ */
 const STATUS_VARIANT: Record<string, SpecialRequestBadgeVariant> = {
   pending: "warning",
-  sourcing: "info",
   sourcing_confirmed: "info",
   quote_sent: "info",
-  approved: "success",
-  fulfilled: "success",
+  accepted: "success",
   rejected: "danger",
 };
 
@@ -61,10 +65,10 @@ function toSpecialRequest(row: SpecialRequestApi): SpecialRequest {
     r: dash(row.reference),
     n: dash(row.sailor),
     ph: dash(row.phone),
-    prod: dash(row.product),
+    prod: dash(row.product_name),
     brand: dash(row.brand),
-    qty: row.qty ?? FALLBACK,
-    dt: dash(row.requested),
+    qty: row.quantity ?? FALLBACK,
+    dt: dash(row.created_at),
     st: dash(row.status_display),
     status,
     sc: specialRequestStatusVariant(status),
@@ -135,19 +139,62 @@ export const specialRequestApi = baseApi.injectEndpoints({
         { type: "SpecialRequests", id: result?.id ?? productId },
       ],
     }),
+    /**
+     * Flow 13 API 10 — quote the request. Allowed only from `pending` /
+     * `sourcing_confirmed`; the backend 400s otherwise. On success the request
+     * moves to `quote_sent` and the sailor gets an actionable inbox row.
+     */
+    generateBill: builder.mutation<SpecialRequestDetail, { id: string; body: GenerateBillPayload }>(
+      {
+        query: ({ id, body }) => ({
+          url: SPECIAL_REQUEST_ENDPOINTS.GENERATE_BILL(id),
+          method: "POST",
+          body,
+        }),
+        // The row, the list and the per-status counters all move together.
+        invalidatesTags: (_result, _error, { id }) => [
+          { type: "SpecialRequests", id },
+          { type: "SpecialRequests", id: "PARTIAL-LIST" },
+          { type: "SpecialRequests", id: "STATS" },
+        ],
+      },
+    ),
 
-    // Excel export — returns the file as a Blob; the optional `status` filter
-    // mirrors the list query so the export matches the on-screen filter.
-    exportSpecialRequests: builder.mutation<Blob, { status?: string }>({
-      query: ({ status }) => ({
-        url: SPECIAL_REQUEST_ENDPOINTS.EXPORT,
-        method: "GET",
-        params: { status: status || undefined },
-        // Override the global JSON Accept so DRF serves the xlsx (else it 406s).
-        headers: { Accept: "*/*" },
-        responseHandler: (response) => response.blob(),
-        cache: "no-cache",
+    /** Flow 13 API 11 — reject before quoting. Requires `admin_response`. */
+    rejectSpecialRequest: builder.mutation<
+      SpecialRequestDetail,
+      { id: string; body: RejectSpecialRequestPayload }
+    >({
+      query: ({ id, body }) => ({
+        url: SPECIAL_REQUEST_ENDPOINTS.REJECT(id),
+        method: "POST",
+        body,
       }),
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "SpecialRequests", id },
+        { type: "SpecialRequests", id: "PARTIAL-LIST" },
+        { type: "SpecialRequests", id: "STATS" },
+      ],
+    }),
+
+    /**
+     * Flow 13 API 12 — raise the rebill cap by `additional` (1–10). Not allowed
+     * on a terminal request. The status doesn't change, so only the row and the
+     * list need invalidating — the per-status counters are untouched.
+     */
+    allowSpecialRequestChanges: builder.mutation<
+      SpecialRequestDetail,
+      { id: string; body: AllowChangesPayload }
+    >({
+      query: ({ id, body }) => ({
+        url: SPECIAL_REQUEST_ENDPOINTS.ALLOW_CHANGES(id),
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "SpecialRequests", id },
+        { type: "SpecialRequests", id: "PARTIAL-LIST" },
+      ],
     }),
   }),
   overrideExisting: false,
@@ -157,5 +204,7 @@ export const {
   useGetSpecialRequestsQuery,
   useGetSpecialRequestStatsQuery,
   useGetSpecialRequestDetailQuery,
-  useExportSpecialRequestsMutation,
+  useGenerateBillMutation,
+  useRejectSpecialRequestMutation,
+  useAllowSpecialRequestChangesMutation,
 } = specialRequestApi;

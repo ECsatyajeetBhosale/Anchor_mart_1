@@ -223,13 +223,24 @@ export const ASSIGNMENT_ENDPOINTS = {
   ORDER_ASSIGNMENTS: "/superadmin/partner/order-assignments/",
 };
 
+/**
+ * Flow 13 — Special Request (non-catalog sourcing & quotation). The admin side
+ * is exactly these six routes; the customer half of the flow (submit / pay /
+ * request-changes) lives on the sailor app under `/api/catalog/`.
+ */
 export const SPECIAL_REQUEST_ENDPOINTS = {
+  // Flow 13 API 8 — `?status` (validated, 400 on a bad value) · `?search` · paginated.
   GET_LIST: "/superadmin/special-requests/get-all-special-requests/",
+  // Flow 13 API 7 — count per status.
   GET_STATS: "/superadmin/special-requests/special-request-stats/",
-  // Detail is fetched by the row id via the `product_id` query param.
+  // Flow 13 API 9 — detail is fetched by the row id via the `product_id` query param.
   GET_DETAIL: "/superadmin/special-requests/get-special-requests/",
-  // Excel export; accepts the same optional `status` filter as the list.
-  EXPORT: "/superadmin/special-requests/export-to-excel/",
+  // Flow 13 API 10 — quote a not-yet-quoted request → `quote_sent`.
+  GENERATE_BILL: (id: string) => `/superadmin/special-requests/${id}/generate-bill/`,
+  // Flow 13 API 11 — reject before quoting → `rejected`.
+  REJECT: (id: string) => `/superadmin/special-requests/${id}/reject/`,
+  // Flow 13 API 12 — raise the rebill cap (`additional`, 1–10).
+  ALLOW_CHANGES: (id: string) => `/superadmin/special-requests/${id}/allow-changes/`,
 };
 
 export const SELLER_ENDPOINTS = {

@@ -1,15 +1,15 @@
 import {
+  IconBan,
   IconCheck,
   IconClipboardText,
   IconClock,
-  IconDownload,
   IconEye,
+  IconSend,
   IconShoppingCart,
 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { toast } from "sonner";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { SearchFilters } from "@/components/common/SearchFilters";
@@ -23,16 +23,22 @@ import {
 } from "@/components/common/tableColumns";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
-import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
-import { downloadBlob } from "@/lib/download";
 import { MESSAGES } from "@/lib/messages";
 import {
-  useExportSpecialRequestsMutation,
   useGetSpecialRequestStatsQuery,
   useGetSpecialRequestsQuery,
 } from "../api/specialRequestApi";
-import type { SpecialRequest, SpecialRequestStats } from "../types/specialRequest.types";
+import { useSpecialRequestActions } from "../hooks/useSpecialRequestActions";
+import {
+  SPECIAL_REQUEST_STATUS_KEYS,
+  type SpecialRequest,
+  type SpecialRequestStats,
+  type SpecialRequestStatus,
+} from "../types/specialRequest.types";
+import { AllowChangesDialog } from "./AllowChangesDialog";
+import { GenerateBillDialog } from "./GenerateBillDialog";
+import { RejectSpecialRequestDialog } from "./RejectSpecialRequestDialog";
 import { SpecialRequestDetailDrawer } from "./SpecialRequestDetailDrawer";
 
 const M = MESSAGES.SPECIAL_REQUESTS;
@@ -41,14 +47,22 @@ const LIMIT = 10;
 
 type StatVariant = "navy" | "teal" | "amber" | "red" | "green" | "purple" | "blue";
 
-// Status dropdown options — values map 1:1 to the API `status` query param.
+/**
+ * Status dropdown — built from the five values the API accepts, in lifecycle
+ * order. Sending anything else is a 400 (*"Invalid status. Must be one of …"*),
+ * so the labels are keyed off the same list the URL param is validated against.
+ */
+const STATUS_LABEL: Record<SpecialRequestStatus, string> = {
+  pending: M.STATUS_FILTER.PENDING,
+  sourcing_confirmed: M.STATUS_FILTER.SOURCING_CONFIRMED,
+  quote_sent: M.STATUS_FILTER.QUOTE_SENT,
+  accepted: M.STATUS_FILTER.ACCEPTED,
+  rejected: M.STATUS_FILTER.REJECTED,
+};
+
 const STATUS_OPTIONS = [
   { value: "all", label: M.ALL_STATUS },
-  { value: "pending", label: M.STATUS_FILTER.PENDING },
-  { value: "sourcing_confirmed", label: M.STATUS_FILTER.SOURCING_CONFIRMED },
-  { value: "quote_sent", label: M.STATUS_FILTER.QUOTE_SENT },
-  { value: "rejected", label: M.STATUS_FILTER.REJECTED },
-  { value: "fulfilled", label: M.STATUS_FILTER.FULFILLED },
+  ...SPECIAL_REQUEST_STATUS_KEYS.map((key) => ({ value: key, label: STATUS_LABEL[key] })),
 ];
 
 // KPI cards — each maps 1:1 to a field on the special-request stats API response.
@@ -69,23 +83,37 @@ const STAT_CONFIG: {
   {
     id: "pending",
     label: M.STATS.PENDING,
-    key: "pending_review",
+    key: "pending",
     icon: <IconClock size={20} />,
     variant: "amber",
   },
   {
-    id: "sourcing",
-    label: M.STATS.SOURCING,
-    key: "sourcing",
+    id: "sourcing_confirmed",
+    label: M.STATS.SOURCING_CONFIRMED,
+    key: "sourcing_confirmed",
     icon: <IconShoppingCart size={20} />,
     variant: "teal",
   },
   {
-    id: "approved",
-    label: M.STATS.APPROVED,
-    key: "approved",
+    id: "quote_sent",
+    label: M.STATS.QUOTE_SENT,
+    key: "quote_sent",
+    icon: <IconSend size={20} />,
+    variant: "blue",
+  },
+  {
+    id: "accepted",
+    label: M.STATS.ACCEPTED,
+    key: "accepted",
     icon: <IconCheck size={20} />,
     variant: "green",
+  },
+  {
+    id: "rejected",
+    label: M.STATS.REJECTED,
+    key: "rejected",
+    icon: <IconBan size={20} />,
+    variant: "red",
   },
 ];
 
@@ -97,7 +125,12 @@ export function SpecialRequestsPage() {
   // URL-driven filter state (shareable, refresh-safe) — mirrors Orders/Intents.
   const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
   const search = searchParams.get("search") ?? "";
-  const statusFilter = searchParams.get("status") ?? "all";
+  // The API 400s on an unknown `?status`, and a hand-edited or stale URL would
+  // otherwise break the table — so anything off the accepted list reads as "all".
+  const statusParamRaw = searchParams.get("status") ?? "all";
+  const statusFilter = SPECIAL_REQUEST_STATUS_KEYS.includes(statusParamRaw as SpecialRequestStatus)
+    ? statusParamRaw
+    : "all";
 
   // Special-requests list — search + status filter server-side; paginated by DRF.
   const statusParam = statusFilter !== "all" ? statusFilter : undefined;
@@ -122,23 +155,15 @@ export function SpecialRequestsPage() {
     variant: c.variant,
   }));
 
-  // Excel export — respects the current status filter; downloads the returned file.
-  const [exportRequests, { isLoading: isExporting }] = useExportSpecialRequestsMutation();
-  const handleExport = async () => {
-    try {
-      const blob = await exportRequests({ status: statusParam }).unwrap();
-      downloadBlob(blob, M.EXPORT_FILENAME);
-      toast.success(M.TOAST.EXPORTED);
-    } catch (err) {
-      toast.error(getApiMessage(err) ?? M.TOAST.EXPORT_ERROR);
-    }
-  };
-
   const openDetail = (req: SpecialRequest) => {
     setSelectedRequest(req);
     setIsDetailOpen(true);
   };
   const closeDetail = () => setIsDetailOpen(false);
+
+  // Flow 13 write actions + their popup state (see the hook for why the
+  // drawer has to close before a popup opens).
+  const actions = useSpecialRequestActions(closeDetail);
 
   // Update one URL param; filter/search changes reset to page 1. "all"/empty clears it.
   const setParam = (key: string, value: string) => {
@@ -193,7 +218,7 @@ export function SpecialRequestsPage() {
           <Button
             variant="ghost"
             size="xs"
-            title="View"
+            title={M.ACTIONS.VIEW}
             onClick={(e) => {
               e.stopPropagation();
               openDetail(r);
@@ -227,12 +252,7 @@ export function SpecialRequestsPage() {
                 onValueChange: (val) => setParam("status", val),
               },
             ]}
-          >
-            <Button variant="secondary" size="default" loading={isExporting} onClick={handleExport}>
-              <IconDownload size={15} className="mr-1" />
-              {M.EXPORT}
-            </Button>
-          </SearchFilters>
+          />
         }
       />
 
@@ -258,6 +278,38 @@ export function SpecialRequestsPage() {
         requestId={selectedRequest?.id ?? null}
         isOpen={isDetailOpen}
         onClose={closeDetail}
+        onGenerateBill={actions.open("bill")}
+        onReject={actions.open("reject")}
+        onAllowChanges={actions.open("changes")}
+      />
+
+      {/* Flow 13 API 10 — the quote form */}
+      <GenerateBillDialog
+        isOpen={actions.openDialog === "bill"}
+        request={actions.target}
+        isLoading={actions.isQuoting}
+        onClose={actions.close}
+        onConfirm={actions.submitBill}
+      />
+
+      {/* Flow 13 API 11 — reject-reason popup */}
+      <RejectSpecialRequestDialog
+        isOpen={actions.openDialog === "reject"}
+        requestRef={actions.targetRef}
+        isLoading={actions.isRejecting}
+        onClose={actions.close}
+        onConfirm={actions.submitReject}
+      />
+
+      {/* Flow 13 API 12 — raise the delivery-change limit */}
+      <AllowChangesDialog
+        isOpen={actions.openDialog === "changes"}
+        requestRef={actions.targetRef}
+        used={actions.target?.rebill_count ?? 0}
+        cap={actions.target?.rebill_cap ?? 0}
+        isLoading={actions.isAllowing}
+        onClose={actions.close}
+        onConfirm={actions.submitAllowChanges}
       />
     </div>
   );

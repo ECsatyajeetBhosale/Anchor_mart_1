@@ -159,7 +159,9 @@ export const MESSAGES = {
     ORDERS_SUFFIX: (n: number) => `${n} orders`,
   },
   SAILORS: {
+    // Page chrome
     TITLE: "Sailors Management",
+    SEARCH_PLACEHOLDER: "Search sailors...",
     ADD_SAILOR: "Add Sailor",
     EDIT_SAILOR: "Edit Sailor",
     SAILOR_ADDED: "Sailor added successfully",
@@ -168,7 +170,85 @@ export const MESSAGES = {
     BLOCK_CONFIRM_TITLE: "Block Sailor",
     BLOCK_CONFIRM_MSG: "This sailor will lose app access immediately.",
     EMPTY: "No sailors found",
-    EMPTY_FILTERED: "No sailors match your filters",
+    EMPTY_FILTERED: "No sailors match the current filters.",
+    FETCH_ERROR: "Failed to load sailors.",
+    // Status dropdown — the only status control (values map to the API's
+    // `?status=` param, which also accepts "new").
+    STATUS_FILTER: {
+      ALL: "All Status",
+      ACTIVE: "Active",
+      INACTIVE: "Inactive",
+      NEW: "New",
+    },
+    // KPI cards
+    STATS: {
+      TOTAL: "Total Sailors",
+      LOYALTY: "Loyalty Pts Issued",
+      REFERRALS: "Referrals (Month)",
+    },
+    // Table
+    COLUMNS: {
+      SAILOR: "Sailor",
+      CONTACT: "Contact",
+      JOINED: "Joined",
+      ORDERS: "Orders",
+      LOYALTY: "Loyalty Pts",
+      STATUS: "Status",
+      ACTIONS: "Actions",
+    },
+    ACTIONS: {
+      VIEW: "View",
+      EDIT: "Edit",
+    },
+    PTS_SUFFIX: " pts",
+    // Read-only detail drawer
+    DETAIL: {
+      TITLE: "Sailor Details",
+      SUBTITLE: "Profile, contact & activity overview",
+      LOADING: "Loading latest details…",
+      CONTACT_SECTION: "Contact Details",
+      EMAIL: "Email",
+      CONTACT: "Contact",
+      JOINED: "Joined",
+      SHIP: "Ship / IMO",
+      ACTIVITY_SECTION: "Activity",
+      ORDERS: "Orders",
+      LOYALTY: "Loyalty Pts",
+      CART: "Cart Items",
+      WISHLIST: "Wishlist",
+      CLOSE: "Close",
+      MESSAGE: "Message",
+      EDIT: "Edit",
+    },
+    // Add / edit drawers
+    FORM: {
+      ADD_TITLE: "Add New Sailor",
+      ADD_SUBTITLE: "Register a new sailor to the platform",
+      EDIT_TITLE: "Edit Sailor",
+      EDIT_SUBTITLE: "Update sailor account details",
+      FIRST_NAME: "First Name",
+      FIRST_NAME_PLACEHOLDER: "e.g. Abhishek",
+      LAST_NAME: "Last Name",
+      LAST_NAME_PLACEHOLDER: "e.g. Nadurbar",
+      COUNTRY_CODE: "Country Code",
+      COUNTRY_CODE_PLACEHOLDER: "91",
+      WHATSAPP: "WhatsApp Number",
+      WHATSAPP_PLACEHOLDER: "8790091840",
+      EMAIL: "Email Address",
+      EMAIL_PLACEHOLDER: "sailor@email.com",
+      ACCOUNT_STATUS: "Account Status",
+      ACTIVE: "Active",
+      INACTIVE: "Inactive",
+      REQUIRED: "First name, email, country code and WhatsApp number are required",
+      CANCEL: "Cancel",
+      ADD_SUBMIT: "Add Sailor",
+      ADDING: "Adding…",
+      EDIT_SUBMIT: "Save Changes",
+      SAVING: "Saving…",
+      ADD_SUCCESS: "New sailor registered successfully",
+      EDIT_SUCCESS: "Sailor profile updated successfully",
+      SAVE_ERROR: "Could not save the sailor. Please try again.",
+    },
   },
   ORDERS: {
     // Page chrome
@@ -726,21 +806,22 @@ export const MESSAGES = {
     ALL_STATUS: "All Status",
     EMPTY: "No requests match the current filters.",
     FETCH_ERROR: "Failed to load special requests.",
-    EXPORT: "Export",
-    // Status filter options (values map 1:1 to the API `status` query param)
+    // Status filter options — the five values the API's `?status` accepts.
     STATUS_FILTER: {
       PENDING: "Pending",
       SOURCING_CONFIRMED: "Sourcing Confirmed",
       QUOTE_SENT: "Quote Sent",
+      ACCEPTED: "Accepted",
       REJECTED: "Rejected",
-      FULFILLED: "Fulfilled",
     },
-    // KPI cards (mapped to the special-request stats API fields)
+    // KPI cards — one per field on the special-request stats response.
     STATS: {
       TOTAL: "Total Requests",
-      PENDING: "Pending Review",
-      SOURCING: "Sourcing",
-      APPROVED: "Approved",
+      PENDING: "Pending",
+      SOURCING_CONFIRMED: "Sourcing Confirmed",
+      QUOTE_SENT: "Quote Sent",
+      ACCEPTED: "Accepted",
+      REJECTED: "Rejected",
     },
     // Table columns
     COLUMNS: {
@@ -754,74 +835,180 @@ export const MESSAGES = {
       STATUS: "Status",
       ACTIONS: "Actions",
     },
-    // Review drawer
+    // Row action labels (also used as the button tooltips)
+    ACTIONS: {
+      VIEW: "View",
+    },
+    // Review drawer — key/value layout shared with the Orders drawer.
     DETAIL: {
-      TITLE: "Special Request Item",
+      TITLE: (ref: string) => `Special Request ${ref}`,
+      TITLE_FALLBACK: "Special Request",
       LOADING: "Loading data...",
       FETCH_ERROR: "Failed to load request details.",
       EMPTY: "No details available for this request.",
       RETRY: "Retry",
-      FALLBACK: "-",
-      REQUESTED_BY: "Requested By",
+      FALLBACK: "—",
+      // Secondary header badge, shown only when the sailor opted in.
+      FASTEST_BADGE: "Fastest Delivery",
+      // Body tabs. Status, lifecycle rail and the rebill alert stay above them
+      // so the request's state is visible whichever tab is open.
+      TABS: {
+        OVERVIEW: "Overview",
+        DELIVERY: "Delivery",
+        QUOTE: "Quote",
+        IMAGES: (count: number) => (count > 0 ? `Images (${count})` : "Images"),
+      },
+      // Request Information
+      REQUEST_INFO: "Request Information",
+      REFERENCE: "Reference",
       SAILOR: "Sailor",
       EMAIL: "Email",
-      PHONE: "Phone",
-      SHIP_PORT: "Ship / Port",
-      DATE_OF_REQUEST: "Date of Request",
+      REQUESTED: "Requested",
+      UPDATED: "Last Updated",
+      // Item Details
       ITEM_DETAILS: "Item Details",
       PRODUCT_NAME: "Product Name",
       BRAND: "Brand",
       QUANTITY: "Quantity",
       MAX_BUDGET: "Max Budget",
+      /** Flag on the budget row when the quote exceeds what the sailor stated. */
+      OVER_BUDGET: "over budget",
       DESCRIPTION: "Description",
       CUSTOMER_NOTE: "Customer Note",
-      UPLOADED_IMAGE: "Uploaded Image",
-      // Read-only sailor-submitted request preferences
-      REQUEST_PREFERENCES: "Request Preferences",
+      // Delivery
+      DELIVERY: "Delivery",
+      SHIP_ARRIVAL: "Ship Arrival",
+      EXPECTED_DEPARTURE: "Expected Departure",
       FASTEST_DELIVERY: "Fastest Delivery",
-      FAST_DELIVERY_CHARGE: "Fast Delivery Charge",
+      // Quote
+      QUOTE: "Quote",
       QUOTED_PRICE: "Quoted Price",
-      REBILL: "Rebill Requests",
+      FAST_DELIVERY_CHARGE: "Fast Delivery Charge",
       ADMIN_RESPONSE: "Admin Response",
+      REBILL: "Delivery Changes",
+      // `(requested|not requested) · used / cap`
+      REBILL_SUMMARY: (requested: string, used: number, cap: number) =>
+        `${requested} · ${used} / ${cap} used`,
+      REBILL_REQUESTED: "Requested",
+      REBILL_NOT_REQUESTED: "Not requested",
+      NOT_QUOTED: "Not quoted yet",
+      // Quoted total = quoted price × qty (+ fast-delivery charge when fastest).
+      QUOTED_TOTAL: "Quoted Total",
+      // Images
+      IMAGES: "Reference Images",
+      NO_IMAGE: "No image provided",
+      IMAGE_ALT: (product: string, index: number) => `${product} image ${index}`,
       YES: "Yes",
       NO: "No",
-      NONE: "None",
-      IMAGE_FILE: "product-image.jpg",
-      NO_IMAGE: "No image provided",
-      SHIP_DELIVERY: "Ship & Delivery Information",
-      SHIP_INFO: "Ship Information",
-      SHIP_INFO_PLACEHOLDER: "Vessel name",
-      IMO: "IMO Number",
-      IMO_PLACEHOLDER: "IMO 0000000",
-      IMO_DEFAULT: "0123456",
-      STROKE_TERMINAL: "Stroke Terminal",
-      STROKE_TERMINAL_PLACEHOLDER: "e.g. Berth 7",
-      ARRIVAL_DATE: "Expected Arrival Date",
-      ARRIVAL_TIME: "Expected Arrival Time",
-      EXPECTED_STAY: "Expected Stay",
-      EXPECTED_STAY_PLACEHOLDER: "e.g. 2 days",
-      COMM_PREF: "Communication Preference",
-      SPECIAL_INSTRUCTIONS: "Special Instructions for Delivery Partner",
-      SPECIAL_INSTRUCTIONS_PLACEHOLDER: "Any delivery notes for the partner…",
-      PRICING: "Pricing",
-      ESTIMATED_PRICE: "Estimated Price ($)",
-      ESTIMATED_PRICE_PLACEHOLDER: "Enter estimated price set by admin",
+      // Footer actions
       REJECT: "Reject",
-      CONFIRM: "Confirm & Send Payment Link",
+      SEND_QUOTE: "Send Quote",
+      ALLOW_CHANGES: "Allow More Changes",
+      // Shown in place of the actions once the request is closed or quoted.
+      AWAITING_SAILOR:
+        "Quote sent — awaiting the sailor's decision to pay, request changes, or reject.",
+      CLOSED_ACCEPTED:
+        "Paid and converted to an order — manage it from the Orders screen. Nothing left to do here.",
+      CLOSED_REJECTED: "This request was closed. No further action is possible.",
+      /** A status outside the documented state machine — offer nothing. */
+      UNKNOWN_STATUS: (status: string) =>
+        status
+          ? `No admin actions are available for status "${status}".`
+          : "This request has no status, so no admin actions are available.",
     },
-    // Communication preference options
-    COMM_OPTIONS: {
-      WHATSAPP: "WhatsApp",
-      EMAIL: "Email",
+    // Compact lifecycle rail in the drawer
+    RAIL: {
+      STAGES: {
+        REQUESTED: "Requested",
+        SOURCING: "Sourcing",
+        QUOTED: "Quoted",
+        ACCEPTED: "Accepted",
+      },
+      STAGE_OF: (current: number, total: number) => `Stage ${current} of ${total}`,
+      TERMINAL_NOTICE: (label: string) => `Closed — ${label}`,
+      LEGEND: {
+        OPEN_LABEL: "What do these colours mean?",
+        TITLE: "Colour key",
+        DONE: "Done",
+        DONE_HINT: "This stage is complete.",
+        ACTIVE: "Current",
+        ACTIVE_HINT: "Where the request sits right now.",
+        PENDING: "Upcoming",
+        PENDING_HINT: "Not reached yet.",
+        CLOSED: "Closed",
+        CLOSED_HINT: "Withdrawn or declined — the request is terminal.",
+      },
     },
-    // Excel export
-    EXPORT_FILENAME: "special-requests.xlsx",
+    // Banner shown when the sailor asked for new delivery details
+    REBILL_BANNER: {
+      TITLE: "Delivery changes requested",
+      BODY: "The sailor updated their delivery details after the quote. Re-quote to fold the new details in.",
+      AT_CAP: (cap: number) =>
+        `The sailor has used all ${cap} delivery-change requests. They must pay or reject unless you allow more.`,
+    },
+    // Generate-bill (quote) popup — Flow 13 API 10
+    BILL_DIALOG: {
+      TITLE: "Send Quote",
+      DESCRIPTION: (ref: string) => `Price ${ref} and send the quote to the sailor.`,
+      PRODUCT_NAME: "Product Name",
+      PRODUCT_NAME_PLACEHOLDER: "The item you sourced",
+      DESCRIPTION_LABEL: "Description",
+      DESCRIPTION_PLACEHOLDER: "What exactly are you quoting?",
+      QUOTED_PRICE: "Quoted Price (per unit)",
+      QUOTED_PRICE_HINT: "Minimum 0.01",
+      FAST_DELIVERY_CHARGE: "Fast Delivery Charge",
+      FAST_DELIVERY_CHARGE_HINT: "Charged only when the sailor picked fastest delivery",
+      PRICE_PLACEHOLDER: "0.00",
+      ADMIN_RESPONSE: "Message to Sailor",
+      ADMIN_RESPONSE_PLACEHOLDER: "e.g. We found this item and can deliver it within your window.",
+      CATEGORY: "Category",
+      CATEGORY_HINT: "General-scope catalog category the quoted item is filed under",
+      CATEGORY_PLACEHOLDER: "Select a category",
+      CATEGORY_EMPTY: "No general-scope categories available",
+      // Live total preview under the price fields.
+      TOTAL_PREVIEW: (total: string, qty: number) => `Sailor pays ${total} for ${qty} unit(s)`,
+      CANCEL: "Cancel",
+      CONFIRM: "Send Quote",
+      SENDING: "Sending…",
+    },
+    // Reject popup — Flow 13 API 11
+    REJECT_DIALOG: {
+      TITLE: "Reject Request",
+      DESCRIPTION: (ref: string) =>
+        `${ref} will be closed and the sailor notified. This cannot be undone.`,
+      REASON: "Reason",
+      REASON_PLACEHOLDER: "e.g. We cannot source this item at your port right now.",
+      REASON_HINT: "Sent to the sailor as your reason",
+      REASON_REQUIRED: "A reason is required",
+      CANCEL: "Cancel",
+      CONFIRM: "Reject Request",
+      REJECTING: "Rejecting…",
+    },
+    // Allow-changes popup — Flow 13 API 12
+    ALLOW_CHANGES_DIALOG: {
+      TITLE: "Allow More Delivery Changes",
+      DESCRIPTION: (ref: string) => `Raise the delivery-change limit on ${ref}.`,
+      CURRENT: (used: number, cap: number) => `${used} of ${cap} used`,
+      ADDITIONAL: "Additional Changes",
+      ADDITIONAL_HINT: "Between 1 and 10 — added to the current limit",
+      CANCEL: "Cancel",
+      CONFIRM: "Raise Limit",
+      SAVING: "Saving…",
+    },
     // Toasts
     TOAST: {
-      EXPORTED: "Special requests exported to Excel",
-      EXPORT_ERROR: "Failed to export special requests",
-      REJECTED: "Request rejected and sailor notified",
-      PAYMENT_SENT: "Payment link sent to sailor",
+      /**
+       * Local state-machine guard: the request moved on (another admin acted,
+       * or the sailor did) after the popup was opened on a stale snapshot.
+       */
+      STALE_STATE: (label: string) =>
+        `This request is now "${label}" — that action is no longer available. Reopen it for the latest state.`,
+      QUOTED: (ref: string) => `Quote sent to the sailor for ${ref}`,
+      QUOTE_FAILED: "Failed to send the quote",
+      REJECTED: (ref: string) => `${ref} rejected and the sailor notified`,
+      REJECT_FAILED: "Failed to reject the request",
+      CHANGES_ALLOWED: (cap: number) => `Delivery-change limit raised to ${cap}`,
+      CHANGES_FAILED: "Failed to raise the delivery-change limit",
     },
   },
   SELLERS: {
