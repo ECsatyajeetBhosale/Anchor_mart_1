@@ -252,9 +252,19 @@ export const SELLER_ENDPOINTS = {
   REJECT: (id: string) => `/superadmin/sellers/${id}/reject/`,
 };
 
+/**
+ * Marine Emergency Spares — the emergency catalog's products. Sibling of
+ * EMERGENCY_CATEGORY_ENDPOINTS, which owns the categories these are filed under.
+ * A spare is a Product with `catalog_type = "marine_emergency"`, so its payload
+ * mirrors add/update-product.
+ */
 export const SPARE_ENDPOINTS = {
   GET_LIST: "/superadmin/emergency-spares/products/",
   GET_STATS: "/superadmin/emergency-spares/products/stats/",
+  GET_PRODUCT: (id: string) => `/superadmin/emergency-spares/products/${id}/`,
+  ADD_PRODUCT: "/superadmin/emergency-spares/products/add/",
+  UPDATE_PRODUCT: (id: string) => `/superadmin/emergency-spares/products/${id}/update/`,
+  DELETE_PRODUCT: (id: string) => `/superadmin/emergency-spares/products/${id}/delete/`,
 };
 
 export const DASHBOARD_ENDPOINTS = {

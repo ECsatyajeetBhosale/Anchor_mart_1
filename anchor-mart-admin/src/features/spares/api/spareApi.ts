@@ -1,11 +1,14 @@
 import { SPARE_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
 import type {
+  AddSpareProductPayload,
   GetSpareProductsParams,
   SpareProduct,
   SpareProductApi,
+  SpareProductDetail,
   SpareProductListResult,
   SpareStats,
+  UpdateSpareProductPayload,
 } from "../types/spare.types";
 
 /** Placeholder shown for any null/undefined/blank value. */
@@ -92,11 +95,13 @@ export const spareApi = baseApi.injectEndpoints({
       query: (params) => ({
         url: SPARE_ENDPOINTS.GET_LIST,
         method: "GET",
-        // DRF pagination uses `page_size`; search omitted when empty.
+        // DRF pagination uses `page_size`; empty filters are omitted.
         params: {
           page: params.page,
           page_size: params.limit,
           search: params.search || undefined,
+          category: params.category || undefined,
+          is_active: params.isActive === undefined ? undefined : String(params.isActive),
         },
       }),
       transformResponse: (res: unknown): SpareProductListResult => {
@@ -117,8 +122,61 @@ export const spareApi = baseApi.injectEndpoints({
       transformResponse: (res: unknown): SpareStats => unwrap<SpareStats>(res) ?? {},
       providesTags: [{ type: "Spares", id: "STATS" }],
     }),
+
+    /**
+     * Full detail for one spare. Carries fields the list row omits — the
+     * description, the image gallery, the category id (not just its name) and
+     * the ports it's stocked at — so the edit form prefills from here.
+     */
+    getSpareProduct: builder.query<SpareProductDetail, string>({
+      query: (id) => ({ url: SPARE_ENDPOINTS.GET_PRODUCT(id), method: "GET" }),
+      transformResponse: (res: unknown): SpareProductDetail => unwrap<SpareProductDetail>(res),
+      providesTags: (result, _error, id) => [{ type: "Spares", id: result?.id ?? id }],
+    }),
+
+    createSpareProduct: builder.mutation<unknown, AddSpareProductPayload>({
+      query: (body) => ({ url: SPARE_ENDPOINTS.ADD_PRODUCT, method: "POST", body }),
+      // A new row changes both the table and the per-status counters.
+      invalidatesTags: [
+        { type: "Spares", id: "PARTIAL-LIST" },
+        { type: "Spares", id: "STATS" },
+        // The category's `product_count` moves with it.
+        { type: "EmergencyCategories", id: "PARTIAL-LIST" },
+      ],
+    }),
+
+    updateSpareProduct: builder.mutation<unknown, { id: string; body: UpdateSpareProductPayload }>({
+      query: ({ id, body }) => ({
+        url: SPARE_ENDPOINTS.UPDATE_PRODUCT(id),
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "Spares", id },
+        { type: "Spares", id: "PARTIAL-LIST" },
+        { type: "Spares", id: "STATS" },
+        { type: "EmergencyCategories", id: "PARTIAL-LIST" },
+      ],
+    }),
+
+    deleteSpareProduct: builder.mutation<unknown, string>({
+      query: (id) => ({ url: SPARE_ENDPOINTS.DELETE_PRODUCT(id), method: "DELETE" }),
+      invalidatesTags: (_result, _error, id) => [
+        { type: "Spares", id },
+        { type: "Spares", id: "PARTIAL-LIST" },
+        { type: "Spares", id: "STATS" },
+        { type: "EmergencyCategories", id: "PARTIAL-LIST" },
+      ],
+    }),
   }),
   overrideExisting: false,
 });
 
-export const { useGetSpareProductsQuery, useGetSpareStatsQuery } = spareApi;
+export const {
+  useGetSpareProductsQuery,
+  useGetSpareStatsQuery,
+  useGetSpareProductQuery,
+  useCreateSpareProductMutation,
+  useUpdateSpareProductMutation,
+  useDeleteSpareProductMutation,
+} = spareApi;
