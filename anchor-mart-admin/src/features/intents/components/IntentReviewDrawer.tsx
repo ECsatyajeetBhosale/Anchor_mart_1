@@ -587,7 +587,7 @@ export function IntentReviewDrawer({
                     ]}
                     value={tab}
                     onTabChange={setTab}
-                    className="!mb-0"
+                    listClassName="!mb-0"
                   />
                 </div>
 

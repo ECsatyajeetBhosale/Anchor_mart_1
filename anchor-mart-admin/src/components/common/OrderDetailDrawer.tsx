@@ -152,26 +152,25 @@ export function OrderDetailDrawer({
       >
         {order && (
           <>
-            {/* Header */}
-            <SheetHeader className="p-6 pb-4 border-b border-[var(--border-md)]">
+            {/* Header — identity, plus the status/total an admin scans for.
+                No bottom border: the tab bar directly beneath supplies the rule,
+                so the two read as one block. */}
+            <SheetHeader className="p-6 pb-3">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--teal-50)] text-[var(--teal-600)]">
                   <IconPackage size={22} />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <SheetTitle className="text-[15px] font-extrabold">
                     {D.TITLE(order.id)}
                   </SheetTitle>
                   <SheetDescription>{order.terminal}</SheetDescription>
                 </div>
+                <span className="shrink-0 text-[17px] font-extrabold tabular-nums text-[var(--t1)]">
+                  {order.total}
+                </span>
               </div>
-            </SheetHeader>
-
-            {/* Body */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {/* At-a-glance strip — status and total stay visible on every tab
-                  so the two facts an admin scans for never require a switch. */}
-              <div className="mb-5 flex flex-wrap items-center gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Badge
                   variant={getStatusVariant(order.status)}
                   className="h-auto text-[12px] px-3 py-[5px]"
@@ -182,25 +181,27 @@ export function OrderDetailDrawer({
                   <IconClock size={13} className="mr-1 inline" />
                   {D.LIVE_TRACKING}
                 </Badge>
-                <span className="ml-auto text-[17px] font-extrabold tabular-nums text-[var(--t1)]">
-                  {order.total}
-                </span>
               </div>
+            </SheetHeader>
 
-              {/* Sticky so the tab bar stays reachable while the content scrolls. */}
-              <div className="sticky top-0 z-10 -mx-6 mb-5 bg-[var(--surface)] px-6 pt-1">
-                <DynamicTabs
-                  tabs={[
-                    { label: D.TABS.OVERVIEW, value: TAB_OVERVIEW },
-                    { label: D.TABS.ITEMS(order.items.length), value: TAB_ITEMS },
-                    { label: D.TABS.FULFILMENT, value: TAB_FULFILMENT },
-                  ]}
-                  value={tab}
-                  onTabChange={setTab}
-                  className="!mb-0"
-                />
-              </div>
+            {/* Tab bar sits outside the scroll container, flush against the
+                header, so it never drifts away from the order id. The bar's own
+                bottom border is the divider — no wrapper border, or it doubles. */}
+            <div className="shrink-0 px-6">
+              <DynamicTabs
+                tabs={[
+                  { label: D.TABS.OVERVIEW, value: TAB_OVERVIEW },
+                  { label: D.TABS.ITEMS(order.items.length), value: TAB_ITEMS },
+                  { label: D.TABS.FULFILMENT, value: TAB_FULFILMENT },
+                ]}
+                value={tab}
+                onTabChange={setTab}
+                listClassName="!mb-0"
+              />
+            </div>
 
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-6">
               {/* ── Overview: who, where and how it was paid ─────── */}
               {tab === TAB_OVERVIEW && (
                 <>

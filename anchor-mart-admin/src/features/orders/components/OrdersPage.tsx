@@ -448,13 +448,6 @@ export function OrdersPage() {
 
   const columns: Column<OrderRow>[] = [
     idColumn({ id: "id", header: M.COLUMNS.ORDER_ID, get: (o) => o.orderNumber }),
-    // Order source (Mobile App / Website) isn't returned by the API → "-".
-    textColumn({
-      id: "source",
-      header: M.COLUMNS.SOURCE,
-      get: () => "—",
-      className: "td-m text-center",
-    }),
     avatarColumn({
       id: "sailor",
       header: M.COLUMNS.SAILOR,

@@ -360,7 +360,6 @@ export const MESSAGES = {
     // Table
     COLUMNS: {
       ORDER_ID: "Order ID",
-      SOURCE: "Source",
       SAILOR: "Sailor",
       ITEMS: "Items",
       SHIP_TERMINAL: "Ship / Terminal",
