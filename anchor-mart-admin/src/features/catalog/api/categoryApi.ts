@@ -2,6 +2,7 @@ import { CATEGORY_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
 import type {
   AddCategoryPayload,
+  Category,
   CategoryListResponse,
   CategoryStats,
   UpdateCategoryPayload,
@@ -20,7 +21,7 @@ export const categoryApi = baseApi.injectEndpoints({
       query: (params) => ({
         url: CATEGORY_ENDPOINTS.GET_CATEGORIES,
         method: "GET",
-     
+
         params: params
           ? {
               page: params.page,
@@ -40,7 +41,13 @@ export const categoryApi = baseApi.injectEndpoints({
           : [{ type: "Categories", id: "PARTIAL-LIST" }],
     }),
 
-   
+    // Single-category detail (GET categories/get-category/{id}/), used by the
+    // edit drawer to load the record fresh instead of trusting the table row.
+    getCategory: builder.query<Category, string>({
+      query: (id) => ({ url: CATEGORY_ENDPOINTS.GET_CATEGORY(id), method: "GET" }),
+      providesTags: (_result, _error, id) => [{ type: "Categories", id }],
+    }),
+
     getCategoryStats: builder.query<CategoryStats, void>({
       query: () => ({ url: CATEGORY_ENDPOINTS.GET_STATS, method: "GET" }),
       providesTags: [{ type: "Categories", id: "STATS" }],
@@ -64,7 +71,7 @@ export const categoryApi = baseApi.injectEndpoints({
         method: "PATCH",
         body,
       }),
-    
+
       invalidatesTags: (_result, _error, { id }) => [
         { type: "Categories", id },
         { type: "Categories", id: "PARTIAL-LIST" },
@@ -87,9 +94,9 @@ export const categoryApi = baseApi.injectEndpoints({
   overrideExisting: false,
 });
 
-
 export const {
   useGetCategoriesQuery,
+  useGetCategoryQuery,
   useGetCategoryStatsQuery,
   useCreateCategoryMutation,
   useUpdateCategoryMutation,

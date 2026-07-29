@@ -17,7 +17,7 @@ import { IconCategory, IconCheck } from "@tabler/icons-react";
 import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { useUpdateCategoryMutation } from "../api/categoryApi";
+import { useGetCategoryQuery, useUpdateCategoryMutation } from "../api/categoryApi";
 import { type CategoryUpdateFormData, categoryUpdateSchema } from "../schemas/category.schema";
 import type { Category, UpdateCategoryPayload } from "../types/category.types";
 
@@ -38,6 +38,12 @@ function toImagePath(image: string | null): string {
 export function CategoryEditDrawer({ isOpen, onClose, category }: CategoryEditDrawerProps) {
   const [updateCategory, { isLoading: isUpdating }] = useUpdateCategoryMutation();
 
+  // Load the record by id so the form edits current values — the table row can
+  // be stale by the time someone opens it. Fall back to the row while in flight
+  // (the detail returns the same field set, so nothing is missing meanwhile).
+  const { data: detail } = useGetCategoryQuery(category.id, { skip: !isOpen });
+  const source = detail ?? category;
+
   const {
     register,
     control,
@@ -53,12 +59,12 @@ export function CategoryEditDrawer({ isOpen, onClose, category }: CategoryEditDr
   useEffect(() => {
     if (!isOpen) return;
     reset({
-      name: category.name ?? "",
-      description: category.description ?? "",
-      image: toImagePath(category.image),
-      is_active: category.is_active ?? true,
+      name: source.name ?? "",
+      description: source.description ?? "",
+      image: toImagePath(source.image),
+      is_active: source.is_active ?? true,
     });
-  }, [isOpen, category, reset]);
+  }, [isOpen, source, reset]);
 
   const onSubmit = async (formData: CategoryUpdateFormData) => {
     const payload: UpdateCategoryPayload = {

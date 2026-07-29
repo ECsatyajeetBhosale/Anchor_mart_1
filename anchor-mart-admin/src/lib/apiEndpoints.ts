@@ -77,6 +77,9 @@ export const PRODUCT_ENDPOINTS = {
 export const CATEGORY_ENDPOINTS = {
   GET_STATS: "/superadmin/categories/category-stats/",
   GET_CATEGORIES: "/superadmin/categories/get-categories/",
+  // Single category by id — same field set as a list row, fetched fresh so the
+  // edit drawer shows current values rather than the (possibly stale) row.
+  GET_CATEGORY: (id: string) => `/superadmin/categories/get-category/${id}/`,
   ADD_CATEGORY: "/superadmin/categories/add-category/",
   UPDATE_CATEGORY: (id: string) => `/superadmin/categories/update-category/${id}/`,
   DELETE_CATEGORY: (id: string) => `/superadmin/categories/delete-category/${id}/`,

@@ -17,7 +17,10 @@ import { IconCategory, IconCheck } from "@tabler/icons-react";
 import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { useUpdateEmergencyCategoryMutation } from "../api/emergencyCategoryApi";
+import {
+  useGetEmergencyCategoryQuery,
+  useUpdateEmergencyCategoryMutation,
+} from "../api/emergencyCategoryApi";
 import {
   type EmergencyCategoryUpdateFormData,
   emergencyCategoryUpdateSchema,
@@ -48,6 +51,12 @@ export function EmergencyCategoryEditDrawer({
 }: EmergencyCategoryEditDrawerProps) {
   const [updateCategory, { isLoading: isUpdating }] = useUpdateEmergencyCategoryMutation();
 
+  // Load the record by id so the form edits current values — the table row can
+  // be stale by the time someone opens it. Fall back to the row while in flight
+  // (the detail returns the same field set, so nothing is missing meanwhile).
+  const { data: detail } = useGetEmergencyCategoryQuery(category.id, { skip: !isOpen });
+  const source = detail ?? category;
+
   const {
     register,
     control,
@@ -63,12 +72,12 @@ export function EmergencyCategoryEditDrawer({
   useEffect(() => {
     if (!isOpen) return;
     reset({
-      name: category.name ?? "",
-      description: category.description ?? "",
-      image: toImagePath(category.image),
-      is_active: category.is_active ?? true,
+      name: source.name ?? "",
+      description: source.description ?? "",
+      image: toImagePath(source.image),
+      is_active: source.is_active ?? true,
     });
-  }, [isOpen, category, reset]);
+  }, [isOpen, source, reset]);
 
   const onSubmit = async (formData: EmergencyCategoryUpdateFormData) => {
     const payload: UpdateEmergencyCategoryPayload = {

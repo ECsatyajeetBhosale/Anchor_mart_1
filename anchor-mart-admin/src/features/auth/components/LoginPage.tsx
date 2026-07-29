@@ -15,6 +15,7 @@ import { useLoginMutation } from "@/features/auth/api/authApi";
 import { type LoginFormData, loginSchema } from "@/features/auth/schemas/auth.schema";
 import { setCredentials } from "@/features/auth/slice/authSlice";
 import { useAppDispatch } from "@/hooks/useAppDispatch";
+import { getApiMessage } from "@/lib/apiError";
 import { APP_ROUTES } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { toast } from "sonner";
@@ -47,14 +48,18 @@ export function LoginPage() {
       toast.success(response.message || "Login successful");
       navigate(APP_ROUTES.DASHBOARD, { replace: true });
     } catch (err: unknown) {
-      const error = err as { status?: string | number; data?: Record<string, unknown> };
-      const errorData = error?.data as Record<string, string | string[]> | undefined;
-      const errorMsg =
-        (Array.isArray(errorData?.non_field_errors) ? errorData.non_field_errors[0] : null) ??
-        (typeof errorData?.detail === "string" ? errorData.detail : null) ??
-        (typeof errorData?.message === "string" ? errorData.message : null) ??
-        "Invalid email or password. Please try again.";
-      setApiError(errorMsg);
+      const error = err as { status?: string | number };
+      // A request that never reached the backend (proxy down, CORS, offline)
+      // carries no body — reporting it as bad credentials sends people off
+      // chasing a password that was never actually rejected.
+      if (error?.status === "FETCH_ERROR" || error?.status === "TIMEOUT_ERROR") {
+        setApiError(MESSAGES.AUTH.NETWORK_ERROR);
+        return;
+      }
+      // This backend returns failures as {"error": "Invalid password"} —
+      // getApiMessage reads that key (plus message/detail/DRF field errors),
+      // so the real reason reaches the banner instead of a blanket guess.
+      setApiError(getApiMessage(err) ?? MESSAGES.AUTH.INVALID_CREDENTIALS);
     }
   };
 

@@ -6,6 +6,7 @@ export { CategoryEditDrawer } from "./components/CategoryEditDrawer";
 export { useCategoryColumns } from "./components/categoryColumns";
 export {
   useGetCategoriesQuery,
+  useGetCategoryQuery,
   useGetCategoryStatsQuery,
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
