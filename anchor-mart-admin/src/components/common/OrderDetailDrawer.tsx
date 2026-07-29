@@ -41,16 +41,15 @@ export interface OrderItem {
 }
 
 /**
- * The order's money breakdown.
+ * The order's money breakdown — **every field comes straight from the order
+ * response**; nothing here is derived or inferred.
  *
- * `itemsTotal` is the sum of the line subtotals and is always real. Everything
- * else is order-level and stays at zero until the admin generates a bill —
- * `apply_fees` writes the fees and `recompute_order_totals` produces the total
- * (Flow 07). `isBilled` distinguishes "genuinely free" from "not priced yet",
- * which is otherwise indistinguishable at a glance.
+ * These stay at zero until the admin generates a bill (`apply_fees` +
+ * `recompute_order_totals`, Flow 07), so each row is hidden while it is zero.
+ * On an unbilled order that leaves just the total, which is the only figure the
+ * backend has actually committed to.
  */
 export interface OrderPricing {
-  itemsTotal: string;
   subtotal: string;
   shippingFee: string;
   tax: string;
@@ -59,8 +58,6 @@ export interface OrderPricing {
   loyaltyDiscount: string;
   loyaltyPoints: number;
   total: string;
-  /** False while every order-level money field is still zero. */
-  isBilled: boolean;
 }
 
 export interface OrderDetail {
@@ -128,6 +125,18 @@ interface OrderDetailDrawerProps {
 function isZeroMoney(value: string): boolean {
   const n = Number(value.replace(/[^0-9.-]/g, ""));
   return !Number.isFinite(n) || n === 0;
+}
+
+/**
+ * True when the order response carries at least one non-zero breakdown figure.
+ * Until a bill exists they are all zero, and a breakdown of zeros reads as
+ * arithmetic that doesn't add up — so the section is dropped entirely and only
+ * the total (the one committed figure) is shown.
+ */
+function hasBreakdown(p: OrderPricing): boolean {
+  return [p.subtotal, p.shippingFee, p.tax, p.platformFee, p.discount, p.loyaltyDiscount].some(
+    (v) => !isZeroMoney(v),
+  );
 }
 
 /**
@@ -345,13 +354,14 @@ export function OrderDetailDrawer({
                     ))
                   )}
 
-                  {/* Money breakdown. Fee rows are hidden when zero so an unbilled
-                      order shows a short, honest list rather than five zeros. */}
-                  {order.pricing && (
+                  {/* Breakdown rows render only where the backend has actually
+                      set a value. Before billing they are all zero, so this
+                      collapses to the total alone rather than showing a column
+                      of zeros that invites the wrong arithmetic. */}
+                  {order.pricing && hasBreakdown(order.pricing) && (
                     <>
                       <div className="sec-label mt16">{D.PRICING}</div>
-                      <PriceRow label={D.ITEMS_TOTAL} value={order.pricing.itemsTotal} />
-                      <PriceRow label={D.SUBTOTAL} value={order.pricing.subtotal} />
+                      <PriceRow label={D.SUBTOTAL} value={order.pricing.subtotal} omitZero />
                       <PriceRow label={D.SHIPPING_FEE} value={order.pricing.shippingFee} omitZero />
                       <PriceRow label={D.TAX} value={order.pricing.tax} omitZero />
                       <PriceRow label={D.PLATFORM_FEE} value={order.pricing.platformFee} omitZero />
@@ -380,19 +390,6 @@ export function OrderDetailDrawer({
                       <span className="lg w8">{order.total}</span>
                     </div>
                   </div>
-
-                  {/* The single most confusing state: priced items under a zero
-                      total. Say why instead of leaving the admin to guess. */}
-                  {order.pricing && !order.pricing.isBilled && order.items.length > 0 && (
-                    <div className="mt-3 rounded-[var(--radius-md)] border border-[var(--amber-200)] bg-[var(--amber-50)] px-4 py-3">
-                      <div className="text-[12.5px] font-bold text-[var(--amber-700)]">
-                        {D.NOT_BILLED_TITLE}
-                      </div>
-                      <p className="mt-1 text-[11.5px] leading-relaxed text-[var(--t3)]">
-                        {D.NOT_BILLED_BODY}
-                      </p>
-                    </div>
-                  )}
                 </>
               )}
 

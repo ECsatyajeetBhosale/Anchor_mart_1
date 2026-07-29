@@ -268,24 +268,6 @@ function money(value: unknown): string {
 function toOrderDetail(order: Order): OrderDetail {
   // Only the detail read returns `items`; a list row has just `item_count`.
   const items = order.items ?? [];
-  // The line subtotals are real even before billing, so they're summed
-  // independently of the order-level figures.
-  const itemsTotal = items.reduce((sum, it) => {
-    const line = Number(it.subtotal);
-    return sum + (Number.isFinite(line) ? line : Number(it.unit_price) * it.quantity || 0);
-  }, 0);
-
-  const orderMoney = [
-    order.subtotal,
-    order.shipping_fee,
-    order.tax_amount,
-    order.platform_fee,
-    order.discount_amount,
-    order.total_amount,
-  ];
-  // Every order-level figure still zero means no bill has been generated yet
-  // (Flow 07) — distinct from an order that is genuinely free.
-  const isBilled = orderMoney.some((v) => Number(v) > 0);
 
   return {
     id: order.order_number,
@@ -303,8 +285,9 @@ function toOrderDetail(order: Order): OrderDetail {
       price: money(it.unit_price),
       lineTotal: money(it.subtotal),
     })),
+    // Straight passthrough of the order's own money fields — nothing summed
+    // or inferred here, so the drawer can only show what the backend committed.
     pricing: {
-      itemsTotal: money(itemsTotal),
       subtotal: money(order.subtotal),
       shippingFee: money(order.shipping_fee),
       tax: money(order.tax_amount),
@@ -313,7 +296,6 @@ function toOrderDetail(order: Order): OrderDetail {
       loyaltyDiscount: money(order.loyalty_discount),
       loyaltyPoints: order.loyalty_points_redeemed ?? 0,
       total: money(order.total_amount),
-      isBilled,
     },
   };
 }
