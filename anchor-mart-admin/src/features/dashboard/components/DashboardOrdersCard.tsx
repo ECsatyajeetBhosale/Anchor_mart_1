@@ -13,8 +13,8 @@ import {
   useGetDashboardOrdersQuery,
   useGetDashboardPortsQuery,
 } from "../api/dashboardApi";
-import { detailsToOrderDetail, shipPort, toOrderDetail } from "../lib/orderAdapters";
-import type { DashboardOrderStatus, LiveOrder } from "../types/dashboard.types";
+import { detailsToOrderDetail } from "../lib/orderAdapters";
+import type { DashboardOrderRow, DashboardOrderStatus } from "../types/dashboard.types";
 
 const M = MESSAGES.DASHBOARD;
 const S = M.ORDERS_SECTION;
@@ -48,7 +48,7 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
 export function DashboardOrdersCard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-  const [selectedRow, setSelectedRow] = useState<LiveOrder | null>(null);
+  const [selectedRow, setSelectedRow] = useState<DashboardOrderRow | null>(null);
 
   // URL-driven so a filtered view is shareable and survives a refresh.
   const page = Number.parseInt(searchParams.get("opage") ?? "1", 10);
@@ -78,7 +78,7 @@ export function DashboardOrdersCard() {
     { skip: !selectedOrderId },
   );
 
-  const orders = data?.results ?? [];
+  const orders = data?.rows ?? [];
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / LIMIT));
 
   const setParam = (key: string, value: string) => {
@@ -92,7 +92,7 @@ export function DashboardOrdersCard() {
     setSearchParams(next);
   };
 
-  const openOrder = (order: LiveOrder) => {
+  const openOrder = (order: DashboardOrderRow) => {
     setSelectedRow(order);
     setSelectedOrderId(order.id);
   };
@@ -102,20 +102,22 @@ export function DashboardOrdersCard() {
     setSelectedRow(null);
   };
 
-  const columns: Column<LiveOrder>[] = [
+  // Every field is already normalised to a present string by the API transform,
+  // so the cells render it directly.
+  const columns: Column<DashboardOrderRow>[] = [
     {
       id: "order",
       header: M.LIVE_ORDERS_COLUMNS.ORDER_ID,
       className: "td-id",
-      cell: (o) => o.order_number,
+      cell: (o) => o.orderNumber,
     },
     {
       id: "sailor",
       header: M.LIVE_ORDERS_COLUMNS.SAILOR,
       cell: (o) => (
         <div className="flex aic g8">
-          <div className="av av-sm av-navy">{o.sailor?.name?.[0] ?? "-"}</div>
-          <span className="td-p">{o.sailor?.name ?? "-"}</span>
+          <div className="av av-sm av-navy">{o.sailorName.charAt(0)}</div>
+          <span className="td-p">{o.sailorName}</span>
         </div>
       ),
     },
@@ -123,24 +125,24 @@ export function DashboardOrdersCard() {
       id: "shipport",
       header: M.LIVE_ORDERS_COLUMNS.SHIP_PORT,
       className: "td-m",
-      cell: (o) => shipPort(o),
+      cell: (o) => o.shipPort,
     },
     {
       id: "partner",
       header: M.LIVE_ORDERS_COLUMNS.PARTNER,
       className: "td-m",
-      cell: (o) => o.partner?.name ?? M.UNASSIGNED,
+      cell: (o) => o.partnerName,
     },
     {
       id: "status",
       header: M.LIVE_ORDERS_COLUMNS.STATUS,
-      cell: (o) => <StatusBadge status={o.status_display} />,
+      cell: (o) => <StatusBadge status={o.status} />,
     },
     {
       id: "total",
       header: M.LIVE_ORDERS_COLUMNS.TOTAL,
       className: "td-p",
-      cell: (o) => `$${Number(o.total_amount).toFixed(2)}`,
+      cell: (o) => o.total,
     },
   ];
 
@@ -203,7 +205,19 @@ export function DashboardOrdersCard() {
           detail
             ? detailsToOrderDetail(detail)
             : selectedRow
-              ? toOrderDetail(selectedRow)
+              ? {
+                  // Seed from the row so the drawer paints immediately; the
+                  // full payload replaces this as soon as it lands.
+                  id: selectedRow.orderNumber,
+                  sailor: selectedRow.sailorName,
+                  ship: selectedRow.shipPort,
+                  terminal: selectedRow.shipPort,
+                  partner: selectedRow.partnerName,
+                  status: selectedRow.status,
+                  total: selectedRow.total,
+                  payment: "—",
+                  items: [],
+                }
               : null
         }
         timeline={detail?.timeline}

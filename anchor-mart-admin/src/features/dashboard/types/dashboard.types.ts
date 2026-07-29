@@ -293,13 +293,29 @@ export interface DashboardOrdersParams {
 }
 
 /**
- * DRF-paginated payload from `GET /superadmin/dashboard/orders/`. Rows reuse the
- * `LiveOrder` shape — the two endpoints serve the same records, one capped and
- * live, the other filterable.
+ * A row of the dashboard orders list, flattened by the API transform.
+ *
+ * This endpoint publishes no sample response and does **not** return the same
+ * fields as `live-orders/` — notably `status_display` may be absent. Every
+ * field here is therefore guaranteed present by the transform, so the table can
+ * render it without null checks.
  */
+export interface DashboardOrderRow {
+  /** Order UUID — the row key and the detail lookup id. */
+  id: string;
+  orderNumber: string;
+  sailorName: string;
+  /** Composed "ship · port" label, or "—". */
+  shipPort: string;
+  partnerName: string;
+  /** Human status label, falling back to the raw token then "—". */
+  status: string;
+  /** Formatted total, e.g. "$120.00". */
+  total: string;
+}
+
+/** DRF-paginated payload from `GET /superadmin/dashboard/orders/`, transformed. */
 export interface DashboardOrdersResponse {
   count: number;
-  next: string | null;
-  previous: string | null;
-  results: LiveOrder[];
+  rows: DashboardOrderRow[];
 }

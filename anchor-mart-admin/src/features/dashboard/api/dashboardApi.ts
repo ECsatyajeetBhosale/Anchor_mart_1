@@ -1,9 +1,11 @@
 // src/features/dashboard/api/dashboardApi.ts
 import { DASHBOARD_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
+import { MESSAGES } from "@/lib/messages";
 import type {
   ActionRequiredResponse,
   ActivePartnersResponse,
+  DashboardOrderRow,
   DashboardOrdersParams,
   DashboardOrdersResponse,
   DashboardPort,
@@ -114,6 +116,56 @@ export const dashboardApi = baseApi.injectEndpoints({
           to_date: params.to_date || undefined,
         },
       }),
+      transformResponse: (res: unknown): DashboardOrdersResponse => {
+        const prop = (v: unknown, k: string): unknown =>
+          v && typeof v === "object" ? (v as Record<string, unknown>)[k] : undefined;
+        const arr = (v: unknown): unknown[] | null => (Array.isArray(v) ? v : null);
+        const pick = (o: unknown, ...keys: string[]): string => {
+          for (const k of keys) {
+            const v = prop(o, k);
+            if (typeof v === "string" && v.trim()) return v.trim();
+            if (typeof v === "number") return String(v);
+          }
+          return "";
+        };
+
+        const results = prop(res, "results");
+        const rawRows =
+          arr(prop(results, "data")) ??
+          arr(results) ??
+          arr(prop(res, "data")) ??
+          arr(res) ??
+          [];
+        const countRaw = prop(res, "count") ?? prop(results, "count");
+
+        const rows: DashboardOrderRow[] = rawRows.map((row, index) => {
+          // `sailor` / `port` / `partner` may each be a nested object or a bare
+          // string, and this endpoint does not always send `status_display`.
+          const sailor = prop(row, "sailor");
+          const port = prop(row, "port");
+          const partner = prop(row, "partner");
+          const ship = pick(row, "ship") || pick(prop(row, "ship"), "vessel_name", "name");
+          const portName = typeof port === "string" ? port : pick(port, "name", "port_name");
+          const amount = Number(prop(row, "total_amount") ?? prop(row, "total"));
+
+          return {
+            id: pick(row, "id", "order_id") || `order-${index}`,
+            orderNumber: pick(row, "order_number", "order_no") || "—",
+            sailorName:
+              (typeof sailor === "string" ? sailor : pick(sailor, "name", "full_name", "email")) ||
+              pick(row, "customer_name") ||
+              "—",
+            shipPort: [ship, portName].filter(Boolean).join(" · ") || "—",
+            partnerName:
+              (typeof partner === "string" ? partner : pick(partner, "name", "full_name")) ||
+              MESSAGES.DASHBOARD.UNASSIGNED,
+            status: pick(row, "status_display", "status") || "—",
+            total: Number.isFinite(amount) ? `$${amount.toFixed(2)}` : "—",
+          };
+        });
+
+        return { count: typeof countRaw === "number" ? countRaw : rows.length, rows };
+      },
       providesTags: [{ type: "Orders", id: "DASHBOARD-ORDERS" }],
     }),
 

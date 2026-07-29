@@ -1,11 +1,19 @@
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 
 export interface StatusBadgeProps {
-  status: string | boolean;
+  /**
+   * Nullish is tolerated on purpose: this badge renders API-supplied status
+   * fields across most tables, and a single payload missing one must not throw
+   * and blank the whole page. A missing status renders as an em dash.
+   */
+  status: string | boolean | null | undefined;
   activeLabel?: string;
   inactiveLabel?: string;
   className?: string;
 }
+
+/** Shown when the backend omits the status field entirely. */
+const MISSING_STATUS = "—";
 
 export function StatusBadge({
   status,
@@ -19,8 +27,10 @@ export function StatusBadge({
   if (typeof status === "boolean") {
     isTrue = status;
     label = isTrue ? activeLabel : inactiveLabel;
+  } else if (status === null || status === undefined) {
+    label = MISSING_STATUS;
   } else {
-    const norm = status.trim().toLowerCase();
+    const norm = String(status).trim().toLowerCase();
     isTrue =
       norm === "active" ||
       norm === "in-stock" ||
@@ -34,7 +44,7 @@ export function StatusBadge({
     } else if (norm === "low-stock" || norm === "low stock") {
       label = "Low Stock";
     } else {
-      label = status;
+      label = String(status);
     }
   }
 
