@@ -292,6 +292,12 @@ export const MESSAGES = {
   ORDERS: {
     // Page chrome
     TITLE: "Orders Management",
+    // Tabs — post-payment orders vs pre-checkout baskets. Two different
+    // lifecycles, so they get their own surfaces rather than one long scroll.
+    TABS: {
+      ORDERS: "Orders",
+      CARTS: "Open Carts",
+    },
     SUBTITLE_COUNT: "184 orders today",
     SUBTITLE_TAGLINE: "Full lifecycle visibility",
     SEARCH_PLACEHOLDER: "Search orders…",

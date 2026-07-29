@@ -1,4 +1,5 @@
 import { DateRangePicker } from "@/components/common/DateRangePicker";
+import { DynamicTabs } from "@/components/common/DynamicTabs";
 import { type OrderDetail, OrderDetailDrawer } from "@/components/common/OrderDetailDrawer";
 import { PageHeader } from "@/components/common/PageHeader";
 import { SearchFilters } from "@/components/common/SearchFilters";
@@ -51,6 +52,9 @@ import { OwnerCell } from "./OwnerCell";
 import { RefundOrderDialog } from "./RefundOrderDialog";
 
 const M = MESSAGES.ORDERS;
+
+const TAB_ORDERS = "orders";
+const TAB_CARTS = "carts";
 // Flow 27 ownership copy and the status legend are shared with the Intents
 // queue — same gate, same 18 statuses — so the strings are reused, not copied.
 const O = MESSAGES.INTENTS.OWNERSHIP;
@@ -300,6 +304,9 @@ export function OrdersPage() {
   const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
   const search = searchParams.get("search") ?? "";
   const statusFilter = searchParams.get("status") ?? "all";
+  // Tab lives in the URL alongside the filters so a shared link reopens the
+  // same surface, not just the same query.
+  const activeTab = searchParams.get("tab") === TAB_CARTS ? TAB_CARTS : TAB_ORDERS;
 
   // Every filter is applied server-side, so pagination stays truthful.
   const { data, isLoading, isFetching, isError, refetch } = useGetOrdersQuery({
@@ -353,6 +360,21 @@ export function OrdersPage() {
     } else {
       next.delete(key);
     }
+    setSearchParams(next);
+  };
+
+  // Switching tabs clears the orders-only filters — they don't apply to carts,
+  // and leaving them set would silently narrow the list on the way back.
+  const handleTabChange = (value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value === TAB_ORDERS) {
+      next.delete("tab");
+    } else {
+      next.set("tab", value);
+    }
+    next.delete("page");
+    next.delete("search");
+    next.delete("status");
     setSearchParams(next);
   };
 
@@ -537,61 +559,84 @@ export function OrdersPage() {
       <PageHeader
         title={M.TITLE}
         actions={
-          <SearchFilters
-            searchValue={search}
-            onSearchChange={(val) => setParam("search", val)}
-            searchPlaceholder={M.SEARCH_PLACEHOLDER}
-            searchDebounceMs={180}
-            searchLoading={isFetching}
-            filters={[
-              {
-                id: "status",
-                value: statusFilter,
-                placeholder: M.STATUS_FILTER.ALL,
-                options: STATUS_OPTIONS,
-                width: "150px",
-                onValueChange: (val) => setParam("status", val),
-              },
-            ]}
-          >
-            {/* Info icon beside the status filter → the shared status legend. */}
-            <button
-              type="button"
-              className="btn btn-ghost btn-icon"
-              aria-label={L.OPEN_LABEL}
-              title={L.OPEN_LABEL}
-              onClick={() => setIsLegendOpen(true)}
+          // Search, status and date range all scope the orders query, so they
+          // only make sense while that tab is showing.
+          activeTab === TAB_ORDERS ? (
+            <SearchFilters
+              searchValue={search}
+              onSearchChange={(val) => setParam("search", val)}
+              searchPlaceholder={M.SEARCH_PLACEHOLDER}
+              searchDebounceMs={180}
+              searchLoading={isFetching}
+              filters={[
+                {
+                  id: "status",
+                  value: statusFilter,
+                  placeholder: M.STATUS_FILTER.ALL,
+                  options: STATUS_OPTIONS,
+                  width: "150px",
+                  onValueChange: (val) => setParam("status", val),
+                },
+              ]}
             >
-              <IconInfoCircle size={18} />
-            </button>
-            <DateRangePicker value={dateRange} onChange={setDateRange} placeholder={M.DATE_RANGE} />
-            {/* No Export button: neither the flow docs nor the API collection
-                document an orders-export endpoint, and the old one reported a
-                success it never performed. */}
-          </SearchFilters>
+              {/* Info icon beside the status filter → the shared status legend. */}
+              <button
+                type="button"
+                className="btn btn-ghost btn-icon"
+                aria-label={L.OPEN_LABEL}
+                title={L.OPEN_LABEL}
+                onClick={() => setIsLegendOpen(true)}
+              >
+                <IconInfoCircle size={18} />
+              </button>
+              <DateRangePicker
+                value={dateRange}
+                onChange={setDateRange}
+                placeholder={M.DATE_RANGE}
+              />
+              {/* No Export button: neither the flow docs nor the API collection
+                  document an orders-export endpoint, and the old one reported a
+                  success it never performed. */}
+            </SearchFilters>
+          ) : null
         }
       />
 
       <StatsGrid items={statItems} />
 
-      <DataTable
-        columns={columns}
-        data={orders}
-        rowKey="id"
-        page={page}
-        pages={totalPages}
-        isLoading={isLoading}
-        isError={isError}
-        error={isError ? M.FETCH_ERROR : null}
-        onRetry={refetch}
-        onPageChange={handlePageChange}
-        showPagination
-        emptyMessage={search || statusFilter !== "all" ? M.EMPTY_FILTERED : M.EMPTY}
-        onRowClick={(o) => setSelectedRaw(o.raw)}
+      <DynamicTabs
+        value={activeTab}
+        onTabChange={handleTabChange}
+        tabs={[
+          {
+            value: TAB_ORDERS,
+            label: M.TABS.ORDERS,
+            content: (
+              <DataTable
+                columns={columns}
+                data={orders}
+                rowKey="id"
+                page={page}
+                pages={totalPages}
+                isLoading={isLoading}
+                isError={isError}
+                error={isError ? M.FETCH_ERROR : null}
+                onRetry={refetch}
+                onPageChange={handlePageChange}
+                showPagination
+                emptyMessage={search || statusFilter !== "all" ? M.EMPTY_FILTERED : M.EMPTY}
+                onRowClick={(o) => setSelectedRaw(o.raw)}
+              />
+            ),
+          },
+          {
+            // Pre-checkout baskets — a different lifecycle from paid orders.
+            value: TAB_CARTS,
+            label: M.TABS.CARTS,
+            content: <OpenCartsCard />,
+          },
+        ]}
       />
-
-      {/* Pre-checkout baskets — separate surface from the post-payment table. */}
-      <OpenCartsCard />
 
       <OrderDetailDrawer
         order={selectedOrder}

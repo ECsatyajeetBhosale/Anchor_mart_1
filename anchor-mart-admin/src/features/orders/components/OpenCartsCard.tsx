@@ -48,7 +48,6 @@ export function OpenCartsCard() {
       icon={<IconShoppingCart size={18} />}
       title={M.TITLE}
       bodyPadding="none"
-      className="mt-5"
       footer={M.SUBTITLE}
     >
       <DataTable
