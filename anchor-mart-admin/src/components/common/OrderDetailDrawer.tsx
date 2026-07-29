@@ -17,11 +17,16 @@ import {
   IconTransfer,
   IconX,
 } from "@tabler/icons-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
+import { DynamicTabs } from "./DynamicTabs";
 import { Timeline } from "./Timeline";
 
 const M = MESSAGES.ORDERS;
 const D = MESSAGES.ORDERS.DRAWER;
+
+const TAB_OVERVIEW = "overview";
+const TAB_ITEMS = "items";
+const TAB_FULFILMENT = "fulfilment";
 
 export interface OrderItem {
   name: string;
@@ -128,6 +133,15 @@ export function OrderDetailDrawer({
   timelineLoading,
   detailSlot,
 }: OrderDetailDrawerProps) {
+  const [tab, setTab] = useState(TAB_OVERVIEW);
+
+  // Reopening on whichever tab the last order was left on would be disorienting,
+  // so each open starts on Overview. Keyed on the order id, not the open flag,
+  // so clicking straight from one row to another resets too.
+  useEffect(() => {
+    if (order?.id) setTab(TAB_OVERVIEW);
+  }, [order?.id]);
+
   return (
     <Sheet open={!!order} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
@@ -155,8 +169,9 @@ export function OrderDetailDrawer({
 
             {/* Body */}
             <div className="flex-1 overflow-y-auto p-6">
-              {/* Status badges */}
-              <div className="flex gap-2 mb-5">
+              {/* At-a-glance strip — status and total stay visible on every tab
+                  so the two facts an admin scans for never require a switch. */}
+              <div className="mb-5 flex flex-wrap items-center gap-2">
                 <Badge
                   variant={getStatusVariant(order.status)}
                   className="h-auto text-[12px] px-3 py-[5px]"
@@ -167,77 +182,107 @@ export function OrderDetailDrawer({
                   <IconClock size={13} className="mr-1 inline" />
                   {D.LIVE_TRACKING}
                 </Badge>
+                <span className="ml-auto text-[17px] font-extrabold tabular-nums text-[var(--t1)]">
+                  {order.total}
+                </span>
               </div>
 
-              {/* Timeline */}
-              <Timeline items={timeline} loading={timelineLoading} className="mb-5" />
-
-              {/* Order Information */}
-              <div className="sec-label">{D.ORDER_INFO}</div>
-              <div className="detail-kv">
-                <div className="detail-k">{D.SAILOR}</div>
-                <div className="detail-v">{order.sailor}</div>
-              </div>
-              <div className="detail-kv">
-                <div className="detail-k">{D.SOURCE}</div>
-                <div className="detail-v">{order.source || "—"}</div>
-              </div>
-              <div className="detail-kv">
-                <div className="detail-k">{D.INTENT_REF}</div>
-                <div className="detail-v mono">{order.intent || "—"}</div>
-              </div>
-              <div className="detail-kv">
-                <div className="detail-k">{D.SHIP_IMO}</div>
-                <div className="detail-v mono cteal">{order.ship}</div>
-              </div>
-              <div className="detail-kv">
-                <div className="detail-k">{D.TERMINAL}</div>
-                <div className="detail-v">{order.terminal}</div>
-              </div>
-              <div className="detail-kv">
-                <div className="detail-k">{D.ANCHORAGE_CHANGE}</div>
-                <div className="detail-v">{order.anchorageChange || "—"}</div>
-              </div>
-              <div className="detail-kv">
-                <div className="detail-k">{D.PARTNER}</div>
-                <div className="detail-v">{order.partner}</div>
-              </div>
-              <div className="detail-kv">
-                <div className="detail-k">{D.PAYMENT}</div>
-                <div className="detail-v csuccess">{order.payment}</div>
-              </div>
-              <div className="detail-kv">
-                <div className="detail-k">{D.COUPON}</div>
-                <div className="detail-v">{order.coupon || D.COUPON_NONE}</div>
+              {/* Sticky so the tab bar stays reachable while the content scrolls. */}
+              <div className="sticky top-0 z-10 -mx-6 mb-5 bg-[var(--surface)] px-6 pt-1">
+                <DynamicTabs
+                  tabs={[
+                    { label: D.TABS.OVERVIEW, value: TAB_OVERVIEW },
+                    { label: D.TABS.ITEMS(order.items.length), value: TAB_ITEMS },
+                    { label: D.TABS.FULFILMENT, value: TAB_FULFILMENT },
+                  ]}
+                  value={tab}
+                  onTabChange={setTab}
+                  className="!mb-0"
+                />
               </div>
 
-              {/* Feature-owned section (Orders passes partner assignment) */}
-              {detailSlot}
-
-              {/* Items */}
-              <div className="sec-label mt16">{D.ITEMS}</div>
-              {order.items.length === 0 ? (
-                <div className="detail-kv">
-                  <div className="detail-v c4 w5">{D.NO_ITEMS}</div>
-                </div>
-              ) : (
-                order.items.map((item) => (
-                  <div key={`${item.name}-${item.qty}-${item.price}`} className="detail-kv">
-                    <div className="detail-k w5 c4">
-                      {item.name} &times;{item.qty}
-                    </div>
-                    <div className="detail-v">{item.price}</div>
+              {/* ── Overview: who, where and how it was paid ─────── */}
+              {tab === TAB_OVERVIEW && (
+                <>
+                  <div className="sec-label">{D.ORDER_INFO}</div>
+                  <div className="detail-kv">
+                    <div className="detail-k">{D.SAILOR}</div>
+                    <div className="detail-v">{order.sailor}</div>
                   </div>
-                ))
+                  <div className="detail-kv">
+                    <div className="detail-k">{D.SOURCE}</div>
+                    <div className="detail-v">{order.source || "—"}</div>
+                  </div>
+                  <div className="detail-kv">
+                    <div className="detail-k">{D.INTENT_REF}</div>
+                    <div className="detail-v mono">{order.intent || "—"}</div>
+                  </div>
+                  <div className="detail-kv">
+                    <div className="detail-k">{D.SHIP_IMO}</div>
+                    <div className="detail-v mono cteal">{order.ship}</div>
+                  </div>
+                  <div className="detail-kv">
+                    <div className="detail-k">{D.TERMINAL}</div>
+                    <div className="detail-v">{order.terminal}</div>
+                  </div>
+                  <div className="detail-kv">
+                    <div className="detail-k">{D.ANCHORAGE_CHANGE}</div>
+                    <div className="detail-v">{order.anchorageChange || "—"}</div>
+                  </div>
+                  <div className="detail-kv">
+                    <div className="detail-k">{D.PARTNER}</div>
+                    <div className="detail-v">{order.partner}</div>
+                  </div>
+                  <div className="detail-kv">
+                    <div className="detail-k">{D.PAYMENT}</div>
+                    <div className="detail-v csuccess">{order.payment}</div>
+                  </div>
+                  <div className="detail-kv">
+                    <div className="detail-k">{D.COUPON}</div>
+                    <div className="detail-v">{order.coupon || D.COUPON_NONE}</div>
+                  </div>
+                </>
               )}
 
-              {/* Total */}
-              <div className="mt16 rounded-[var(--radius-md)] bg-[var(--navy-25)] px-4 py-3.5">
-                <div className="flex jb aic">
-                  <span className="sm c3 w6">{D.ORDER_TOTAL}</span>
-                  <span className="lg w8">{order.total}</span>
-                </div>
-              </div>
+              {/* ── Items & pricing ──────────────────────────────── */}
+              {tab === TAB_ITEMS && (
+                <>
+                  <div className="sec-label">{D.ITEMS}</div>
+                  {order.items.length === 0 ? (
+                    <div className="detail-kv">
+                      <div className="detail-v c4 w5">{D.NO_ITEMS}</div>
+                    </div>
+                  ) : (
+                    order.items.map((item) => (
+                      <div key={`${item.name}-${item.qty}-${item.price}`} className="detail-kv">
+                        <div className="detail-k w5 c4">
+                          {item.name} &times;{item.qty}
+                        </div>
+                        <div className="detail-v">{item.price}</div>
+                      </div>
+                    ))
+                  )}
+
+                  <div className="mt16 rounded-[var(--radius-md)] bg-[var(--navy-25)] px-4 py-3.5">
+                    <div className="flex jb aic">
+                      <span className="sm c3 w6">{D.ORDER_TOTAL}</span>
+                      <span className="lg w8">{order.total}</span>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* ── Fulfilment: progress and the feature-owned actions ── */}
+              {tab === TAB_FULFILMENT && (
+                <>
+                  <div className="sec-label">{D.TIMELINE}</div>
+                  <Timeline items={timeline} loading={timelineLoading} className="mb-5" />
+
+                  {/* Feature-owned section (Orders passes partner assignment,
+                      ship agent and the location/delta panels). */}
+                  {detailSlot}
+                </>
+              )}
             </div>
 
             {/* Footer actions — each renders only when the caller owns it. */}

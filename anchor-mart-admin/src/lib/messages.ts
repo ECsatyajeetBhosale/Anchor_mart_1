@@ -316,8 +316,16 @@ export const MESSAGES = {
     // Detail drawer chrome (shared `OrderDetailDrawer`)
     DRAWER: {
       TITLE: (ref: string) => `Order ${ref}`,
+      // The drawer's depth is split across tabs rather than one long scroll —
+      // same shape as the intent review drawer.
+      TABS: {
+        OVERVIEW: "Overview",
+        ITEMS: (n: number) => (n > 0 ? `Items & Pricing · ${n}` : "Items & Pricing"),
+        FULFILMENT: "Fulfilment",
+      },
       LIVE_TRACKING: "Live Tracking",
       ORDER_INFO: "Order Information",
+      TIMELINE: "Delivery Timeline",
       SAILOR: "Sailor",
       SOURCE: "Order Source",
       INTENT_REF: "Intent Ref",
