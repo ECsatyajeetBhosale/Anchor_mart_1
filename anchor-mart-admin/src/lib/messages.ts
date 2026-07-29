@@ -350,6 +350,7 @@ export const MESSAGES = {
       DISCOUNT: "Coupon Discount",
       LOYALTY: "Loyalty Discount",
       LOYALTY_WITH_POINTS: (pts: number) => `Loyalty Discount (${pts} pts)`,
+      COUPON_APPLIED: (code: string) => `Coupon applied: ${code}`,
     },
     EMPTY: "No orders found",
     EMPTY_FILTERED: "No orders match the current filters.",

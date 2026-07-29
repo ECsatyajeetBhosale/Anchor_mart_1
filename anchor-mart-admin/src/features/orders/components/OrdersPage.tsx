@@ -264,6 +264,21 @@ function money(value: unknown): string {
   return `$${(Number.isFinite(n) ? n : 0).toFixed(2)}`;
 }
 
+/**
+ * Reads a coupon label off `applied_coupon`. It is a code string in the current
+ * responses, but is read as an object too so a serializer that nests the coupon
+ * doesn't render "[object Object]".
+ */
+function couponLabel(coupon: unknown): string {
+  if (typeof coupon === "string") return coupon.trim();
+  if (coupon && typeof coupon === "object") {
+    const c = coupon as Record<string, unknown>;
+    const label = c.code ?? c.title ?? c.name;
+    return typeof label === "string" ? label.trim() : "";
+  }
+  return "";
+}
+
 /** Map a table row to the detail-drawer shape. */
 function toOrderDetail(order: Order): OrderDetail {
   // Only the detail read returns `items`; a list row has just `item_count`.
@@ -281,6 +296,8 @@ function toOrderDetail(order: Order): OrderDetail {
     status: order.status_display,
     items: items.map((it) => ({
       name: it.product_name,
+      // Fall back to the variant's SKU when the line omits its own.
+      sku: it.sku || it.variant?.sku || "",
       qty: it.quantity,
       price: money(it.unit_price),
       lineTotal: money(it.subtotal),
@@ -296,6 +313,8 @@ function toOrderDetail(order: Order): OrderDetail {
       loyaltyDiscount: money(order.loyalty_discount),
       loyaltyPoints: order.loyalty_points_redeemed ?? 0,
       total: money(order.total_amount),
+      couponUsed: order.coupon_used === true,
+      appliedCoupon: couponLabel(order.applied_coupon),
     },
   };
 }

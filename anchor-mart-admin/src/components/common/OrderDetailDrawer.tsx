@@ -29,13 +29,17 @@ const TAB_ITEMS = "items";
 const TAB_FULFILMENT = "fulfilment";
 
 export interface OrderItem {
+  /** `product_name`. */
   name: string;
+  /** `sku` — shown beneath the name so a variant is identifiable. */
+  sku?: string;
+  /** `quantity`. */
   qty: number;
-  /** Formatted **unit** price, e.g. "$100.00". */
+  /** Formatted `unit_price`, e.g. "$100.00". */
   price: string;
   /**
-   * Formatted line total (`unit price × qty`) as returned by the API. Shown
-   * beside the unit price so a multi-quantity row can't be misread as one.
+   * Formatted `subtotal` — the API's own line total. Shown as the row's figure
+   * so a multi-quantity line can't be misread as the unit price.
    */
   lineTotal?: string;
 }
@@ -56,8 +60,13 @@ export interface OrderPricing {
   platformFee: string;
   discount: string;
   loyaltyDiscount: string;
+  /** `loyalty_points_redeemed` — annotated on the loyalty row when > 0. */
   loyaltyPoints: number;
   total: string;
+  /** `coupon_used` — drives whether the applied coupon is named. */
+  couponUsed: boolean;
+  /** `applied_coupon`, shown under the discount row when a coupon was used. */
+  appliedCoupon: string;
 }
 
 export interface OrderDetail {
@@ -128,44 +137,33 @@ function isZeroMoney(value: string): boolean {
 }
 
 /**
- * True when the order response carries at least one non-zero breakdown figure.
- * Until a bill exists they are all zero, and a breakdown of zeros reads as
- * arithmetic that doesn't add up — so the section is dropped entirely and only
- * the total (the one committed figure) is shown.
- */
-function hasBreakdown(p: OrderPricing): boolean {
-  return [p.subtotal, p.shippingFee, p.tax, p.platformFee, p.discount, p.loyaltyDiscount].some(
-    (v) => !isZeroMoney(v),
-  );
-}
-
-/**
- * One line of the money breakdown. `omitZero` hides fee rows that don't apply,
- * so an unbilled order shows a short list rather than a wall of zeros.
+ * One line of the money breakdown.
+ *
+ * `negative` renders a deduction with a leading minus so a discount can't be
+ * read as a charge — but only when it actually has a value, since "− $0.00"
+ * suggests a deduction that never happened.
  */
 function PriceRow({
   label,
   value,
-  omitZero,
   negative,
 }: {
   label: string;
   value: string;
-  omitZero?: boolean;
   negative?: boolean;
 }) {
-  if (omitZero && isZeroMoney(value)) return null;
+  const isDeduction = negative && !isZeroMoney(value);
   return (
     <div className="flex items-center justify-between py-1.5 text-[12.5px]">
       <span className="text-[var(--t3)]">{label}</span>
       <span
         className={
-          negative
+          isDeduction
             ? "font-semibold tabular-nums text-[var(--success-text)]"
             : "font-semibold tabular-nums text-[var(--t1)]"
         }
       >
-        {negative ? `− ${value}` : value}
+        {isDeduction ? `− ${value}` : value}
       </span>
     </div>
   );
@@ -334,13 +332,16 @@ export function OrderDetailDrawer({
                   ) : (
                     order.items.map((item) => (
                       <div
-                        key={`${item.name}-${item.qty}-${item.price}`}
+                        key={`${item.sku ?? item.name}-${item.qty}-${item.price}`}
                         className="flex items-start justify-between gap-3 border-b border-[var(--border-xs)] py-2.5 last:border-b-0"
                       >
                         <div className="min-w-0">
                           <div className="text-[13px] font-semibold text-[var(--t1)]">
                             {item.name}
                           </div>
+                          {item.sku && (
+                            <div className="mono text-[11px] text-[var(--t4)]">{item.sku}</div>
+                          )}
                           {/* Spell the arithmetic out: a bare "$100.00" next to
                               "×3" reads as the line total when it's the unit price. */}
                           <div className="text-[11.5px] text-[var(--t4)] tabular-nums">
@@ -354,23 +355,23 @@ export function OrderDetailDrawer({
                     ))
                   )}
 
-                  {/* Breakdown rows render only where the backend has actually
-                      set a value. Before billing they are all zero, so this
-                      collapses to the total alone rather than showing a column
-                      of zeros that invites the wrong arithmetic. */}
-                  {order.pricing && hasBreakdown(order.pricing) && (
+                  {/* Full breakdown, every row always shown — a zero fee is
+                      itself information, and hiding rows makes the arithmetic
+                      harder to follow rather than easier. */}
+                  {order.pricing && (
                     <>
                       <div className="sec-label mt16">{D.PRICING}</div>
-                      <PriceRow label={D.SUBTOTAL} value={order.pricing.subtotal} omitZero />
-                      <PriceRow label={D.SHIPPING_FEE} value={order.pricing.shippingFee} omitZero />
-                      <PriceRow label={D.TAX} value={order.pricing.tax} omitZero />
-                      <PriceRow label={D.PLATFORM_FEE} value={order.pricing.platformFee} omitZero />
-                      <PriceRow
-                        label={D.DISCOUNT}
-                        value={order.pricing.discount}
-                        omitZero
-                        negative
-                      />
+                      <PriceRow label={D.SUBTOTAL} value={order.pricing.subtotal} />
+                      <PriceRow label={D.SHIPPING_FEE} value={order.pricing.shippingFee} />
+                      <PriceRow label={D.TAX} value={order.pricing.tax} />
+                      <PriceRow label={D.DISCOUNT} value={order.pricing.discount} negative />
+                      {/* The coupon sits with the discount it produced. */}
+                      {order.pricing.couponUsed && (
+                        <div className="-mt-1 pb-1.5 pl-1 text-[11.5px] text-[var(--t4)]">
+                          {D.COUPON_APPLIED(order.pricing.appliedCoupon || D.COUPON_NONE)}
+                        </div>
+                      )}
+                      <PriceRow label={D.PLATFORM_FEE} value={order.pricing.platformFee} />
                       <PriceRow
                         label={
                           order.pricing.loyaltyPoints > 0
@@ -378,7 +379,6 @@ export function OrderDetailDrawer({
                             : D.LOYALTY
                         }
                         value={order.pricing.loyaltyDiscount}
-                        omitZero
                         negative
                       />
                     </>
