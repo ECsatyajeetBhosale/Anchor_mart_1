@@ -141,6 +141,23 @@ export const ordersApi = baseApi.injectEndpoints({
           return response.blob();
         },
       }),
+      /**
+       * Second line of defence. `responseHandler` above already keeps blobs out
+       * of the error path, but this runs on whatever actually reaches the store
+       * — so a Blob can never be persisted even if the handler is changed or a
+       * transport quirk routes around it. Redux's serializable check flags any
+       * that slip through, and the value would also hide the server's message.
+       */
+      transformErrorResponse: async (error: unknown) => {
+        const data = (error as { data?: unknown })?.data;
+        if (!(data instanceof Blob)) return error;
+        const text = await data.text();
+        try {
+          return { ...(error as object), data: JSON.parse(text) };
+        } catch {
+          return { ...(error as object), data: { detail: text } };
+        }
+      },
       keepUnusedDataFor: 0,
     }),
 
@@ -208,11 +225,7 @@ export const ordersApi = baseApi.injectEndpoints({
 
         const results = prop(res, "results");
         const rows =
-          arr(prop(results, "data")) ??
-          arr(results) ??
-          arr(prop(res, "data")) ??
-          arr(res) ??
-          [];
+          arr(prop(results, "data")) ?? arr(results) ?? arr(prop(res, "data")) ?? arr(res) ?? [];
         const countRaw = prop(res, "count") ?? prop(results, "count");
 
         const carts: AdminCart[] = rows.map((row, index) => {
