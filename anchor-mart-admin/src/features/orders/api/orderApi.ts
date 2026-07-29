@@ -122,7 +122,24 @@ export const ordersApi = baseApi.injectEndpoints({
         url: ORDER_ENDPOINTS.ORDER_SLIP(orderId),
         method: "GET",
         headers: { Accept: "application/pdf" },
-        responseHandler: (response) => response.blob(),
+        /**
+         * The handler runs for failures too, and a failed slip request returns
+         * a JSON error body rather than a PDF. Blob-ing that would park a
+         * non-serializable value in `error.data` (Redux warns) and hide the
+         * server's message from `getApiMessage`, so errors are read as text and
+         * parsed back into a plain object. Only a successful response is a blob.
+         */
+        responseHandler: async (response) => {
+          if (!response.ok) {
+            const text = await response.text();
+            try {
+              return JSON.parse(text);
+            } catch {
+              return { detail: text };
+            }
+          }
+          return response.blob();
+        },
       }),
       keepUnusedDataFor: 0,
     }),
