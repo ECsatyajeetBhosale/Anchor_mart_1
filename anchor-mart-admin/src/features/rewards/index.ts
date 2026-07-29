@@ -32,3 +32,45 @@ export type {
   UpdateCouponPayload,
   UpdateLoyaltyConfigPayload,
 } from "./types/reward.types";
+
+// Promotion surfaces: Deal of the Day, bonus points, coupon assignments, report.
+export { DealsTab } from "./components/DealsTab";
+export { DealFormDrawer } from "./components/DealFormDrawer";
+export { BonusPointsTab } from "./components/BonusPointsTab";
+export { CouponAssignmentsTab } from "./components/CouponAssignmentsTab";
+export { CouponReportTab } from "./components/CouponReportTab";
+export {
+  useGetDealsQuery,
+  useGetDealQuery,
+  useGetDealStatsQuery,
+  useGetDealsOfDayQuery,
+  useCreateDealMutation,
+  useUpdateDealMutation,
+  useDeleteDealMutation,
+  useToggleDealMutation,
+  useGetBonusPointsQuery,
+  useAddBonusPointsMutation,
+  useDeleteBonusPointsMutation,
+  useGetBonusPointHistoryQuery,
+  useGetCouponAssignmentsQuery,
+  useAddCouponAssignmentMutation,
+  useDeleteCouponAssignmentMutation,
+  useGetCouponReportQuery,
+} from "./api/promotionApi";
+export type {
+  AddBonusPointsPayload,
+  AddCouponAssignmentPayload,
+  BonusPoint,
+  BonusPointHistoryEntry,
+  BonusPointHistoryResult,
+  BonusPointListResult,
+  BonusPointType,
+  CouponAssignment,
+  CouponAssignmentListResult,
+  CouponReportRow,
+  Deal,
+  DealListResult,
+  DealPayload,
+  DealStats,
+  GetDealsParams,
+} from "./types/reward.types";

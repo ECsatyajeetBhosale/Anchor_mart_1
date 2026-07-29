@@ -7,6 +7,7 @@ import {
 } from "@/components/common/tableColumns";
 import { Badge } from "@/components/ui/badge";
 import type { Column } from "@/components/ui/data-table";
+import { Switch } from "@/components/ui/switch";
 import { MESSAGES } from "@/lib/messages";
 import { IconDeviceSpeaker, IconStar } from "@tabler/icons-react";
 import type React from "react";
@@ -38,6 +39,16 @@ export interface UseProductColumnsOptions {
   onStatusFilter: (value: string) => void;
   onEdit: (e: React.MouseEvent, product: Product) => void;
   onDelete: (e: React.MouseEvent, id: string) => void;
+  /** Opens the SKU manager for the product. */
+  onManageVariants: (e: React.MouseEvent, product: Product) => void;
+  /** Opens the catalog-move dialog. */
+  onChangeCatalog: (e: React.MouseEvent, product: Product) => void;
+  /** Opens the availability-broadcast confirmation. */
+  onAnnounce: (e: React.MouseEvent, product: Product) => void;
+  /** Flips the merchandising top-rated flag. */
+  onToggleTopRated: (product: Product, next: boolean) => void;
+  /** Flips the product-level sourceable master switch. */
+  onToggleSourceable: (product: Product, next: boolean) => void;
 }
 
 /**
@@ -49,6 +60,11 @@ export function useProductColumns({
   onStatusFilter,
   onEdit,
   onDelete,
+  onManageVariants,
+  onChangeCatalog,
+  onAnnounce,
+  onToggleTopRated,
+  onToggleSourceable,
 }: UseProductColumnsOptions): Column<Product>[] {
   return [
     {
@@ -89,6 +105,29 @@ export function useProductColumns({
         );
       },
     },
+    {
+      id: "topRated",
+      header: MESSAGES.PRODUCT_FLAGS.COLUMNS.TOP_RATED,
+      cell: (row) => (
+        <Switch
+          checked={row.is_top_rated === true}
+          onCheckedChange={(next) => onToggleTopRated(row, next)}
+          // The row itself opens the edit modal — the toggle must not.
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+    },
+    {
+      id: "sourceable",
+      header: MESSAGES.PRODUCT_FLAGS.COLUMNS.SOURCEABLE,
+      cell: (row) => (
+        <Switch
+          checked={row.admin_sourceable !== false}
+          onCheckedChange={(next) => onToggleSourceable(row, next)}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+    },
     statusColumn({
       id: "status",
       header: MESSAGES.PRODUCTS.COLUMNS.STATUS,
@@ -108,6 +147,9 @@ export function useProductColumns({
           title: MESSAGES.PRODUCTS.ACTION_EDIT,
           onClick: (e, r) => onEdit(e, r),
         },
+        variants: { onClick: (e, r) => onManageVariants(e, r) },
+        catalog: { onClick: (e, r) => onChangeCatalog(e, r) },
+        announce: { onClick: (e, r) => onAnnounce(e, r) },
         delete: {
           title: MESSAGES.PRODUCTS.ACTION_REMOVE,
           onClick: (e, r) => onDelete(e, r.id),

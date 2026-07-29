@@ -170,3 +170,34 @@ export interface OrderListResponse {
   previous: string | null;
   results: Order[];
 }
+
+/**
+ * A sailor cart that has not converted into an order, from
+ * `GET /superadmin/orders/carts/`.
+ *
+ * This endpoint has no flow-document contract, so the API transform builds this
+ * flat shape by probing candidate field names and every value degrades to "-"
+ * rather than rendering `undefined`.
+ */
+export interface AdminCart {
+  /** Cart id — the row key. */
+  id: string;
+  /** Sailor / customer name. */
+  customer: string;
+  /** Sailor email. */
+  email: string;
+  /** Which catalog the cart belongs to (regular / express / marine emergency). */
+  catalogType: string;
+  /** Number of line items in the cart. */
+  itemCount: number;
+  /** Formatted cart value, e.g. "$120.00". */
+  total: string;
+  /** Last-updated label, shown as returned (may be pre-formatted). */
+  updatedAt: string;
+}
+
+/** Transformed carts result: total count + UI rows. */
+export interface AdminCartListResult {
+  count: number;
+  carts: AdminCart[];
+}

@@ -72,6 +72,53 @@ export const PRODUCT_ENDPOINTS = {
   ADD_PRODUCT: "/superadmin/products/add-product/",
   UPDATE_PRODUCT: (id: string) => `/superadmin/products/update-product/${id}/`,
   DELETE_PRODUCT: (id: string) => `/superadmin/products/delete-product/${id}/`,
+  /**
+   * Move a product between catalogs. Body: `{ catalog_type }` plus a `category`
+   * — required for `marine_emergency` (the emergency catalog has its own
+   * category set), omitted for `express`.
+   */
+  SET_CATALOG_TYPE: (id: string) => `/superadmin/products/set-catalog-type/${id}/`,
+  // Body: `{ is_top_rated: boolean }`.
+  SET_TOP_RATED: (id: string) => `/superadmin/products/set-top-rated/${id}/`,
+  /**
+   * Body: `{ admin_sourceable: boolean }`. This is the product-level master
+   * switch — a variant is only orderable when both it and its product are
+   * sourceable (Flow 17 · `variant_is_effectively_sourceable`).
+   */
+  SET_ADMIN_SOURCEABLE: (id: string) => `/superadmin/products/set-admin-sourceable/${id}/`,
+  /** Variant-level sourceability, routed under the products namespace. */
+  SET_VARIANT_ADMIN_SOURCEABLE: (variantId: string) =>
+    `/superadmin/products/product-variants/set-admin-sourceable/${variantId}/`,
+  /**
+   * Flow 17 Build A — manually broadcast "{product} is now available" to all
+   * customers (push + in-app, never email). No request body.
+   *
+   * Guarded server-side: the product must be live, not a private quote product,
+   * `admin_sourceable=true`, and have at least one live sourceable variant —
+   * otherwise 400. Announcing is deliberately manual so a bulk sourceable edit
+   * cannot blast every sailor.
+   */
+  ANNOUNCE_AVAILABILITY: (id: string) => `/superadmin/products/${id}/announce-availability/`,
+};
+
+/**
+ * Product variants — the sellable SKUs beneath a product. Note the namespace
+ * split: CRUD and the express flag live under `/product-variants/`, while
+ * variant sourceability is routed under `/products/product-variants/`
+ * (see `PRODUCT_ENDPOINTS.SET_VARIANT_ADMIN_SOURCEABLE`).
+ */
+export const VARIANT_ENDPOINTS = {
+  GET_VARIANTS: "/superadmin/product-variants/get-product-variants/",
+  // Detail is fetched by the `product_variant_id` query param, not a path segment.
+  GET_VARIANT: "/superadmin/product-variants/product-variant/",
+  ADD_VARIANT: "/superadmin/product-variants/add-product-variant/",
+  UPDATE_VARIANT: (id: string) => `/superadmin/product-variants/update-product-variant/${id}/`,
+  DELETE_VARIANT: (id: string) => `/superadmin/product-variants/delete-product-variant/${id}/`,
+  // Body: `{ is_express: boolean }`.
+  SET_EXPRESS: (id: string) => `/superadmin/product-variants/set-express/${id}/`,
+  // Body: `{ admin_sourceable: boolean }`.
+  SET_ADMIN_SOURCEABLE: (id: string) =>
+    `/superadmin/product-variants/set-admin-sourceable/${id}/`,
 };
 
 export const CATEGORY_ENDPOINTS = {
@@ -83,6 +130,12 @@ export const CATEGORY_ENDPOINTS = {
   ADD_CATEGORY: "/superadmin/categories/add-category/",
   UPDATE_CATEGORY: (id: string) => `/superadmin/categories/update-category/${id}/`,
   DELETE_CATEGORY: (id: string) => `/superadmin/categories/delete-category/${id}/`,
+  /**
+   * Categories scoped to one catalog (`regular` | `marine_emergency`). Used by
+   * the set-catalog-type flow, which requires a category from the target
+   * catalog when moving a product into marine emergency.
+   */
+  GET_BY_CATALOG_TYPE: "/superadmin/categories/get-categories-by-catalog-type/",
 };
 
 /**
@@ -147,11 +200,30 @@ export const SAILOR_ENDPOINTS = {
 };
 
 export const EXPRESS_ENDPOINTS = {
-  GET_EXPRESS_ITEMS: "/superadmin/express/orders/",
+  // Flow 09 API 2 — the post-payment orders list, pre-scoped to `is_express=True`.
+  GET_EXPRESS_ORDERS: "/superadmin/express/orders/",
+  /**
+   * Flow 09 API 3 — the express **variant** catalog. Filters are validated up
+   * front, so a malformed UUID/number returns 400 rather than 500. Sort params
+   * take the literal phrases "low to high" / "high to low"
+   * (and `newest_first` / `oldest_first` for relevance).
+   */
+  GET_EXPRESS_ITEMS: "/superadmin/express/items/",
+  // Flow 09 API 4 — product, variant and order-volume aggregates in one call. No params.
+  GET_EXPRESS_STATS: "/superadmin/express/stats/",
 };
 
 export const ORDER_ENDPOINTS = {
   GET_ORDERS: "/superadmin/orders/orders/",
+  /**
+   * Sailor carts that have not yet converted into an order — an admin
+   * visibility surface for stalled baskets.
+   *
+   * NOTE: this endpoint is present in the API collection but is **not** covered
+   * by any flow document (flow 04 is the sailor-side cart). Its response shape
+   * is therefore read defensively rather than typed against a contract.
+   */
+  GET_CARTS: "/superadmin/orders/carts/",
   // Post-payment KPI counters for the Orders screen (Flow 11 §16). No params.
   GET_ORDER_STATS: "/superadmin/orders/orders/stats/",
   ORDER_DETAIL: (id: string) => `/superadmin/orders/orders/${id}/`,
@@ -226,6 +298,8 @@ export const SUBSTITUTION_ENDPOINTS = {
 
 export const PARTNER_ENDPOINTS = {
   GET_LIST: "/superadmin/partner/list/",
+  // Flow 28 API 3 — `{ total_partners, active_deliveries }`. No filters.
+  GET_STATS: "/superadmin/partner/stats/",
   CREATE: "/superadmin/partner/create/",
   // Detail is fetched by the row's user id via the `user_id` query param.
   GET_DETAIL: "/superadmin/partner/partner_detail/",
@@ -236,11 +310,26 @@ export const PARTNER_ENDPOINTS = {
 };
 
 export const VERIFICATION_ENDPOINTS = {
+  // Flow 06 API 5 — latest report per order. Params: `search`, `order_status`
+  // (defaults to `verification_submitted` server-side), `page`, `page_size`.
   GET_REPORTS: "/superadmin/partner/verification-reports/",
+  // Flow 06 API 4 — three counters, no params.
+  GET_STATS: "/superadmin/partner/verification-stats/",
+  /**
+   * Flow 06 API 7 — every report for one order, with full lines, unpaginated.
+   * Query: `order_id`. Uses the **partner app's** serializer, so `status` here is
+   * the human label and `status_code` the raw token — the reverse of APIs 5/6.
+   */
+  GET_ORDER_REPORTS: "/superadmin/partner/reports/",
+  // Flow 06 API 8 — bookkeeping only: sets status=reviewed + reviewed_at=now().
+  // Its one downstream effect is the `verified_today` counter.
+  REVIEW_REPORT: "/superadmin/partner/review-report/",
 };
 
 export const ASSIGNMENT_ENDPOINTS = {
   GET_UNASSIGNED_ORDERS: "/superadmin/partner/unassigned-orders/",
+  // Flow 28 API 14 ("board a") — every order with a live partner assignment.
+  GET_ACTIVE_ASSIGNMENTS: "/superadmin/partner/active-assignments/",
   ASSIGN_ORDER: "/superadmin/partner/assign-order/",
   // Flow 28 API 11 — partners scoped to an order's capability (verify/deliver) + port.
   ASSIGNABLE_PARTNERS: "/superadmin/partner/assignable-partners/",
@@ -275,10 +364,14 @@ export const SPECIAL_REQUEST_ENDPOINTS = {
 export const SELLER_ENDPOINTS = {
   GET_LIST: "/superadmin/sellers/requests/",
   GET_STATS: "/superadmin/sellers/stats/",
-  // Detail is fetched by the row id via the `seller_id` query param.
-  GET_DETAIL: "/superadmin/sellers/seller-detail/",
-  APPROVE: (id: string) => `/superadmin/sellers/${id}/approve/`,
-  REJECT: (id: string) => `/superadmin/sellers/${id}/reject/`,
+  // Detail is fetched by the applicant's **user** id via the `user_id` query param.
+  GET_DETAIL: "/superadmin/sellers/request/",
+  /**
+   * Approve *and* reject both go through this one endpoint — the decision is the
+   * `status` field in the body (`"approved"` | `"rejected"`), not the path.
+   * A rejection must carry a non-empty `admin_note`.
+   */
+  SET_STATUS: "/superadmin/sellers/set-status/",
 };
 
 /**
@@ -304,6 +397,19 @@ export const DASHBOARD_ENDPOINTS = {
   GET_TOP_PRODUCTS: "/superadmin/dashboard/top-products/",
   GET_ACTIVE_PARTNERS: "/superadmin/dashboard/active-partners/",
   GET_ACTION_REQUIRED: "/superadmin/dashboard/action-required/",
+  /**
+   * The full operations order list. Distinct from `live-orders/`, which is a
+   * capped real-time preview: this one is searchable and filterable by
+   * `order_status` and `filter_by_port`, and paginated.
+   *
+   * `filter_by_port` takes the port **name** (not its id) — the values come from
+   * `GET_PORTS` below.
+   */
+  GET_ORDERS: "/superadmin/dashboard/orders/",
+  // Order detail keyed by the `order_id` query param (not a path segment).
+  GET_ORDER_DETAIL: "/superadmin/dashboard/orders/detail/",
+  // Ports available as `filter_by_port` values on the orders list.
+  GET_PORTS: "/superadmin/dashboard/ports/",
 };
 
 export const ANALYTICS_ENDPOINTS = {
@@ -319,6 +425,39 @@ export const REWARD_ENDPOINTS = {
   UPDATE_LOYALTY_CONFIG: "/superadmin/promotion/loyalty/config/update/",
   GET_COUPONS: "/superadmin/promotion/coupons/",
   CREATE_COUPON: "/superadmin/promotion/coupons/add/",
+  // Note the namespace split: coupons are created under `promotion/` but
+  // updated and deleted under `orders/`.
   UPDATE_COUPON: (id: string) => `/superadmin/orders/coupons/update/${id}/`,
   DELETE_COUPON: (id: string) => `/superadmin/orders/coupons/delete/${id}/`,
+  // Redemption/usage report across all coupons. No params.
+  COUPON_REPORT: "/superadmin/promotion/coupons/report/",
+
+  /**
+   * Per-user coupon grants. Assignment ids are **integers**, not the UUIDs used
+   * by the coupons themselves.
+   */
+  GET_COUPON_ASSIGNMENTS: "/superadmin/promotion/coupons/assignments/",
+  ADD_COUPON_ASSIGNMENT: "/superadmin/promotion/coupons/assignments/add/",
+  DELETE_COUPON_ASSIGNMENT: (id: number | string) =>
+    `/superadmin/promotion/coupons/assignments/${id}/`,
+
+  /** Bonus points. `?type=` scopes to `referral` or `loyalty`. */
+  GET_BONUS_POINTS: "/superadmin/promotion/bonus-points/",
+  ADD_BONUS_POINTS: "/superadmin/promotion/bonus-points/add/",
+  // Deletion keys on `?user_id=` rather than a bonus-point row id.
+  DELETE_BONUS_POINTS: "/superadmin/promotion/delete-bonus-points/",
+  // Per-user ledger; paginated. Query: `user_id`, `page`, `page_size`.
+  BONUS_POINT_HISTORY: "/superadmin/promotion/bonus-point-history/",
+
+  /** Deal of the Day. */
+  GET_DEALS: "/superadmin/promotion/deals/",
+  GET_DEAL: (id: string) => `/superadmin/promotion/deals/${id}/`,
+  GET_DEAL_STATS: "/superadmin/promotion/deals/stats/",
+  // Today's live deals — the customer-facing selection, not the admin list.
+  GET_DEALS_OF_DAY: "/superadmin/promotion/deals-of-day/",
+  ADD_DEAL: "/superadmin/promotion/deals/add/",
+  UPDATE_DEAL: (id: string) => `/superadmin/promotion/deals/update/${id}/`,
+  DELETE_DEAL: (id: string) => `/superadmin/promotion/deals/delete/${id}/`,
+  // Body: `{ is_active: boolean }`.
+  TOGGLE_DEAL: (id: string) => `/superadmin/promotion/deals/${id}/toggle/`,
 };

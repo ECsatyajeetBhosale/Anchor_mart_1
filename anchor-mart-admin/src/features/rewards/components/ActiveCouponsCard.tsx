@@ -1,7 +1,6 @@
-import { IconEdit, IconPlus, IconTicket, IconTrash } from "@tabler/icons-react";
+import { IconEdit, IconTicket, IconTrash } from "@tabler/icons-react";
 
 import { SectionCard } from "@/components/common/SectionCard";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MESSAGES } from "@/lib/messages";
 import type { Coupon } from "../types/reward.types";
@@ -10,7 +9,6 @@ const M = MESSAGES.REWARDS;
 
 export interface ActiveCouponsCardProps {
   coupons: Coupon[];
-  onAdd: () => void;
   onEdit: (coupon: Coupon) => void;
   onDelete: (coupon: Coupon) => void;
 }
@@ -20,7 +18,7 @@ export interface ActiveCouponsCardProps {
  * Purely presentational: the parent owns coupon state and passes handlers for
  * the add / edit / delete actions.
  */
-export function ActiveCouponsCard({ coupons, onAdd, onEdit, onDelete }: ActiveCouponsCardProps) {
+export function ActiveCouponsCard({ coupons, onEdit, onDelete }: ActiveCouponsCardProps) {
   return (
     <SectionCard
       icon={<IconTicket size={18} />}

@@ -1,3 +1,15 @@
 export { ExpressItemsPage } from "./components/ExpressItemsPage";
-export { useGetExpressItemsQuery } from "./api/expressApi";
-export type { ExpressOrder, ExpressOrderListResponse } from "./types/expressItem.types";
+export { ExpressCatalogTab } from "./components/ExpressCatalogTab";
+export {
+  useGetExpressItemsQuery,
+  useGetExpressCatalogQuery,
+  useGetExpressStatsQuery,
+} from "./api/expressApi";
+export type {
+  ExpressItem,
+  ExpressItemListResult,
+  ExpressOrder,
+  ExpressOrderListResponse,
+  ExpressStats,
+  GetExpressCatalogParams,
+} from "./types/expressItem.types";

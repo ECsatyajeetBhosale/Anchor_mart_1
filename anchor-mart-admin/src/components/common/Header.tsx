@@ -8,7 +8,7 @@ interface HeaderProps {
   onToggle: () => void;
 }
 
-export function Header({ collapsed, onToggle }: HeaderProps) {
+export function Header(_props: HeaderProps) {
   const location = useLocation();
 
   // Find the page title based on active path

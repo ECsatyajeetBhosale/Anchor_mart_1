@@ -53,6 +53,57 @@ export interface VerificationReport {
   unavailable: number | null;
   /** Report status label, e.g. "Submitted". */
   status: string;
+  /** Raw status token (`submitted` / `reviewed`) — drives the review action. */
+  statusCode: string;
+  /** ISO timestamp of the partner's submission, or null. */
+  submittedAt: string | null;
+  /** ISO timestamp of the admin review, or null when not yet reviewed. */
+  reviewedAt: string | null;
+}
+
+/**
+ * Counters from `GET /superadmin/partner/verification-stats/` (Flow 06 API 4).
+ * Optional so a partial payload degrades to 0 rather than blanking the cards.
+ */
+export interface ApiVerificationStats {
+  /** Orders sitting at `verification_submitted`. */
+  in_verification?: number;
+  /** All reports whose `reviewed_at` falls today. */
+  verified_today?: number;
+  /** `is_available=false` lines on the latest report of queued orders. */
+  unavailable_items?: number;
+}
+
+/**
+ * One line inside a raw report from `GET /superadmin/partner/reports/`
+ * (Flow 06 API 7 — the partner app's serializer).
+ */
+export interface ApiRawReportItem {
+  id?: string;
+  product_name?: string | null;
+  variant_name?: string | null;
+  requested_quantity?: number | null;
+  available_quantity?: number | null;
+  is_available?: boolean | null;
+  shortfall?: number | null;
+  remark?: string | null;
+}
+
+/**
+ * A full report from `GET /superadmin/partner/reports/?order_id=`.
+ *
+ * Field semantics are inverted versus APIs 5/6: `status` is the **human label**
+ * and `status_code` the raw token, and `submitted_at` is a display string rather
+ * than ISO-8601. Do not feed these into a Date parser.
+ */
+export interface ApiRawReport {
+  id: string;
+  status?: string | null;
+  status_code?: string | null;
+  submitted_at?: string | null;
+  reviewed_at?: string | null;
+  partner?: string | null;
+  items?: ApiRawReportItem[] | null;
 }
 
 /** A single item within an active verification check. */

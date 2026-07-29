@@ -81,3 +81,17 @@ export interface PartnerListResult {
   count: number;
   partners: PartnerData[];
 }
+
+/**
+ * `GET /superadmin/partner/stats/` (Flow 28 API 3) — exactly two counters, no
+ * filters. Optional so a partial payload degrades to 0 rather than blanking a card.
+ *
+ * Note this is the whole performance surface for Build A: the richer per-partner
+ * KPI endpoints (`partner/kpis/`, `partner/kpi-detail/`) are marked
+ * "Do not implement — Build-2" in flow 28 and are deliberately not wired.
+ */
+export interface PartnerStats {
+  total_partners?: number;
+  /** In-progress assignments across all partners. */
+  active_deliveries?: number;
+}

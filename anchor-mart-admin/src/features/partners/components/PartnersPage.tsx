@@ -1,4 +1,4 @@
-import { IconPlus } from "@tabler/icons-react";
+import { IconPlus, IconTruckDelivery, IconUsers } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { PageHeader } from "@/components/common/PageHeader";
 import { SearchFilters } from "@/components/common/SearchFilters";
+import { StatsGrid } from "@/components/common/StatsGrid";
 import {
   actionsColumn,
   avatarColumn,
@@ -17,7 +18,11 @@ import { type Column, DataTable } from "@/components/ui/data-table";
 import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
-import { useDeletePartnerMutation, useGetPartnersQuery } from "../api/partnerApi";
+import {
+  useDeletePartnerMutation,
+  useGetPartnerStatsQuery,
+  useGetPartnersQuery,
+} from "../api/partnerApi";
 import type { PartnerData } from "../types/partner.types";
 import { PartnerDetailDrawer } from "./PartnerDetailDrawer";
 import { PartnerFormDrawer } from "./PartnerFormDrawer";
@@ -36,6 +41,28 @@ export function PartnersPage() {
   }, [data?.partners]);
 
   const [deletePartner, { isLoading: isDeleting }] = useDeletePartnerMutation();
+
+  // Flow 28 API 3 — the only performance surface in Build A. The richer
+  // per-partner KPI endpoints are explicitly deferred to Build-2 by the flow doc.
+  const { data: stats, isLoading: statsLoading } = useGetPartnerStatsQuery();
+  const statItems = [
+    {
+      id: "total",
+      label: M.STATS.TOTAL,
+      footer: M.STATS.TOTAL_FOOTER,
+      value: statsLoading ? "—" : (stats?.total_partners ?? 0).toLocaleString(),
+      icon: <IconUsers size={20} />,
+      variant: "navy" as const,
+    },
+    {
+      id: "active",
+      label: M.STATS.ACTIVE_DELIVERIES,
+      footer: M.STATS.ACTIVE_DELIVERIES_FOOTER,
+      value: statsLoading ? "—" : (stats?.active_deliveries ?? 0).toLocaleString(),
+      icon: <IconTruckDelivery size={20} />,
+      variant: "teal" as const,
+    },
+  ];
 
   // Clicked partner + open flag drive the detail drawer (which fetches its detail).
   const [selectedPartner, setSelectedPartner] = useState<PartnerData | null>(null);
@@ -151,6 +178,8 @@ export function PartnersPage() {
           </SearchFilters>
         }
       />
+
+      <StatsGrid items={statItems} />
 
       <DataTable
         columns={columns}

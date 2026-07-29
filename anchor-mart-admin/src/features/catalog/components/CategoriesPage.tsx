@@ -4,13 +4,7 @@ import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import { DataTable } from "@/components/ui/data-table";
 import { MESSAGES } from "@/lib/messages";
-import {
-  IconCategory,
-  IconCategoryPlus,
-  IconCircleCheck,
-  IconCircleOff,
-  IconPlus,
-} from "@tabler/icons-react";
+import { IconCategory, IconCircleCheck, IconCircleOff, IconPlus } from "@tabler/icons-react";
 import type React from "react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";

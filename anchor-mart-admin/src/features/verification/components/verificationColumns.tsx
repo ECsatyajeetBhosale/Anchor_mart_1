@@ -24,10 +24,13 @@ function statusVariant(row: VerificationReport): BadgeProps["variant"] {
 
 export interface UseVerificationColumnsOptions {
   onSuggest: (e: React.MouseEvent, row: VerificationReport) => void;
+  /** Opens the full re-verification round history for the row's order. */
+  onViewRounds: (e: React.MouseEvent, row: VerificationReport) => void;
 }
 
 export function useVerificationColumns({
   onSuggest,
+  onViewRounds,
 }: UseVerificationColumnsOptions): Column<VerificationReport>[] {
   return [
     idColumn({ id: "enquiry", header: M.COLUMNS.ENQ, get: (r) => r.enquiry }),
@@ -69,14 +72,20 @@ export function useVerificationColumns({
     {
       id: "action",
       header: M.COLUMNS.ACTION,
-      cell: (row) =>
-        needsAction(row) ? (
-          <Button variant="primary" size="xs" onClick={(e) => onSuggest(e, row)}>
-            {M.SUGGEST}
+      cell: (row) => (
+        <div className="flex items-center gap-2">
+          {needsAction(row) ? (
+            <Button variant="primary" size="xs" onClick={(e) => onSuggest(e, row)}>
+              {M.SUGGEST}
+            </Button>
+          ) : (
+            <span className="text-[12px] font-semibold text-[var(--t4)]">{M.NO_ACTION}</span>
+          )}
+          <Button variant="ghost" size="xs" onClick={(e) => onViewRounds(e, row)}>
+            {M.VIEW_ROUNDS}
           </Button>
-        ) : (
-          <span className="text-[12px] font-semibold text-[var(--t4)]">{M.NO_ACTION}</span>
-        ),
+        </div>
+      ),
     },
   ];
 }

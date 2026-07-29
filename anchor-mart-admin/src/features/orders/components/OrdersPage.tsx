@@ -46,6 +46,7 @@ import { CancelOrderDialog } from "./CancelOrderDialog";
 import { OrderAssignPartnerSection } from "./OrderAssignPartnerSection";
 import { OrderLocationDeltaSection } from "./OrderLocationDeltaSection";
 import { OrderShipAgentSection } from "./OrderShipAgentSection";
+import { OpenCartsCard } from "./OpenCartsCard";
 import { OwnerCell } from "./OwnerCell";
 import { RefundOrderDialog } from "./RefundOrderDialog";
 
@@ -588,6 +589,9 @@ export function OrdersPage() {
         emptyMessage={search || statusFilter !== "all" ? M.EMPTY_FILTERED : M.EMPTY}
         onRowClick={(o) => setSelectedRaw(o.raw)}
       />
+
+      {/* Pre-checkout baskets — separate surface from the post-payment table. */}
+      <OpenCartsCard />
 
       <OrderDetailDrawer
         order={selectedOrder}

@@ -23,6 +23,7 @@ import { APP_ROUTES } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 
 import { useDashboard } from "../hooks/useDashboard";
+import { DashboardOrdersCard } from "./DashboardOrdersCard";
 
 const M = MESSAGES.DASHBOARD;
 
@@ -173,6 +174,9 @@ export function DashboardPage() {
       {/* ── Stat cards (2 rows of 6) ──────────────────── */}
       <StatsGrid items={row1} />
       <StatsGrid items={row2} />
+
+      {/* ── Full order list (search · status · port) ──── */}
+      <DashboardOrdersCard />
     </div>
   );
 }

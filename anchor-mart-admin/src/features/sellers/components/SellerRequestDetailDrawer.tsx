@@ -18,7 +18,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
-import { useApproveSellerMutation, useRejectSellerMutation } from "../api/sellerRequestApi";
+import {
+  useGetSellerRequestDetailQuery,
+  useSetSellerStatusMutation,
+} from "../api/sellerRequestApi";
 import type { SellerRequest } from "../types/sellerRequest.types";
 
 const M = MESSAGES.SELLERS;
@@ -45,15 +48,23 @@ export function SellerRequestDetailDrawer({
 }: SellerRequestDetailDrawerProps) {
   const [reason, setReason] = useState<string>(M.REJECT_REASONS[0]);
   const [message, setMessage] = useState<string>("");
+  // Tracks which decision is in flight so only that button shows a spinner —
+  // both share one mutation hook, so `isLoading` alone can't tell them apart.
+  const [pending, setPending] = useState<"approve" | "reject" | null>(null);
 
-  const [approve, { isLoading: isApproving }] = useApproveSellerMutation();
-  const [reject, { isLoading: isRejecting }] = useRejectSellerMutation();
+  const [setStatus, { isLoading: isSaving }] = useSetSellerStatusMutation();
+
+  // Detail is keyed on the applicant's user id; skipped until a row is selected.
+  const { data: detail } = useGetSellerRequestDetailQuery(seller?.userId ?? "", {
+    skip: !isOpen || !seller?.userId,
+  });
 
   // Reset the decision fields whenever a new application is opened.
   useEffect(() => {
     if (isOpen) {
       setReason(M.REJECT_REASONS[0]);
       setMessage("");
+      setPending(null);
     }
   }, [isOpen]);
 
@@ -62,26 +73,49 @@ export function SellerRequestDetailDrawer({
   const avatarSrc = getFallbackAvatar(seller.n);
 
   const handleApprove = async () => {
+    setPending("approve");
     try {
-      await approve(seller.id).unwrap();
+      await setStatus({
+        userId: seller.userId,
+        status: "approved",
+        // Optional on an approval — send it only when the admin typed something.
+        adminNote: message.trim() || undefined,
+      }).unwrap();
       onClose();
       toast.success(M.TOAST.APPROVED);
     } catch (err) {
       toast.error(getApiMessage(err) ?? M.TOAST.APPROVE_ERROR);
+    } finally {
+      setPending(null);
     }
   };
 
   const handleReject = async () => {
+    // The API 400s on a rejection with a blank note — catch it here so the
+    // admin gets a field-level nudge instead of a server error toast.
+    const note = message.trim();
+    if (!note) {
+      toast.error(M.DETAIL.NOTE_REQUIRED);
+      return;
+    }
+    setPending("reject");
     try {
-      await reject({ id: seller.id, reason, message }).unwrap();
+      await setStatus({
+        userId: seller.userId,
+        status: "rejected",
+        // The dropdown reason is the headline; the free-text message is detail.
+        adminNote: `${reason} — ${note}`,
+      }).unwrap();
       onClose();
       toast.error(M.TOAST.REJECTED);
     } catch (err) {
       toast.error(getApiMessage(err) ?? M.TOAST.REJECT_ERROR);
+    } finally {
+      setPending(null);
     }
   };
 
-  const isBusy = isApproving || isRejecting;
+  const isBusy = isSaving;
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -143,15 +177,34 @@ export function SellerRequestDetailDrawer({
           <div className="sec-label">{M.DETAIL.BUSINESS_INFO}</div>
           <div className="form-row">
             <FormField label={M.DETAIL.BUSINESS_NAME}>
-              <div className="ecard">{seller.b}</div>
+              <div className="ecard">{detail?.business_name || seller.b}</div>
             </FormField>
             <FormField label={M.DETAIL.EMAIL}>
               <div className="ecard">{seller.e}</div>
             </FormField>
           </div>
+          <div className="form-row">
+            <FormField label={M.DETAIL.PHONE_NUMBER}>
+              <div className="ecard">{detail?.whatsapp_number || M.DETAIL.FALLBACK}</div>
+            </FormField>
+            <FormField label={M.DETAIL.GST_NUMBER}>
+              <div className="ecard">{detail?.gst_number || M.DETAIL.FALLBACK}</div>
+            </FormField>
+          </div>
+          <FormField label={M.DETAIL.BUSINESS_ADDRESS}>
+            <div className="ecard leading-relaxed">
+              {detail?.business_address || M.DETAIL.FALLBACK}
+            </div>
+          </FormField>
           <FormField label={M.DETAIL.PRODUCTS}>
             <div className="ecard leading-relaxed">{seller.prod}</div>
           </FormField>
+          {/* Only rendered once a decision has already been recorded. */}
+          {detail?.admin_note ? (
+            <FormField label={M.DETAIL.ADMIN_NOTE}>
+              <div className="ecard leading-relaxed">{detail.admin_note}</div>
+            </FormField>
+          ) : null}
 
           {/* Decision */}
           <div className="sec-label mt-4">{M.DETAIL.DECISION}</div>
@@ -181,7 +234,7 @@ export function SellerRequestDetailDrawer({
             <Button
               variant="danger"
               size="sm"
-              loading={isRejecting}
+              loading={pending === "reject"}
               disabled={isBusy}
               onClick={handleReject}
             >
@@ -191,7 +244,7 @@ export function SellerRequestDetailDrawer({
             <Button
               variant="primary"
               size="sm"
-              loading={isApproving}
+              loading={pending === "approve"}
               disabled={isBusy}
               onClick={handleApprove}
             >

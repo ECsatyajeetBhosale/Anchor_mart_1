@@ -5,6 +5,7 @@ export { UnassignedOrdersCard } from "./components/UnassignedOrdersCard";
 export { useAssignmentColumns } from "./components/assignmentColumns";
 export {
   useGetUnassignedOrdersQuery,
+  useGetActiveAssignmentsQuery,
   useGetAssignablePartnersQuery,
   useGetOrderTimelineQuery,
   useGetOrderAssignmentsQuery,

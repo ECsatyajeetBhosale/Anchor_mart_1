@@ -93,6 +93,30 @@ export const MESSAGES = {
       TOTAL: "Total",
     },
     VIEW_DETAIL: "View detail",
+    // Operations orders section (searchable / port- and status-filterable list)
+    ORDERS_SECTION: {
+      TITLE: "All Orders",
+      SEARCH_PLACEHOLDER: "Search by customer, email or order id…",
+      ALL_STATUSES: "All statuses",
+      ALL_PORTS: "All ports",
+      EMPTY: "No orders match the current filters.",
+      FETCH_ERROR: "Failed to load orders.",
+      // Labels for the `order_status` values the endpoint accepts
+      STATUS: {
+        INTENT_RECEIVED: "Intent Received",
+        INTENT_REJECTED: "Intent Rejected",
+        SOURCING: "Sourcing",
+        PAYMENT_PENDING: "Payment Pending",
+        CONFIRMED: "Confirmed",
+        PARTNER_ASSIGNED: "Partner Assigned",
+        ITEMS_COLLECTED: "Items Collected",
+        AT_PORT: "At Port",
+        AT_BERTH: "At Berth",
+        DELIVERED: "Delivered",
+        CANCELLED: "Cancelled",
+        REFUNDED: "Refunded",
+      },
+    },
     // Revenue chart card
     REVENUE_TITLE: "Revenue — Last 14 Days",
     REVENUE_EXPORTED: "Revenue CSV exported",
@@ -248,6 +272,21 @@ export const MESSAGES = {
       ADD_SUCCESS: "New sailor registered successfully",
       EDIT_SUCCESS: "Sailor profile updated successfully",
       SAVE_ERROR: "Could not save the sailor. Please try again.",
+    },
+  },
+  // Open sailor carts (pre-checkout) shown beneath the Orders table.
+  CARTS: {
+    TITLE: "Open Carts",
+    SUBTITLE: "Sailor baskets that have not been checked out yet",
+    EMPTY: "No open carts.",
+    FETCH_ERROR: "Failed to load open carts.",
+    COLUMNS: {
+      CUSTOMER: "Sailor",
+      EMAIL: "Email",
+      CATALOG: "Catalog",
+      ITEMS: "Items",
+      VALUE: "Cart Value",
+      UPDATED: "Last Updated",
     },
   },
   ORDERS: {
@@ -1075,6 +1114,13 @@ export const MESSAGES = {
       MESSAGE_PLACEHOLDER: "Provide a detailed message explaining the issue...",
       APPROVE: "Approve",
       REJECT: "Reject & Notify",
+      // Detail-only fields (present on request/?user_id=, not on the list row)
+      BUSINESS_ADDRESS: "Business Address",
+      GST_NUMBER: "GST Number",
+      PHONE_NUMBER: "Phone",
+      ADMIN_NOTE: "Previous Admin Note",
+      // The API rejects a blank note on a rejection, so the drawer blocks it first.
+      NOTE_REQUIRED: "A message is required when rejecting an application.",
     },
     // Rejection-reason options (drawer decision section)
     REJECT_REASONS: [
@@ -1204,6 +1250,114 @@ export const MESSAGES = {
       DELETED: (name: string) => `Partner ${name} deleted`,
       DELETE_ERROR: "Failed to delete partner",
       MESSAGE_OPENED: (name: string) => `Chat session opened with ${name}`,
+    },
+  },
+  // Product catalog / merchandising flags (set-catalog-type, top-rated,
+  // sourceable, announce-availability).
+  PRODUCT_FLAGS: {
+    CATALOG_DIALOG: {
+      TITLE: "Change catalog",
+      DESCRIPTION: (name: string) => `Move “${name}” to a different catalog.`,
+      CATALOG_LABEL: "Catalog",
+      CATEGORY_LABEL: "Category",
+      // The emergency catalog keeps its own category set, so a move into it
+      // must pick one from that set — the general categories don't apply.
+      CATEGORY_HINT: "Marine emergency products must be filed under an emergency category.",
+      CATEGORY_PLACEHOLDER: "Select a category",
+      CATEGORY_REQUIRED: "Pick a category for the marine emergency catalog.",
+      CONFIRM: "Move product",
+      CANCEL: "Cancel",
+      OPTIONS: {
+        REGULAR: "Regular",
+        EXPRESS: "Express",
+        MARINE_EMERGENCY: "Marine Emergency",
+      },
+    },
+    ANNOUNCE_DIALOG: {
+      TITLE: "Announce availability?",
+      MESSAGE: (name: string) =>
+        `Every customer will get a push and in-app notice that “${name}” is now available. No email is sent.`,
+      // Worth stating plainly: this is a broadcast, not a targeted waitlist ping.
+      NOTE: "The product must be active and sourceable, with at least one sourceable variant.",
+      CONFIRM: "Announce",
+    },
+    COLUMNS: {
+      TOP_RATED: "Top Rated",
+      SOURCEABLE: "Sourceable",
+    },
+    TOAST: {
+      CATALOG_UPDATED: "Catalog updated",
+      CATALOG_ERROR: "Failed to change the catalog",
+      TOP_RATED_UPDATED: "Top-rated flag updated",
+      TOP_RATED_ERROR: "Failed to update the top-rated flag",
+      SOURCEABLE_UPDATED: "Sourceable flag updated",
+      SOURCEABLE_ERROR: "Failed to update the sourceable flag",
+      ANNOUNCED: (name: string) => `Announced “${name}” to customers`,
+      ANNOUNCE_ERROR: "Failed to announce this product",
+    },
+  },
+  // Product variants — the sellable SKUs beneath a product.
+  VARIANTS: {
+    TITLE: "Variants",
+    SUBTITLE: (product: string) => `SKUs under ${product}`,
+    ADD: "Add Variant",
+    EMPTY: "This product has no variants yet.",
+    FETCH_ERROR: "Failed to load variants.",
+    DASH: "—",
+    COLUMNS: {
+      SKU: "SKU",
+      PRICE: "Price",
+      ATTRIBUTES: "Attributes",
+      EXPRESS: "Express",
+      SOURCEABLE: "Sourceable",
+      ACTIVE: "Active",
+      ACTIONS: "Actions",
+    },
+    // AnchorMart holds no stock count — orderability is these two flags, and the
+    // product-level switch overrides the variant one.
+    SOURCEABLE_HINT:
+      "A variant is only orderable when both it and its product are sourceable.",
+    ACTIONS: {
+      EDIT: "Edit variant",
+      DELETE: "Delete variant",
+      TOGGLE_EXPRESS: "Toggle express",
+      TOGGLE_SOURCEABLE: "Toggle sourceable",
+    },
+    FORM: {
+      ADD_TITLE: "Add Variant",
+      EDIT_TITLE: "Edit Variant",
+      SKU: "SKU",
+      SKU_PLACEHOLDER: "e.g. SHIRT-RED-M",
+      PRICE: "Price",
+      PRICE_PLACEHOLDER: "0.00",
+      ATTRIBUTES: "Attributes (JSON)",
+      ATTRIBUTES_PLACEHOLDER: '{ "color": "red", "size": "M" }',
+      ATTRIBUTES_HINT: "A flat key/value object, e.g. colour and size.",
+      IMAGES: "Image paths",
+      IMAGES_PLACEHOLDER: "variant_images/example.png",
+      ACTIVE: "Active",
+      SAVE: "Save Variant",
+      CANCEL: "Cancel",
+    },
+    VALIDATION: {
+      SKU_REQUIRED: "SKU is required.",
+      PRICE_INVALID: "Enter a price of 0 or more.",
+      ATTRIBUTES_INVALID: "Attributes must be valid JSON (a plain object).",
+    },
+    TOAST: {
+      CREATED: (sku: string) => `Variant ${sku} created`,
+      CREATE_ERROR: "Failed to create the variant",
+      UPDATED: (sku: string) => `Variant ${sku} updated`,
+      UPDATE_ERROR: "Failed to update the variant",
+      DELETED: (sku: string) => `Variant ${sku} deleted`,
+      DELETE_ERROR: "Failed to delete the variant",
+      FLAG_UPDATED: "Variant updated",
+      FLAG_ERROR: "Failed to update the variant",
+    },
+    CONFIRM_DELETE: {
+      TITLE: "Delete variant?",
+      MESSAGE: (sku: string) => `${sku} will be removed from this product. This cannot be undone.`,
+      CONFIRM: "Delete",
     },
   },
   PRODUCTS: {
@@ -1655,12 +1809,56 @@ export const MESSAGES = {
   },
   EXPRESS: {
     // Page chrome
-    TITLE: "Express Orders",
+    TITLE: "Express",
     SUBTITLE: "Fast-delivery orders to vessels",
     SEARCH_PLACEHOLDER: "Search express orders…",
     FETCH_ERROR: "Failed to fetch express orders",
     EMPTY: "No express orders found.",
     DASH: "—",
+    // Tabs — orders (post-payment) vs the express variant catalog
+    TABS: {
+      ORDERS: "Orders",
+      CATALOG: "Express Catalog",
+    },
+    // KPI cards (express stats aggregates)
+    STATS: {
+      PRODUCTS: "Express Products",
+      PRODUCTS_FOOTER: "In the express catalog",
+      VARIANTS: "Express Variants",
+      VARIANTS_FOOTER: "Across all products",
+      SOURCEABLE: "Sourceable Variants",
+      // Spelling out the AND rule: a variant is only orderable when both flags hold.
+      SOURCEABLE_FOOTER: "Product and variant both flagged",
+      ORDERS: "Express Orders",
+      ORDERS_FOOTER: "All statuses",
+    },
+    // Express variant catalog tab
+    CATALOG: {
+      TITLE: "Express Variant Catalog",
+      SEARCH_PLACEHOLDER: "Search by product, SKU or description…",
+      EMPTY: "No express items found.",
+      FETCH_ERROR: "Failed to fetch the express catalog",
+      SORT_PLACEHOLDER: "Sort",
+      SORT: {
+        NEWEST: "Newest first",
+        OLDEST: "Oldest first",
+        PRICE_ASC: "Price: low to high",
+        PRICE_DESC: "Price: high to low",
+      },
+      COLUMNS: {
+        PRODUCT: "Product",
+        SKU: "SKU",
+        CATEGORY: "Category",
+        ATTRIBUTES: "Attributes",
+        PRICE: "Price",
+        SOURCEABLE: "Sourceable",
+        ACTIVE: "Active",
+      },
+      YES: "Yes",
+      NO: "No",
+      ACTIVE: "Active",
+      INACTIVE: "Inactive",
+    },
     // Table
     COLUMNS: {
       ORDER: "Order",
@@ -1721,6 +1919,14 @@ export const MESSAGES = {
       SUBSTITUTIONS: "Substitutions",
       SUBSTITUTIONS_FOOTER: "Awaiting approval",
     },
+    SEARCH_PLACEHOLDER: "Search order number or partner…",
+    ALL_STATUS: "Pending review",
+    // Order-status scopes for the queue (`order_status` query param).
+    STATUS_FILTER: {
+      SUBMITTED: "Pending review",
+      SOURCING: "Sourcing",
+      CONFIRMED: "Confirmed",
+    },
     // Reports table
     TABLE: {
       TITLE: "Verification Reports",
@@ -1737,6 +1943,36 @@ export const MESSAGES = {
       },
       SUGGEST: "Suggest Substitute",
       NO_ACTION: "No action needed",
+      VIEW_ROUNDS: "View rounds",
+    },
+    // Re-verification rounds drawer (Flow 06 APIs 7 + 8)
+    ROUNDS: {
+      TITLE: "Verification Rounds",
+      SUBTITLE: (enq: string) => `All reports submitted for ${enq}`,
+      EMPTY: "No reports have been submitted for this order yet.",
+      FETCH_ERROR: "Failed to load verification rounds.",
+      ROUND: (n: number) => `Round ${n}`,
+      SUBMITTED: "Submitted",
+      REVIEWED: "Reviewed",
+      PARTNER: "Partner",
+      ITEMS: "Items",
+      NO_ITEMS: "This report has no line items.",
+      COLUMNS: {
+        ITEM: "Item",
+        REQUESTED: "Requested",
+        AVAILABLE: "Available",
+        SHORTFALL: "Shortfall",
+        REMARK: "Remark",
+      },
+      AVAILABLE_YES: "Available",
+      AVAILABLE_NO: "Unavailable",
+      MARK_REVIEWED: "Mark reviewed",
+      ALREADY_REVIEWED: "Reviewed",
+      // The API's own words: this is a bookkeeping flag, so say so in the UI
+      // rather than implying it advances the order.
+      REVIEW_NOTE: "Marking a report reviewed only records that you have seen it — it does not advance the order or release billing.",
+      REVIEWED_TOAST: "Report marked as reviewed",
+      REVIEW_ERROR: "Failed to mark the report as reviewed",
     },
     // Item-detail panel (active check)
     ITEMS: {
@@ -1769,6 +2005,199 @@ export const MESSAGES = {
       SEND: "Send Suggestion",
       SENT: (name: string) => `Substitute suggestion "${name}" sent to sailor`,
       NAME_REQUIRED: "Please enter a substitute product name",
+    },
+  },
+  // Promotion surfaces beyond coupons + loyalty: Deal of the Day, bonus-point
+  // grants, per-user coupon assignments and the redemption report.
+  PROMOTION: {
+    TABS: {
+      OVERVIEW: "Loyalty & Coupons",
+      DEALS: "Deal of the Day",
+      BONUS: "Bonus Points",
+      ASSIGNMENTS: "Coupon Assignments",
+      REPORT: "Coupon Report",
+    },
+    DASH: "—",
+    DEALS: {
+      TITLE: "Deal of the Day",
+      ADD: "Create Deal",
+      EMPTY: "No deals scheduled.",
+      FETCH_ERROR: "Failed to load deals.",
+      TODAY_TITLE: "Live today",
+      TODAY_EMPTY: "No deals are live right now.",
+      STATS: {
+        TOTAL: "Total Deals",
+        TOTAL_FOOTER: "All time",
+        ACTIVE: "Active",
+        ACTIVE_FOOTER: "Currently running",
+        UPCOMING: "Upcoming",
+        UPCOMING_FOOTER: "Scheduled ahead",
+        EXPIRED: "Expired",
+        EXPIRED_FOOTER: "Past their window",
+      },
+      COLUMNS: {
+        PRODUCT: "Product",
+        VARIANT: "Variant",
+        PRICE: "Deal Price",
+        WINDOW: "Window",
+        ACTIVE: "Active",
+        ACTIONS: "Actions",
+      },
+      FORM: {
+        ADD_TITLE: "Create Deal",
+        EDIT_TITLE: "Edit Deal",
+        PRODUCT: "Product",
+        PRODUCT_PLACEHOLDER: "Select a product",
+        VARIANT: "Variant",
+        VARIANT_PLACEHOLDER: "Select a variant",
+        // A deal prices one SKU, so the variant is not optional.
+        VARIANT_HINT: "A deal prices one specific variant, not the whole product.",
+        PRICE: "Deal Price",
+        PRICE_PLACEHOLDER: "0.00",
+        TERMS: "Terms & Conditions",
+        TERMS_PLACEHOLDER: "e.g. Available today only",
+        START: "Start Date",
+        END: "End Date",
+        SAVE: "Save Deal",
+        CANCEL: "Cancel",
+      },
+      VALIDATION: {
+        PRODUCT_REQUIRED: "Select a product.",
+        VARIANT_REQUIRED: "Select a variant.",
+        PRICE_INVALID: "Enter a deal price greater than 0.",
+        START_REQUIRED: "Pick a start date.",
+        END_REQUIRED: "Pick an end date.",
+        END_BEFORE_START: "The end date must be on or after the start date.",
+      },
+      CONFIRM_DELETE: {
+        TITLE: "Delete deal?",
+        MESSAGE: (product: string) => `The deal on ${product} will be removed.`,
+        CONFIRM: "Delete",
+      },
+      TOAST: {
+        CREATED: "Deal created",
+        CREATE_ERROR: "Failed to create the deal",
+        UPDATED: "Deal updated",
+        UPDATE_ERROR: "Failed to update the deal",
+        DELETED: "Deal deleted",
+        DELETE_ERROR: "Failed to delete the deal",
+        TOGGLED: "Deal updated",
+        TOGGLE_ERROR: "Failed to update the deal",
+      },
+    },
+    BONUS: {
+      TITLE: "Bonus Points",
+      ADD: "Grant Points",
+      EMPTY: "No bonus points granted yet.",
+      FETCH_ERROR: "Failed to load bonus points.",
+      TYPE_FILTER: {
+        ALL: "All types",
+        LOYALTY: "Loyalty",
+        REFERRAL: "Referral",
+      },
+      COLUMNS: {
+        USER: "Sailor",
+        EMAIL: "Email",
+        TYPE: "Type",
+        POINTS: "Points",
+        ACTIONS: "Actions",
+      },
+      HISTORY: {
+        TITLE: "Point History",
+        SUBTITLE: (name: string) => `Ledger for ${name}`,
+        EMPTY: "No point activity recorded.",
+        FETCH_ERROR: "Failed to load the point history.",
+        COLUMNS: {
+          DATE: "Date",
+          TYPE: "Type",
+          POINTS: "Points",
+          REASON: "Reason",
+        },
+      },
+      FORM: {
+        TITLE: "Grant Bonus Points",
+        USER: "Sailor",
+        USER_PLACEHOLDER: "Select a sailor",
+        TYPE: "Type",
+        POINTS: "Points",
+        POINTS_PLACEHOLDER: "e.g. 100",
+        SAVE: "Grant Points",
+        CANCEL: "Cancel",
+      },
+      VALIDATION: {
+        USER_REQUIRED: "Select a sailor.",
+        POINTS_INVALID: "Enter a whole number of points greater than 0.",
+      },
+      ACTIONS: {
+        HISTORY: "View history",
+        CLEAR: "Clear points",
+      },
+      CONFIRM_CLEAR: {
+        TITLE: "Clear bonus points?",
+        // Deletion keys on the user, so it wipes the whole balance.
+        MESSAGE: (name: string) => `All bonus points for ${name} will be removed.`,
+        CONFIRM: "Clear",
+      },
+      TOAST: {
+        GRANTED: "Bonus points granted",
+        GRANT_ERROR: "Failed to grant bonus points",
+        CLEARED: "Bonus points cleared",
+        CLEAR_ERROR: "Failed to clear bonus points",
+      },
+    },
+    ASSIGNMENTS: {
+      TITLE: "Coupon Assignments",
+      ADD: "Assign Coupon",
+      EMPTY: "No coupons have been assigned to individual sailors.",
+      FETCH_ERROR: "Failed to load coupon assignments.",
+      COLUMNS: {
+        USER: "Sailor",
+        EMAIL: "Email",
+        COUPON: "Coupon",
+        USED: "Used",
+        ACTIONS: "Actions",
+      },
+      USED_YES: "Used",
+      USED_NO: "Unused",
+      FORM: {
+        TITLE: "Assign a Coupon",
+        USER: "Sailor",
+        USER_PLACEHOLDER: "Select a sailor",
+        COUPON: "Coupon",
+        COUPON_PLACEHOLDER: "Select a coupon",
+        SAVE: "Assign",
+        CANCEL: "Cancel",
+      },
+      VALIDATION: {
+        USER_REQUIRED: "Select a sailor.",
+        COUPON_REQUIRED: "Select a coupon.",
+      },
+      CONFIRM_REMOVE: {
+        TITLE: "Remove assignment?",
+        MESSAGE: (code: string) => `${code} will no longer be available to this sailor.`,
+        CONFIRM: "Remove",
+      },
+      TOAST: {
+        ASSIGNED: "Coupon assigned",
+        ASSIGN_ERROR: "Failed to assign the coupon",
+        REMOVED: "Assignment removed",
+        REMOVE_ERROR: "Failed to remove the assignment",
+      },
+    },
+    REPORT: {
+      TITLE: "Coupon Redemption Report",
+      EMPTY: "No redemption data yet.",
+      FETCH_ERROR: "Failed to load the coupon report.",
+      UNLIMITED: "Unlimited",
+      COLUMNS: {
+        CODE: "Code",
+        USED: "Times Used",
+        LIMIT: "Usage Limit",
+        DISCOUNT: "Total Discount",
+        STATUS: "Status",
+      },
+      ACTIVE: "Active",
+      INACTIVE: "Inactive",
     },
   },
   REWARDS: {
@@ -2018,6 +2447,7 @@ export const MESSAGES = {
     ACTIVE: {
       TITLE: "Active Assignments",
       EMPTY: "No active assignments.",
+      FETCH_ERROR: "Failed to load active assignments.",
       REASSIGN: "Reassign partner",
       COLUMNS: {
         ENQ: "ENQ",

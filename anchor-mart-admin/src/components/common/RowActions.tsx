@@ -1,4 +1,14 @@
-import { IconEdit, IconEye, IconMessage, IconTrash, IconUserOff, IconX } from "@tabler/icons-react";
+import {
+  IconArrowsExchange,
+  IconEdit,
+  IconEye,
+  IconMessage,
+  IconSpeakerphone,
+  IconStack2,
+  IconTrash,
+  IconUserOff,
+  IconX,
+} from "@tabler/icons-react";
 import type * as React from "react";
 import { type ActionItem, TableActions } from "./TableActions";
 
@@ -7,7 +17,16 @@ import { type ActionItem, TableActions } from "./TableActions";
  * all tables share one set of icons/variants. A page renders only the actions it
  * passes in `actions` — the rest are omitted.
  */
-export type RowActionKey = "view" | "edit" | "message" | "cancel" | "deactivate" | "delete";
+export type RowActionKey =
+  | "view"
+  | "edit"
+  | "variants"
+  | "catalog"
+  | "announce"
+  | "message"
+  | "cancel"
+  | "deactivate"
+  | "delete";
 
 interface CatalogEntry {
   icon: React.ReactNode;
@@ -19,6 +38,9 @@ interface CatalogEntry {
 const ACTION_CATALOG: Record<RowActionKey, CatalogEntry> = {
   view: { icon: <IconEye size={16} />, title: "View" },
   edit: { icon: <IconEdit size={16} />, title: "Edit" },
+  variants: { icon: <IconStack2 size={16} />, title: "Manage variants" },
+  catalog: { icon: <IconArrowsExchange size={16} />, title: "Change catalog" },
+  announce: { icon: <IconSpeakerphone size={16} />, title: "Announce availability" },
   message: { icon: <IconMessage size={16} />, title: "Message" },
   cancel: { icon: <IconX size={16} />, title: "Cancel", variant: "danger" },
   deactivate: { icon: <IconUserOff size={16} />, title: "Deactivate", variant: "danger" },
@@ -26,7 +48,17 @@ const ACTION_CATALOG: Record<RowActionKey, CatalogEntry> = {
 };
 
 /** Canonical left-to-right render order, independent of prop key order. */
-const ACTION_ORDER: RowActionKey[] = ["view", "edit", "message", "cancel", "deactivate", "delete"];
+const ACTION_ORDER: RowActionKey[] = [
+  "view",
+  "edit",
+  "variants",
+  "catalog",
+  "announce",
+  "message",
+  "cancel",
+  "deactivate",
+  "delete",
+];
 
 /** Per-page config for one action: a bare handler, or a handler + title override. */
 export type RowActionConfig<T> =

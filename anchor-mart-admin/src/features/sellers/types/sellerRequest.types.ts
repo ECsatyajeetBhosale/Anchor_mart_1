@@ -9,8 +9,14 @@ export type SellerRequestBadgeVariant = NonNullable<BadgeProps["variant"]>;
  * "-"-guarded so columns render the raw value directly.
  */
 export interface SellerRequest {
-  /** Unique application id — passed to approve/reject and the detail API. */
+  /** Unique application row id — the table's `rowKey`. */
   id: string;
+  /**
+   * Applicant's **user** UUID. Every write/detail call keys on this, not on the
+   * row id — `set-status` and `request/` both take `user_id`. Falls back to the
+   * row id when the backend omits it.
+   */
+  userId: string;
   /** Applicant name. */
   n: string;
   /** Applicant email. */
@@ -89,9 +95,27 @@ export interface SellerRequestStats {
   active_sellers?: number;
 }
 
-/** Payload sent when rejecting an application. */
-export interface RejectSellerPayload {
-  id: string;
-  reason: string;
-  message?: string;
+/** Decision tokens accepted by `POST /superadmin/sellers/set-status/`. */
+export type SellerDecision = "approved" | "rejected";
+
+/**
+ * Body of `POST /superadmin/sellers/set-status/`. `admin_note` is optional on an
+ * approval but **required** on a rejection — the API rejects a blank note.
+ */
+export interface SetSellerStatusPayload {
+  userId: string;
+  status: SellerDecision;
+  adminNote?: string;
+}
+
+/**
+ * Full seller application from `GET /superadmin/sellers/request/?user_id=`.
+ * Extends the list row with the fields only the detail endpoint returns.
+ */
+export interface SellerRequestDetailApi extends SellerRequestApi {
+  business_name?: string | null;
+  business_address?: string | null;
+  gst_number?: string | null;
+  admin_note?: string | null;
+  documents_list?: { name?: string | null; url?: string | null }[] | null;
 }

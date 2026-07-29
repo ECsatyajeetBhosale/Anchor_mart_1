@@ -157,3 +157,146 @@ export interface Activity {
   /** Whether the points delta is a credit (green) or debit (red). */
   isPositive: boolean;
 }
+
+/* ── Deal of the Day ──────────────────────────────────────────────── */
+
+/** A Deal of the Day row (flat shape the table renders). */
+export interface Deal {
+  /** Deal UUID. */
+  id: string;
+  productId: string;
+  productName: string;
+  variantId: string;
+  variantSku: string;
+  /** Formatted deal price, e.g. "$200.00". */
+  dealPrice: string;
+  /** Raw numeric price, kept so the edit form can round-trip it. */
+  dealPriceValue: number;
+  termsAndConditions: string;
+  /** Date-only strings as returned, e.g. "2026-06-02". */
+  startTime: string;
+  endTime: string;
+  isActive: boolean;
+}
+
+/** Transformed deals list: total count + UI rows. */
+export interface DealListResult {
+  count: number;
+  deals: Deal[];
+}
+
+/** Sort/filter params for the deals list. */
+export interface GetDealsParams {
+  page?: number;
+  limit?: number;
+  /** Pass "true"/"false" to filter by active state. */
+  sortByIsActive?: string;
+  sortByStartDate?: string;
+  sortByEndDate?: string;
+}
+
+/**
+ * Body for deal create/update. `product` and `variant` are both required — a
+ * deal prices one specific SKU, not the product as a whole.
+ */
+export interface DealPayload {
+  product: string;
+  variant: string;
+  /** Decimal string, e.g. "200.00". */
+  deal_price: string;
+  terms_and_conditions?: string;
+  /** `YYYY-MM-DD`. */
+  start_time: string;
+  end_time: string;
+}
+
+/** Aggregates from `GET /superadmin/promotion/deals/stats/`. */
+export interface DealStats {
+  total?: number;
+  active?: number;
+  expired?: number;
+  upcoming?: number;
+}
+
+/* ── Bonus points ─────────────────────────────────────────────────── */
+
+/** Which programme a bonus-point grant belongs to. */
+export type BonusPointType = "referral" | "loyalty";
+
+/** A bonus-point balance row. */
+export interface BonusPoint {
+  /** Row id — falls back to the user id when the API omits one. */
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  type: string;
+  points: number;
+}
+
+/** Transformed bonus-points list. */
+export interface BonusPointListResult {
+  count: number;
+  rows: BonusPoint[];
+}
+
+/** Body for `POST bonus-points/add/`. `points` is sent as a string by the API. */
+export interface AddBonusPointsPayload {
+  user_id: string;
+  type: BonusPointType;
+  points: string;
+}
+
+/** One entry in a user's bonus-point ledger. */
+export interface BonusPointHistoryEntry {
+  id: string;
+  points: number;
+  type: string;
+  reason: string;
+  createdAt: string;
+}
+
+/** Transformed bonus-point history. */
+export interface BonusPointHistoryResult {
+  count: number;
+  entries: BonusPointHistoryEntry[];
+}
+
+/* ── Coupon assignments ───────────────────────────────────────────── */
+
+/**
+ * A coupon granted to one user. Assignment ids are **integers** here, unlike
+ * the coupon UUIDs they point at.
+ */
+export interface CouponAssignment {
+  id: number | string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  couponId: string;
+  couponCode: string;
+  isUsed: boolean;
+}
+
+/** Transformed assignments list. */
+export interface CouponAssignmentListResult {
+  count: number;
+  assignments: CouponAssignment[];
+}
+
+/** Body for `POST coupons/assignments/add/`. */
+export interface AddCouponAssignmentPayload {
+  user: string;
+  coupon: string;
+}
+
+/** A row of the coupon redemption report. */
+export interface CouponReportRow {
+  couponId: string;
+  code: string;
+  timesUsed: number;
+  usageLimit: number | null;
+  /** Formatted total discount granted, e.g. "$1,250.00". */
+  totalDiscount: string;
+  isActive: boolean;
+}

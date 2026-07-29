@@ -249,3 +249,57 @@ export interface RevenueResponse {
   totals: RevenueTotals;
   bars: RevenueBar[];
 }
+
+/**
+ * A port option from `GET /superadmin/dashboard/ports/`. The orders list filters
+ * by port **name**, so `name` — not `id` — is what gets sent as `filter_by_port`.
+ */
+export interface DashboardPort {
+  id: string;
+  name: string;
+}
+
+/**
+ * Order statuses accepted by the dashboard orders list's `order_status` param.
+ * Sending anything outside this set is a client bug, so the union is exhaustive
+ * rather than a bare string.
+ */
+export type DashboardOrderStatus =
+  | "intent_received"
+  | "intent_rejected"
+  | "sourcing"
+  | "payment_pending"
+  | "confirmed"
+  | "partner_assigned"
+  | "items_collected"
+  | "at_port"
+  | "at_berth"
+  | "delivered"
+  | "cancelled"
+  | "refunded";
+
+/** Query params for `GET /superadmin/dashboard/orders/`. */
+export interface DashboardOrdersParams {
+  page?: number;
+  limit?: number;
+  /** Matches customer email / first name / last name, or an order id. */
+  search?: string;
+  /** Omit for "all statuses". */
+  order_status?: DashboardOrderStatus;
+  /** Port **name**, sourced from `GET /superadmin/dashboard/ports/`. */
+  filter_by_port?: string;
+  from_date?: string;
+  to_date?: string;
+}
+
+/**
+ * DRF-paginated payload from `GET /superadmin/dashboard/orders/`. Rows reuse the
+ * `LiveOrder` shape — the two endpoints serve the same records, one capped and
+ * live, the other filterable.
+ */
+export interface DashboardOrdersResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: LiveOrder[];
+}

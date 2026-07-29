@@ -112,6 +112,84 @@ export const productsApi = baseApi.injectEndpoints({
         { type: "Products", id: "STATS" },
       ],
     }),
+    /**
+     * Move a product between catalogs. `category` is **required** when the
+     * target is `marine_emergency` (that catalog has its own category set) and
+     * must be omitted for `express`, so it is only attached when supplied.
+     */
+    setProductCatalogType: builder.mutation<
+      unknown,
+      { id: string; catalogType: string; category?: string }
+    >({
+      query: ({ id, catalogType, category }) => ({
+        url: PRODUCT_ENDPOINTS.SET_CATALOG_TYPE(id),
+        method: "POST",
+        body: { catalog_type: catalogType, ...(category ? { category } : {}) },
+      }),
+      // Catalog moves shift the per-catalog stat counts and the emergency lists.
+      invalidatesTags: (_r, _e, { id }) => [
+        { type: "Products", id },
+        { type: "Products", id: "PARTIAL-LIST" },
+        { type: "Products", id: "STATS" },
+        { type: "Spares", id: "PARTIAL-LIST" },
+        { type: "ExpressItems", id: "CATALOG-LIST" },
+      ],
+    }),
+
+    /** Merchandising flag — surfaces the product in "top rated" listings. */
+    setProductTopRated: builder.mutation<unknown, { id: string; isTopRated: boolean }>({
+      query: ({ id, isTopRated }) => ({
+        url: PRODUCT_ENDPOINTS.SET_TOP_RATED(id),
+        method: "POST",
+        body: { is_top_rated: isTopRated },
+      }),
+      invalidatesTags: (_r, _e, { id }) => [
+        { type: "Products", id },
+        { type: "Products", id: "PARTIAL-LIST" },
+        { type: "Products", id: "STATS" },
+      ],
+    }),
+
+    /**
+     * The product-level sourceability master switch. Turning this off makes
+     * **every** variant unorderable regardless of its own flag, since the
+     * effective rule is product AND variant (Flow 17).
+     */
+    setProductSourceable: builder.mutation<unknown, { id: string; adminSourceable: boolean }>({
+      query: ({ id, adminSourceable }) => ({
+        url: PRODUCT_ENDPOINTS.SET_ADMIN_SOURCEABLE(id),
+        method: "POST",
+        body: { admin_sourceable: adminSourceable },
+      }),
+      invalidatesTags: (_r, _e, { id }) => [
+        { type: "Products", id },
+        { type: "Products", id: "PARTIAL-LIST" },
+        { type: "Products", id: "STATS" },
+        { type: "Variants", id: "PARTIAL-LIST" },
+        { type: "ExpressItems", id: "CATALOG-LIST" },
+      ],
+    }),
+
+    /**
+     * Flow 17 Build A — broadcast "{product} is now available" to all customers.
+     * No request body. Deliberately manual: flipping sourceable never
+     * auto-notifies, so a bulk edit can't spam every sailor.
+     *
+     * 400 when the product isn't actually orderable (inactive, not sourceable,
+     * or without a live sourceable variant) — make it sourceable first.
+     */
+    announceProductAvailability: builder.mutation<
+      { message?: string; broadcast_id?: string },
+      string
+    >({
+      query: (id) => ({
+        url: PRODUCT_ENDPOINTS.ANNOUNCE_AVAILABILITY(id),
+        method: "POST",
+      }),
+      // Announcing writes an audit row but changes nothing about the product.
+      invalidatesTags: [],
+    }),
+
     deleteProduct: builder.mutation<void, string>({
       query: (id) => ({
         url: PRODUCT_ENDPOINTS.DELETE_PRODUCT(id),
@@ -136,6 +214,10 @@ export const {
   useCreateProductMutation,
   useUpdateProductMutation,
   useDeleteProductMutation,
+  useSetProductCatalogTypeMutation,
+  useSetProductTopRatedMutation,
+  useSetProductSourceableMutation,
+  useAnnounceProductAvailabilityMutation,
 } = productsApi;
 
 // NOTE: Ensure that the server enforces HTTPS, proper authentication, and

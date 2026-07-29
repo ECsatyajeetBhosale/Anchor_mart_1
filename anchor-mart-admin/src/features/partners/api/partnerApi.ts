@@ -5,6 +5,7 @@ import type {
   PartnerApi,
   PartnerData,
   PartnerListResult,
+  PartnerStats,
   UpdatePartnerPayload,
 } from "../types/partner.types";
 
@@ -122,6 +123,13 @@ export const partnerApi = baseApi.injectEndpoints({
           : [{ type: "Partners", id: "PARTIAL-LIST" }],
     }),
 
+    /** Flow 28 API 3 — total partners + in-progress deliveries. Takes no filters. */
+    getPartnerStats: builder.query<PartnerStats, void>({
+      query: () => ({ url: PARTNER_ENDPOINTS.GET_STATS, method: "GET" }),
+      transformResponse: (res: unknown): PartnerStats => unwrap<PartnerStats>(res) ?? {},
+      providesTags: [{ type: "Partners", id: "STATS" }],
+    }),
+
     // Detail for a single partner — the clicked row's user id is sent as `user_id`.
     // Returns the raw record so the edit form can prefill exact field values.
     getPartnerDetail: builder.query<PartnerApi, string>({
@@ -143,7 +151,10 @@ export const partnerApi = baseApi.injectEndpoints({
         method: "POST",
         body,
       }),
-      invalidatesTags: [{ type: "Partners", id: "PARTIAL-LIST" }],
+      invalidatesTags: [
+        { type: "Partners", id: "PARTIAL-LIST" },
+        { type: "Partners", id: "STATS" },
+      ],
     }),
 
     // Update partner detail; user id sent as `user_id` query param + in the body.
@@ -156,6 +167,7 @@ export const partnerApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (_result, _error, { userId }) => [
         { type: "Partners", id: "PARTIAL-LIST" },
+        { type: "Partners", id: "STATS" },
         { type: "Partners", id: userId },
       ],
     }),
@@ -167,7 +179,10 @@ export const partnerApi = baseApi.injectEndpoints({
         method: "DELETE",
         params: { user_id: userId },
       }),
-      invalidatesTags: [{ type: "Partners", id: "PARTIAL-LIST" }],
+      invalidatesTags: [
+        { type: "Partners", id: "PARTIAL-LIST" },
+        { type: "Partners", id: "STATS" },
+      ],
     }),
   }),
   overrideExisting: false,
@@ -175,6 +190,7 @@ export const partnerApi = baseApi.injectEndpoints({
 
 export const {
   useGetPartnersQuery,
+  useGetPartnerStatsQuery,
   useGetPartnerDetailQuery,
   useCreatePartnerMutation,
   useUpdatePartnerMutation,

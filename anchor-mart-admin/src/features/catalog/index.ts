@@ -8,6 +8,7 @@ export {
   useGetCategoriesQuery,
   useGetCategoryQuery,
   useGetCategoryStatsQuery,
+  useGetCategoriesByCatalogTypeQuery,
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
   useDeleteCategoryMutation,

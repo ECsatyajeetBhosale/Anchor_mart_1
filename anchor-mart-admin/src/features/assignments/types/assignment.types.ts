@@ -1,11 +1,16 @@
 // Domain types for the Order Assignments feature.
-// NOTE: no backend endpoint yet — the page renders local mock data (see ./data).
-// Shapes are kept API-friendly so wiring RTK Query later is a drop-in replacement.
+// Both boards are API-backed: active assignments come from Flow 28 API 14 and
+// the unassigned queue from API 15.
 
-/** An active delivery assignment row. */
+/** An active delivery assignment row (Flow 28 API 14). */
 export interface Assignment {
-  /** Stable row key (the order number). */
+  /** Stable row key — the assignment id, falling back to the order id. */
   id: string;
+  /**
+   * The **order UUID**. Reassigning posts this as `order_id`, so it must be the
+   * real id rather than the display number shown in the ORDER column.
+   */
+  orderId: string;
   /** Enquiry code, e.g. "ENQ-0042". */
   enquiry: string;
   /** Assigned partner full name. */

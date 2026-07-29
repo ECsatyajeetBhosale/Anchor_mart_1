@@ -1,6 +1,11 @@
 import { ORDER_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
-import type { Order, OrderListResponse } from "../types/order.types";
+import type {
+  AdminCart,
+  AdminCartListResult,
+  Order,
+  OrderListResponse,
+} from "../types/order.types";
 
 /**
  * Query parameters for the admin orders list (Flow 11 §17). Every filter is
@@ -160,6 +165,66 @@ export const ordersApi = baseApi.injectEndpoints({
         { type: "Intents", id: "PARTIAL-LIST" },
       ],
     }),
+    /**
+     * Sailor carts still awaiting checkout. Undocumented by the flow set, so
+     * every field is probed across plausible spellings and the envelope may be a
+     * bare array, `{ results }` or `{ results: { data } }`.
+     */
+    getCarts: builder.query<AdminCartListResult, { page?: number; limit?: number }>({
+      query: (params) => ({
+        url: ORDER_ENDPOINTS.GET_CARTS,
+        method: "GET",
+        params: { page: params?.page, page_size: params?.limit },
+      }),
+      transformResponse: (res: unknown): AdminCartListResult => {
+        const prop = (v: unknown, k: string): unknown =>
+          v && typeof v === "object" ? (v as Record<string, unknown>)[k] : undefined;
+        const arr = (v: unknown): unknown[] | null => (Array.isArray(v) ? v : null);
+        const pick = (o: unknown, ...keys: string[]): string => {
+          for (const k of keys) {
+            const v = prop(o, k);
+            if (typeof v === "string" && v.trim()) return v.trim();
+            if (typeof v === "number") return String(v);
+          }
+          return "";
+        };
+
+        const results = prop(res, "results");
+        const rows =
+          arr(prop(results, "data")) ??
+          arr(results) ??
+          arr(prop(res, "data")) ??
+          arr(res) ??
+          [];
+        const countRaw = prop(res, "count") ?? prop(results, "count");
+
+        const carts: AdminCart[] = rows.map((row, index) => {
+          const items = prop(row, "items");
+          const itemCountRaw = prop(row, "item_count") ?? prop(row, "items_count");
+          const amount = Number(prop(row, "total_amount") ?? prop(row, "total"));
+          return {
+            id: pick(row, "id", "cart_id") || `cart-${index}`,
+            customer:
+              pick(row, "customer_name", "user_name", "sailor") ||
+              pick(prop(row, "user"), "first_name", "name", "email") ||
+              "-",
+            email: pick(row, "customer_email", "email") || pick(prop(row, "user"), "email") || "-",
+            catalogType: pick(row, "catalog_type", "cart_type", "type") || "-",
+            itemCount:
+              typeof itemCountRaw === "number"
+                ? itemCountRaw
+                : Array.isArray(items)
+                  ? items.length
+                  : 0,
+            total: Number.isFinite(amount) ? `$${amount.toFixed(2)}` : "-",
+            updatedAt: pick(row, "updated_at", "modified_at", "created_at") || "-",
+          };
+        });
+
+        return { count: typeof countRaw === "number" ? countRaw : carts.length, carts };
+      },
+      providesTags: [{ type: "Orders", id: "CARTS" }],
+    }),
   }),
   overrideExisting: false,
 });
@@ -168,6 +233,7 @@ export const {
   useGetOrdersQuery,
   useGetOrderDetailQuery,
   useGetOrderStatsQuery,
+  useGetCartsQuery,
   useLazyGetOrderSlipQuery,
   useCancelOrderMutation,
 } = ordersApi;

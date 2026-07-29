@@ -79,6 +79,38 @@ export const categoryApi = baseApi.injectEndpoints({
       ],
     }),
 
+    /**
+     * Categories scoped to one catalog. Needed by the set-catalog-type flow:
+     * moving a product into `marine_emergency` requires a category that belongs
+     * to that catalog, and the general list would offer the wrong ones.
+     */
+    getCategoriesByCatalogType: builder.query<
+      Category[],
+      { catalogType: string; search?: string }
+    >({
+      query: ({ catalogType, search }) => ({
+        url: CATEGORY_ENDPOINTS.GET_BY_CATALOG_TYPE,
+        method: "GET",
+        params: { catalog_type: catalogType, search: search || undefined },
+      }),
+      transformResponse: (res: unknown): Category[] => {
+        const prop = (v: unknown, k: string): unknown =>
+          v && typeof v === "object" ? (v as Record<string, unknown>)[k] : undefined;
+        const arr = (v: unknown): unknown[] | null => (Array.isArray(v) ? v : null);
+        const results = prop(res, "results");
+        const rows =
+          arr(prop(results, "data")) ??
+          arr(results) ??
+          arr(prop(res, "data")) ??
+          arr(res) ??
+          [];
+        return rows as Category[];
+      },
+      providesTags: (_r, _e, { catalogType }) => [
+        { type: "Categories", id: `CATALOG-${catalogType}` },
+      ],
+    }),
+
     deleteCategory: builder.mutation<void, string>({
       query: (id) => ({
         url: CATEGORY_ENDPOINTS.DELETE_CATEGORY(id),
@@ -98,6 +130,7 @@ export const {
   useGetCategoriesQuery,
   useGetCategoryQuery,
   useGetCategoryStatsQuery,
+  useGetCategoriesByCatalogTypeQuery,
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
   useDeleteCategoryMutation,

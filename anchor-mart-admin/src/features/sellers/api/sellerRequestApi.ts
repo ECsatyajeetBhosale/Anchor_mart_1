@@ -2,12 +2,13 @@ import { SELLER_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
 import type {
   GetSellerRequestsParams,
-  RejectSellerPayload,
   SellerRequest,
   SellerRequestApi,
   SellerRequestBadgeVariant,
+  SellerRequestDetailApi,
   SellerRequestListResult,
   SellerRequestStats,
+  SetSellerStatusPayload,
 } from "../types/sellerRequest.types";
 
 /** Placeholder shown for any null/undefined/blank value. */
@@ -70,8 +71,12 @@ function documentsUploaded(row: SellerRequestApi): boolean | null {
 function toSellerRequest(row: SellerRequestApi): SellerRequest {
   const status = row.status ? String(row.status).trim() : "";
   const docsOk = documentsUploaded(row);
+  const id = row.id != null ? String(row.id) : "";
   return {
-    id: row.id != null ? String(row.id) : "",
+    id,
+    // Writes key on the applicant's user id; fall back to the row id so a
+    // payload without `user_id` still produces an actionable row.
+    userId: row.user_id ? String(row.user_id) : id,
     n: dash(row.full_name),
     e: dash(row.email),
     b: dash(row.business),
@@ -139,23 +144,35 @@ export const sellerRequestApi = baseApi.injectEndpoints({
       providesTags: [{ type: "Sellers", id: "STATS" }],
     }),
 
-    approveSeller: builder.mutation<unknown, string>({
-      query: (id) => ({ url: SELLER_ENDPOINTS.APPROVE(id), method: "POST" }),
-      invalidatesTags: (_r, _e, id) => [
-        { type: "Sellers", id },
-        { type: "Sellers", id: "PARTIAL-LIST" },
-        { type: "Sellers", id: "STATS" },
-      ],
+    /** Full application record — fetched by the applicant's user id. */
+    getSellerRequestDetail: builder.query<SellerRequestDetailApi, string>({
+      query: (userId) => ({
+        url: SELLER_ENDPOINTS.GET_DETAIL,
+        method: "GET",
+        params: { user_id: userId },
+      }),
+      transformResponse: (res: unknown): SellerRequestDetailApi =>
+        unwrap<SellerRequestDetailApi>(res),
+      providesTags: (_result, _error, userId) => [{ type: "Sellers", id: userId }],
     }),
 
-    rejectSeller: builder.mutation<unknown, RejectSellerPayload>({
-      query: ({ id, reason, message }) => ({
-        url: SELLER_ENDPOINTS.REJECT(id),
+    /**
+     * The single decision endpoint — approve and reject are the same POST with a
+     * different `status`. A rejection must carry `admin_note`; the caller is
+     * responsible for supplying one (the drawer enforces it before firing).
+     */
+    setSellerStatus: builder.mutation<unknown, SetSellerStatusPayload>({
+      query: ({ userId, status, adminNote }) => ({
+        url: SELLER_ENDPOINTS.SET_STATUS,
         method: "POST",
-        body: { reason, message: message || undefined },
+        body: {
+          user_id: userId,
+          status,
+          ...(adminNote ? { admin_note: adminNote } : {}),
+        },
       }),
-      invalidatesTags: (_r, _e, { id }) => [
-        { type: "Sellers", id },
+      invalidatesTags: (_r, _e, { userId }) => [
+        { type: "Sellers", id: userId },
         { type: "Sellers", id: "PARTIAL-LIST" },
         { type: "Sellers", id: "STATS" },
       ],
@@ -167,6 +184,6 @@ export const sellerRequestApi = baseApi.injectEndpoints({
 export const {
   useGetSellerRequestsQuery,
   useGetSellerRequestStatsQuery,
-  useApproveSellerMutation,
-  useRejectSellerMutation,
+  useGetSellerRequestDetailQuery,
+  useSetSellerStatusMutation,
 } = sellerRequestApi;

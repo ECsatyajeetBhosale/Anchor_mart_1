@@ -3,15 +3,17 @@ export { SellerRequestDetailDrawer } from "./components/SellerRequestDetailDrawe
 export {
   useGetSellerRequestsQuery,
   useGetSellerRequestStatsQuery,
-  useApproveSellerMutation,
-  useRejectSellerMutation,
+  useGetSellerRequestDetailQuery,
+  useSetSellerStatusMutation,
   sellerStatusVariant,
 } from "./api/sellerRequestApi";
 export type {
   SellerRequest,
   SellerRequestApi,
+  SellerRequestDetailApi,
   SellerRequestStats,
   SellerRequestListResult,
   GetSellerRequestsParams,
-  RejectSellerPayload,
+  SellerDecision,
+  SetSellerStatusPayload,
 } from "./types/sellerRequest.types";

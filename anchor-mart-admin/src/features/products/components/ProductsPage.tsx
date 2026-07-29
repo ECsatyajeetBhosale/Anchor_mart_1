@@ -10,13 +10,19 @@ import { IconBoxSeam, IconCategory, IconPlus, IconStar } from "@tabler/icons-rea
 import React, { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { ProductVariantsDrawer } from "@/features/variants";
+import { getApiMessage } from "@/lib/apiError";
 import {
+  useAnnounceProductAvailabilityMutation,
   useDeleteProductMutation,
   useGetProductStatsQuery,
   useGetProductsQuery,
+  useSetProductSourceableMutation,
+  useSetProductTopRatedMutation,
 } from "../api/productApi";
 import type { Product } from "../types/product.types";
 import { ProductFormModal } from "./ProductFormModal";
+import { SetCatalogTypeDialog } from "./SetCatalogTypeDialog";
 import { useProductColumns } from "./productColumns";
 
 const productTabs = [
@@ -33,6 +39,16 @@ export function ProductsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
+  // Variant manager, catalog-move dialog and announce confirmation each track
+  // the product they were opened for.
+  const [variantsProduct, setVariantsProduct] = useState<Product | null>(null);
+  const [catalogProduct, setCatalogProduct] = useState<Product | null>(null);
+  const [announceProduct, setAnnounceProduct] = useState<Product | null>(null);
+
+  const [setTopRated] = useSetProductTopRatedMutation();
+  const [setSourceable] = useSetProductSourceableMutation();
+  const [announceAvailability, { isLoading: isAnnouncing }] =
+    useAnnounceProductAvailabilityMutation();
   const [deleteProduct, { isLoading: isDeleting }] = useDeleteProductMutation();
 
   // URL-driven state (shareable, refresh-safe).
@@ -142,11 +158,56 @@ export function ProductsPage() {
     }
   };
 
+  const handleToggleTopRated = async (product: Product, next: boolean) => {
+    try {
+      await setTopRated({ id: product.id, isTopRated: next }).unwrap();
+      toast.success(MESSAGES.PRODUCT_FLAGS.TOAST.TOP_RATED_UPDATED);
+    } catch (error) {
+      toast.error(getApiMessage(error) ?? MESSAGES.PRODUCT_FLAGS.TOAST.TOP_RATED_ERROR);
+    }
+  };
+
+  const handleToggleSourceable = async (product: Product, next: boolean) => {
+    try {
+      await setSourceable({ id: product.id, adminSourceable: next }).unwrap();
+      toast.success(MESSAGES.PRODUCT_FLAGS.TOAST.SOURCEABLE_UPDATED);
+    } catch (error) {
+      toast.error(getApiMessage(error) ?? MESSAGES.PRODUCT_FLAGS.TOAST.SOURCEABLE_ERROR);
+    }
+  };
+
+  const handleConfirmAnnounce = async () => {
+    if (!announceProduct) return;
+    try {
+      await announceAvailability(announceProduct.id).unwrap();
+      toast.success(MESSAGES.PRODUCT_FLAGS.TOAST.ANNOUNCED(announceProduct.name));
+      setAnnounceProduct(null);
+    } catch (error) {
+      // The API 400s when the product isn't orderable — surface its own message,
+      // which tells the admin to make it sourceable first.
+      toast.error(getApiMessage(error) ?? MESSAGES.PRODUCT_FLAGS.TOAST.ANNOUNCE_ERROR);
+    }
+  };
+
   const columns = useProductColumns({
     statusFilter,
     onStatusFilter: (value) => setFilterParam("status", value),
     onEdit: handleEdit,
     onDelete: handleDeleteClick,
+    onManageVariants: (e, product) => {
+      e.stopPropagation();
+      setVariantsProduct(product);
+    },
+    onChangeCatalog: (e, product) => {
+      e.stopPropagation();
+      setCatalogProduct(product);
+    },
+    onAnnounce: (e, product) => {
+      e.stopPropagation();
+      setAnnounceProduct(product);
+    },
+    onToggleTopRated: handleToggleTopRated,
+    onToggleSourceable: handleToggleSourceable,
   });
 
   const statItems = [
@@ -237,6 +298,33 @@ export function ProductsPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         product={editingProduct}
+      />
+
+      <ProductVariantsDrawer
+        productId={variantsProduct?.id ?? null}
+        productName={variantsProduct?.name ?? ""}
+        isOpen={!!variantsProduct}
+        onClose={() => setVariantsProduct(null)}
+      />
+
+      <SetCatalogTypeDialog
+        product={catalogProduct}
+        isOpen={!!catalogProduct}
+        onClose={() => setCatalogProduct(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={!!announceProduct}
+        onClose={() => setAnnounceProduct(null)}
+        onConfirm={handleConfirmAnnounce}
+        isLoading={isAnnouncing}
+        title={MESSAGES.PRODUCT_FLAGS.ANNOUNCE_DIALOG.TITLE}
+        description={
+          announceProduct
+            ? `${MESSAGES.PRODUCT_FLAGS.ANNOUNCE_DIALOG.MESSAGE(announceProduct.name)} ${MESSAGES.PRODUCT_FLAGS.ANNOUNCE_DIALOG.NOTE}`
+            : ""
+        }
+        confirmText={MESSAGES.PRODUCT_FLAGS.ANNOUNCE_DIALOG.CONFIRM}
       />
 
       <ConfirmDialog

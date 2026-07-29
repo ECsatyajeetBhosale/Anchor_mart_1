@@ -3,6 +3,7 @@ import { baseApi } from "@/lib/fetchUtils";
 import type {
   ApiUnassignedOrder,
   ApiUnassignedOrdersResponse,
+  Assignment,
   AssignOrderPayload,
   AssignablePartner,
   OrderAssignmentHistory,
@@ -51,6 +52,29 @@ function mapUnassignedOrder(o: ApiUnassignedOrder): UnassignedOrder {
   };
 }
 
+/**
+ * Map an active-assignment API row onto the flat shape the assignments table
+ * renders. The response shape isn't pinned by an example in the collection, so
+ * every field is read through `pick` across the plausible key spellings and
+ * degrades to "-" rather than rendering `undefined`.
+ */
+function mapActiveAssignment(raw: unknown, index: number): Assignment {
+  const orderId = pick(raw, "order_id", "order", "id");
+  const orderNumber = pick(raw, "order_number", "order_no") || orderId;
+  return {
+    id: pick(raw, "id", "assignment_id") || orderId || `assignment-${index}`,
+    orderId,
+    enquiry: pick(raw, "enquiry", "enquiry_number", "order_number") || "-",
+    partner: pick(raw, "partner_name", "partner", "delivery_partner_name") || "-",
+    order: orderNumber || "-",
+    shop: pick(raw, "shop", "shop_name", "port", "assigned_port") || "-",
+    deliverTo: pick(raw, "deliver_to", "vessel", "ship_name", "customer_name") || "-",
+    status: pick(raw, "status_display", "status") || "-",
+    // `deliver_by` is the SLA deadline — the closest thing to an ETA the API has.
+    eta: pick(raw, "eta", "deliver_by", "expected_at") || "-",
+  };
+}
+
 export const assignmentApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     // Orders awaiting partner assignment. Returns the mapped UI rows directly.
@@ -59,6 +83,30 @@ export const assignmentApi = baseApi.injectEndpoints({
       transformResponse: (res: ApiUnassignedOrdersResponse) =>
         (res?.results ?? []).map(mapUnassignedOrder),
       providesTags: [{ type: "Assignments", id: "UNASSIGNED-LIST" }],
+    }),
+
+    /**
+     * Flow 28 API 14 — orders that currently hold a live partner assignment.
+     * Handles both a plain array and the DRF `{ results }` / `{ results: { data } }`
+     * envelopes, since the collection carries no sample response.
+     */
+    getActiveAssignments: builder.query<Assignment[], void>({
+      query: () => ({
+        url: ASSIGNMENT_ENDPOINTS.GET_ACTIVE_ASSIGNMENTS,
+        method: "GET",
+        params: { page_size: 100 },
+      }),
+      transformResponse: (res: unknown): Assignment[] => {
+        const results = getProp(res, "results");
+        const rows =
+          asArray(getProp(results, "data")) ??
+          asArray(results) ??
+          asArray(getProp(res, "data")) ??
+          asArray(res) ??
+          [];
+        return rows.map(mapActiveAssignment);
+      },
+      providesTags: [{ type: "Assignments", id: "ACTIVE-LIST" }],
     }),
 
     // Flow 28 API 11 — assignable partners. Passing `orderId` scopes the list to
@@ -173,6 +221,7 @@ export const assignmentApi = baseApi.injectEndpoints({
       // assignment moves the order to `partner_verifying`.
       invalidatesTags: (_r, _e, { order_id }) => [
         { type: "Assignments", id: "UNASSIGNED-LIST" },
+        { type: "Assignments", id: "ACTIVE-LIST" },
         { type: "Assignments", id: `TIMELINE-${order_id}` },
         { type: "Assignments", id: `HISTORY-${order_id}` },
         { type: "Intents", id: order_id },
@@ -186,6 +235,7 @@ export const assignmentApi = baseApi.injectEndpoints({
 
 export const {
   useGetUnassignedOrdersQuery,
+  useGetActiveAssignmentsQuery,
   useGetAssignablePartnersQuery,
   useGetOrderTimelineQuery,
   useGetOrderAssignmentsQuery,
