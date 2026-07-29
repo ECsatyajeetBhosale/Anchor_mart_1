@@ -4,12 +4,16 @@
  */
 export const APP_ROUTES = {
   LOGIN: "/login",
+  LOGIN_OTP: "/login/otp",
   DASHBOARD: "/dashboard",
   ANALYTICS: "/analytics",
   SAILORS: "/sailors",
   ORDERS: "/orders",
   INTENTS: "/intents",
   PRODUCTS: "/products",
+  CATEGORIES: "/categories",
+  EMERGENCY_CATEGORIES: "/emergency-categories",
+  SHIP_AGENTS: "/ship-agents",
   EXPRESS: "/express",
   INVENTORY: "/inventory",
   REWARDS: "/rewards",
@@ -21,6 +25,8 @@ export const APP_ROUTES = {
   SUPPORT: "/support",
   SELLERS: "/sellers",
   SETTINGS: "/settings",
+  SETTINGS_FAQS: "/settings/faqs",
+  SETTINGS_USERS: "/settings/users",
   REQUESTS: "/requests",
   SPARES: "/spares",
 } as const;
@@ -33,8 +39,12 @@ export const APP_ROUTES = {
 export const API_ROUTES = {
   AUTH: {
     LOGIN: "/superadmin/admin/login/",
-    LOGOUT: "/superadmin/auth/logout/",
+    LOGOUT: "/superadmin/admin/logout/",
     ME: "/superadmin/auth/me/",
+    // OTP login (two-step). /superadmin/ is exempt from the server-secret-key
+    // header — do not add it for these two endpoints.
+    LOGIN_WITH_OTP: "/superadmin/admin/login-with-otp/",
+    VERIFY_OTP: "/superadmin/admin/verify-otp/",
   },
   DASHBOARD: {
     STATS: "/superadmin/dashboard/dashboard/",

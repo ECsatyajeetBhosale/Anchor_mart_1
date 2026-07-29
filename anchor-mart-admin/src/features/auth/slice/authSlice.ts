@@ -1,5 +1,5 @@
-import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { AdminUser, AuthState } from "../types/auth";
+import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
+import type { AdminUser, AuthState } from "../types/auth.types";
 
 const TOKEN_KEY = "am_admin_token";
 const USER_KEY = "am_admin_user";
@@ -33,10 +33,7 @@ const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    setCredentials: (
-      state,
-      action: PayloadAction<{ token: string; user: AdminUser }>,
-    ) => {
+    setCredentials: (state, action: PayloadAction<{ token: string; user: AdminUser }>) => {
       state.token = action.payload.token;
       state.user = action.payload.user;
       state.isAuthenticated = true;
