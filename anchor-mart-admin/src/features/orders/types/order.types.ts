@@ -122,10 +122,20 @@ export interface Order {
   shipping_address?: OrderShippingAddress | null;
   port?: OrderPort | null;
   anchorage?: OrderAnchorage | null;
+  /**
+   * Money fields. All of these stay `"0.00"` until the admin generates a bill:
+   * `apply_fees` writes the fee fields and `recompute_order_totals` produces
+   * `total_amount` (Flow 07). Before that an order can hold priced items while
+   * every order-level figure still reads zero — which is expected, not a bug.
+   */
   subtotal?: string;
   shipping_fee?: string;
   tax_amount?: string;
+  platform_fee?: string;
   discount_amount?: string;
+  /** Discount granted by redeemed loyalty points. */
+  loyalty_discount?: string;
+  loyalty_points_redeemed?: number;
   total_amount: string;
   applied_coupon?: string | null;
   coupon_used?: boolean;

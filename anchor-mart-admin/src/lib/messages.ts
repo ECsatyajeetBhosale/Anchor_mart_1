@@ -339,6 +339,23 @@ export const MESSAGES = {
       ITEMS: "Items",
       NO_ITEMS: "No items",
       ORDER_TOTAL: "Order Total",
+      // Written out so a multi-quantity row can't be misread — the figure beside
+      // the quantity is the unit price, not the line total.
+      LINE_MATH: (qty: number, unitPrice: string) => `${qty} × ${unitPrice} each`,
+      PRICING: "Price Breakdown",
+      ITEMS_TOTAL: "Items Total",
+      SUBTOTAL: "Subtotal",
+      SHIPPING_FEE: "Shipping Fee",
+      TAX: "Tax",
+      PLATFORM_FEE: "Platform Fee",
+      DISCOUNT: "Coupon Discount",
+      LOYALTY: "Loyalty Discount",
+      LOYALTY_WITH_POINTS: (pts: number) => `Loyalty Discount (${pts} pts)`,
+      // Shown when the order holds priced items but every order-level money
+      // field is still zero — the state that otherwise looks like broken maths.
+      NOT_BILLED_TITLE: "Not billed yet",
+      NOT_BILLED_BODY:
+        "Order totals stay at zero until a bill is generated — that step applies the fees and computes the total. The items above are priced; the order is not.",
     },
     EMPTY: "No orders found",
     EMPTY_FILTERED: "No orders match the current filters.",

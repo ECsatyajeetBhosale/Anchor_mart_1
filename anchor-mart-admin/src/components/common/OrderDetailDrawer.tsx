@@ -31,7 +31,36 @@ const TAB_FULFILMENT = "fulfilment";
 export interface OrderItem {
   name: string;
   qty: number;
+  /** Formatted **unit** price, e.g. "$100.00". */
   price: string;
+  /**
+   * Formatted line total (`unit price × qty`) as returned by the API. Shown
+   * beside the unit price so a multi-quantity row can't be misread as one.
+   */
+  lineTotal?: string;
+}
+
+/**
+ * The order's money breakdown.
+ *
+ * `itemsTotal` is the sum of the line subtotals and is always real. Everything
+ * else is order-level and stays at zero until the admin generates a bill —
+ * `apply_fees` writes the fees and `recompute_order_totals` produces the total
+ * (Flow 07). `isBilled` distinguishes "genuinely free" from "not priced yet",
+ * which is otherwise indistinguishable at a glance.
+ */
+export interface OrderPricing {
+  itemsTotal: string;
+  subtotal: string;
+  shippingFee: string;
+  tax: string;
+  platformFee: string;
+  discount: string;
+  loyaltyDiscount: string;
+  loyaltyPoints: number;
+  total: string;
+  /** False while every order-level money field is still zero. */
+  isBilled: boolean;
 }
 
 export interface OrderDetail {
@@ -51,6 +80,8 @@ export interface OrderDetail {
   intent?: string;
   /** Anchorage-change summary. Not returned by the API → "—". */
   anchorageChange?: string;
+  /** Full money breakdown. Omitted by callers that only have a list row. */
+  pricing?: OrderPricing;
 }
 
 /** A step in the order progress timeline (from the live-order details API). */
@@ -91,6 +122,44 @@ interface OrderDetailDrawerProps {
    * shared drawer stays presentational and doesn't depend on any feature.
    */
   detailSlot?: ReactNode;
+}
+
+/** True when a formatted money string carries no value (e.g. "$0.00", "—"). */
+function isZeroMoney(value: string): boolean {
+  const n = Number(value.replace(/[^0-9.-]/g, ""));
+  return !Number.isFinite(n) || n === 0;
+}
+
+/**
+ * One line of the money breakdown. `omitZero` hides fee rows that don't apply,
+ * so an unbilled order shows a short list rather than a wall of zeros.
+ */
+function PriceRow({
+  label,
+  value,
+  omitZero,
+  negative,
+}: {
+  label: string;
+  value: string;
+  omitZero?: boolean;
+  negative?: boolean;
+}) {
+  if (omitZero && isZeroMoney(value)) return null;
+  return (
+    <div className="flex items-center justify-between py-1.5 text-[12.5px]">
+      <span className="text-[var(--t3)]">{label}</span>
+      <span
+        className={
+          negative
+            ? "font-semibold tabular-nums text-[var(--success-text)]"
+            : "font-semibold tabular-nums text-[var(--t1)]"
+        }
+      >
+        {negative ? `− ${value}` : value}
+      </span>
+    </div>
+  );
 }
 
 /** Map an order status to a `Badge` variant (shared with `DashboardOrderDrawer`). */
@@ -255,13 +324,54 @@ export function OrderDetailDrawer({
                     </div>
                   ) : (
                     order.items.map((item) => (
-                      <div key={`${item.name}-${item.qty}-${item.price}`} className="detail-kv">
-                        <div className="detail-k w5 c4">
-                          {item.name} &times;{item.qty}
+                      <div
+                        key={`${item.name}-${item.qty}-${item.price}`}
+                        className="flex items-start justify-between gap-3 border-b border-[var(--border-xs)] py-2.5 last:border-b-0"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-[13px] font-semibold text-[var(--t1)]">
+                            {item.name}
+                          </div>
+                          {/* Spell the arithmetic out: a bare "$100.00" next to
+                              "×3" reads as the line total when it's the unit price. */}
+                          <div className="text-[11.5px] text-[var(--t4)] tabular-nums">
+                            {D.LINE_MATH(item.qty, item.price)}
+                          </div>
                         </div>
-                        <div className="detail-v">{item.price}</div>
+                        <div className="shrink-0 text-[13px] font-bold tabular-nums text-[var(--t1)]">
+                          {item.lineTotal ?? item.price}
+                        </div>
                       </div>
                     ))
+                  )}
+
+                  {/* Money breakdown. Fee rows are hidden when zero so an unbilled
+                      order shows a short, honest list rather than five zeros. */}
+                  {order.pricing && (
+                    <>
+                      <div className="sec-label mt16">{D.PRICING}</div>
+                      <PriceRow label={D.ITEMS_TOTAL} value={order.pricing.itemsTotal} />
+                      <PriceRow label={D.SUBTOTAL} value={order.pricing.subtotal} />
+                      <PriceRow label={D.SHIPPING_FEE} value={order.pricing.shippingFee} omitZero />
+                      <PriceRow label={D.TAX} value={order.pricing.tax} omitZero />
+                      <PriceRow label={D.PLATFORM_FEE} value={order.pricing.platformFee} omitZero />
+                      <PriceRow
+                        label={D.DISCOUNT}
+                        value={order.pricing.discount}
+                        omitZero
+                        negative
+                      />
+                      <PriceRow
+                        label={
+                          order.pricing.loyaltyPoints > 0
+                            ? D.LOYALTY_WITH_POINTS(order.pricing.loyaltyPoints)
+                            : D.LOYALTY
+                        }
+                        value={order.pricing.loyaltyDiscount}
+                        omitZero
+                        negative
+                      />
+                    </>
                   )}
 
                   <div className="mt16 rounded-[var(--radius-md)] bg-[var(--navy-25)] px-4 py-3.5">
@@ -270,6 +380,19 @@ export function OrderDetailDrawer({
                       <span className="lg w8">{order.total}</span>
                     </div>
                   </div>
+
+                  {/* The single most confusing state: priced items under a zero
+                      total. Say why instead of leaving the admin to guess. */}
+                  {order.pricing && !order.pricing.isBilled && order.items.length > 0 && (
+                    <div className="mt-3 rounded-[var(--radius-md)] border border-[var(--amber-200)] bg-[var(--amber-50)] px-4 py-3">
+                      <div className="text-[12.5px] font-bold text-[var(--amber-700)]">
+                        {D.NOT_BILLED_TITLE}
+                      </div>
+                      <p className="mt-1 text-[11.5px] leading-relaxed text-[var(--t3)]">
+                        {D.NOT_BILLED_BODY}
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
 

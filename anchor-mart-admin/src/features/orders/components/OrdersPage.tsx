@@ -258,8 +258,35 @@ function paymentClass(pay: string): string {
   return "text-[var(--danger-text)] font-bold text-[12.5px]";
 }
 
+/** Formats a decimal-ish value as `$0.00`; unparseable input → `$0.00`. */
+function money(value: unknown): string {
+  const n = Number(value);
+  return `$${(Number.isFinite(n) ? n : 0).toFixed(2)}`;
+}
+
 /** Map a table row to the detail-drawer shape. */
 function toOrderDetail(order: Order): OrderDetail {
+  // Only the detail read returns `items`; a list row has just `item_count`.
+  const items = order.items ?? [];
+  // The line subtotals are real even before billing, so they're summed
+  // independently of the order-level figures.
+  const itemsTotal = items.reduce((sum, it) => {
+    const line = Number(it.subtotal);
+    return sum + (Number.isFinite(line) ? line : Number(it.unit_price) * it.quantity || 0);
+  }, 0);
+
+  const orderMoney = [
+    order.subtotal,
+    order.shipping_fee,
+    order.tax_amount,
+    order.platform_fee,
+    order.discount_amount,
+    order.total_amount,
+  ];
+  // Every order-level figure still zero means no bill has been generated yet
+  // (Flow 07) — distinct from an order that is genuinely free.
+  const isBilled = orderMoney.some((v) => Number(v) > 0);
+
   return {
     id: order.order_number,
     sailor: customerName(order),
@@ -268,14 +295,26 @@ function toOrderDetail(order: Order): OrderDetail {
     partner: order.active_assignment?.partner_name || order.partner_name || M.UNASSIGNED,
     payment: paymentLabel(order),
     coupon: order.applied_coupon || "",
-    total: `$${Number(order.total_amount).toFixed(2)}`,
+    total: money(order.total_amount),
     status: order.status_display,
-    // Only the detail read returns `items`; a list row has just `item_count`.
-    items: (order.items ?? []).map((it) => ({
+    items: items.map((it) => ({
       name: it.product_name,
       qty: it.quantity,
-      price: `$${Number(it.unit_price).toFixed(2)}`,
+      price: money(it.unit_price),
+      lineTotal: money(it.subtotal),
     })),
+    pricing: {
+      itemsTotal: money(itemsTotal),
+      subtotal: money(order.subtotal),
+      shippingFee: money(order.shipping_fee),
+      tax: money(order.tax_amount),
+      platformFee: money(order.platform_fee),
+      discount: money(order.discount_amount),
+      loyaltyDiscount: money(order.loyalty_discount),
+      loyaltyPoints: order.loyalty_points_redeemed ?? 0,
+      total: money(order.total_amount),
+      isBilled,
+    },
   };
 }
 
