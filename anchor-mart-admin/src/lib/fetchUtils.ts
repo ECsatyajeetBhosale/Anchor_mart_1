@@ -53,6 +53,8 @@ export const baseApi = createApi({
     "Notifications",
     "Sellers",
     "Support",
+    "Faqs",
+    "FaqTypes",
     "SpecialRequests",
     "Spares",
     "ShipAgents",

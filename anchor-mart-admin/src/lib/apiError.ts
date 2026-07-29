@@ -43,6 +43,12 @@ function extractMessage(value: unknown, keyPath: string, labelFields: boolean): 
   if (!value || typeof value !== "object") return undefined;
 
   const record = value as Record<string, unknown>;
+  // create-user wraps field errors one level deeper: {"errors": {"role": [...]}}.
+  // Unwrap it so the message reads "role: …" rather than "errors.role: …".
+  if (record.errors && typeof record.errors === "object") {
+    const msg = extractMessage(record.errors, keyPath, labelFields);
+    if (msg) return msg;
+  }
   // Prefer explicit top-level message keys. `error` is what most of this
   // backend's failure bodies use ({"error": "Email is required"}); without it
   // the field-walker below would label the value and render "error: ...".
@@ -52,7 +58,10 @@ function extractMessage(value: unknown, keyPath: string, labelFields: boolean): 
 
   // Otherwise walk field errors (including nested objects), labelling by field.
   for (const [key, child] of Object.entries(record)) {
-    const label = key === "non_field_errors" ? keyPath : keyPath ? `${keyPath}.${key}` : key;
+    // `message`/`detail` carry a whole sentence even when they arrive as an
+    // array (create-user does this), so labelling them reads as noise.
+    const unlabelled = key === "non_field_errors" || key === "message" || key === "detail";
+    const label = unlabelled ? keyPath : keyPath ? `${keyPath}.${key}` : key;
     const msg = extractMessage(child, label, labelFields);
     if (msg) return msg;
   }

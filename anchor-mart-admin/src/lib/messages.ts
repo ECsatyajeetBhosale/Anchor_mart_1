@@ -1308,6 +1308,121 @@ export const MESSAGES = {
       FREE_SHIPPING: "Free Shipping",
     },
   },
+  SETTINGS: {
+    TITLE: "Settings",
+    SUBTITLE: "Platform configuration, admin accounts and the help centre",
+    CONFIG: {
+      TITLE: "Platform Configuration",
+      SAVING: "Saving…",
+      SECTIONS: {
+        LOYALTY: "Loyalty & Rewards",
+        OPERATIONAL: "Operational Limits",
+      },
+      NO_ENDPOINT_HINT:
+        "These limits have no API yet, so they are shown for reference and cannot be edited here.",
+      TOAST: {
+        SAVE_SUCCESS: "Loyalty configuration saved",
+        SAVE_ERROR: "Could not save the loyalty configuration",
+      },
+    },
+    USERS: {
+      PAGE_TITLE: "Users",
+      PAGE_SUBTITLE: "Create accounts for sailors, partners, sellers and administrators",
+      CARD_TITLE: "Users",
+      CARD_SUBTITLE: "Create an account for any role",
+      ADD_BUTTON: "Create User",
+      CREATE_SHORT: "Create",
+      NOT_MANAGEABLE: "No management screen",
+      ROLE_LOCKED_HINT: "Pre-selected for this entry point",
+      NO_LIST_NOTICE:
+        "One endpoint creates every role. There is no list-users endpoint, so accounts cannot be shown here — use the screen listed against each role to manage them afterwards.",
+      SECTIONS: {
+        ROLE: "Role",
+        ROLES: "Roles & where they are managed",
+        IDENTITY: "Identity",
+        CONTACT: "Contact",
+      },
+      ADD: {
+        TITLE: "Create User",
+        SUBTITLE: "One account, any role — the role decides where it appears.",
+        SUBMIT: "Create Account",
+        SAVING: "Creating…",
+      },
+      TOAST: {
+        CREATE_SUCCESS: "Account created",
+        CREATE_ERROR: "Could not create the account",
+      },
+    },
+    FAQ: {
+      PAGE_TITLE: "Help & FAQ",
+      PAGE_SUBTITLE: "Questions and answers shown to sailors in the help centre",
+      CARD_TITLE: "Help & FAQ",
+      CARD_COUNTS: (faqs: number, categories: number) =>
+        `${faqs} ${faqs === 1 ? "question" : "questions"} across ${categories} ${
+          categories === 1 ? "category" : "categories"
+        }`,
+      BACK_TO_SETTINGS: "Back to Settings",
+      SEARCH_PLACEHOLDER: "Search FAQs…",
+      ALL_CATEGORIES: "All categories",
+      ADD_BUTTON: "Add FAQ",
+      EMPTY: "No FAQs match this view.",
+      FETCH_ERROR: "Could not load FAQs.",
+      ACTION_EDIT: "Edit FAQ",
+      ACTION_REMOVE: "Delete FAQ",
+      UPDATED_PREFIX: "Updated",
+      STATS: {
+        TOTAL: "Total FAQs",
+        CATEGORIES: "Categories",
+      },
+      SECTIONS: {
+        CONTENT: "Question & Answer",
+        RECORD: "Record",
+      },
+      ADD: {
+        TITLE: "Add FAQ",
+        SUBTITLE: "Publish a question and answer to the help centre.",
+        SUBMIT: "Add FAQ",
+        SAVING: "Adding…",
+      },
+      EDIT: {
+        TITLE: "Edit FAQ",
+        SUBTITLE: "Update the question, answer or category.",
+        SUBMIT: "Save Changes",
+        SAVING: "Saving…",
+        TOAST_SUCCESS: "FAQ updated",
+        TOAST_ERROR: "Could not update the FAQ",
+      },
+      CONFIRM: {
+        TITLE: "Delete FAQ?",
+        DESCRIPTION: "This removes the question from the help centre. It cannot be undone.",
+      },
+      TOAST: {
+        CREATE_SUCCESS: "FAQ added",
+        CREATE_ERROR: "Could not add the FAQ",
+        DELETE_SUCCESS: "FAQ deleted",
+        DELETE_ERROR: "Could not delete the FAQ",
+      },
+    },
+    FAQ_TYPES: {
+      TITLE: "FAQ Categories",
+      ADD: "Add",
+      SAVE: "Save",
+      DELETE: "Delete category",
+      ADD_PLACEHOLDER: "New category name",
+      CONFIRM: {
+        TITLE: "Delete category?",
+        DESCRIPTION: "FAQs filed under this category may be left without one.",
+      },
+      TOAST: {
+        CREATE_SUCCESS: "Category added",
+        CREATE_ERROR: "Could not add the category",
+        UPDATE_SUCCESS: "Category renamed",
+        UPDATE_ERROR: "Could not rename the category",
+        DELETE_SUCCESS: "Category deleted",
+        DELETE_ERROR: "Could not delete the category",
+      },
+    },
+  },
   CATEGORIES: {
     // Page chrome
     TITLE: "Categories",

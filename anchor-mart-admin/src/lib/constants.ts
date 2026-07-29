@@ -25,6 +25,8 @@ export const APP_ROUTES = {
   SUPPORT: "/support",
   SELLERS: "/sellers",
   SETTINGS: "/settings",
+  SETTINGS_FAQS: "/settings/faqs",
+  SETTINGS_USERS: "/settings/users",
   REQUESTS: "/requests",
   SPARES: "/spares",
 } as const;

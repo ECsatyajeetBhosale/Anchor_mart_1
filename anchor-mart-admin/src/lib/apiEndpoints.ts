@@ -98,6 +98,32 @@ export const EMERGENCY_CATEGORY_ENDPOINTS = {
   DELETE_CATEGORY: (id: string) => `/superadmin/emergency-spares/categories/${id}/delete/`,
 };
 
+/**
+ * Help & FAQ management (Settings screen).
+ * Note: FAQ and FAQ-type ids are **integers**, not the UUIDs used elsewhere,
+ * and detail is fetched via a `?faq_id=` query rather than a path segment.
+ */
+export const FAQ_ENDPOINTS = {
+  GET_FAQS: "/superadmin/faq/list/",
+  GET_FAQ: "/superadmin/faq/detail/",
+  ADD_FAQ: "/superadmin/faq/create/",
+  UPDATE_FAQ: (id: number) => `/superadmin/faq/update/${id}/`,
+  DELETE_FAQ: (id: number) => `/superadmin/faq/delete/${id}/`,
+  GET_TYPES: "/superadmin/faq/types/",
+  ADD_TYPE: "/superadmin/faq/types/add/",
+  UPDATE_TYPE: (id: number) => `/superadmin/faq/types/update/${id}/`,
+  DELETE_TYPE: (id: number) => `/superadmin/faq/types/delete/${id}/`,
+};
+
+/**
+ * Shared admin user-creation endpoint. The `role` in the body picks the user
+ * type, so this same path also backs sailor creation
+ * (`SAILOR_ENDPOINTS.CREATE_SAILOR` sends `role: "customer"`).
+ */
+export const ADMIN_USER_ENDPOINTS = {
+  CREATE_USER: "/superadmin/admin/create-user/",
+};
+
 export const SHIP_AGENT_ENDPOINTS = {
   // Flow 02 — admin ship-agent directory (APIs 13–16).
   GET_SHIP_AGENTS: "/superadmin/ship-agents/",

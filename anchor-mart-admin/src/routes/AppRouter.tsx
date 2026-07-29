@@ -23,6 +23,9 @@ import { RewardsPage } from "@/pages/RewardsPage";
 // Pages (remain in pages/ until migrated to features)
 import { SailorsPage } from "@/pages/SailorsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
+
+// Settings sub-page — Help & FAQ management
+import { FaqsPage, UsersPage } from "@/features/settings";
 import { SpecialRequestsPage } from "@/pages/SpecialRequestsPage";
 import { SupportPage } from "@/pages/SupportPage";
 import { VerificationPage } from "@/pages/VerificationPage";
@@ -81,6 +84,8 @@ export function AppRouter() {
             <Route path={APP_ROUTES.SUPPORT} element={<SupportPage />} />
             <Route path={APP_ROUTES.SELLERS} element={<SellerRequestsPage />} />
             <Route path={APP_ROUTES.SETTINGS} element={<SettingsPage />} />
+            <Route path={APP_ROUTES.SETTINGS_FAQS} element={<FaqsPage />} />
+            <Route path={APP_ROUTES.SETTINGS_USERS} element={<UsersPage />} />
             <Route path={APP_ROUTES.REQUESTS} element={<SpecialRequestsPage />} />
             <Route path={APP_ROUTES.SPARES} element={<SparesPage />} />
           </Route>
