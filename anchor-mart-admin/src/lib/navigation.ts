@@ -102,7 +102,7 @@ export const NAV_SECTIONS: NavSection[] = [
       },
       {
         key: "emergency-categories",
-        label: "Emergency Categories",
+        label: "Marine Emergency Categories",
         icon: IconCategory2,
         path: APP_ROUTES.EMERGENCY_CATEGORIES,
       },

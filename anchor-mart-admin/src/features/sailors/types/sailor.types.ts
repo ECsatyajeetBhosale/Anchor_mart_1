@@ -1,14 +1,19 @@
 /**
  * Types for the Sailors module (`/superadmin/sailors/*`).
  *
- * The list endpoint follows the project's DRF pagination contract:
- *   { count, next, previous, results: { data: Sailor[] } }
+ * The list endpoint returns **plain DRF pagination** — `results` is a flat
+ * array, not the `results: { data: [...] }` envelope the products/catalog
+ * endpoints use:
  *
- * The backend returns the documented identity fields (first/last name, email,
- * country code, WhatsApp number, active flag). Fields that are surfaced in the
- * existing table but are not guaranteed by the API (ship, order/loyalty/cart
- * counts, join date, textual status) are typed optional and mapped defensively
- * so the approved UI keeps rendering regardless of which the backend sends.
+ * ```json
+ * { "count": 26, "next": "…?page=2", "previous": null,
+ *   "results": [ { "id", "full_name", "email", "contact_no", "joined", "ship",
+ *                  "orders", "loyalty_pts", "cart_count", "wishlist_count",
+ *                  "status", "is_active" } ] }
+ * ```
+ *
+ * The detail endpoint disagrees on shape (nested `contact` / `ship` objects),
+ * so the mapper stays defensive and one model serves both.
  */
 
 /** Nested ship object returned by the detail endpoint. */
@@ -39,15 +44,18 @@ export interface SailorContact {
 export interface Sailor {
   id: string;
   email?: string | null;
-  /** Textual status ("active" | "inactive" | "new" | "blocked" | …). */
+  /** Lifecycle status: "new" | "active" | "inactive" (the `?status=` values). */
   status?: string;
+  /** Account flag written by the block toggle. `false` = blocked. */
+  is_active?: boolean;
   role_label?: string;
 
-  // ── List-endpoint fields ──────────────────────────────────
+  // ── List-endpoint fields (all confirmed present) ───────────
   full_name?: string;
   contact_no?: string | null;
-  /** Already formatted by the backend, e.g. "Jun 19, 2026". */
+  /** Already formatted by the backend, e.g. "Jul 27, 2026". */
   joined?: string;
+  /** `null` on the list; a nested object on the detail read. */
   ship?: string | SailorShip | null;
   orders?: number;
   loyalty_pts?: number;
@@ -62,23 +70,16 @@ export interface Sailor {
   last_name?: string;
   country_code?: string;
   whatsapp_number?: string;
-  is_active?: boolean;
   date_joined?: string;
   created_at?: string;
 }
 
-/** Nested list payload, mirroring the products `results.data` shape. */
-export interface SailorListResponseData {
-  message?: string;
-  data: Sailor[];
-}
-
-/** Raw response from `GET sailors-list/`. */
+/** Raw response from `GET sailors-list/` — standard DRF, `results` is an array. */
 export interface SailorListResponse {
   count: number;
   next: string | null;
   previous: string | null;
-  results: SailorListResponseData;
+  results: Sailor[];
 }
 
 /** Summary counts from `GET stats/` (no query params). */
@@ -140,6 +141,15 @@ export interface SailorData {
   wi: number;
   st: string;
   sc: StatusVariant;
+  /**
+   * The raw `is_active` flag, kept separate from the display status `st`.
+   *
+   * `st` is a *label* ("New" / "Active" / "Inactive") driven by the lifecycle
+   * `status`, so it can read "New" on an account that is perfectly active.
+   * Anything deciding whether the account is blocked — the edit drawer's
+   * toggle, above all — must read this, never compare `st` to "Active".
+   */
+  active: boolean;
 }
 
 /** Query parameters for the sailors list endpoint. */

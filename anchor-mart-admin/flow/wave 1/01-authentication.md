@@ -1,5 +1,6 @@
 # Flow 01 — Multi-Role Authentication & Session Management
 
+
 > **OUTPUT 1 — Flow Documentation.**
 > Validation findings live in a separate report:
 > [`01-authentication-validation.md`](./01-authentication-validation.md).
@@ -7,13 +8,17 @@
 >
 > Index: [`../BUSINESS_FLOWS.md`](../BUSINESS_FLOWS.md)
 
+
 > ⚠️ **`#NN` in source comments are issue numbers, not flow numbers.** They collide
 > with this document's flow numbering throughout the codebase. Quotes below preserve
 > them verbatim; do not cross-map them.
 
+
 ---
 
+
 # Executive Summary
+
 
 | | |
 |---|---|
@@ -33,15 +38,20 @@
 | **Documentation Version** | 1.4 — 2026-07-20 (admin password login restored alongside OTP; admin OTP flow gated; sign-in OTP resend cooldown added) |
 | **Documentation Status** | ✅ **Ready for frontend handoff.** 13 of 13 routes documented, verified against the running application's route table. |
 
+
 ---
+
 
 # Phase 1 — Understand the Flow
 
+
 ## Business purpose
+
 
 Authenticate a principal and return a DRF token. OTP is the auth method for every
 role; customer, seller and delivery-partner accounts are created with
 `set_unusable_password()` and have no password path.
+
 
 The **admin API is the exception** (product decision, 2026-07-20): it offers **both**
 password login (`admin/login/` → `AdminLogin`) **and** OTP login (`login-with-otp/` +
@@ -50,11 +60,14 @@ emailed at creation (see Flow 31 — User Account Administration); superusers us
 `createsuperuser` password; admins without one use OTP. There is **no password reset
 flow** — OTP is the standing recovery path.
 
+
 The Django admin site at `/admin/` uses `django.contrib.auth`'s own password login and
 is **out of scope for this flow** — that is separate from the admin *API* password
 login documented here.
 
+
 ## Entry point
+
 
 | Portal | Endpoint |
 |---|---|
@@ -62,7 +75,9 @@ login documented here.
 | Admin | `POST /api/superadmin/admin/login-with-otp/` |
 | Partner | `POST /api/partner/signin/` |
 
+
 ## Exit point
+
 
 | Outcome | Condition |
 |---|---|
@@ -70,7 +85,9 @@ login documented here.
 | **Teardown** | `GET …/logout/` on any portal deletes the token row |
 | **Failure** | 400 bad/expired OTP · 403 blocked account · 404 unknown or wrong-role account |
 
+
 ## Actors
+
 
 | Actor | Participation |
 |---|---|
@@ -79,11 +96,15 @@ login documented here.
 | **Delivery Partner** | Sign-in via email, partner ID, **or** WhatsApp OTP. Provisioned by an admin (Flow 28); never self-registers |
 | **Background System** | Celery worker sends the WhatsApp OTP; a raw Python thread sends the email OTP |
 
+
 ## Platforms
+
 
 `SAILOR` · `ADMIN` · `PARTNER` · `SYS`
 
+
 ## Django apps
+
 
 | App | Role in this flow |
 |---|---|
@@ -92,7 +113,9 @@ login documented here.
 | `partner_app` | Partner sign-in views; `IsDeliveryPartner` permission |
 | `orders` | `audit.py` only — `record_auth_event`, `record_audit_safe`, the hash chain |
 
+
 ## Models
+
 
 | Model | File · Class | Role |
 |---|---|---|
@@ -104,9 +127,12 @@ login documented here.
 | `Token` | `rest_framework.authtoken` · `Token` | The credential returned |
 | `AuditLog` / `AuditChain` | `orders/models.py` | Sign-in success/failure entries |
 
+
 `User.Role` values: `customer`, `seller`, `admin`, `super_admin`, `delivery_partner`.
 
+
 ## Services
+
 
 | Callable | File · Line | Behaviour |
 |---|---|---|
@@ -117,41 +143,54 @@ login documented here.
 | `record_auth_event(action, *, user, …)` | `orders/audit.py:260-273` | Delegates to `record_audit_safe`. Returns `None` when `user is None` — attempts against unknown emails are deliberately not audited (docstring: *"a chain is per subject, and an attempt on an unknown email has no account to chain to"*) |
 | `ExpiringTokenAuthentication` | `user/auth_utils.py` | Project-wide `DEFAULT_AUTHENTICATION_CLASSES`. Returns early for `admin`/`super_admin`; all other roles expire after `getattr(settings, 'TOKEN_EXPIRY_DAYS', 30)` days from `token.created` |
 
+
 ## Signals
+
 
 **None.** `grep -rn "receiver\|post_save" user/*.py` returns no matches and
 `user/apps.py` defines no `ready()`. No part of this flow is signal-driven.
 
+
 ## Celery tasks
+
 
 | Task | File · Line | Config |
 |---|---|---|
 | `user.tasks.send_whatsapp_otp(otp_id)` | `user/tasks.py:10-48` | `bind=True, max_retries=3, default_retry_delay=30`. Missing row → no-op. `is_permanent_twilio_error(exc)` → return without retry; otherwise `self.retry` |
 
+
 Not on the Celery beat schedule — event-driven only.
+
 
 ## State machines
 
+
 **None.** The only state is the OTP row's own lifecycle:
+
 
 ```
 created (is_used=False, is_active=True)
-   ├── correct + unexpired → is_used=True, is_active=False        [consumed]
-   ├── expired             → is_active=False (is_expired=True on customer/admin paths)
-   └── WhatsApp only: wrong code → attempts += 1
-                       attempts >= WHATSAPP_OTP_MAX_ATTEMPTS → is_active=False
+  ├── correct + unexpired → is_used=True, is_active=False        [consumed]
+  ├── expired             → is_active=False (is_expired=True on customer/admin paths)
+  └── WhatsApp only: wrong code → attempts += 1
+                      attempts >= WHATSAPP_OTP_MAX_ATTEMPTS → is_active=False
 ```
+
 
 The two `mark_as_used()` implementations differ: `SigninOtp.mark_as_used()` sets
 only `is_used` (`user/models.py:248-250`); `WhatsappOtp.mark_as_used()` sets
 `is_used` **and** `is_active` (`user/models.py:284-287`).
 
+
 ## Notifications
+
 
 **None.** No `Notification` row is created anywhere in this flow. The OTP itself
 is the message.
 
+
 ## External integrations
+
 
 | Integration | Invoked by | Delivery model |
 |---|---|---|
@@ -159,69 +198,80 @@ is the message.
 | **Twilio** | `user.tasks.send_whatsapp_otp` → `user/whatsapp.py::send_whatsapp_message` | Celery; permanent errors return, transient errors retry ×3 |
 | **FCM** | Registration only (API #4) | No push is sent by this flow |
 
+
 ---
 
+
 # Phase 2 — Discover the Complete Flow
+
 
 Three portals, one shared OTP infrastructure. They diverge on identifier
 resolution, gating, and token semantics — not on mechanism.
 
+
 ## Sequence diagram
+
 
 The diagram shows the OTP path for all three portals. The **admin portal has a second,
 single-step method — password login (API 10)** — that stands in for the admin OTP
 request+verify pair:
 
+
 ```
 ADMIN (alternative)
 ─────
 POST /admin/login/  { email, password }
-  │ role gate → 403 + AUDIT
-  │ is_active gate → 403 + AUDIT
-  │ check_password → 401 + AUDIT
-  │ get_or_create (stable token)
-  ▼ issue Token + AUDIT (method=password)
+ │ role gate → 403 + AUDIT
+ │ is_active gate → 403 + AUDIT
+ │ check_password → 401 + AUDIT
+ │ get_or_create (stable token)
+ ▼ issue Token + AUDIT (method=password)
 {token, user{email,role}} ──▶ Flow 27
 ```
+
 
 ```
 CUSTOMER                          ADMIN (OTP)                    PARTNER
 ────────                          ─────                          ───────
 POST /user/signin/                POST /admin/login-with-otp/    POST /partner/signin/
-  │ role gate → 404                 │ role gate → 404              │ resolve email|partner_id|whatsapp
-  │ is_active gate → 403            │ is_active gate → 403         │ _is_partner() → 404
-  │                                 │                              │ is_active gate → 403
-  ├─ generate_signin_otp ───────────┴──────────────────────────────┤ email → generate_signin_otp
-  │                                                                │ whatsapp → generate_whatsapp_otp
-  ▼                                                                ▼
+ │ role gate → 404                 │ role gate → 404              │ resolve email|partner_id|whatsapp
+ │ is_active gate → 403            │ is_active gate → 403         │ _is_partner() → 404
+ │                                 │                              │ is_active gate → 403
+ ├─ generate_signin_otp ───────────┴──────────────────────────────┤ email → generate_signin_otp
+ │                                                                │ whatsapp → generate_whatsapp_otp
+ ▼                                                                ▼
 [SMTP thread]                                              [Celery → Twilio]
-  │                                                                │
+ │                                                                │
 POST /user/verify-signin-otp/    POST /admin/verify-otp/       POST /partner/verify-otp/
-  │ match newest unused OTP        │ match unused OTP (.first())  │ match newest unused OTP
-  │ expiry → 400                   │ expiry → 400                 │ expiry → 400 + deactivate
-  │ role gate → 404 + AUDIT        │ role gate → 403 + AUDIT      │ is_active → 403 + AUDIT
-  │ is_active gate → 403 + AUDIT   │ is_active → 403 + revoke tok │ never creates a user
-  │ create_new_user(get_or_create) │ user must exist → else 500   │
-  │ DELETE all prior tokens        │ get_or_create (stable token) │ DELETE all prior tokens
-  │ issue Token + AUDIT            │ issue Token + AUDIT          │ issue Token + AUDIT
-  ▼                                ▼                              ▼
+ │ match newest unused OTP        │ match unused OTP (.first())  │ match newest unused OTP
+ │ expiry → 400                   │ expiry → 400                 │ expiry → 400 + deactivate
+ │ role gate → 404 + AUDIT        │ role gate → 403 + AUDIT      │ is_active → 403 + AUDIT
+ │ is_active gate → 403 + AUDIT   │ is_active → 403 + revoke tok │ never creates a user
+ │ create_new_user(get_or_create) │ user must exist → else 500   │
+ │ DELETE all prior tokens        │ get_or_create (stable token) │ DELETE all prior tokens
+ │ issue Token + AUDIT            │ issue Token + AUDIT          │ issue Token + AUDIT
+ ▼                                ▼                              ▼
 {token, show_referral_screen,    {token, user{email,role}}      {token, partner{…}}
- user{email,role}}
-  │
+user{email,role}}
+ │
 POST /user/add-fcm-token/  ← customer only
-  │
-  ├─ show_referral_screen=true ──────▶ Flow 18 (Referral)
-  └─ vessel_profile_completed=false ─▶ Flow 2 (Profile & Vessel)
+ │
+ ├─ show_referral_screen=true ──────▶ Flow 18 (Referral)
+ └─ vessel_profile_completed=false ─▶ Flow 2 (Profile & Vessel)
+
 
 SIDE BRANCH — WhatsApp number verification (customer, post-login profile step):
 POST /user/whatsapp/send-otp/   → 60s cooldown → Celery → Twilio
 POST /user/whatsapp/verify-otp/ → 5-attempt cap → user.whatsapp_verified = True
 
+
 TEARDOWN (all three portals, unauthenticated GET):
 GET …/logout/ → delete Token by header key
 ```
 
+
 ## API sequence table
+
 
 | Step | Platform | API | Purpose | Next Step |
 |---|---|---|---|---|
@@ -239,7 +289,9 @@ GET …/logout/ → delete Token by header key
 | 12 | PARTNER | `POST /api/partner/verify-otp/` | Verify OTP, issue token, return partner brief | Flow 28 |
 | 13 | PARTNER | `GET /api/partner/logout/` | Delete token | — (terminal) |
 
+
 ## Cross-portal consequence
+
 
 `SigninOtp` is keyed on the **email string**, with no user FK and no portal or
 purpose discriminator (`user/models.py:233-234`). A code minted at
@@ -247,15 +299,21 @@ purpose discriminator (`user/models.py:233-234`). A code minted at
 and vice versa. **The role gate at verify is the only separation between portals —
 not OTP isolation.**
 
+
 ---
+
 
 # Phase 3 — API Documentation
 
+
 ## Flow-wide conventions
+
 
 Applied to every endpoint below unless the entry says otherwise.
 
+
 **Headers**
+
 
 | Header | Applies to | Notes |
 |---|---|---|
@@ -263,21 +321,25 @@ Applied to every endpoint below unless the entry says otherwise.
 | `server-secret-key: <SERVER_SECRET_KEY>` | `/api/v1/…` and `/api/partner/…` | Enforced by `ServerSecurityMiddleware`. **`/api/superadmin/…` is exempt** |
 | `Authorization: Token <key>` | Endpoints marked "Token" under Authentication, plus all three logout endpoints (which parse it without authenticating) | |
 
+
 **Format**
 - OTP is a **4-digit numeric string**. Email OTP TTL is hardcoded **5 minutes**
-  (`user_generics.py:33`); WhatsApp TTL is `WHATSAPP_OTP_EXPIRY_MINUTES` (default 5).
+ (`user_generics.py:33`); WhatsApp TTL is `WHATSAPP_OTP_EXPIRY_MINUTES` (default 5).
 - **No endpoint in this flow takes a path parameter.** Where "Path Parameters"
-  says *None*, the URL is literal.
+ says *None*, the URL is literal.
 - **Error bodies are not uniform.** These are hand-rolled views; some branches
-  return `{"error": …}`, others `{"message": …}`, occasionally for the same status
-  in the same view. Partner endpoints validate through serializers and return DRF
-  shapes. **Branch on the HTTP status, never on the key.**
+ return `{"error": …}`, others `{"message": …}`, occasionally for the same status
+ in the same view. Partner endpoints validate through serializers and return DRF
+ shapes. **Branch on the HTTP status, never on the key.**
 - `NON_FIELD_ERRORS_KEY` is `"message"` (`settings.py:198`), so DRF non-field
-  errors surface under `message`, not the DRF default `non_field_errors`.
+ errors surface under `message`, not the DRF default `non_field_errors`.
+
 
 ---
 
+
 ## API 1 · Request a customer sign-in OTP
+
 
 | Field | Value |
 |---|---|
@@ -291,17 +353,21 @@ Applied to every endpoint below unless the entry says otherwise.
 | **Path Parameters** | None |
 | **Query Parameters** | None |
 
+
 **Request Body**
 ```json
 { "email": "sailor@example.com" }
 ```
+
 
 **Success Response — 200**
 ```json
 { "message": "Otp is sent to your email" }
 ```
 
+
 **Error Responses**
+
 
 | Status | Body | Condition |
 |---|---|---|
@@ -311,12 +377,14 @@ Applied to every endpoint below unless the entry says otherwise.
 | 429 | `{"error": "An OTP was already sent. Please wait N seconds before requesting another."}` | A sign-in OTP was requested for this email within the resend cooldown (`SIGNIN_OTP_RESEND_COOLDOWN_SECONDS`, default **120 s**). `N` is the seconds remaining |
 | 500 | `{"error": "<str(exception)>"}` | Unhandled exception |
 
+
 **Validation Rules** (`user/views.py` · `UserSignin.post`)
 - `email` required and must be a `str`.
 - Normalised `email.strip().lower()`; lookup is `email__iexact`.
 - Role and `is_active` gates run **before** the OTP is generated.
 - **Resend cooldown**: a new sign-in OTP is refused (429) if one was issued for this
-  email within the last 120 s. Applies to every user type.
+ email within the last 120 s. Applies to every user type.
+
 
 **Database Changes** — one `SigninOtp` INSERT per call (none on a 429). No existing row is invalidated.
 **Notifications Triggered** — None.
@@ -325,9 +393,12 @@ Applied to every endpoint below unless the entry says otherwise.
 **Next API** — API 2.
 **Related APIs** — API 7, API 11 (same `generate_signin_otp` service, other portals).
 
+
 ---
 
+
 ## API 2 · Verify the customer OTP
+
 
 | Field | Value |
 |---|---|
@@ -341,29 +412,33 @@ Applied to every endpoint below unless the entry says otherwise.
 | **Path Parameters** | None |
 | **Query Parameters** | None |
 
+
 **Request Body**
 ```json
 {
-  "email": "sailor@example.com",
-  "otp": "4821",
-  "device": "iPhone 15 Pro / iOS 18.2"
+ "email": "sailor@example.com",
+ "otp": "4821",
+ "device": "iPhone 15 Pro / iOS 18.2"
 }
 ```
 `device` is optional free text, persisted to `user.last_login_device`.
 
+
 **Success Response — 200**
 ```json
 {
-  "message": "Otp is verified",
-  "token": "9f2c1b7a4e8d3f6a0b5c9e2d7f1a4b8c3e6d9f02",
-  "show_referral_screen": true,
-  "user": { "email": "sailor@example.com", "role": "customer" }
+ "message": "Otp is verified",
+ "token": "9f2c1b7a4e8d3f6a0b5c9e2d7f1a4b8c3e6d9f02",
+ "show_referral_screen": true,
+ "user": { "email": "sailor@example.com", "role": "customer" }
 }
 ```
 `show_referral_screen` = `is_new_user and not user.referred_by_id`. True only on
 the call that created the account; never true on a later sign-in.
 
+
 **Error Responses**
+
 
 | Status | Body | Condition |
 |---|---|---|
@@ -375,12 +450,14 @@ the call that created the account; never true on a later sign-in.
 | 500 | `{"error": "User could not be created or retrieved"}` | `create_new_user` returned `None` |
 | 500 | `{"error": "Something went wrong. Please try again."}` | Unhandled exception |
 
+
 **Validation Rules** (`user/views.py` · `VerifySigninOtp.post` · 71-149)
 - `email` and `otp` both required.
 - OTP lookup: `email__iexact`, `otp=otp`, `is_used=False`, `is_active=True`,
-  ordered `-created_at`, `.first()` — the **newest** matching row.
+ ordered `-created_at`, `.first()` — the **newest** matching row.
 - `expires_at > now()`; otherwise the row is marked expired.
 - Role and `is_active` re-checked **after** OTP validity, before token issue.
+
 
 **Database Changes**
 1. `SigninOtp` → `is_used=True`, `is_active=False`, `is_expired=False`
@@ -389,15 +466,19 @@ the call that created the account; never true on a later sign-in.
 4. `Token` — **all** rows for the user DELETEd, then one created (single session)
 5. `AuditLog` + `AuditChain` — `LOGIN_SUCCEEDED`, or `LOGIN_FAILED` on the 404/403 paths
 
+
 **Notifications Triggered** — None.
 **Background Tasks Triggered** — None.
 **State Changes** — OTP consumed. No order-domain state.
 **Next API** — API 3, then Flow 18 or Flow 2.
 **Related APIs** — API 1, API 8, API 12.
 
+
 ---
 
+
 ## API 3 · Customer logout
+
 
 | Field | Value |
 |---|---|
@@ -411,6 +492,7 @@ the call that created the account; never true on a later sign-in.
 | **Path Parameters** | None |
 | **Query Parameters** | `fcm_token` *(optional)* — also accepted in the body |
 
+
 **Request**
 ```
 GET /api/v1/user/logout/?fcm_token=<device-push-token>
@@ -418,15 +500,19 @@ Authorization: Token 9f2c1b7a...
 server-secret-key: <SERVER_SECRET_KEY>
 ```
 
+
 **Success Response — 200**
 ```json
 { "message": "User is logged out" }
 ```
 Always 200 — including with no header and no matching token.
 
+
 **Error Responses** — 500 `{"error": "<str(exception)>"}` only.
 
+
 **Validation Rules** — None. The header is matched with `startswith("Token ")` and split.
+
 
 **Database Changes** — `Token` DELETE by key; `FcmToken` DELETE by token string
 when supplied. `FcmToken.token` is globally unique, so this targets exactly one device.
@@ -434,9 +520,12 @@ when supplied. `FcmToken.token` is globally unique, so this targets exactly one 
 **Next API** — None (terminal).
 **Related APIs** — API 4, API 9, API 13.
 
+
 ---
 
+
 ## API 4 · Register a push token
+
 
 | Field | Value |
 |---|---|
@@ -449,11 +538,14 @@ when supplied. `FcmToken.token` is globally unique, so this targets exactly one 
 | **Headers** | `Content-Type`, `Authorization`, `server-secret-key` |
 | **Path / Query Parameters** | None |
 
+
 **Request Body** — `{ "fcm_token": "e7Qk...:APA91bH..." }`
 **Success Response — 200** — `{ "message": "FCM token is added successfully" }`
 **Error Responses** — 400 `{"error": "FCM token is required"}` · 500 `{"error": "<str(exception)>"}`
 
+
 **Validation Rules** (`user/views.py` · `AddFcmToken.post` · 316-333) — `fcm_token` presence only.
+
 
 **Database Changes** — `get_or_create(token=…, defaults={'user': request.user})`.
 **If the row already exists under a different user it is reassigned to the caller**
@@ -461,9 +553,12 @@ when supplied. `FcmToken.token` is globally unique, so this targets exactly one 
 **Notifications / Background Tasks / State Changes** — None.
 **Next API** — None. **Related APIs** — API 2, API 3.
 
+
 ---
 
+
 ## API 5 · Send a WhatsApp verification OTP
+
 
 | Field | Value |
 |---|---|
@@ -476,15 +571,19 @@ when supplied. `FcmToken.token` is globally unique, so this targets exactly one 
 | **Headers** | `Content-Type`, `Authorization`, `server-secret-key` |
 | **Path / Query Parameters** | None |
 
+
 **Request Body**
 ```json
 { "country_code": "+91", "whatsapp_number": "9876543210" }
 ```
 `country_code` falls back to the value already on the profile when omitted.
 
+
 **Success Response — 200** — `{ "message": "OTP sent to your WhatsApp number" }`
 
+
 **Error Responses**
+
 
 | Status | Body | Condition |
 |---|---|---|
@@ -493,7 +592,9 @@ when supplied. `FcmToken.token` is globally unique, so this targets exactly one 
 | 429 | `{"error": "Please wait up to 60 seconds before requesting another OTP."}` | Resend inside `WHATSAPP_OTP_RESEND_COOLDOWN_SECONDS` |
 | 500 | `{"error": "Something went wrong. Please try again."}` | Unhandled exception |
 
+
 **Validation Rules** (`user/views.py` · `SendWhatsappOtp.post` · 218-249) — as above.
+
 
 **Database Changes** — `User` UPDATE `country_code`, `whatsapp_number`,
 `whatsapp_verified=False` (the unverified number is persisted so it survives a
@@ -503,9 +604,12 @@ resend and can be echoed back); `WhatsappOtp` INSERT.
 **State Changes** — `whatsapp_verified` forced to `False`.
 **Next API** — API 6. **Related APIs** — API 11 (partner WhatsApp sign-in reuses `generate_whatsapp_otp`).
 
+
 ---
 
+
 ## API 6 · Verify the WhatsApp OTP
+
 
 | Field | Value |
 |---|---|
@@ -518,10 +622,13 @@ resend and can be echoed back); `WhatsappOtp` INSERT.
 | **Headers** | `Content-Type`, `Authorization`, `server-secret-key` |
 | **Path / Query Parameters** | None |
 
+
 **Request Body** — `{ "otp": "7391" }`
 **Success Response — 200** — `{ "message": "WhatsApp number verified successfully" }`
 
+
 **Error Responses** — all 400
+
 
 | Body | Condition |
 |---|---|
@@ -531,8 +638,10 @@ resend and can be echoed back); `WhatsappOtp` INSERT.
 | `{"message": "OTP has expired"}` | Past expiry; row deactivated |
 | `{"message": "OTP is incorrect"}` | Wrong code; `attempts` incremented |
 
+
 **Validation Rules** (`user/views.py` · `VerifyWhatsappOtp.post` · 265-305) — newest
 unused active `WhatsappOtp` for this user; attempt cap, then expiry, then code match.
+
 
 **Database Changes** — `WhatsappOtp` → `is_used=True, is_active=False` via
 `mark_as_used()`, or `attempts` UPDATE on a wrong code; `User.whatsapp_verified = True`.
@@ -540,12 +649,16 @@ unused active `WhatsappOtp` for this user; attempt cap, then expiry, then code m
 **State Changes** — `whatsapp_verified` → `True`.
 **Next API** — None. **Related APIs** — API 5.
 
+
 **Tunables** — `WHATSAPP_OTP_EXPIRY_MINUTES` (5), `WHATSAPP_OTP_MAX_ATTEMPTS` (5),
 `WHATSAPP_OTP_RESEND_COOLDOWN_SECONDS` (60) — all in `settings.py:385-387`.
 
+
 ---
 
+
 ## API 7 · Request an admin OTP
+
 
 | Field | Value |
 |---|---|
@@ -558,10 +671,13 @@ unused active `WhatsappOtp` for this user; attempt cap, then expiry, then code m
 | **Headers** | `Content-Type` only — **`server-secret-key` is not required**; `/api/superadmin/` is middleware-exempt |
 | **Path / Query Parameters** | None |
 
+
 **Request Body** — `{ "email": "ops@anchormart.example" }`
 **Success Response — 200** — `{ "message": "Otp is sent to your email" }`
 
+
 **Error Responses**
+
 
 | Status | Body | Condition |
 |---|---|---|
@@ -571,18 +687,23 @@ unused active `WhatsappOtp` for this user; attempt cap, then expiry, then code m
 | 429 | `{"error": "An OTP was already sent. Please wait N seconds before requesting another."}` | Within the 120 s resend cooldown |
 | 500 | `{"error": "<str(exception)>"}` | Unhandled exception |
 
+
 **Validation Rules** (`admin_panel/views/admin_views.py` · `AdminLoginOtp.post`)
 — email required; looked up `email__iexact`. **Gates `role` and `is_active` before any
 OTP is generated** (added 2026-07-20): a non-admin, unknown, or blocked account never
 receives an admin OTP. No OTP is sent on any error path. Mirrors API 1 (customer signin).
 
+
 **Database Changes** — `SigninOtp` INSERT (only on success).
 **Notifications / Background Tasks / State Changes** — None.
 **Next API** — API 8. **Related APIs** — API 1.
 
+
 ---
 
+
 ## API 8 · Verify the admin OTP
+
 
 | Field | Value |
 |---|---|
@@ -595,6 +716,7 @@ receives an admin OTP. No OTP is sent on any error path. Mirrors API 1 (customer
 | **Headers** | `Content-Type` only |
 | **Path / Query Parameters** | None |
 
+
 **Request Body**
 ```json
 { "email": "ops@anchormart.example", "otp": "5107", "device": "Chrome 133 / macOS" }
@@ -602,19 +724,22 @@ receives an admin OTP. No OTP is sent on any error path. Mirrors API 1 (customer
 > `device` is read from the payload (`admin_views.py:98`) but **never persisted** —
 > unlike APIs 2 and 12, which write it to `last_login_device`.
 
+
 **Success Response — 200**
 ```json
 {
-  "message": "Otp is verified",
-  "token": "3a7f1c9e5b2d8f04a6c1e9b7d3f5a802c4e6b9d1",
-  "user": { "email": "ops@anchormart.example", "role": "super_admin" }
+ "message": "Otp is verified",
+ "token": "3a7f1c9e5b2d8f04a6c1e9b7d3f5a802c4e6b9d1",
+ "user": { "email": "ops@anchormart.example", "role": "super_admin" }
 }
 ```
 `role` is `admin` (operational sub-admin tier) or `super_admin`. The distinction
 drives order ownership (Flow 27) and audit visibility (Flow 34); it is **not**
 enforced by `IsAdminUser`, which treats both identically.
 
+
 **Error Responses**
+
 
 | Status | Body | Condition |
 |---|---|---|
@@ -625,27 +750,33 @@ enforced by `IsAdminUser`, which treats both identically.
 | 403 | `{"error": "Your account has been blocked. Please contact support."}` | Valid OTP, but `is_active is False` — audited `blocked`; **any existing token for the user is deleted** |
 | 500 | `{"error": "User could not be created or retrieved"}` | Valid OTP, no account for that email |
 
+
 **Validation Rules** (`admin_panel/views/admin_views.py` · `AdminVerifyOtp.post`)
 - `email` and `otp` required.
 - OTP lookup uses `email=email` — **exact and case-sensitive** (differs from API 2; see
-  the validation report, F-15).
+ the validation report, F-15).
 - **Role and `is_active` both checked** (is_active added 2026-07-20). A blocked admin
-  presenting an OTP issued before the block is refused **and has their token(s) revoked**,
-  so a session predating the block dies immediately.
+ presenting an OTP issued before the block is refused **and has their token(s) revoked**,
+ so a session predating the block dies immediately.
+
 
 **Database Changes** — `SigninOtp` consumed; on success `Token` via **`get_or_create`**
 (stable token, concurrent admin sessions permitted); on the blocked path **`Token` DELETE**
 for the user. `AuditLog` `LOGIN_SUCCEEDED`, or `LOGIN_FAILED` with
 `reason: "wrong_role" | "blocked"`.
 
+
 **Token lifetime** — admin and super_admin tokens **never expire** (`user/auth_utils.py`).
 **Notifications / Background Tasks / State Changes** — None.
 **Next API** — Flow 27 (claim an order before any write).
 **Related APIs** — API 2, API 12.
 
+
 ---
 
+
 ## API 9 · Admin logout
+
 
 | Field | Value |
 |---|---|
@@ -657,14 +788,18 @@ for the user. `AuditLog` `LOGIN_SUCCEEDED`, or `LOGIN_FAILED` with
 | **Headers** | `Authorization: Token <key>` (parsed, not authenticated) |
 | **Path / Query Parameters** | None |
 
+
 **Success Response — 200** — `{ "message": "Admin is logged out" }`
 **Error Responses** — 500 `{"error": "<str(exception)>"}`
 **Database Changes** — `Token` DELETE by key. **No audit entry.**
 **Next API** — None. **Related APIs** — API 3, API 13.
 
+
 ---
 
+
 ## API 10 · Admin password login
+
 
 | Field | Value |
 |---|---|
@@ -677,21 +812,25 @@ for the user. `AuditLog` `LOGIN_SUCCEEDED`, or `LOGIN_FAILED` with
 | **Headers** | `Content-Type` only — `/api/superadmin/` is middleware-exempt from `server-secret-key` |
 | **Path / Query Parameters** | None |
 
+
 **Request Body**
 ```json
 { "email": "ops@anchormart.example", "password": "Xk7mfpq2ntbe" }
 ```
 
+
 **Success Response — 200**
 ```json
 {
-  "message": "Admin login successful",
-  "token": "3a7f1c9e5b2d8f04a6c1e9b7d3f5a802c4e6b9d1",
-  "user": { "email": "ops@anchormart.example", "role": "super_admin" }
+ "message": "Admin login successful",
+ "token": "3a7f1c9e5b2d8f04a6c1e9b7d3f5a802c4e6b9d1",
+ "user": { "email": "ops@anchormart.example", "role": "super_admin" }
 }
 ```
 
+
 **Error Responses**
+
 
 | Status | Body | Condition |
 |---|---|---|
@@ -702,12 +841,14 @@ for the user. `AuditLog` `LOGIN_SUCCEEDED`, or `LOGIN_FAILED` with
 | 401 | `{"error": "Invalid password"}` | Wrong password — audited `bad_password` |
 | 500 | `{"error": "<str(exception)>"}` | Unhandled exception |
 
+
 **Validation Rules** (`admin_panel/views/admin_views.py` · `AdminLogin.post`)
 - `email` and `password` required.
 - Email normalised `strip().lower()`; lookup `email__iexact`.
 - **Gate order:** role → `is_active` → `check_password`. Role and active are checked
-  **before** the password so a non-admin or blocked account is never turned into a
-  password oracle.
+ **before** the password so a non-admin or blocked account is never turned into a
+ password oracle.
+
 
 **Database Changes** — `Token` via `get_or_create` (stable token, matching the OTP
 path, so a second client does not invalidate the first); `AuditLog` `LOGIN_SUCCEEDED`
@@ -718,9 +859,12 @@ bad_password`.
 **Related APIs** — API 7, API 8 (the OTP alternative); Flow 31 (where the admin's
 password is generated and emailed).
 
+
 ---
 
+
 ## API 11 · Request a partner OTP
+
 
 | Field | Value |
 |---|---|
@@ -731,6 +875,7 @@ password is generated and emailed).
 | **Authentication / Permissions** | None / Open (`permission_classes = []`, `authentication_classes = []`) |
 | **Headers** | `Content-Type`, `server-secret-key` |
 | **Path / Query Parameters** | None |
+
 
 **Request Body** — send **either** identifier; **WhatsApp wins when both are
 supplied** (`auth_views.py` · `_resolve` · 60-70).
@@ -743,6 +888,7 @@ supplied** (`auth_views.py` · `_resolve` · 60-70).
 `email` accepts a registered address **or** a partner ID such as `DP-00124`,
 matched `partner_id__iexact` against `DeliveryPartnerProfile`.
 
+
 **Success Response — 200**
 ```json
 { "message": "OTP sent via email.", "channel": "email", "destination": "d*****@anchormart.example" }
@@ -753,7 +899,9 @@ matched `partner_id__iexact` against `DeliveryPartnerProfile`.
 `destination` is masked (`_mask_email` / `_mask_phone`, last 4 digits) so the app
 can show *where* the code went without leaking the contact. Echo it on the OTP screen.
 
+
 **Error Responses**
+
 
 | Status | Body | Condition |
 |---|---|---|
@@ -763,24 +911,30 @@ can show *where* the code went without leaking the contact. Echo it on the OTP s
 | 400 | `{"error": "No WhatsApp number on file. Please use email instead."}` | WhatsApp channel chosen, no number registered |
 | 429 | `{"error": "An OTP was already sent. Please wait N seconds before requesting another."}` | **Email channel only** — within the 120 s resend cooldown. (The WhatsApp channel has its own separate handling.) |
 
+
 > The 404 message is **identical for every unresolved identifier** — unknown email,
 > unknown partner ID, correct email but wrong role, missing profile. The code states
 > this is deliberate. Never surface anything that distinguishes these cases.
 
+
 **Validation Rules** (`partner_app/views/auth_views.py` · `PartnerSignin.post` · 86-128)
 - Serializer requires at least one identifier.
 - `_is_partner(user)` = `role == DELIVERY_PARTNER` **and**
-  `hasattr(user, "delivery_partner_profile")`.
+ `hasattr(user, "delivery_partner_profile")`.
 - `is_active` checked before any OTP is generated.
+
 
 **Database Changes** — `SigninOtp` or `WhatsappOtp` INSERT.
 **Background Tasks Triggered** — WhatsApp channel only: `send_whatsapp_otp.delay(...)`.
 **Notifications / State Changes** — None.
 **Next API** — API 12. **Related APIs** — API 1, API 5.
 
+
 ---
 
+
 ## API 12 · Verify the partner OTP
+
 
 | Field | Value |
 |---|---|
@@ -792,31 +946,35 @@ can show *where* the code went without leaking the contact. Echo it on the OTP s
 | **Headers** | `Content-Type`, `server-secret-key` |
 | **Path / Query Parameters** | None |
 
+
 **Request Body** — resend the **same identifier** used at API 11 so the channel
 resolves identically.
 ```json
 { "email": "DP-00124", "otp": "6248", "device": "Samsung A54 / Android 14" }
 ```
 
+
 **Success Response — 200**
 ```json
 {
-  "message": "OTP verified.",
-  "token": "c8b2f6a1d94e70b3f5a8c2e6d0b4f7a9c3e5d18b",
-  "partner": {
-    "id": "0d3f2c1a-9b8e-4d7c-a6f5-1e2b3c4d5e6f",
-    "partner_id": "DP-00124",
-    "name": "Ravi Kumar",
-    "email": "ravi@anchormart.example",
-    "port": "Port of Singapore",
-    "is_available": true
-  }
+ "message": "OTP verified.",
+ "token": "c8b2f6a1d94e70b3f5a8c2e6d0b4f7a9c3e5d18b",
+ "partner": {
+   "id": "0d3f2c1a-9b8e-4d7c-a6f5-1e2b3c4d5e6f",
+   "partner_id": "DP-00124",
+   "name": "Ravi Kumar",
+   "email": "ravi@anchormart.example",
+   "port": "Port of Singapore",
+   "is_available": true
+ }
 }
 ```
 `name` falls back to the email when no first/last name is set; `port` is `null`
 when no port is assigned.
 
+
 **Error Responses**
+
 
 | Status | Body | Condition |
 |---|---|---|
@@ -827,25 +985,32 @@ when no port is assigned.
 | 400 | `{"error": "OTP is incorrect or already used."}` | No matching unused active row |
 | 400 | `{"error": "OTP has expired."}` | Past expiry; row deactivated |
 
+
 **Validation Rules** (`partner_app/views/auth_views.py` · `PartnerVerifyOtp.post` · 133-217)
 — identifier resolves → `_is_partner` → `is_active` → newest unused active OTP on
 the resolved channel → expiry.
+
 
 **Database Changes** — OTP consumed via `mark_as_used()`; `last_login_device` UPDATE
 when `device` supplied; **all** prior `Token` rows DELETEd then one created (single
 session); `AuditLog` `LOGIN_SUCCEEDED` with `channel` in metadata, or `LOGIN_FAILED`
 with `reason: "blocked"`.
 
+
 > **This endpoint never creates a user.** An unknown identifier is always 404 —
 > asserted by `test_verify_otp_does_not_create_user`.
+
 
 **Notifications / Background Tasks / State Changes** — None.
 **Next API** — Flow 28 (availability toggle, then the assignment queue).
 **Related APIs** — API 2, API 8, API 11.
 
+
 ---
 
+
 ## API 13 · Partner logout
+
 
 | Field | Value |
 |---|---|
@@ -857,13 +1022,17 @@ with `reason: "blocked"`.
 | **Headers** | `Authorization: Token <key>` (parsed, not authenticated), `server-secret-key` |
 | **Path / Query Parameters** | None |
 
+
 **Success Response — 200** — `{ "message": "Partner logged out." }`
 **Database Changes** — `Token` DELETE by key. **No audit entry.**
 **Next API** — None. **Related APIs** — API 3, API 9.
 
+
 ---
 
+
 ## What happens next
+
 
 | Condition | Continue to |
 |---|---|
@@ -872,9 +1041,12 @@ with `reason: "blocked"`.
 | Partner signed in | **Flow 28** — availability toggle, then the assignment queue |
 | Admin signed in | **Flow 27** — claim an order before any write |
 
+
 ---
 
+
 ## Source reference
+
 
 | Concern | File |
 |---|---|
@@ -892,3 +1064,6 @@ with `reason: "blocked"`.
 | Partner role permission | [`partner_app/permissions.py`](../../backend/partner_app/permissions.py) |
 | Auth audit events | [`orders/audit.py`](../../backend/orders/audit.py) |
 | DRF config, OTP constants | [`AnchorMart/settings.py`](../../backend/AnchorMart/settings.py) |
+
+
+

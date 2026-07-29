@@ -1,4 +1,10 @@
 export { SailorsPage } from "./components/SailorsPage";
+export { SailorDetailDrawer } from "./components/SailorDetailDrawer";
+// Add and Edit are separate self-contained drawers behind a hook-free switch,
+// matching the Products pattern.
+export { SailorFormModal } from "./components/SailorFormModal";
+export { SailorAddDrawer } from "./components/SailorAddDrawer";
+export { SailorEditDrawer } from "./components/SailorEditDrawer";
 export {
   useGetSailorsQuery,
   useGetSailorStatsQuery,

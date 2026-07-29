@@ -1,5 +1,5 @@
 import { IconEdit, IconMessage, IconUser } from "@tabler/icons-react";
-import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -11,8 +11,12 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { getFallbackAvatar } from "@/lib/avatar";
+import { APP_ROUTES } from "@/lib/constants";
+import { MESSAGES } from "@/lib/messages";
 
 import type { SailorData } from "../types/sailor.types";
+
+const D = MESSAGES.SAILORS.DETAIL;
 
 export interface SailorDetailDrawerProps {
   isOpen: boolean;
@@ -60,6 +64,7 @@ export function SailorDetailDrawer({
   onClose,
   onEdit,
 }: SailorDetailDrawerProps) {
+  const navigate = useNavigate();
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
@@ -74,10 +79,8 @@ export function SailorDetailDrawer({
               <IconUser size={22} />
             </div>
             <div>
-              <SheetTitle className="text-xl">Sailor Details</SheetTitle>
-              <SheetDescription>
-                {isLoading ? "Loading latest details…" : "Profile, contact & activity overview"}
-              </SheetDescription>
+              <SheetTitle className="text-xl">{D.TITLE}</SheetTitle>
+              <SheetDescription>{isLoading ? D.LOADING : D.SUBTITLE}</SheetDescription>
             </div>
           </div>
         </SheetHeader>
@@ -102,21 +105,21 @@ export function SailorDetailDrawer({
 
             {/* Contact details */}
             <div>
-              <div className="sec-label">Contact Details</div>
-              <DetailRow label="Email" value={sailor.e} />
-              <DetailRow label="Contact" value={sailor.w} />
-              <DetailRow label="Joined" value={sailor.j} />
-              <DetailRow label="Ship / IMO" value={sailor.sh} />
+              <div className="sec-label">{D.CONTACT_SECTION}</div>
+              <DetailRow label={D.EMAIL} value={sailor.e} />
+              <DetailRow label={D.CONTACT} value={sailor.w} />
+              <DetailRow label={D.JOINED} value={sailor.j} />
+              <DetailRow label={D.SHIP} value={sailor.sh} />
             </div>
 
             {/* Activity */}
             <div>
-              <div className="sec-label">Activity</div>
+              <div className="sec-label">{D.ACTIVITY_SECTION}</div>
               <div className="grid grid-cols-2 gap-3">
-                <MetricTile label="Orders" value={sailor.o} />
-                <MetricTile label="Loyalty Pts" value={sailor.p.toLocaleString()} />
-                <MetricTile label="Cart Items" value={sailor.ca} />
-                <MetricTile label="Wishlist" value={sailor.wi} />
+                <MetricTile label={D.ORDERS} value={sailor.o} />
+                <MetricTile label={D.LOYALTY} value={sailor.p.toLocaleString()} />
+                <MetricTile label={D.CART} value={sailor.ca} />
+                <MetricTile label={D.WISHLIST} value={sailor.wi} />
               </div>
             </div>
           </div>
@@ -125,15 +128,17 @@ export function SailorDetailDrawer({
         <SheetFooter className="p-6 border-t border-[var(--border-md)] bg-[var(--surface)]">
           <div className="flex items-center gap-3 w-full">
             <button type="button" className="btn btn-ghost btn-cancel mr-auto" onClick={onClose}>
-              Close
+              {D.CLOSE}
             </button>
             <button
               type="button"
               className="btn btn-secondary"
-              onClick={() => sailor && toast.success(`Opening WhatsApp chat to ${sailor.w}`)}
+              // No sailor-messaging endpoint exists yet, so this hands off to
+              // the chat screen rather than claiming a message was sent.
+              onClick={() => navigate(APP_ROUTES.CHAT)}
             >
               <IconMessage size={16} />
-              Message
+              {D.MESSAGE}
             </button>
             <button
               type="button"
@@ -141,7 +146,7 @@ export function SailorDetailDrawer({
               onClick={() => sailor && onEdit(sailor)}
             >
               <IconEdit size={16} />
-              Edit
+              {D.EDIT}
             </button>
           </div>
         </SheetFooter>

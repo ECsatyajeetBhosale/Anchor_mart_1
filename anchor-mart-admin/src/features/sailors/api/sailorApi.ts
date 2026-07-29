@@ -49,10 +49,15 @@ function titleCase(value: string): string {
   return value ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase() : value;
 }
 
-/** Derives a display status from the textual status or the `is_active` flag. */
+/**
+ * Display status. The list returns **both** `status` ("new" | "active" |
+ * "inactive") and `is_active`, so precedence matters: blocking writes
+ * `is_active`, and a blocked account must read as Inactive even while its
+ * lifecycle status still says "new". Otherwise the textual status wins.
+ */
 function deriveStatus(sailor: Sailor): string {
-  if (sailor.status) return titleCase(str(sailor.status));
   if (sailor.is_active === false) return "Inactive";
+  if (sailor.status) return titleCase(str(sailor.status));
   return "Active";
 }
 
@@ -141,6 +146,8 @@ export function toSailorData(sailor: Sailor): SailorData {
     wi: num(sailor.wishlist_count),
     st: status,
     sc: statusVariant(status),
+    // Absent means active — only an explicit `false` blocks the account.
+    active: sailor.is_active !== false,
   };
 }
 
@@ -163,11 +170,11 @@ function asArray(value: unknown): unknown[] | null {
 }
 
 /**
- * DRF list responses come in a few shapes across this backend:
- *   { count, results: [ ... ] }              ← standard DRF
- *   { count, results: { data: [ ... ] } }    ← the Products-style envelope
- *   { data: [ ... ] }  or  [ ... ]           ← occasional variants
- * Pull the rows + total from whichever is present so the table is shape-agnostic.
+ * `sailors-list/` returns standard DRF pagination — `{ count, next, previous,
+ * results: [...] }` — which is the first branch below. The remaining branches
+ * cover the envelopes other endpoints on this backend use
+ * (`results: { data }`, bare `data`, a naked array) so one mapper serves the
+ * detail read too.
  */
 function extractList(res: unknown): { count: number; rows: Sailor[] } {
   const results = getProp(res, "results");
