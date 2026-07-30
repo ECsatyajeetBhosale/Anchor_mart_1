@@ -1,7 +1,7 @@
 export { ProductVariantsDrawer } from "./components/ProductVariantsDrawer";
 export type { ProductVariantsDrawerProps } from "./components/ProductVariantsDrawer";
-export { VariantFormDrawer } from "./components/VariantFormDrawer";
-export type { VariantFormDrawerProps } from "./components/VariantFormDrawer";
+export { VariantForm } from "./components/VariantForm";
+export type { VariantFormProps } from "./components/VariantForm";
 export {
   useGetVariantsQuery,
   useGetVariantQuery,

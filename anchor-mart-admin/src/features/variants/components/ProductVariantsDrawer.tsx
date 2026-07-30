@@ -1,5 +1,5 @@
 import { IconEdit, IconPlus, IconStack2, IconTrash } from "@tabler/icons-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
@@ -24,7 +24,7 @@ import {
   useSetVariantSourceableMutation,
 } from "../api/variantApi";
 import type { ProductVariant } from "../types/variant.types";
-import { VariantFormDrawer } from "./VariantFormDrawer";
+import { VariantForm } from "./VariantForm";
 
 const M = MESSAGES.VARIANTS;
 const LIMIT = 10;
@@ -59,6 +59,21 @@ export function ProductVariantsDrawer({
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ProductVariant | null>(null);
   const [toDelete, setToDelete] = useState<ProductVariant | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
+
+  // The inline panel can open below the fold on a long variant list, so bring
+  // it into view — otherwise pressing Add looks like nothing happened.
+  useEffect(() => {
+    if (formOpen) formRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [formOpen]);
+
+  // Reopening the drawer on another product must not leave a stale form behind.
+  useEffect(() => {
+    if (!isOpen) {
+      setFormOpen(false);
+      setEditing(null);
+    }
+  }, [isOpen]);
 
   const { data, isLoading, isError, refetch } = useGetVariantsQuery(
     { page, limit: LIMIT, productId: productId ?? undefined },
@@ -210,6 +225,21 @@ export function ProductVariantsDrawer({
               showPagination
               emptyMessage={M.EMPTY}
             />
+
+            {/* Inline rather than a second drawer: the SKU list stays visible
+                while adding, which is what stops a duplicate SKU. */}
+            <div ref={formRef}>
+              {formOpen && productId && (
+                <VariantForm
+                  productId={productId}
+                  variant={editing}
+                  onDone={() => {
+                    setFormOpen(false);
+                    setEditing(null);
+                  }}
+                />
+              )}
+            </div>
           </div>
 
           <SheetFooter className="p-5 border-t border-[var(--border-md)] bg-[var(--surface)]">
@@ -217,13 +247,6 @@ export function ProductVariantsDrawer({
           </SheetFooter>
         </SheetContent>
       </Sheet>
-
-      <VariantFormDrawer
-        productId={productId ?? ""}
-        variant={editing}
-        isOpen={formOpen}
-        onClose={() => setFormOpen(false)}
-      />
 
       <ConfirmDialog
         isOpen={!!toDelete}

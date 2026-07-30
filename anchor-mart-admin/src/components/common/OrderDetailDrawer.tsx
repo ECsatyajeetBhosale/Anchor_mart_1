@@ -9,14 +9,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { MESSAGES } from "@/lib/messages";
-import {
-  IconClock,
-  IconCoin,
-  IconFileDownload,
-  IconPackage,
-  IconTransfer,
-  IconX,
-} from "@tabler/icons-react";
+import { IconCoin, IconFileDownload, IconPackage, IconTransfer, IconX } from "@tabler/icons-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { DynamicTabs } from "./DynamicTabs";
 import { Timeline } from "./Timeline";
