@@ -13,6 +13,12 @@ export interface ChartBar {
   key: string;
   label: string;
   value: number;
+  /**
+   * Unabbreviated identity for the tooltip. Ticks are thinned on a crowded axis,
+   * so on a long window hovering is the only way to tell which bucket a bar is —
+   * this is what makes that readable. Falls back to `label` when omitted.
+   */
+  fullLabel?: string;
 }
 
 const chartConfig: ChartConfig = {
@@ -29,13 +35,23 @@ export interface AnalyticsBarChartProps {
   tooltipFormatter: (value: number) => string;
   /** Chart height (Tailwind class). Defaults to the dashboard's 150px. */
   heightClassName?: string;
+  /**
+   * Minimum pixel gap between rendered tick labels. Raise it for a denser font
+   * or a narrower card.
+   */
+  minTickGap?: number;
 }
 
 /**
  * Shared analytics bar chart — Recharts via the project's {@link ChartContainer},
  * matching the dashboard's revenue chart. Bars scale to the data and brighten on
- * hover. The axis category is the unique `key`; ticks and the tooltip header show
- * the human `label` (so repeated weekday labels don't collapse into one band).
+ * hover. The axis category is the unique `key`, so bars with the same display
+ * text never collapse into one band.
+ *
+ * The axis thins its own labels as the series grows (see the `XAxis` below), so
+ * a 30-day or 12-month window stays readable. Because a thinned tick means some
+ * bars have no label, the tooltip always shows `fullLabel` — the unabbreviated
+ * identity — rather than the terse axis text.
  */
 export function AnalyticsBarChart({
   bars,
@@ -43,6 +59,7 @@ export function AnalyticsBarChart({
   hoverColor,
   tooltipFormatter,
   heightClassName = "h-[150px]",
+  minTickGap = 14,
 }: AnalyticsBarChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
@@ -50,9 +67,14 @@ export function AnalyticsBarChart({
   const max = bars.reduce((m, b) => Math.max(m, b.value), 0);
   const yMax = max > 0 ? max * 1.08 : 1;
 
-  // Map each axis category back to its display label for ticks + tooltip header.
+  // Map each axis category back to its labels — the short one for ticks, the
+  // full one for the tooltip header.
   const labelByKey: Record<string, string> = {};
-  for (const b of bars) labelByKey[b.key] = b.label;
+  const fullLabelByKey: Record<string, string> = {};
+  for (const b of bars) {
+    labelByKey[b.key] = b.label;
+    fullLabelByKey[b.key] = b.fullLabel ?? b.label;
+  }
 
   return (
     <ChartContainer config={chartConfig} className={heightClassName}>
@@ -72,7 +94,21 @@ export function AnalyticsBarChart({
           tickFormatter={(key) => labelByKey[key] ?? key}
           tickLine={false}
           axisLine={false}
-          interval={0}
+          /**
+           * This used to be `interval={0}` — draw every tick — which reads fine
+           * across 7 bars and turns into a smear at 30, 90 or 365, where labels
+           * overlap each other.
+           *
+           * `preserveStartEnd` hands the thinning to Recharts, which *measures*
+           * the rendered labels and drops any that would fall within
+           * `minTickGap` of its neighbour, while pinning the first and last so
+           * the window's bounds always stay visible. Measuring is what makes it
+           * adaptive: "Aug" is narrow enough to show twelve of, "12 Aug" is not,
+           * and the same rule handles a card resize without a magic number.
+           * Every bar is still individually identified by the tooltip.
+           */
+          interval="preserveStartEnd"
+          minTickGap={minTickGap}
           tickMargin={8}
           tick={{ fontSize: 9.5, fontWeight: 600 }}
         />
@@ -81,7 +117,7 @@ export function AnalyticsBarChart({
           content={
             <ChartTooltipContent
               hideIndicator
-              labelFormatter={(label) => labelByKey[String(label)] ?? label}
+              labelFormatter={(label) => fullLabelByKey[String(label)] ?? label}
               formatter={(value) => tooltipFormatter(Number(value))}
             />
           }

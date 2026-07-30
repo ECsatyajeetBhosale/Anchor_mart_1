@@ -4,6 +4,7 @@ import { useGetProductsQuery } from "@/features/products";
 
 import { useGetProductSalesQuery } from "../api/analyticsApi";
 import type { ChartBar } from "../components/AnalyticsBarChart";
+import { bucketLabels, resolveGranularity } from "../lib/bucketLabel";
 import type { AnalyticsParams } from "../types/analytics.types";
 
 /**
@@ -11,8 +12,11 @@ import type { AnalyticsParams } from "../types/analytics.types";
  * source as the Products page (via {@link useGetProductsQuery}); clicking one
  * scopes the product-sales endpoint by `product_id`. Until the user picks, the
  * selector reflects the product the endpoint returns (its top product). Maps the
- * API `series` to the bar chart's `{ label, heightPct, title }` shape (label =
- * weekday, value = units) and refetches when `params` or the product change.
+ * API `series` to the chart's `{ key, label, fullLabel, value }` shape (value =
+ * units) and refetches when `params` or the product change.
+ *
+ * Tick labels follow the bucket width of the response, the same as the sales
+ * trend — see {@link bucketLabels}.
  */
 export function useProductSales(params: AnalyticsParams) {
   const [productId, setProductId] = useState<string | undefined>(undefined);
@@ -27,15 +31,14 @@ export function useProductSales(params: AnalyticsParams) {
   const query = useGetProductSalesQuery({ ...params, product_id: productId });
   const data = query.data;
 
-  const bars = useMemo<ChartBar[]>(
-    () =>
-      (data?.series ?? []).map((s) => ({
-        key: s.from || s.label,
-        label: s.weekday || s.label,
-        value: s.units,
-      })),
-    [data?.series],
-  );
+  const bars = useMemo<ChartBar[]>(() => {
+    const raw = data?.series ?? [];
+    const granularity = resolveGranularity(data?.granularity, raw[0]);
+    return raw.map((s) => {
+      const { label, fullLabel } = bucketLabels(s, granularity, raw.length);
+      return { key: s.from || s.label, label, fullLabel, value: s.units };
+    });
+  }, [data?.series, data?.granularity]);
 
   return {
     revenue: data?.revenue,
