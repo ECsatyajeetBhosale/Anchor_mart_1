@@ -2,6 +2,7 @@ import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { DynamicTabs } from "@/components/common/DynamicTabs";
 import { FormField } from "@/components/common/FormField";
 import { FormRow } from "@/components/common/FormRow";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Sheet,
@@ -14,17 +15,22 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useGetCategoriesQuery } from "@/features/catalog";
-import { FILE_LOCATIONS, ImageListField } from "@/features/media";
+import { FILE_LOCATIONS, ImageListField, toStoredPath } from "@/features/media";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { IconBoxSeam, IconCheck, IconPhoto, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconBoxSeam, IconCheck, IconPhoto } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useGetProductQuery, useUpdateProductMutation } from "../api/productApi";
 import { type ProductUpdateFormData, productUpdateSchema } from "../schemas/product.schema";
-import type { Product, ProductImage, UpdateProductPayload } from "../types/product.types";
+import type {
+  Product,
+  ProductDetailVariant,
+  ProductImage,
+  UpdateProductPayload,
+} from "../types/product.types";
 
 export interface ProductEditDrawerProps {
   isOpen: boolean;
@@ -59,21 +65,39 @@ const PACKAGE_TYPE_OPTIONS = [
   { value: "Envelope", label: "Envelope" },
   { value: "Custom", label: "Custom" },
 ];
-const OPTION_NAME_OPTIONS = [
-  { value: "Size", label: "Size" },
-  { value: "Color", label: "Color" },
-  { value: "Material", label: "Material" },
-];
-const VARIANT_STATUS_OPTIONS = [
-  { value: "Active", label: "Active" },
-  { value: "Draft", label: "Draft" },
-];
+const VT = MESSAGES.PRODUCTS.VARIANTS_TAB;
 
 /** Extract the stored relative path (e.g. "product_images/x.png") from an image. */
 function toImagePath(img: ProductImage | string): string {
-  const raw = typeof img === "string" ? img : img.image || img.image_url || "";
-  const idx = raw.indexOf("/media/");
-  return idx >= 0 ? raw.slice(idx + "/media/".length) : raw;
+  return toStoredPath(typeof img === "string" ? img : img.image || img.image_url || "");
+}
+
+/** Renders an attribute map as `key: value · key: value`. */
+function formatAttributes(attributes: Record<string, unknown>): string {
+  const entries = Object.entries(attributes ?? {})
+    .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== "")
+    .map(([k, v]) => `${k}: ${v}`);
+  return entries.length ? entries.join(" · ") : "—";
+}
+
+/**
+ * Whether a variant can actually be ordered, and why not when it can't.
+ *
+ * Flow 03/17: effective sourceability is the **AND** of the product master and
+ * the variant flag, with both live. The detail payload omits `is_sourceable`,
+ * so it is computed here — badging off the variant's own `admin_sourceable`
+ * would call an unbuyable SKU orderable whenever the product switch is off.
+ */
+function orderableState(
+  variant: ProductDetailVariant,
+  product: Product,
+): { orderable: boolean; reason?: string } {
+  if (!variant.is_active) return { orderable: false, reason: VT.BLOCKED_INACTIVE };
+  if (!variant.admin_sourceable) return { orderable: false, reason: VT.BLOCKED_BY_VARIANT };
+  if (product.admin_sourceable === false || product.is_active === false) {
+    return { orderable: false, reason: VT.BLOCKED_BY_PRODUCT };
+  }
+  return { orderable: true };
 }
 
 export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawerProps) {
@@ -86,6 +110,9 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
     skip: !isOpen,
   });
   const source = detail ?? product;
+  // Nested on the detail read, so the tab needs no request of its own; the list
+  // row that seeds `product` never carries them.
+  const variants: ProductDetailVariant[] = detail?.variants ?? [];
 
   // Category options for the editable category dropdown (value = UUID).
   const { data: categoriesData } = useGetCategoriesQuery({ limit: 100 });
@@ -447,83 +474,69 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
             </div>
           )}
 
-          {/* Variants Tab — all read-only (not part of the update contract) */}
+          {/* Variants Tab — read-only. Variants are not part of the
+              update-product contract; they have their own endpoints and are
+              edited from the Products list (row menu → Manage variants). */}
           {activeTab === "pt-variants" && (
             <div className="prod-tab mt-4">
-              <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.OPTIONS}</div>
-              <div className="opt-row mb-4">
-                <FormField label="Option Name" className="w-[190px]">
-                  <DropdownSelect
-                    options={OPTION_NAME_OPTIONS}
-                    value="Size"
-                    width="100%"
-                    disabled
-                  />
-                </FormField>
-                <FormField label="Option Values" className="flex-1">
-                  <Input placeholder="Type a value, press Enter" disabled />
-                </FormField>
-                <button type="button" className="btn btn-ghost btn-sm btn-icon mt-[25px]" disabled>
-                  <IconTrash size={16} />
-                </button>
+              <div className="sec-label">
+                {MESSAGES.PRODUCTS.SECTIONS.VARIANTS}
+                <span className="td-m ml-2">{VT.COUNT(variants.length)}</span>
               </div>
-              <button type="button" className="btn btn-secondary btn-sm" disabled>
-                <IconPlus size={16} /> Add Option
-              </button>
 
-              <div className="sec-label mt-6">{MESSAGES.PRODUCTS.SECTIONS.VARIANTS}</div>
-              <div className="var-table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Image</th>
-                      <th>Variant</th>
-                      <th>SKU</th>
-                      <th>Price</th>
-                      <th>Qty</th>
-                      <th>Status</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>
-                        <button type="button" className="btn btn-ghost btn-sm btn-icon" disabled>
-                          <IconPhoto size={16} />
-                        </button>
-                      </td>
-                      <td>
-                        <Input placeholder="e.g. Red / L" className="w-[120px]" disabled />
-                      </td>
-                      <td>
-                        <Input placeholder="SKU" className="w-[100px]" disabled />
-                      </td>
-                      <td>
-                        <Input type="number" placeholder="0.00" className="w-20" disabled />
-                      </td>
-                      <td>
-                        <Input type="number" placeholder="0" className="w-16" disabled />
-                      </td>
-                      <td>
-                        <DropdownSelect
-                          options={VARIANT_STATUS_OPTIONS}
-                          value="Active"
-                          width="98px"
-                          disabled
-                        />
-                      </td>
-                      <td>
-                        <button type="button" className="btn btn-danger btn-sm btn-icon" disabled>
-                          <IconTrash size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <button type="button" className="btn btn-secondary btn-sm mt-3" disabled>
-                <IconPlus size={16} /> Add Variant
-              </button>
+              {variants.length === 0 ? (
+                <p className="td-m">{VT.EMPTY}</p>
+              ) : (
+                <div className="var-table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>{VT.COLUMNS.SKU}</th>
+                        <th>{VT.COLUMNS.PRICE}</th>
+                        <th>{VT.COLUMNS.ATTRIBUTES}</th>
+                        <th>{VT.COLUMNS.EXPRESS}</th>
+                        <th>{VT.COLUMNS.ORDERABLE}</th>
+                        <th>{VT.COLUMNS.ADDED}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {variants.map((variant) => {
+                        const state = orderableState(variant, source);
+                        return (
+                          <tr key={variant.id}>
+                            <td className="td-id">{variant.sku}</td>
+                            <td className="td-p">${Number(variant.price).toFixed(2)}</td>
+                            <td className="td-m">{formatAttributes(variant.attributes)}</td>
+                            <td>
+                              <Badge
+                                variant={variant.is_express ? "amber" : "neutral"}
+                                className="h-[20px] px-1.5 text-[9px]"
+                              >
+                                {variant.is_express ? VT.YES : VT.NO}
+                              </Badge>
+                            </td>
+                            <td>
+                              {/* Computed, never read off `admin_sourceable`
+                                  alone: a variant flagged sourceable is still
+                                  unbuyable while the product master is off. */}
+                              <Badge
+                                variant={state.orderable ? "success" : "warning"}
+                                className="h-[20px] px-1.5 text-[9px]"
+                                title={state.reason}
+                              >
+                                {state.orderable ? VT.ORDERABLE_YES : VT.ORDERABLE_NO}
+                              </Badge>
+                            </td>
+                            <td className="td-m">{variant.created_at ?? "—"}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <p className="fg-hint mt-3">{VT.READ_ONLY}</p>
             </div>
           )}
         </div>

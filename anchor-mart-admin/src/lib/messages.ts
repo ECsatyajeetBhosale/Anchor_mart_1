@@ -1470,6 +1470,30 @@ export const MESSAGES = {
       },
     },
     // Drawer section headings
+    // Variants tab on the edit drawer — read-only, since variants are not part
+    // of the update-product contract and have their own endpoints.
+    VARIANTS_TAB: {
+      COUNT: (n: number) => `${n} variant${n === 1 ? "" : "s"}`,
+      EMPTY: "This product has no variants yet.",
+      READ_ONLY: "Variants are managed from the Products list — row menu → Manage variants.",
+      COLUMNS: {
+        SKU: "SKU",
+        PRICE: "Price",
+        ATTRIBUTES: "Attributes",
+        EXPRESS: "Express",
+        ORDERABLE: "Orderable",
+        ADDED: "Added",
+      },
+      YES: "Yes",
+      NO: "No",
+      ORDERABLE_YES: "Orderable",
+      ORDERABLE_NO: "Not orderable",
+      // Flow 03/17: the effective rule is the AND of the product master and the
+      // variant flag, so a variant can be sourceable and still unbuyable.
+      BLOCKED_BY_PRODUCT: "Blocked by the product's sourceable switch, not this variant's",
+      BLOCKED_BY_VARIANT: "This variant is not sourceable",
+      BLOCKED_INACTIVE: "This variant is inactive",
+    },
     SECTIONS: {
       BASIC: "Basic Information",
       MEDIA: "Product Media",

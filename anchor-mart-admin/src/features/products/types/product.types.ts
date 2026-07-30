@@ -6,6 +6,32 @@ export interface ProductImage {
   is_primary?: boolean;
 }
 
+/**
+ * A variant as nested on the **product-detail** payload (`get-product/<id>/`).
+ *
+ * Deliberately separate from `features/variants`' `ProductVariant`: this shape
+ * carries `price` as a decimal string, and — importantly — has **no
+ * `is_sourceable`**. That field is the effective product-AND-variant badge; its
+ * absence here means orderability must be computed against the parent product's
+ * own `admin_sourceable`, never read off the variant flag alone.
+ */
+export interface ProductDetailVariant {
+  id: string;
+  sku: string;
+  /** Decimal string, e.g. "25.00". */
+  price: string;
+  attributes: Record<string, unknown>;
+  images: unknown[];
+  is_active: boolean;
+  /** Variant half of the sourceable rule — only half. */
+  admin_sourceable: boolean;
+  is_express: boolean;
+  about_product: string | null;
+  catalog_type?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -31,6 +57,11 @@ export interface Product {
   admin_sourceable?: boolean;
   variant_count?: number;
   purchase_count?: number;
+  /**
+   * Nested on the detail read only — the list serializer omits it. Saves the
+   * edit drawer a second request to show a product's SKUs.
+   */
+  variants?: ProductDetailVariant[];
 }
 
 export interface ProductListResponseData {
