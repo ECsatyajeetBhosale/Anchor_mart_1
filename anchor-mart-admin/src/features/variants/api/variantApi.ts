@@ -1,3 +1,4 @@
+import { toStoredPath } from "@/features/media";
 import { PRODUCT_ENDPOINTS, VARIANT_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
 import type {
@@ -29,15 +30,21 @@ function pick(obj: unknown, ...keys: string[]): string {
 }
 
 /**
- * Normalises the `images` field. The API accepts (and returns) relative storage
- * paths, but list serializers sometimes return objects with an `image` key — so
- * both are flattened back to the path strings the write payloads expect.
+ * Normalises the `images` field to the media-root relative paths write payloads
+ * expect.
+ *
+ * Two shapes have to be flattened — bare strings and `{ image }` objects — and
+ * the value is then run through {@link toStoredPath}, because reads come back
+ * as absolute CloudFront URLs. Without that last step an edit would PATCH
+ * `https://cdn…/media/variant_images/x.png` straight back, and the serializer's
+ * directory-prefix check rejects it with a 400.
  */
 function toImagePaths(value: unknown): string[] {
   const rows = asArray(value);
   if (!rows) return [];
   return rows
     .map((row) => (typeof row === "string" ? row : pick(row, "image", "image_url", "url")))
+    .map(toStoredPath)
     .filter((s): s is string => Boolean(s));
 }
 
