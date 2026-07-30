@@ -1,6 +1,7 @@
 // Public API for the ratings feature (Flow 16 admin surfaces) — import only from here.
 export { RatingsPage } from "./components/RatingsPage";
 export { RatingStars } from "./components/RatingStars";
+export { ReviewDetailDrawer, type SelectedReview } from "./components/ReviewDetailDrawer";
 export {
   useGetDeliveryRatingsQuery,
   useGetAppRatingsQuery,

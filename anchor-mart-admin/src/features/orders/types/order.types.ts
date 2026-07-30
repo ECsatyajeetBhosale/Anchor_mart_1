@@ -185,25 +185,60 @@ export interface OrderListResponse {
  * A sailor cart that has not converted into an order, from
  * `GET /superadmin/orders/carts/`.
  *
- * This endpoint has no flow-document contract, so the API transform builds this
- * flat shape by probing candidate field names and every value degrades to "-"
- * rather than rendering `undefined`.
+ * The endpoint has no flow-document contract, but its live shape is a bare array
+ * of `{ id, user, user_email, items[] }` — each item carrying `quantity` and a
+ * nested `variant_details`. Nothing is aggregated server-side: there is no name,
+ * no total and no cart timestamp, so every figure below is derived from `items`
+ * by the API transform.
  */
 export interface AdminCart {
   /** Cart id — the row key. */
   id: string;
-  /** Sailor / customer name. */
-  customer: string;
-  /** Sailor email. */
+  /**
+   * The sailor's email — the only identity the payload carries. `user` is a
+   * bare UUID and no name field is returned at any level, so there is no
+   * "customer name" to show.
+   */
   email: string;
-  /** Which catalog the cart belongs to (regular / express / marine emergency). */
-  catalogType: string;
-  /** Number of line items in the cart. */
-  itemCount: number;
-  /** Formatted cart value, e.g. "$120.00". */
+  /** Sailor's user id. */
+  userId: string;
+  /**
+   * Summed `quantity` across every line — the number of physical units.
+   *
+   * The distinct-line count is deliberately not carried: the items column
+   * lists the SKUs, so a line count would only restate them.
+   */
+  unitCount: number;
+  /**
+   * Cart value, computed here as Σ(quantity × variant price).
+   *
+   * The API sends no total, and `CartItem` has no price column by design
+   * (Flow 04) — the price is read live off the variant on every read, so an
+   * admin price change shows up immediately with no stale-price banner. That
+   * makes this a faithful reflection of the cart, not a guess.
+   */
   total: string;
-  /** Last-updated label, shown as returned (may be pre-formatted). */
-  updatedAt: string;
+  /** SKUs on the cart, for the items column. */
+  skus: string[];
+  /**
+   * Lines whose variant can no longer be ordered.
+   *
+   * Flow 04 F-02/F-03: the cart deliberately does **not** re-check availability
+   * on read or update, so a dead line looks healthy to the sailor right up until
+   * checkout returns a blocking 400. Surfacing the count here is what explains a
+   * stalled basket.
+   */
+  blockedCount: number;
+  /**
+   * Every line is express. A cart never mixes catalog types (Flow 04), and
+   * express carts check out straight to Stripe (Flow 09) rather than through the
+   * intent funnel, so it's worth calling out.
+   *
+   * Note this only separates express from everything else — `variant_details`
+   * carries no `catalog_type`, so regular and marine-emergency are
+   * indistinguishable in this payload.
+   */
+  isExpress: boolean;
 }
 
 /** Transformed carts result: total count + UI rows. */

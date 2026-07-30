@@ -79,11 +79,14 @@ export interface RatingsSummary {
     start: string | null;
     end: string | null;
   };
+  /**
+   * The response also carries `delivery.tag_counts` (quick-tag tallies across
+   * the window). No surface renders it, so it is deliberately not parsed —
+   * add it back alongside whatever would display it.
+   */
   delivery: {
     average: number | null;
     count: number;
-    /** Quick-tag tallies, e.g. `{ "on_time": 900, "late": 60 }`. */
-    tag_counts: Record<string, number>;
   };
   app: {
     average: number | null;

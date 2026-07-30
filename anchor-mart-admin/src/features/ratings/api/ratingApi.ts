@@ -35,17 +35,6 @@ function toNullableAverage(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Coerces an unknown map into `{ tag: count }`, dropping non-numeric entries. */
-function toTagCounts(value: unknown): Record<string, number> {
-  if (!value || typeof value !== "object") return {};
-  const out: Record<string, number> = {};
-  for (const [tag, count] of Object.entries(value as Record<string, unknown>)) {
-    const n = Number(count);
-    if (Number.isFinite(n)) out[tag] = n;
-  }
-  return out;
-}
-
 function toDeliveryRating(row: unknown): DeliveryRating {
   return {
     id: asString(getProp(row, "id")),
@@ -141,7 +130,6 @@ export const ratingApi = baseApi.injectEndpoints({
           delivery: {
             average: toNullableAverage(getProp(delivery, "average")),
             count: asNumber(getProp(delivery, "count")),
-            tag_counts: toTagCounts(getProp(delivery, "tag_counts")),
           },
           app: {
             average: toNullableAverage(getProp(app, "average")),

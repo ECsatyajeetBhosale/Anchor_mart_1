@@ -8,10 +8,12 @@ import {
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import { MESSAGES } from "@/lib/messages";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useGetAppRatingsQuery } from "../api/ratingApi";
 import type { AppRating } from "../types/rating.types";
 import { RatingStars } from "./RatingStars";
+import { ReviewDetailDrawer } from "./ReviewDetailDrawer";
 
 const M = MESSAGES.RATINGS;
 const LIMIT = 10;
@@ -38,6 +40,9 @@ const PLATFORM_OPTIONS = [
  */
 export function AppRatingsTab() {
   const [searchParams, setSearchParams] = useSearchParams();
+  // The list rows carry every field the drawer shows, so the selected row is
+  // held directly — there is no per-rating detail endpoint to fetch.
+  const [selected, setSelected] = useState<AppRating | null>(null);
 
   const page = Number.parseInt(searchParams.get("a_page") ?? "1", 10);
   const search = searchParams.get("a_search") ?? "";
@@ -165,6 +170,13 @@ export function AppRatingsTab() {
         emptyMessage={M.APP.EMPTY}
         hasActiveFilters={Boolean(search || rating || platform || appVersion)}
         onResetFilters={() => setSearchParams(new URLSearchParams())}
+        onRowClick={setSelected}
+      />
+
+      <ReviewDetailDrawer
+        isOpen={!!selected}
+        onClose={() => setSelected(null)}
+        review={selected ? { kind: "app", data: selected } : null}
       />
     </>
   );

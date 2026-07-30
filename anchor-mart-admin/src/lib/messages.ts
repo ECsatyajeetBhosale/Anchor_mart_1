@@ -277,17 +277,30 @@ export const MESSAGES = {
   // Open sailor carts (pre-checkout) shown beneath the Orders table.
   CARTS: {
     TITLE: "Open Carts",
-    SUBTITLE: "Sailor baskets that have not been checked out yet",
+    SUBTITLE:
+      "Sailor baskets not yet checked out. Value is summed from live variant prices — carts store no total of their own.",
     EMPTY: "No open carts.",
     FETCH_ERROR: "Failed to load open carts.",
+    DASH: "—",
     COLUMNS: {
-      CUSTOMER: "Sailor",
-      EMAIL: "Email",
-      CATALOG: "Catalog",
+      SAILOR: "Sailor",
+      /** The SKUs in the cart — what the sailor picked. */
       ITEMS: "Items",
+      /** Summed units across those SKUs — how many pieces, not how many rows. */
+      QUANTITY: "Quantity",
       VALUE: "Cart Value",
-      UPDATED: "Last Updated",
+      STATUS: "Status",
     },
+    TYPE_EXPRESS: "Express",
+    // Only express is distinguishable — the payload carries no catalog_type, so
+    // regular and marine-emergency can't be told apart.
+    SKU_OVERFLOW: (n: number) => `+${n}`,
+    STATUS_READY: "Ready",
+    // A cart holding an unorderable line looks fine to the sailor until
+    // checkout refuses the whole basket — this is usually why one is stalled.
+    STATUS_BLOCKED: (n: number) => `${n} unavailable`,
+    BLOCKED_TITLE: (n: number) =>
+      `${n} item(s) can no longer be ordered — checkout will refuse this cart until they're removed.`,
   },
   ORDERS: {
     // Page chrome
@@ -2697,8 +2710,6 @@ export const MESSAGES = {
       // An average of null means nobody rated in the window — deliberately not
       // rendered as 0, which would read as "everybody rated zero".
       NOT_RATED: "Not rated yet",
-      TAGS_TITLE: "Quick Tag Mentions",
-      TAGS_EMPTY: "No quick tags yet in this window.",
       CACHE_NOTE:
         "Totals are cached for about 5 minutes, so a brand-new review may not appear yet.",
     },
@@ -2735,6 +2746,42 @@ export const MESSAGES = {
         VERSION: "Version",
         DATE: "Submitted",
       },
+    },
+    DETAIL: {
+      DELIVERY_TITLE: "Delivery Review",
+      DELIVERY_SUBTITLE: "How the sailor rated this order's handover.",
+      APP_TITLE: "App Review",
+      APP_SUBTITLE: "How this sailor rated the app itself.",
+      SECTIONS: {
+        RATING: "Rating",
+        PEOPLE: "People",
+        CONTEXT: "Context",
+        FEEDBACK: "Written Feedback",
+      },
+      FIELDS: {
+        SCORE: "Score",
+        SUBMITTED: "Submitted",
+        TAGS: "Quick Tags",
+        ORDER: "Order",
+        SAILOR: "Sailor",
+        SAILOR_EMAIL: "Sailor Email",
+        PARTNER: "Delivered By",
+        PARTNER_EMAIL: "Partner Email",
+        USER: "User",
+        USER_EMAIL: "User Email",
+        PLATFORM: "Platform",
+        VERSION: "App Version",
+      },
+      NO_TAGS: "No quick tags selected.",
+      NO_COMMENT: "The sailor left no written feedback.",
+      // Set at submit time from the DELIVERED assignment, so it names whoever
+      // actually delivered — not whoever happens to be assigned now.
+      PARTNER_NOTE:
+        "Recorded when the review was submitted, so a later reassignment can't change it.",
+      // Ratings are a customer's words: the admin panel has no edit or delete
+      // endpoint for one, and saying so is better than an admin hunting for it.
+      READ_ONLY: "Reviews are read-only — they can't be edited or removed from here.",
+      CLOSE: "Close",
     },
     // Human labels for DeliveryRating.QuickTag values.
     TAG_LABELS: {

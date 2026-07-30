@@ -1,4 +1,5 @@
 import { ORDER_ENDPOINTS } from "@/lib/apiEndpoints";
+import { asArray, asNumber, asString, getProp, unwrapList } from "@/lib/apiResponse";
 import { baseApi } from "@/lib/fetchUtils";
 import type {
   AdminCart,
@@ -200,58 +201,66 @@ export const ordersApi = baseApi.injectEndpoints({
       ],
     }),
     /**
-     * Sailor carts still awaiting checkout. Undocumented by the flow set, so
-     * every field is probed across plausible spellings and the envelope may be a
-     * bare array, `{ results }` or `{ results: { data } }`.
+     * Sailor carts still awaiting checkout.
+     *
+     * Undocumented by the flow set, but the live response is a **bare array** of
+     * `{ id, user, user_email, items[] }`, where each item carries `quantity`
+     * and a nested `variant_details`. It sends no `count`/`next` and ignores
+     * pagination params, so the whole list arrives at once and the card pages
+     * through it locally.
+     *
+     * Nothing here is aggregated server-side — no name, no total, no cart
+     * timestamp — so the row-level figures below are derived from `items`.
      */
-    getCarts: builder.query<AdminCartListResult, { page?: number; limit?: number }>({
-      query: (params) => ({
-        url: ORDER_ENDPOINTS.GET_CARTS,
-        method: "GET",
-        params: { page: params?.page, page_size: params?.limit },
-      }),
+    getCarts: builder.query<AdminCartListResult, void>({
+      query: () => ({ url: ORDER_ENDPOINTS.GET_CARTS, method: "GET" }),
       transformResponse: (res: unknown): AdminCartListResult => {
-        const prop = (v: unknown, k: string): unknown =>
-          v && typeof v === "object" ? (v as Record<string, unknown>)[k] : undefined;
-        const arr = (v: unknown): unknown[] | null => (Array.isArray(v) ? v : null);
-        const pick = (o: unknown, ...keys: string[]): string => {
-          for (const k of keys) {
-            const v = prop(o, k);
-            if (typeof v === "string" && v.trim()) return v.trim();
-            if (typeof v === "number") return String(v);
-          }
-          return "";
-        };
-
-        const results = prop(res, "results");
-        const rows =
-          arr(prop(results, "data")) ?? arr(results) ?? arr(prop(res, "data")) ?? arr(res) ?? [];
-        const countRaw = prop(res, "count") ?? prop(results, "count");
+        const { count, items: rows } = unwrapList(res);
 
         const carts: AdminCart[] = rows.map((row, index) => {
-          const items = prop(row, "items");
-          const itemCountRaw = prop(row, "item_count") ?? prop(row, "items_count");
-          const amount = Number(prop(row, "total_amount") ?? prop(row, "total"));
+          const items = asArray(getProp(row, "items")) ?? [];
+
+          let unitCount = 0;
+          let total = 0;
+          let blockedCount = 0;
+          const skus: string[] = [];
+          // A cart with no lines shouldn't claim to be express.
+          let expressLines = 0;
+
+          for (const item of items) {
+            const quantity = asNumber(getProp(item, "quantity"));
+            const variant = getProp(item, "variant_details");
+
+            unitCount += quantity;
+            // `price` is a decimal string ("30.00"), read live off the variant.
+            total += quantity * asNumber(getProp(variant, "price"));
+
+            const sku = asString(getProp(variant, "sku"));
+            if (sku) skus.push(sku);
+
+            if (getProp(variant, "is_express") === true) expressLines += 1;
+
+            // `is_sourceable` is the effective product-AND-variant badge; a dead
+            // or unsourceable line is what makes checkout 400.
+            const orderable =
+              getProp(variant, "is_active") !== false &&
+              getProp(variant, "is_sourceable") !== false;
+            if (!orderable) blockedCount += 1;
+          }
+
           return {
-            id: pick(row, "id", "cart_id") || `cart-${index}`,
-            customer:
-              pick(row, "customer_name", "user_name", "sailor") ||
-              pick(prop(row, "user"), "first_name", "name", "email") ||
-              "-",
-            email: pick(row, "customer_email", "email") || pick(prop(row, "user"), "email") || "-",
-            catalogType: pick(row, "catalog_type", "cart_type", "type") || "-",
-            itemCount:
-              typeof itemCountRaw === "number"
-                ? itemCountRaw
-                : Array.isArray(items)
-                  ? items.length
-                  : 0,
-            total: Number.isFinite(amount) ? `$${amount.toFixed(2)}` : "-",
-            updatedAt: pick(row, "updated_at", "modified_at", "created_at") || "-",
+            id: asString(getProp(row, "id")) || `cart-${index}`,
+            email: asString(getProp(row, "user_email")),
+            userId: asString(getProp(row, "user")),
+            unitCount,
+            total: `$${total.toFixed(2)}`,
+            skus,
+            blockedCount,
+            isExpress: items.length > 0 && expressLines === items.length,
           };
         });
 
-        return { count: typeof countRaw === "number" ? countRaw : carts.length, carts };
+        return { count, carts };
       },
       providesTags: [{ type: "Orders", id: "CARTS" }],
     }),

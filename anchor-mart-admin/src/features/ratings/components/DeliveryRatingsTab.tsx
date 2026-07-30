@@ -8,10 +8,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { MESSAGES } from "@/lib/messages";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useGetDeliveryRatingsQuery } from "../api/ratingApi";
 import { type DeliveryRating, NEGATIVE_QUICK_TAGS } from "../types/rating.types";
 import { RatingStars } from "./RatingStars";
+import { ReviewDetailDrawer } from "./ReviewDetailDrawer";
 
 const M = MESSAGES.RATINGS;
 const LIMIT = 10;
@@ -35,6 +37,9 @@ function tagLabel(tag: string): string {
  */
 export function DeliveryRatingsTab() {
   const [searchParams, setSearchParams] = useSearchParams();
+  // The list rows carry every field the drawer shows, so the selected row is
+  // held directly — there is no per-rating detail endpoint to fetch.
+  const [selected, setSelected] = useState<DeliveryRating | null>(null);
 
   const page = Number.parseInt(searchParams.get("d_page") ?? "1", 10);
   const search = searchParams.get("d_search") ?? "";
@@ -161,6 +166,13 @@ export function DeliveryRatingsTab() {
         emptyMessage={M.DELIVERY.EMPTY}
         hasActiveFilters={Boolean(search || rating)}
         onResetFilters={() => setSearchParams(new URLSearchParams())}
+        onRowClick={setSelected}
+      />
+
+      <ReviewDetailDrawer
+        isOpen={!!selected}
+        onClose={() => setSelected(null)}
+        review={selected ? { kind: "delivery", data: selected } : null}
       />
     </>
   );
