@@ -12,11 +12,8 @@ import { AnalyticsPage } from "@/features/analytics";
 import { DashboardPage } from "@/features/dashboard";
 
 import { AssignmentsPage } from "@/pages/AssignmentsPage";
-import { ChatPage } from "@/pages/ChatPage";
 import { ExpressPage } from "@/pages/ExpressPage";
 import { IntentsPage } from "@/pages/IntentsPage";
-import { InventoryPage } from "@/pages/InventoryPage";
-import { NotificationsPage } from "@/pages/NotificationsPage";
 import { OrdersPage } from "@/pages/OrdersPage";
 import { PartnersPage } from "@/pages/PartnersPage";
 import { RewardsPage } from "@/pages/RewardsPage";
@@ -27,8 +24,19 @@ import { SettingsPage } from "@/pages/SettingsPage";
 // Settings sub-page — Help & FAQ management
 import { FaqsPage, UsersPage } from "@/features/settings";
 import { SpecialRequestsPage } from "@/pages/SpecialRequestsPage";
-import { SupportPage } from "@/pages/SupportPage";
 import { VerificationPage } from "@/pages/VerificationPage";
+
+// Notification console — role-based sends + platform broadcast
+import { NotificationsPage } from "@/features/notifications";
+
+// Chat monitor — read-only support and order threads
+import { DeliveryChatsPage, SupportChatsPage } from "@/features/chat";
+
+// Ratings & Reviews (Flow 16 admin surfaces)
+import { RatingsPage } from "@/features/ratings";
+
+// Catalog operations — ports, shops, inventory, saved products
+import { PortsPage } from "@/features/catalog-ops";
 
 // Products — from feature
 import { ProductsPage } from "@/features/products";
@@ -74,14 +82,15 @@ export function AppRouter() {
             <Route path={APP_ROUTES.EMERGENCY_CATEGORIES} element={<EmergencyCategoriesPage />} />
             <Route path={APP_ROUTES.SHIP_AGENTS} element={<ShipAgentsPage />} />
             <Route path={APP_ROUTES.EXPRESS} element={<ExpressPage />} />
-            <Route path={APP_ROUTES.INVENTORY} element={<InventoryPage />} />
+            <Route path={APP_ROUTES.PORTS} element={<PortsPage />} />
             <Route path={APP_ROUTES.REWARDS} element={<RewardsPage />} />
+            <Route path={APP_ROUTES.RATINGS} element={<RatingsPage />} />
             <Route path={APP_ROUTES.PARTNERS} element={<PartnersPage />} />
             <Route path={APP_ROUTES.ASSIGNMENTS} element={<AssignmentsPage />} />
             <Route path={APP_ROUTES.VERIFICATION} element={<VerificationPage />} />
             <Route path={APP_ROUTES.NOTIFICATIONS} element={<NotificationsPage />} />
-            <Route path={APP_ROUTES.CHAT} element={<ChatPage />} />
-            <Route path={APP_ROUTES.SUPPORT} element={<SupportPage />} />
+            <Route path={APP_ROUTES.CHAT} element={<DeliveryChatsPage />} />
+            <Route path={APP_ROUTES.SUPPORT} element={<SupportChatsPage />} />
             <Route path={APP_ROUTES.SELLERS} element={<SellerRequestsPage />} />
             <Route path={APP_ROUTES.SETTINGS} element={<SettingsPage />} />
             <Route path={APP_ROUTES.SETTINGS_FAQS} element={<FaqsPage />} />

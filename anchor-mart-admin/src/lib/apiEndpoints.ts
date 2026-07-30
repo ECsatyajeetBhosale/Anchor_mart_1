@@ -1,69 +1,9 @@
-// API endpoint paths – moved to a dedicated file for better organization
-export const API_ROUTES = {
-  AUTH: {
-    LOGIN: "/superadmin/admin/login/",
-    LOGOUT: "/superadmin/admin/logout/",
-    ME: "/superadmin/auth/me/",
-  },
-  DASHBOARD: {
-    STATS: "/superadmin/dashboard/dashboard/",
-  },
-  SAILORS: {
-    LIST: "/superadmin/sailors/",
-    DETAIL: (id: string) => `/superadmin/sailors/${id}/`,
-    CREATE: "/superadmin/sailors/",
-    UPDATE: (id: string) => `/superadmin/sailors/${id}/`,
-    DELETE: (id: string) => `/superadmin/sailors/${id}/`,
-    BLOCK: (id: string) => `/superadmin/sailors/${id}/block/`,
-  },
-  ORDERS: {
-    LIST: "/superadmin/orders/",
-    DETAIL: (id: string) => `/superadmin/orders/orders//${id}/`,
-    CANCEL: (id: string) => `/superadmin/orders/${id}/cancel/`,
-    ASSIGN: (id: string) => `/superadmin/orders/${id}/assign/`,
-  },
-  INTENTS: {
-    LIST: "/superadmin/intents/",
-    DETAIL: (id: string) => `/superadmin/intents/${id}/`,
-    CONFIRM: (id: string) => `/superadmin/intents/${id}/confirm/`,
-    REJECT: (id: string) => `/superadmin/intents/${id}/reject/`,
-  },
-  PRODUCTS: {
-    LIST: "/superadmin/products/",
-    DETAIL: (id: string) => `/superadmin/products/${id}/`,
-    CREATE: "/superadmin/products/",
-    UPDATE: (id: string) => `/superadmin/products/${id}/`,
-    DELETE: (id: string) => `/superadmin/products/${id}/`,
-  },
-  PARTNERS: {
-    LIST: "/superadmin/partners/",
-    DETAIL: (id: string) => `/superadmin/partners/${id}/`,
-    CREATE: "/superadmin/partners/",
-    UPDATE: (id: string) => `/superadmin/partners/${id}/`,
-  },
-  REWARDS: {
-    COUPONS_LIST: "/superadmin/coupons/",
-    COUPON_DETAIL: (id: string) => `/superadmin/coupons/${id}/`,
-    COUPON_CREATE: "/superadmin/coupons/",
-    COUPON_UPDATE: (id: string) => `/superadmin/coupons/${id}/`,
-    COUPON_DELETE: (id: string) => `/superadmin/coupons/${id}/`,
-  },
-  ASSIGNMENTS: {
-    LIST: "/superadmin/assignments/",
-  },
-  VERIFICATION: {
-    LIST: "/superadmin/verifications/",
-    APPROVE: (id: string) => `/superadmin/verifications/${id}/approve/`,
-  },
-  NOTIFICATIONS: {
-    SEND: "/superadmin/notifications/send/",
-  },
-  SELLERS: {
-    LIST: "/superadmin/sellers/",
-    APPROVE: (id: string) => `/superadmin/sellers/${id}/approve/`,
-    REJECT: (id: string) => `/superadmin/sellers/${id}/reject/`,
-  },
-} as const;
+// API endpoint paths – moved to a dedicated file for better organization.
+//
+// NOTE: auth paths live in `lib/constants.ts` (`API_ROUTES.AUTH`). A second,
+// stale `API_ROUTES` copy used to sit here with paths the backend never served
+// (`/superadmin/verifications/`, `/superadmin/notifications/send/`, …); it was
+// unused and has been removed. Add new endpoints to the typed blocks below.
 
 export const PRODUCT_ENDPOINTS = {
   GET_STATS: "/superadmin/products/product-stats/",
@@ -117,8 +57,7 @@ export const VARIANT_ENDPOINTS = {
   // Body: `{ is_express: boolean }`.
   SET_EXPRESS: (id: string) => `/superadmin/product-variants/set-express/${id}/`,
   // Body: `{ admin_sourceable: boolean }`.
-  SET_ADMIN_SOURCEABLE: (id: string) =>
-    `/superadmin/product-variants/set-admin-sourceable/${id}/`,
+  SET_ADMIN_SOURCEABLE: (id: string) => `/superadmin/product-variants/set-admin-sourceable/${id}/`,
 };
 
 export const CATEGORY_ENDPOINTS = {
@@ -461,3 +400,80 @@ export const REWARD_ENDPOINTS = {
   // Body: `{ is_active: boolean }`.
   TOGGLE_DEAL: (id: string) => `/superadmin/promotion/deals/${id}/toggle/`,
 };
+
+/**
+ * Flow 16 — Post-Delivery Feedback & Ratings (admin read surfaces).
+ *
+ * Three reads, no writes: the admin can see every review but never authors or
+ * edits one. The per-partner delivery leaderboard is deliberately NOT here —
+ * it lives in the partner-KPI reads (Flow 28), which are Build-2.
+ */
+export const RATING_ENDPOINTS = {
+  // Every delivery review, newest first. Query: `rating` (1–5, else 400),
+  // `partner_id` (UUID, else 400), `search`, `page`, `page_size`.
+  GET_DELIVERY_RATINGS: "/superadmin/ratings/delivery/",
+  // Every app review, newest first. Query: `rating`, `platform`
+  // (case-insensitive exact), `app_version` (exact), `search`, `page`, `page_size`.
+  GET_APP_RATINGS: "/superadmin/ratings/app/",
+  /**
+   * Platform-wide averages tile. Query: `days` (positive int → rolling window;
+   * omitted → all-time; `< 1` or non-integer → 400).
+   *
+   * The payload is cached server-side for ~5 minutes, so a rating submitted
+   * seconds ago can be missing from the tile while already present in the lists.
+   */
+  GET_RATINGS_SUMMARY: "/superadmin/ratings/summary/",
+};
+
+/**
+ * Flow 26 — Media Upload. Mints a short-lived, size-bounded presigned S3 POST
+ * for exactly one object key; the browser then uploads straight to S3 and the
+ * owning endpoint is given the returned **`file_location`** (the media-root
+ * relative path). `file_key` includes the media-root prefix and will fail the
+ * consuming serializer's directory-prefix check — never submit it.
+ */
+export const MEDIA_ENDPOINTS = {
+  PRESIGNED_URL: "/superadmin/admin/presigned-url/",
+};
+
+/**
+ * Admin notification console. Distinct from the per-user inbox at
+ * `/api/notifications/` (Flow 21) — these compose and fan out messages.
+ */
+export const ADMIN_NOTIFICATION_ENDPOINTS = {
+  // Reach preview per role for one notification type. Query: `type`.
+  RECIPIENT_SUMMARY: "/superadmin/notifications/recipient-summary/",
+  // Reach for one role+type pair. Query: `role`, `type`.
+  RECIPIENT_COUNT: "/superadmin/notifications/recipient-count/",
+  // Body: `{ role, notification_type, title, message, metadata }`.
+  SEND_ROLE_BASED: "/superadmin/notifications/send-rolebased-notification/",
+  // Body: `{ title, message, image_path }` — every user, all channels.
+  SEND_BROADCAST: "/superadmin/notifications/send-broadcast-notification/",
+};
+
+/** Admin chat monitor — read-only visibility into support and order threads. */
+export const CHAT_ENDPOINTS = {
+  // Support threads (sailors ↔ admin).
+  GET_USER_CHATS: "/superadmin/chat/user-chats/",
+  // Order/delivery threads.
+  GET_DELIVERY_CHATS: "/superadmin/chat/delivery-chats/",
+  // Messages in one thread. Query: `chat_id` (note: an integer, not a UUID).
+  GET_CHAT_MESSAGES: "/superadmin/chat/chat-messenger-detail/",
+};
+
+/**
+ * Port directory (admin CRUD). Distinct from `DASHBOARD_ENDPOINTS.GET_PORTS`,
+ * which returns bare port **names** for the orders-list filter.
+ */
+export const PORT_ENDPOINTS = {
+  GET_PORTS: "/superadmin/catalog/get-ports/",
+  ADD_PORT: "/superadmin/catalog/add-port/",
+  UPDATE_PORT: (id: string) => `/superadmin/catalog/update-port/${id}/`,
+  DELETE_PORT: (id: string) => `/superadmin/catalog/delete-port/${id}/`,
+};
+
+// The backend also serves shops (`/catalog/{add,get,update,delete}-shop*`),
+// inventory (`…-inventory*`) and `get-saved-products/` under this namespace.
+// No admin screen consumes them, so their constants are intentionally absent
+// rather than sitting here uncalled — add them back alongside the UI that needs
+// them.

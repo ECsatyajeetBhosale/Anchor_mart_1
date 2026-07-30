@@ -14,6 +14,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useGetCategoriesQuery } from "@/features/catalog";
+import { FILE_LOCATIONS, ImageListField } from "@/features/media";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -201,20 +202,17 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
           <section className="prod-tab">
             <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.MEDIA}</div>
             <FormField
-              label="Image Paths"
-              hint="Add one or more stored image paths (e.g. product_images/example.png)."
+              label="Product Images"
+              hint="Upload files, or paste a stored path (e.g. product_images/example.png)."
             >
               <Controller
                 control={control}
                 name="images"
                 render={({ field }) => (
-                  <StringListField
+                  <ImageListField
                     values={field.value}
                     onChange={field.onChange}
-                    placeholder="product_images/example.png"
-                    addLabel="Add Image Path"
-                    emptyHint="No images yet — add one below."
-                    mono
+                    fileLocation={FILE_LOCATIONS.PRODUCT_IMAGES}
                   />
                 )}
               />

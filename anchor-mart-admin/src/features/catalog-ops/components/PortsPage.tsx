@@ -1,0 +1,190 @@
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { PageHeader } from "@/components/common/PageHeader";
+import { SearchFilters } from "@/components/common/SearchFilters";
+import {
+  actionsColumn,
+  idColumn,
+  statusColumn,
+  textColumn,
+  twoLineColumn,
+} from "@/components/common/tableColumns";
+import { type Column, DataTable } from "@/components/ui/data-table";
+import { getApiMessage } from "@/lib/apiError";
+import { MESSAGES } from "@/lib/messages";
+import { IconPlus } from "@tabler/icons-react";
+import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
+import { useDeletePortMutation, useGetPortsQuery } from "../api/portApi";
+import type { Port } from "../types/catalogOps.types";
+import { PortFormDrawer } from "./PortFormDrawer";
+
+const M = MESSAGES.PORTS;
+const LIMIT = 10;
+
+/**
+ * The `is_active` filter sends the capitalised Python literals the API
+ * collection uses — the sibling customer endpoint 500s on lowercase `true`.
+ */
+const STATUS_OPTIONS = [
+  { value: "True", label: M.STATUS_FILTER.ACTIVE },
+  { value: "False", label: M.STATUS_FILTER.INACTIVE },
+];
+
+export function PortsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingPort, setEditingPort] = useState<Port | null>(null);
+  const [portToDelete, setPortToDelete] = useState<Port | null>(null);
+
+  const [deletePort, { isLoading: isDeleting }] = useDeletePortMutation();
+
+  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const search = searchParams.get("search") ?? "";
+  const isActive = searchParams.get("is_active") ?? "";
+
+  const { data, isLoading, isError, refetch } = useGetPortsQuery({
+    page,
+    limit: LIMIT,
+    search,
+    isActive,
+  });
+
+  const ports = data?.items ?? [];
+  const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / LIMIT));
+
+  const setParam = (key: string, value: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("page", "1");
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setSearchParams(next);
+  };
+
+  const openDrawer = (port: Port | null) => {
+    setEditingPort(port);
+    setDrawerOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!portToDelete) return;
+    try {
+      await deletePort(portToDelete.id).unwrap();
+      setPortToDelete(null);
+      toast.success(M.TOAST.DELETE_SUCCESS);
+    } catch (error) {
+      // Keep the dialog open so the admin can see the reason and retry.
+      toast.error(getApiMessage(error) ?? M.TOAST.DELETE_ERROR);
+    }
+  };
+
+  const columns: Column<Port>[] = [
+    idColumn({ id: "code", header: M.COLUMNS.CODE, get: (r) => r.port_code || M.DASH }),
+    twoLineColumn({
+      id: "port",
+      header: M.COLUMNS.PORT,
+      primary: (r) => r.port_name || M.DASH,
+      secondary: (r) => r.region || M.DASH,
+    }),
+    textColumn({
+      id: "country",
+      header: M.COLUMNS.COUNTRY,
+      get: (r) => r.country || M.DASH,
+      cellClassName: "td-m",
+    }),
+    textColumn({
+      id: "region",
+      header: M.COLUMNS.REGION,
+      get: (r) => r.region || M.DASH,
+      cellClassName: "td-m",
+    }),
+    statusColumn({
+      id: "status",
+      header: M.COLUMNS.STATUS,
+      get: (r) => r.is_active,
+      filter: {
+        value: isActive,
+        options: STATUS_OPTIONS,
+        onChange: (v) => setParam("is_active", v),
+      },
+    }),
+    actionsColumn({
+      header: M.COLUMNS.ACTIONS,
+      actions: () => ({
+        edit: {
+          title: MESSAGES.COMMON.EDIT,
+          onClick: (e, row) => {
+            e.stopPropagation();
+            openDrawer(row);
+          },
+        },
+        delete: {
+          title: MESSAGES.COMMON.DELETE,
+          onClick: (e, row) => {
+            e.stopPropagation();
+            setPortToDelete(row);
+          },
+        },
+      }),
+    }),
+  ];
+
+  return (
+    <div className="page-enter">
+      <PageHeader
+        title={M.TITLE}
+        subtitle={M.SUBTITLE}
+        actions={
+          <SearchFilters
+            searchValue={search}
+            onSearchChange={(v) => setParam("search", v)}
+            searchPlaceholder={M.SEARCH_PLACEHOLDER}
+            searchDebounceMs={300}
+            searchLoading={isLoading}
+          >
+            <button type="button" className="btn btn-primary" onClick={() => openDrawer(null)}>
+              <IconPlus size={16} />
+              {M.ADD}
+            </button>
+          </SearchFilters>
+        }
+      />
+
+      <DataTable
+        columns={columns}
+        data={ports}
+        rowKey="id"
+        page={page}
+        pages={totalPages}
+        isLoading={isLoading}
+        isError={isError}
+        error={isError ? M.FETCH_ERROR : null}
+        onRetry={refetch}
+        onPageChange={(p) => {
+          const next = new URLSearchParams(searchParams);
+          next.set("page", String(p));
+          setSearchParams(next);
+        }}
+        showPagination
+        emptyMessage={M.EMPTY}
+        onRowClick={(row) => openDrawer(row)}
+        hasActiveFilters={Boolean(search || isActive)}
+        onResetFilters={() => setSearchParams(new URLSearchParams())}
+      />
+
+      <PortFormDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} port={editingPort} />
+
+      <ConfirmDialog
+        isOpen={!!portToDelete}
+        onClose={() => setPortToDelete(null)}
+        onConfirm={confirmDelete}
+        isLoading={isDeleting}
+        title={M.DELETE_CONFIRM.TITLE}
+        description={M.DELETE_CONFIRM.MESSAGE}
+        confirmText={M.DELETE_CONFIRM.CONFIRM}
+      />
+    </div>
+  );
+}
+
+export default PortsPage;

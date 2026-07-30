@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { FormField } from "@/components/common/FormField";
-import { StringListField } from "@/components/common/StringListField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,6 +15,7 @@ import {
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { FILE_LOCATIONS, ImageListField } from "@/features/media";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { useCreateVariantMutation, useUpdateVariantMutation } from "../api/variantApi";
@@ -47,12 +47,7 @@ interface FieldErrors {
  * edited as raw JSON and validated before submit — a typed form would have to
  * invent fields the API does not define.
  */
-export function VariantFormDrawer({
-  productId,
-  variant,
-  isOpen,
-  onClose,
-}: VariantFormDrawerProps) {
+export function VariantFormDrawer({ productId, variant, isOpen, onClose }: VariantFormDrawerProps) {
   const isEdit = Boolean(variant);
 
   const [sku, setSku] = useState("");
@@ -198,11 +193,11 @@ export function VariantFormDrawer({
           </FormField>
 
           <FormField label={F.IMAGES}>
-            <StringListField
+            <ImageListField
               values={images}
               onChange={setImages}
+              fileLocation={FILE_LOCATIONS.VARIANT_IMAGES}
               placeholder={F.IMAGES_PLACEHOLDER}
-              mono
             />
           </FormField>
 

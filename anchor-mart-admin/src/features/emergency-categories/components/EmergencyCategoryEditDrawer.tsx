@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { FILE_LOCATIONS, ImageUploadField } from "@/features/media";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -143,13 +144,19 @@ export function EmergencyCategoryEditDrawer({
           <section className="prod-tab">
             <div className="sec-label">{MESSAGES.EMERGENCY_CATEGORIES.SECTIONS.MEDIA}</div>
             <FormField
-              label="Image Path"
-              hint="Stored image path/key (e.g. category_images/example.jpg) — not a file upload."
+              label="Category Image"
+              hint="Upload a file, or paste a stored path (e.g. category_images/example.jpg)."
             >
-              <Input
-                className="mono"
-                placeholder="category_images/example.jpg"
-                {...register("image")}
+              <Controller
+                control={control}
+                name="image"
+                render={({ field }) => (
+                  <ImageUploadField
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    fileLocation={FILE_LOCATIONS.CATEGORY_IMAGES}
+                  />
+                )}
               />
             </FormField>
           </section>

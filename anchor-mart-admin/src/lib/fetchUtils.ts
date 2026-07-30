@@ -61,6 +61,9 @@ export const baseApi = createApi({
     "SpecialRequests",
     "Spares",
     "ShipAgents",
+    "Ratings",
+    "Chats",
+    "Ports",
   ],
   endpoints: () => ({}),
 });

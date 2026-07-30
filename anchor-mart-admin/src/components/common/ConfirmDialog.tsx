@@ -17,6 +17,12 @@ export interface ConfirmDialogProps {
   confirmText?: string;
   cancelText?: string;
   isLoading?: boolean;
+  /**
+   * Label while the action runs. Defaults to "Deleting…" because that is what
+   * most call sites confirm — override it for anything else (sending, revoking)
+   * so the button doesn't announce the wrong verb.
+   */
+  loadingText?: string;
 }
 
 export function ConfirmDialog({
@@ -28,6 +34,7 @@ export function ConfirmDialog({
   confirmText = "Delete",
   cancelText = "Cancel",
   isLoading = false,
+  loadingText = "Deleting…",
 }: ConfirmDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -37,19 +44,11 @@ export function ConfirmDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter className="mt-4">
-          <button 
-            className="btn btn-secondary" 
-            onClick={onClose} 
-            disabled={isLoading}
-          >
+          <button className="btn btn-secondary" onClick={onClose} disabled={isLoading}>
             {cancelText}
           </button>
-          <button 
-            className="btn btn-danger" 
-            onClick={onConfirm} 
-            disabled={isLoading}
-          >
-            {isLoading ? "Deleting..." : confirmText}
+          <button className="btn btn-danger" onClick={onConfirm} disabled={isLoading}>
+            {isLoading ? loadingText : confirmText}
           </button>
         </DialogFooter>
       </DialogContent>

@@ -9,12 +9,13 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { FILE_LOCATIONS, ImageUploadField } from "@/features/media";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconCategory, IconCheck } from "@tabler/icons-react";
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useCreateEmergencyCategoryMutation } from "../api/emergencyCategoryApi";
 import {
@@ -39,6 +40,7 @@ export function EmergencyCategoryAddDrawer({ isOpen, onClose }: EmergencyCategor
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     formState: { errors },
@@ -114,13 +116,19 @@ export function EmergencyCategoryAddDrawer({ isOpen, onClose }: EmergencyCategor
           <section className="prod-tab">
             <div className="sec-label">{MESSAGES.EMERGENCY_CATEGORIES.SECTIONS.MEDIA}</div>
             <FormField
-              label="Image Path"
-              hint="Stored image path/key (e.g. category_images/example.jpg) — not a file upload."
+              label="Category Image"
+              hint="Upload a file, or paste a stored path (e.g. category_images/example.jpg)."
             >
-              <Input
-                className="mono"
-                placeholder="category_images/example.jpg"
-                {...register("image")}
+              <Controller
+                control={control}
+                name="image"
+                render={({ field }) => (
+                  <ImageUploadField
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    fileLocation={FILE_LOCATIONS.CATEGORY_IMAGES}
+                  />
+                )}
               />
             </FormField>
           </section>

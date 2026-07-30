@@ -1340,8 +1340,7 @@ export const MESSAGES = {
     },
     // AnchorMart holds no stock count — orderability is these two flags, and the
     // product-level switch overrides the variant one.
-    SOURCEABLE_HINT:
-      "A variant is only orderable when both it and its product are sourceable.",
+    SOURCEABLE_HINT: "A variant is only orderable when both it and its product are sourceable.",
     ACTIONS: {
       EDIT: "Edit variant",
       DELETE: "Delete variant",
@@ -1995,7 +1994,8 @@ export const MESSAGES = {
       ALREADY_REVIEWED: "Reviewed",
       // The API's own words: this is a bookkeeping flag, so say so in the UI
       // rather than implying it advances the order.
-      REVIEW_NOTE: "Marking a report reviewed only records that you have seen it — it does not advance the order or release billing.",
+      REVIEW_NOTE:
+        "Marking a report reviewed only records that you have seen it — it does not advance the order or release billing.",
       REVIEWED_TOAST: "Report marked as reviewed",
       REVIEW_ERROR: "Failed to mark the report as reviewed",
     },
@@ -2505,6 +2505,246 @@ export const MESSAGES = {
         `Partner ${partner} assigned successfully to ${order}`,
       ASSIGN_ERROR: "Failed to assign the order. Please try again.",
     },
+  },
+  PORTS: {
+    TITLE: "Ports",
+    SUBTITLE: "The port directory vessels, shops and orders are located against.",
+    DASH: "—",
+    ADD: "Add Port",
+    SEARCH_PLACEHOLDER: "Search port name, code or country…",
+    EMPTY: "No ports found.",
+    FETCH_ERROR: "Failed to load ports.",
+    STATUS_FILTER: { ACTIVE: "Active", INACTIVE: "Inactive" },
+    COLUMNS: {
+      CODE: "Code",
+      PORT: "Port",
+      COUNTRY: "Country",
+      REGION: "Region",
+      STATUS: "Status",
+      ACTIONS: "Actions",
+    },
+    FIELDS: {
+      CODE: "Port Code *",
+      CODE_PLACEHOLDER: "e.g. INMUM",
+      NAME: "Port Name *",
+      NAME_PLACEHOLDER: "e.g. Mumbai Port",
+      COUNTRY: "Country",
+      COUNTRY_PLACEHOLDER: "e.g. India",
+      REGION: "Region",
+      REGION_PLACEHOLDER: "e.g. Maharashtra",
+      ACTIVE: "Active",
+    },
+    FORM: {
+      ADD_TITLE: "Add Port",
+      ADD_SUBTITLE: "Ports appear in vessel profiles, order locations and shop coverage.",
+      EDIT_TITLE: "Edit Port",
+      EDIT_SUBTITLE: "Changes apply everywhere this port is referenced.",
+      SUBMIT: "Save Port",
+      SAVING: "Saving…",
+    },
+    DELETE_CONFIRM: {
+      TITLE: "Delete this port?",
+      MESSAGE:
+        "Orders and vessel profiles already pointing at this port keep their snapshot, but it can no longer be selected.",
+      CONFIRM: "Delete Port",
+    },
+    TOAST: {
+      ADD_SUCCESS: "Port created.",
+      ADD_ERROR: "Failed to create the port.",
+      UPDATE_SUCCESS: "Port updated.",
+      UPDATE_ERROR: "Failed to update the port.",
+      DELETE_SUCCESS: "Port deleted.",
+      DELETE_ERROR: "Failed to delete the port.",
+    },
+  },
+  CHAT: {
+    DASH: "—",
+    SUPPORT: {
+      TITLE: "Support Threads",
+      SUBTITLE: "Conversations sailors and partners opened with the support desk.",
+      SEARCH_PLACEHOLDER: "Search support threads…",
+      EMPTY: "No support threads yet.",
+    },
+    DELIVERY: {
+      TITLE: "Chat Monitor",
+      SUBTITLE: "Order conversations between sailors, partners and admins.",
+      SEARCH_PLACEHOLDER: "Search order threads…",
+      EMPTY: "No order threads yet.",
+    },
+    THREADS: {
+      FETCH_ERROR: "Failed to load conversations.",
+      UNREAD: (n: number) => `${n} unread`,
+      NO_PREVIEW: "No messages yet",
+    },
+    MESSAGES: {
+      PLACEHOLDER_TITLE: "Select a conversation",
+      PLACEHOLDER_BODY: "Pick a thread on the left to read its messages.",
+      EMPTY: "This thread has no messages yet.",
+      FETCH_ERROR: "Failed to load messages.",
+      DELETED: "This message was deleted.",
+      ATTACHMENT: "Attachment",
+      REFRESH: "Refresh",
+      // There is no admin REST endpoint for sending — messages go over the chat
+      // websocket. Saying so beats rendering a composer that can't work.
+      READ_ONLY: "Read-only view. Replies are sent from the chat service, not the admin panel.",
+      ORDER_PREFIX: "Order",
+    },
+  },
+  NOTIFICATIONS: {
+    TITLE: "Notifications",
+    SUBTITLE: "Compose and send messages to sailors, partners and staff.",
+    DASH: "—",
+    TABS: {
+      ROLE: "Role Notification",
+      BROADCAST: "Broadcast",
+    },
+    REACH: {
+      TITLE: "Estimated Reach",
+      TOTAL: (n: number) => `${n.toLocaleString("en-US")} recipients`,
+      EMPTY: "No reach data for this type.",
+      ERROR: "Couldn't load the audience preview.",
+      // The counts are an upper bound: the dispatcher still drops a message for
+      // anyone who muted the type, and a promo also honours the channel toggles.
+      CAVEAT:
+        "An upper bound — the dispatcher still drops the message for anyone who muted this type.",
+    },
+    TRAITS: {
+      PUSH_ON: "Sends a push notification",
+      PUSH_OFF: "In-app only — this type never pushes",
+      PROMOTIONAL: "Promotional — honours the marketing opt-out and stays out of the curated inbox",
+      TRANSACTIONAL: "Transactional — always reaches the user",
+    },
+    ROLE_FORM: {
+      TITLE: "Send to a role",
+      SUBTITLE: "Everyone holding the selected role receives this message.",
+      ROLE: "Recipient Role",
+      TYPE: "Notification Type",
+      TITLE_FIELD: "Title",
+      TITLE_PLACEHOLDER: "e.g. Scheduled maintenance tonight",
+      MESSAGE: "Message",
+      MESSAGE_PLACEHOLDER: "What should the recipients read?",
+      METADATA: "Metadata (JSON)",
+      METADATA_HINT: "Optional. Carried into the FCM payload — must be a JSON object.",
+      METADATA_PLACEHOLDER: '{ "screen": "orders" }',
+      METADATA_INVALID: "Metadata must be valid JSON (an object).",
+      SUBMIT: "Send Notification",
+      SENDING: "Sending…",
+      CONFIRM_TITLE: "Send this notification?",
+      CONFIRM_MESSAGE: (role: string, count: number) =>
+        `This will be sent to every ${role} — about ${count.toLocaleString("en-US")} recipient(s). It can't be recalled.`,
+      SUCCESS: "Notification sent.",
+      ERROR: "Failed to send the notification.",
+    },
+    BROADCAST_FORM: {
+      TITLE: "Broadcast to everyone",
+      SUBTITLE: "Reaches every user on the platform, regardless of role.",
+      TITLE_FIELD: "Title",
+      TITLE_PLACEHOLDER: "e.g. New express catalog is live",
+      MESSAGE: "Message",
+      MESSAGE_PLACEHOLDER: "What should everyone read?",
+      IMAGE: "Image Path",
+      // notification_images/ is not one of the five presigned-mintable
+      // directories, so this one really is paste-only.
+      IMAGE_HINT:
+        "Optional stored path (e.g. notification_images/banner.jpg). This directory can't be uploaded to from here.",
+      IMAGE_PLACEHOLDER: "notification_images/banner.jpg",
+      SUBMIT: "Send Broadcast",
+      SENDING: "Sending…",
+      CONFIRM_TITLE: "Broadcast to every user?",
+      CONFIRM_MESSAGE:
+        "This reaches every user on the platform and can't be recalled. Send it anyway?",
+      SUCCESS: "Broadcast sent.",
+      ERROR: "Failed to send the broadcast.",
+    },
+    VALIDATION: {
+      TITLE_REQUIRED: "Title is required",
+      MESSAGE_REQUIRED: "Message is required",
+    },
+    ROLE_LABELS: {
+      customer: "Sailors (customers)",
+      delivery_partner: "Delivery partners",
+      seller: "Sellers",
+      admin: "Admins",
+      super_admin: "Super admins",
+    } as Record<string, string>,
+    TYPE_LABELS: {
+      order_update: "Order update",
+      payment: "Payment",
+      promo: "Promotion",
+      system: "System",
+    } as Record<string, string>,
+  },
+  RATINGS: {
+    TITLE: "Ratings & Reviews",
+    SUBTITLE: "Delivery and app feedback from sailors.",
+    DASH: "—",
+    TABS: {
+      DELIVERY: "Delivery Reviews",
+      APP: "App Reviews",
+    },
+    WINDOW: {
+      PLACEHOLDER: "Time window",
+      ALL_TIME: "All time",
+      DAYS_7: "Last 7 days",
+      DAYS_30: "Last 30 days",
+      DAYS_90: "Last 90 days",
+    },
+    SUMMARY: {
+      DELIVERY_AVG: "Avg. Delivery Rating",
+      DELIVERY_COUNT: "Delivery Reviews",
+      APP_AVG: "Avg. App Rating",
+      APP_COUNT: "App Reviews",
+      // An average of null means nobody rated in the window — deliberately not
+      // rendered as 0, which would read as "everybody rated zero".
+      NOT_RATED: "Not rated yet",
+      TAGS_TITLE: "Quick Tag Mentions",
+      TAGS_EMPTY: "No quick tags yet in this window.",
+      CACHE_NOTE:
+        "Totals are cached for about 5 minutes, so a brand-new review may not appear yet.",
+    },
+    FILTERS: {
+      RATING_PLACEHOLDER: "All ratings",
+      RATING_OPTION: (n: number) => `${n} star${n === 1 ? "" : "s"}`,
+      PLATFORM_PLACEHOLDER: "All platforms",
+      VERSION_PLACEHOLDER: "App version",
+    },
+    DELIVERY: {
+      SEARCH_PLACEHOLDER: "Search order no., sailor email or comment…",
+      EMPTY: "No delivery reviews found.",
+      FETCH_ERROR: "Failed to load delivery reviews.",
+      NO_PARTNER: "Partner not resolved",
+      COLUMNS: {
+        ORDER: "Order",
+        SAILOR: "Sailor",
+        PARTNER: "Delivered By",
+        RATING: "Rating",
+        TAGS: "Quick Tags",
+        COMMENT: "Comment",
+        DATE: "Submitted",
+      },
+    },
+    APP: {
+      SEARCH_PLACEHOLDER: "Search user email or feedback…",
+      EMPTY: "No app reviews found.",
+      FETCH_ERROR: "Failed to load app reviews.",
+      COLUMNS: {
+        USER: "User",
+        RATING: "Rating",
+        FEEDBACK: "Feedback",
+        PLATFORM: "Platform",
+        VERSION: "Version",
+        DATE: "Submitted",
+      },
+    },
+    // Human labels for DeliveryRating.QuickTag values.
+    TAG_LABELS: {
+      on_time: "On time",
+      correct_items: "Correct items",
+      careful_handling: "Careful handling",
+      friendly: "Friendly",
+      late: "Late",
+      wrong_items: "Wrong items",
+    } as Record<string, string>,
   },
   COMMON: {
     SAVE_CHANGES: "Save Changes",

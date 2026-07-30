@@ -2,7 +2,6 @@ import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { DynamicTabs } from "@/components/common/DynamicTabs";
 import { FormField } from "@/components/common/FormField";
 import { FormRow } from "@/components/common/FormRow";
-import { StringListField } from "@/components/common/StringListField";
 import { Input } from "@/components/ui/input";
 import {
   Sheet,
@@ -15,17 +14,11 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useGetCategoriesQuery } from "@/features/catalog";
+import { FILE_LOCATIONS, ImageListField } from "@/features/media";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  IconBoxSeam,
-  IconCheck,
-  IconCloudUpload,
-  IconPhoto,
-  IconPlus,
-  IconTrash,
-} from "@tabler/icons-react";
+import { IconBoxSeam, IconCheck, IconPhoto, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -347,23 +340,12 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
               <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.MEDIA}</div>
               <FormField
                 label="Product Images"
-                hint="Direct upload is not supported by the API — manage the stored image paths below."
+                hint="Upload files, or paste a stored path (e.g. product_images/example.png)."
               >
-                <div className="upload-area opacity-60 pointer-events-none">
-                  <IconCloudUpload size={28} className="block mx-auto mb-1.5" />
-                  Drag &amp; drop images here, or click to upload
-                  <div className="fg-hint mt-1">JPG · PNG · WEBP · AVIF — multiple allowed</div>
-                </div>
-              </FormField>
-
-              <FormField label="Image Paths">
-                <StringListField
+                <ImageListField
                   values={images}
                   onChange={setImages}
-                  placeholder="product_images/example.png"
-                  addLabel="Add Image Path"
-                  emptyHint="No images yet — add one below."
-                  mono
+                  fileLocation={FILE_LOCATIONS.PRODUCT_IMAGES}
                 />
               </FormField>
 

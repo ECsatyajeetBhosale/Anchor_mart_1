@@ -15,11 +15,13 @@ import {
   IconFileInvoice,
   IconLayoutDashboard,
   IconLifebuoy,
+  IconMapPin,
   IconMessages,
   IconMotorbike,
   IconPackage,
   IconSettings,
   IconStar,
+  IconStarFilled,
   IconUsers,
 } from "@tabler/icons-react";
 import type { ComponentType } from "react";
@@ -113,6 +115,12 @@ export const NAV_SECTIONS: NavSection[] = [
         path: APP_ROUTES.SHIP_AGENTS,
       },
       {
+        key: "ports",
+        label: "Ports",
+        icon: IconMapPin,
+        path: APP_ROUTES.PORTS,
+      },
+      {
         key: "spares",
         label: "Marine Emergency Spares",
         icon: IconEngine,
@@ -129,6 +137,12 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "Rewards & Coupons",
         icon: IconStar,
         path: APP_ROUTES.REWARDS,
+      },
+      {
+        key: "ratings",
+        label: "Ratings & Reviews",
+        icon: IconStarFilled,
+        path: APP_ROUTES.RATINGS,
       },
     ],
   },
