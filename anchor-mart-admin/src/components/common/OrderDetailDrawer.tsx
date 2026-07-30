@@ -253,10 +253,6 @@ export function OrderDetailDrawer({
                 >
                   {order.status}
                 </Badge>
-                <Badge variant="teal" className="h-auto text-[12px] px-3 py-[5px]">
-                  <IconClock size={13} className="mr-1 inline" />
-                  {D.LIVE_TRACKING}
-                </Badge>
               </div>
             </SheetHeader>
 

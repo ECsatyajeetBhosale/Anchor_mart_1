@@ -28,6 +28,7 @@ export const APP_ROUTES = {
   SETTINGS_USERS: "/settings/users",
   REQUESTS: "/requests",
   SPARES: "/spares",
+  GIFTS: "/gifts",
   RATINGS: "/ratings",
   PORTS: "/ports",
 } as const;

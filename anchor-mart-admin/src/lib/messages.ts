@@ -1230,15 +1230,15 @@ export const MESSAGES = {
       ROLE: "Delivery Partner",
       SECTION: "Partner Details",
       FIRST_NAME: "First Name",
-      FIRST_NAME_PLACEHOLDER: "e.g. Abhishek",
+      FIRST_NAME_PLACEHOLDER: "e.g. John",
       LAST_NAME: "Last Name",
-      LAST_NAME_PLACEHOLDER: "e.g. Kuwar",
+      LAST_NAME_PLACEHOLDER: "e.g. Doe",
       EMAIL: "Email",
-      EMAIL_PLACEHOLDER: "e.g. partner@anchormart.io",
+      EMAIL_PLACEHOLDER: "user@anchormart.io",
       COUNTRY_CODE: "Country Code",
       COUNTRY_CODE_PLACEHOLDER: "e.g. +91",
       WHATSAPP: "WhatsApp Number",
-      WHATSAPP_PLACEHOLDER: "e.g. 9989091871",
+      WHATSAPP_PLACEHOLDER: "9989091871",
       PORT: "Port Zone",
       JOINED: "Joined",
       DELIVERIES: "Total Deliveries",
@@ -2519,6 +2519,187 @@ export const MESSAGES = {
       ASSIGN_ERROR: "Failed to assign the order. Please try again.",
     },
   },
+  GIFTS: {
+    TITLE: "Surprise Gifts",
+    DASH: "—",
+    CONFIGURE: "Programme Settings",
+    SEARCH_PLACEHOLDER: "Search vessel name or IMO…",
+    EMPTY: "No vessels currently qualify.",
+    // A vessel below min_orders isn't hidden by a filter — it is out of scope
+    // entirely and the API 404s it, so an empty list needs explaining.
+    EMPTY_HINT: (min: number) =>
+      `A vessel joins this list once it has at least ${min} live giftable orders.`,
+    FETCH_ERROR: "Failed to load vessels.",
+    // Reads keep working while the switch is off so the screen stays visible;
+    // only the writes that move goods are refused.
+    PROGRAM_OFF:
+      "The surprise gift programme is switched off. You can browse, but granting and revoking are disabled until it's turned back on.",
+    STATS: {
+      SHIPS: "Vessels Qualifying",
+      SAILORS: "Sailors In Scope",
+      GIFTED: "Sailors Gifted",
+      // The actionable number: who could still be gifted on a qualifying vessel.
+      AWAITING: "Awaiting Decision",
+    },
+    COLUMNS: {
+      VESSEL: "Vessel",
+      PORT_CALL: "Port Call",
+      CREW: "Crew Activity",
+      GIFTED: "Gift Progress",
+      VALUE: "Live Value",
+      ACTIONS: "",
+    },
+    // Orders and distinct sailors differ often — one sailor placing four orders
+    // is not a crew, and the admin needs to see that before granting.
+    CREW_ORDERS: (n: number) => `${n} order${n === 1 ? "" : "s"}`,
+    CREW_SAILORS: (n: number) => `${n} sailor${n === 1 ? "" : "s"}`,
+    GIFTED_RATIO: (gifted: number, total: number) => `${gifted} of ${total}`,
+    // The window is the whole decision: the gift rides an order that has to be
+    // delivered before the vessel sails.
+    PORT_WINDOW: (from: string, to: string) => `${from} → ${to}`,
+    SAILS_TODAY: "Sails today",
+    SAILS_IN: (days: number) => `Sails in ${days}d`,
+    SAILED: "Departed",
+    SAILS_SOON_TITLE:
+      "This vessel sails soon — a gift has to reach the sailor before the order is delivered.",
+    BADGE_HISTORY: "Gifted before",
+    BADGE_HISTORY_TITLE:
+      "This crew was gifted on an earlier call. Judgment aid only — it blocks nothing.",
+    BADGE_DISMISSED: "Dismissed",
+    FILTERS: {
+      GIFT_STATUS_PLACEHOLDER: "Gift state",
+      // Explicit clear option — without one the filter can be set but never
+      // unset, since a placeholder isn't selectable once a value is chosen.
+      GIFT_STATUS_ANY: "Any gift state",
+      GIFT_STATUS_NONE: "None gifted",
+      GIFT_STATUS_PARTIAL: "Partly gifted",
+      GIFT_STATUS_ALL: "All gifted",
+      ORDERING_PLACEHOLDER: "Sort",
+      ORDERING_ARRIVAL: "Arriving soonest",
+      ORDERING_ARRIVAL_DESC: "Arriving latest",
+      ORDERING_ORDERS: "Most orders",
+      VISIBILITY_PLACEHOLDER: "Visibility",
+      VISIBILITY_ACTIVE: "Active vessels",
+      VISIBILITY_ALL: "Include dismissed",
+    },
+    ACTION_DISMISS: "Dismiss",
+    ACTION_UNDISMISS: "Restore",
+    // Gifting is a ship-level operation: one action per vessel, never per order.
+    ACTION_GRANT: "Gift Whole Ship",
+    ACTION_REVOKE: "Revoke Gift",
+    ACTION_GRANTING: "Granting…",
+    ACTION_REVOKING: "Revoking…",
+    TOAST: {
+      DISMISS_SUCCESS: "Vessel dismissed.",
+      DISMISS_ERROR: "Failed to dismiss the vessel.",
+      UNDISMISS_SUCCESS: "Vessel restored.",
+      UNDISMISS_ERROR: "Failed to restore the vessel.",
+    },
+    CONFIG: {
+      TITLE: "Programme Settings",
+      SUBTITLE: "Two settings, because two settings is all that changes anything.",
+      ENABLED: "Programme enabled",
+      ENABLED_HINT:
+        "When off, the screen stays browsable but granting and revoking are refused, and the hourly admin nudge stops.",
+      MIN_ORDERS: "Minimum live orders",
+      MIN_ORDERS_HINT:
+        "Live giftable orders a vessel needs before it appears at all. Minimum 2 — the scheme is about several sailors on one vessel.",
+      MIN_ORDERS_ERROR: "Must be at least 2.",
+      SUBMIT: "Save Settings",
+      SAVING: "Saving…",
+      SUCCESS: "Programme settings saved.",
+      ERROR: "Failed to save the settings.",
+    },
+    DETAIL: {
+      TITLE: "Vessel",
+      SUBTITLE: "Sailors on this vessel, with their live orders beneath each one.",
+      // Split into a work queue and a done pile: the admin's question is "who
+      // is left", and a flat roster makes them work that out for themselves.
+      SECTION_AWAITING: (n: number) => `Awaiting a decision · ${n}`,
+      SECTION_GIFTED: (n: number) => `Already gifted · ${n}`,
+      NO_SAILORS: "No sailors with live giftable orders.",
+      ALL_GIFTED: "Every sailor on this vessel has been gifted.",
+      // The whole-ship grant rides each sailor's earliest-arriving order, so
+      // naming that order up front says what the bulk button will actually do.
+      AUTO_PICK: "Auto-pick",
+      AUTO_PICK_TITLE:
+        "The whole-ship grant would put this sailor's gift on this order — their earliest arrival.",
+      SUMMARY_SAILORS: "Sailors",
+      SUMMARY_ORDERS: "Live orders",
+      SUMMARY_AWAITING: "Not yet gifted",
+      SUMMARY_COVERAGE: "Gift coverage",
+      // Column headers for a sailor's order list. Repeated per sailor so no
+      // value is ever an unlabelled figure the reader has to decode.
+      ORDER_COLS: {
+        ORDER: "Order",
+        VALUE: "Value",
+        PORT: "Port",
+        ARRIVES: "Arrives",
+        DEPARTS: "Departs",
+      },
+      // Always the same facts, whether or not the sailor holds a gift — the
+      // secondary line used to swap meaning between states.
+      SAILOR_META: (orders: number, value: string) =>
+        `${orders} live order${orders === 1 ? "" : "s"} · $${value} total`,
+      GIFT_LINE_LABEL: "Gift",
+      GIFT_ON_ORDER: (orderNumber: string) => `on ${orderNumber}`,
+      GIFT_UNKNOWN_CARRIER: "carrier order no longer live",
+      FETCH_ERROR: "Failed to load this vessel.",
+      GRANT_SHIP: "Gift the whole ship",
+      GRANTING: "Granting…",
+      // Re-runnable by design: it fills in sailors who have joined since.
+      GRANT_SHIP_HINT:
+        "Grants one gift per not-yet-gifted sailor, riding their earliest-arriving order. Safe to run again as more of the crew orders.",
+      REVOKE_SHIP_TITLE: "Revoke this ship's gifts?",
+      REVOKE_SHIP_HINT:
+        "Every gift on this vessel is taken back and those sailors become giftable again. They are not notified — they were never told what the gift was.",
+      REVOKE_SHIP_SUBMIT: "Revoke All Gifts",
+      // The API has no ship-level revoke, so the screen walks each carrier
+      // order. A partial failure has to be reported as one, not swallowed.
+      REVOKE_SHIP_DONE: (n: number) => `Revoked ${n} gift(s).`,
+      REVOKE_SHIP_PARTIAL: (ok: number, failed: number) =>
+        `Revoked ${ok}, but ${failed} could not be revoked — reopen the vessel to see which.`,
+      REVOKE_SHIP_NONE: "No gifts to revoke on this vessel.",
+      GRANT_CONFIRM_TITLE: "Gift this whole ship?",
+      GRANT_CONFIRM_MESSAGE: (n: number) =>
+        `Up to ${n} sailor(s) will each receive one gift. Sailors who already hold one are skipped, never given a second.`,
+      SAILOR_ORDERS: (n: number) => `${n} order${n === 1 ? "" : "s"}`,
+      PREVIOUSLY_GIFTED: (n: number) => `Gifted ${n}× on earlier calls`,
+      GIFT_HELD: "Gift granted",
+      GIFT_BY: (who: string, when: string) => `by ${who} · ${when}`,
+      GIFT_CARRIER: "Carries the gift",
+      GIFT_SOURCE_BULK: "Whole-ship grant",
+      GIFT_SOURCE_MANUAL: "Chosen order",
+      HANDOVER_PENDING: "Awaiting handover",
+      HANDOVER_DELIVERED: "Handed over",
+      NO_ORDERS: "No live orders.",
+      GRANT_ORDER: "Gift this order",
+      REVOKE: "Revoke gift",
+      REVOKING: "Revoking…",
+      // The cutoff is items_collected: once the partner has the parcel the gift
+      // is physically gone and the system must not pretend otherwise.
+      REVOKE_TITLE: "Revoke this gift?",
+      REVOKE_HINT:
+        "The sailor becomes giftable again, so you can move the gift to another order. They are not notified — they were never told what the gift was.",
+      REVOKE_REASON: "Reason",
+      REVOKE_REASON_PLACEHOLDER: "Why is this being revoked?",
+      REVOKE_REASON_REQUIRED: "A reason is required.",
+      REVOKE_SUBMIT: "Revoke Gift",
+      GRANT_ORDER_TITLE: "Gift this order?",
+      GRANT_ORDER_HINT:
+        "Picks this specific order to carry the sailor's gift instead of their earliest-arriving one.",
+      GRANT_ORDER_NOTE: "Note",
+      GRANT_ORDER_NOTE_HINT: "Optional, audit context only.",
+      GRANT_ORDER_SUBMIT: "Grant Gift",
+      GRANTED_TOAST: "Gift granted.",
+      GRANT_ERROR: "Failed to grant the gift.",
+      REVOKED_TOAST: "Gift revoked.",
+      REVOKE_ERROR: "Failed to revoke the gift.",
+      // The system deliberately never records what the gift is.
+      NO_ITEM_NOTE:
+        "The gift itself is prepared off-system — AnchorMart records only that an order was gifted, never what it was.",
+    },
+  },
   PORTS: {
     TITLE: "Ports",
     SUBTITLE: "The port directory vessels, shops and orders are located against.",
@@ -2792,6 +2973,28 @@ export const MESSAGES = {
       late: "Late",
       wrong_items: "Wrong items",
     } as Record<string, string>,
+  },
+  /**
+   * Shared field-validation copy. Every form that takes a person's name or a
+   * phone number reads from here, so the same input never gets two different
+   * verdicts on two different screens.
+   */
+  VALIDATION: {
+    LABELS: {
+      FIRST_NAME: "First name",
+      LAST_NAME: "Last name",
+      NAME: "Name",
+      PHONE: "Phone number",
+      WHATSAPP: "WhatsApp number",
+      COUNTRY_CODE: "Country code",
+    },
+    REQUIRED: (label: string) => `${label} is required`,
+    TOO_LONG: (label: string, max: number) => `${label} must be ${max} characters or fewer`,
+    NAME_NO_DIGITS: (label: string) => `${label} can't contain numbers`,
+    NAME_NEEDS_LETTER: (label: string) => `${label} must contain at least one letter`,
+    PHONE_DIGITS: (min: number, max: number) =>
+      `Enter ${min}–${max} digits. Spaces, dashes and brackets are fine — they're removed.`,
+    COUNTRY_CODE_INVALID: "Enter a valid country code, e.g. +91",
   },
   COMMON: {
     SAVE_CHANGES: "Save Changes",

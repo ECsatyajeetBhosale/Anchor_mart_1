@@ -426,6 +426,43 @@ export const RATING_ENDPOINTS = {
 };
 
 /**
+ * Flow 20 — Surprise Gift Program.
+ *
+ * **No endpoint here accepts an item of any kind.** The system records *whether*
+ * an order was gifted, never *what* — there is no `variant_id` anywhere, by
+ * design.
+ *
+ * **No ownership gate in this flow** (decision 2026-07-28): any admin may grant,
+ * revoke and dismiss without claiming the order first. Don't add a claim check.
+ *
+ * The master switch gates only the writes that move goods — grant and revoke
+ * 409 when the programme is off, while the reads and dismiss/undismiss keep
+ * working so the screen stays usable.
+ */
+export const GIFT_ENDPOINTS = {
+  GET_CONFIG: "/superadmin/gifts/config/",
+  // PUT and PATCH are both partial — send any subset of { is_enabled, min_orders }.
+  UPDATE_CONFIG: "/superadmin/gifts/config/update/",
+  // Ship browse. One row per IMO with live giftable orders.
+  GET_SHIPS: "/superadmin/gifts/ships/",
+  // Ship detail, grouped by sailor. 404 when the vessel is below `min_orders`
+  // — sub-minimum ships are out of scope, not forbidden.
+  GET_SHIP: (imo: string) => `/superadmin/gifts/ships/${imo}/`,
+  // One gift per not-yet-gifted sailor, riding their earliest-arriving order.
+  // Re-runnable by design: call it again as more of the crew orders.
+  GRANT_SHIP: (imo: string) => `/superadmin/gifts/ships/${imo}/grant/`,
+  // List preference only — exempt from the master switch, no reason required.
+  DISMISS_SHIP: (imo: string) => `/superadmin/gifts/ships/${imo}/dismiss/`,
+  UNDISMISS_SHIP: (imo: string) => `/superadmin/gifts/ships/${imo}/undismiss/`,
+  // Pick which of a sailor's orders carries the gift. NOT a way around the ship
+  // minimum — that gate applies here too. Optional `note` (≤1000 chars).
+  GRANT_ORDER: (orderId: string) => `/superadmin/gifts/orders/${orderId}/grant/`,
+  // Requires a non-blank `reason`. Cut-off is `items_collected`: once the
+  // partner has the parcel the gift is physically gone.
+  REVOKE_ORDER: (orderId: string) => `/superadmin/gifts/orders/${orderId}/revoke/`,
+};
+
+/**
  * Flow 26 — Media Upload. Mints a short-lived, size-bounded presigned S3 POST
  * for exactly one object key; the browser then uploads straight to S3 and the
  * owning endpoint is given the returned **`file_location`** (the media-root

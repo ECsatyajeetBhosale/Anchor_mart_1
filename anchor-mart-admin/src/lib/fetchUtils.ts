@@ -64,6 +64,7 @@ export const baseApi = createApi({
     "Ratings",
     "Chats",
     "Ports",
+    "Gifts",
   ],
   endpoints: () => ({}),
 });

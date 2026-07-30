@@ -13,6 +13,7 @@ import {
   IconClipboardText,
   IconEngine,
   IconFileInvoice,
+  IconGift,
   IconLayoutDashboard,
   IconLifebuoy,
   IconMapPin,
@@ -137,6 +138,15 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "Rewards & Coupons",
         icon: IconStar,
         path: APP_ROUTES.REWARDS,
+      },
+      {
+        // Sits with the promotion surfaces, not the order funnel: Flow 20 is
+        // platform advertising ("reach, not reward"), run by whoever runs
+        // coupons and deals rather than the fulfilment desk.
+        key: "gifts",
+        label: "Surprise Gifts",
+        icon: IconGift,
+        path: APP_ROUTES.GIFTS,
       },
       {
         key: "ratings",

@@ -35,6 +35,9 @@ import { DeliveryChatsPage, SupportChatsPage } from "@/features/chat";
 // Ratings & Reviews (Flow 16 admin surfaces)
 import { RatingsPage } from "@/features/ratings";
 
+// Surprise Gift Program (Flow 20) — vessel-scoped, marketing not fulfilment
+import { GiftShipsPage } from "@/features/gifts";
+
 // Catalog operations — ports, shops, inventory, saved products
 import { PortsPage } from "@/features/catalog-ops";
 
@@ -84,6 +87,7 @@ export function AppRouter() {
             <Route path={APP_ROUTES.EXPRESS} element={<ExpressPage />} />
             <Route path={APP_ROUTES.PORTS} element={<PortsPage />} />
             <Route path={APP_ROUTES.REWARDS} element={<RewardsPage />} />
+            <Route path={APP_ROUTES.GIFTS} element={<GiftShipsPage />} />
             <Route path={APP_ROUTES.RATINGS} element={<RatingsPage />} />
             <Route path={APP_ROUTES.PARTNERS} element={<PartnersPage />} />
             <Route path={APP_ROUTES.ASSIGNMENTS} element={<AssignmentsPage />} />
