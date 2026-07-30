@@ -113,16 +113,27 @@ export const ordersApi = baseApi.injectEndpoints({
      * Flow 10 API 10 — the picking-slip PDF for any order.
      *
      * Streams a binary attachment, so the response is read as a **blob**: the
-     * default JSON handler would throw on it. `Accept` is overridden for the
-     * same reason (`prepareHeaders` only sets it when absent). Generated per
-     * request, so it is never cached — hence `keepUnusedDataFor: 0` and a lazy
-     * trigger rather than a subscription.
+     * default JSON handler would throw on it. Generated per request, so it is
+     * never cached — hence `keepUnusedDataFor: 0` and a lazy trigger rather
+     * than a subscription.
+     *
+     * ⚠️ **`Accept` must not name the PDF type.** DRF runs content negotiation
+     * before the view, against its *registered renderers* — which are JSON (and
+     * the browsable API), never `application/pdf`. Asking for
+     * `Accept: application/pdf` therefore fails negotiation outright and
+     * returns **406 "Could not satisfy the request Accept header."** without the
+     * view ever running. A wildcard Accept matches the first renderer,
+     * negotiation passes, and the view's own `FileResponse` streams the PDF
+     * with its own Content-Type — the renderer is bypassed entirely.
+     *
+     * `prepareHeaders` only defaults `Accept` when it is absent, so setting it
+     * here is what keeps `application/json` off this request.
      */
     getOrderSlip: builder.query<Blob, string>({
       query: (orderId) => ({
         url: ORDER_ENDPOINTS.ORDER_SLIP(orderId),
         method: "GET",
-        headers: { Accept: "application/pdf" },
+        headers: { Accept: "*/*" },
         /**
          * The handler runs for failures too, and a failed slip request returns
          * a JSON error body rather than a PDF. Blob-ing that would park a

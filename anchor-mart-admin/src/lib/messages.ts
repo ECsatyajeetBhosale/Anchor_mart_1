@@ -336,7 +336,6 @@ export const MESSAGES = {
         ITEMS: (n: number) => (n > 0 ? `Items & Pricing · ${n}` : "Items & Pricing"),
         FULFILMENT: "Fulfilment",
       },
-      LIVE_TRACKING: "Live Tracking",
       ORDER_INFO: "Order Information",
       TIMELINE: "Delivery Timeline",
       SAILOR: "Sailor",

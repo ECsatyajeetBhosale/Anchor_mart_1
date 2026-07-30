@@ -8,7 +8,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { IconBell, IconClock, IconPackage, IconTransfer, IconX } from "@tabler/icons-react";
+import { IconBell, IconPackage, IconTransfer, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
 import type { OrderDetail, OrderTimelineItem } from "./OrderDetailDrawer";
 import { Timeline } from "./Timeline";
@@ -96,10 +96,6 @@ export function DashboardOrderDrawer({
                   className="h-auto text-[12px] px-3 py-[5px]"
                 >
                   {order.status}
-                </Badge>
-                <Badge variant="teal" className="h-auto text-[12px] px-3 py-[5px]">
-                  <IconClock size={13} className="mr-1 inline" />
-                  Live Tracking
                 </Badge>
               </div>
 
