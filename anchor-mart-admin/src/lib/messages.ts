@@ -263,7 +263,8 @@ export const MESSAGES = {
       ACCOUNT_STATUS: "Account Status",
       ACTIVE: "Active",
       INACTIVE: "Inactive",
-      REQUIRED: "First name, email, country code and WhatsApp number are required",
+      // No blanket "these fields are required" string: the sailor form now
+      // reports per-field errors from `lib/validation` under each input.
       CANCEL: "Cancel",
       ADD_SUBMIT: "Add Sailor",
       ADDING: "Adding…",
@@ -1267,17 +1268,9 @@ export const MESSAGES = {
       MESSAGE: (name: string) => `Delete partner ${name}? This action cannot be undone.`,
       CONFIRM: "Delete",
     },
-    // Validation
-    VALIDATION: {
-      NAME_REQUIRED: "Name is required",
-      FIRST_NAME_REQUIRED: "First name is required",
-      EMAIL_REQUIRED: "Email is required",
-      EMAIL_INVALID: "Enter a valid email",
-      COUNTRY_CODE_REQUIRED: "Country code is required",
-      COUNTRY_CODE_INVALID: "Enter a valid country code (e.g. +91)",
-      WHATSAPP_REQUIRED: "WhatsApp number is required",
-      WHATSAPP_INVALID: "Enter a valid number (7–15 digits)",
-    },
+    // Validation copy lives in the shared `VALIDATION` block at the bottom of
+    // this file — the partner form builds its schema from `lib/validation`, so
+    // a local copy here would be a second, drifting source of the same strings.
     // Toasts
     TOAST: {
       ADDED: "Delivery partner onboarded successfully",
@@ -3010,6 +3003,7 @@ export const MESSAGES = {
       PHONE: "Phone number",
       WHATSAPP: "WhatsApp number",
       COUNTRY_CODE: "Country code",
+      EMAIL: "Email address",
     },
     REQUIRED: (label: string) => `${label} is required`,
     TOO_LONG: (label: string, max: number) => `${label} must be ${max} characters or fewer`,
@@ -3018,6 +3012,7 @@ export const MESSAGES = {
     PHONE_DIGITS: (min: number, max: number) =>
       `Enter ${min}–${max} digits. Spaces, dashes and brackets are fine — they're removed.`,
     COUNTRY_CODE_INVALID: "Enter a valid country code, e.g. +91",
+    EMAIL_INVALID: "Enter a valid email address",
   },
   COMMON: {
     SAVE_CHANGES: "Save Changes",

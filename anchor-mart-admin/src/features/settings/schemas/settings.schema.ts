@@ -1,3 +1,11 @@
+import { MESSAGES } from "@/lib/messages";
+import {
+  countryCodeField,
+  emailField,
+  firstNameField,
+  lastNameField,
+  phoneNumberField,
+} from "@/lib/validation";
 import { z } from "zod";
 
 /** FAQ create/update — the API accepts exactly these three fields. */
@@ -14,16 +22,12 @@ export type FaqFormData = z.infer<typeof faqSchema>;
  * required except `last_name`.
  */
 export const createUserSchema = z.object({
-  first_name: z.string().trim().min(1, "First name is required"),
-  last_name: z.string().trim().default(""),
-  email: z.string().min(1, "Email is required").email("Enter a valid email address"),
+  first_name: firstNameField(),
+  last_name: lastNameField(),
+  email: emailField(),
   role: z.enum(["customer", "seller", "admin", "super_admin", "delivery_partner"]),
-  country_code: z.string().trim().min(1, "Country code is required"),
-  whatsapp_number: z
-    .string()
-    .trim()
-    .min(1, "WhatsApp number is required")
-    .regex(/^\d{6,15}$/, "Enter digits only (6–15)"),
+  country_code: countryCodeField(),
+  whatsapp_number: phoneNumberField(MESSAGES.VALIDATION.LABELS.WHATSAPP),
 });
 
 export type CreateUserFormData = z.infer<typeof createUserSchema>;

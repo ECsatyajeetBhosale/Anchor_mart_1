@@ -18,6 +18,9 @@ const V = MESSAGES.VALIDATION;
 /** Django's `User.first_name` / `last_name` are `max_length=150`. */
 export const NAME_MAX = 150;
 
+/** RFC 5321's cap on a full address. Django's `EmailField` defaults to 254 too. */
+export const EMAIL_MAX = 254;
+
 /**
  * E.164 caps a full international number at 15 digits. The floor is deliberately
  * loose: national numbers are short in some countries, and rejecting a real
@@ -32,6 +35,12 @@ const HAS_DIGIT = /\d/;
 
 /** Formatting humans type into phone fields, stripped before validating. */
 const PHONE_SEPARATORS = /[\s()\-.]/g;
+
+/** Digits-only, once separators are stripped. */
+const PHONE_DIGITS = new RegExp(`^\\d{${PHONE_MIN_DIGITS},${PHONE_MAX_DIGITS}}$`);
+
+/** A dialling prefix in its normalised `+NN` form. */
+const COUNTRY_CODE = /^\+\d{1,4}$/;
 
 /**
  * A person's name.
@@ -79,10 +88,23 @@ export function phoneNumberField(label: string = V.LABELS.PHONE) {
       z
         .string()
         .min(1, V.REQUIRED(label))
-        .regex(
-          new RegExp(`^\\d{${PHONE_MIN_DIGITS},${PHONE_MAX_DIGITS}}$`),
-          V.PHONE_DIGITS(PHONE_MIN_DIGITS, PHONE_MAX_DIGITS),
-        ),
+        .regex(PHONE_DIGITS, V.PHONE_DIGITS(PHONE_MIN_DIGITS, PHONE_MAX_DIGITS)),
+    );
+}
+
+/**
+ * A phone number that may be left blank — same digit rules once something is
+ * typed. For forms where the contact itself is optional (ship agents, where the
+ * backend only requires *one* of mobile/email).
+ */
+export function optionalPhoneNumberField() {
+  return z
+    .string()
+    .trim()
+    .transform((value) => value.replace(PHONE_SEPARATORS, ""))
+    .refine(
+      (value) => value === "" || PHONE_DIGITS.test(value),
+      V.PHONE_DIGITS(PHONE_MIN_DIGITS, PHONE_MAX_DIGITS),
     );
 }
 
@@ -98,15 +120,43 @@ export function countryCodeField(label: string = V.LABELS.COUNTRY_CODE) {
   return z
     .string()
     .trim()
-    .transform((value) => {
-      const compact = value.replace(/\s/g, "");
-      if (!compact) return "";
-      return compact.startsWith("+") ? compact : `+${compact}`;
-    })
-    .pipe(
-      z
-        .string()
-        .min(1, V.REQUIRED(label))
-        .regex(/^\+\d{1,4}$/, V.COUNTRY_CODE_INVALID),
-    );
+    .transform(normaliseDiallingPrefix)
+    .pipe(z.string().min(1, V.REQUIRED(label)).regex(COUNTRY_CODE, V.COUNTRY_CODE_INVALID));
+}
+
+/** Country code that may be left blank; still normalised and checked when given. */
+export function optionalCountryCodeField() {
+  return z
+    .string()
+    .trim()
+    .transform(normaliseDiallingPrefix)
+    .refine((value) => value === "" || COUNTRY_CODE.test(value), V.COUNTRY_CODE_INVALID);
+}
+
+/** Adds the leading "+" the user shouldn't have to remember. */
+function normaliseDiallingPrefix(value: string): string {
+  const compact = value.replace(/\s/g, "");
+  if (!compact) return "";
+  return compact.startsWith("+") ? compact : `+${compact}`;
+}
+
+/**
+ * An email address.
+ *
+ * Zod's `.email()` is the whole rule — no extra regex. Hand-rolled email
+ * patterns reject valid addresses (plus-addressing, new TLDs, long subdomains)
+ * far more often than they catch anything the backend wouldn't.
+ */
+export function emailField(label: string = V.LABELS.EMAIL) {
+  return z
+    .string()
+    .trim()
+    .min(1, V.REQUIRED(label))
+    .max(EMAIL_MAX, V.TOO_LONG(label, EMAIL_MAX))
+    .email(V.EMAIL_INVALID);
+}
+
+/** Email that may be left blank — must still be a valid address when given. */
+export function optionalEmailField(label: string = V.LABELS.EMAIL) {
+  return z.union([z.literal(""), emailField(label)]);
 }

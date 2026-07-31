@@ -11,10 +11,13 @@ import {
 } from "@/components/ui/sheet";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { IconCheck, IconUser } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useCreateSailorMutation } from "../api/sailorApi";
+import { EMPTY_SAILOR_FORM, type SailorFormData, sailorFormSchema } from "../schemas/sailor.schema";
 
 const F = MESSAGES.SAILORS.FORM;
 
@@ -33,42 +36,33 @@ export interface SailorAddDrawerProps {
 export function SailorAddDrawer({ isOpen, onClose }: SailorAddDrawerProps) {
   const [createSailor, { isLoading: isCreating }] = useCreateSailorMutation();
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [countryCode, setCountryCode] = useState("91");
-  const [whatsapp, setWhatsapp] = useState("");
-  const [email, setEmail] = useState("");
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<SailorFormData>({
+    resolver: zodResolver(sailorFormSchema),
+    defaultValues: EMPTY_SAILOR_FORM,
+  });
 
   // Blank the form each time the drawer opens.
   useEffect(() => {
-    if (!isOpen) return;
-    setFirstName("");
-    setLastName("");
-    setCountryCode("91");
-    setWhatsapp("");
-    setEmail("");
-  }, [isOpen]);
+    if (isOpen) reset(EMPTY_SAILOR_FORM);
+  }, [isOpen, reset]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // create-user requires email, role, first_name, country_code and
-    // whatsapp_number; only last_name is optional. Checked here so a missing
-    // field prompts rather than returning a 400.
-    if (!firstName.trim() || !email.trim() || !whatsapp.trim() || !countryCode.trim()) {
-      toast.error(F.REQUIRED);
-      return;
-    }
-    const code = countryCode.trim();
+  // The schema has already trimmed every field and normalised the country code
+  // to create-user's documented `+NN` form, so this just maps and sends.
+  const onSubmit = async (form: SailorFormData) => {
     try {
       const response = await createSailor({
-        email: email.trim(),
+        email: form.email,
         // A sailor is created as a `customer` — there is no "sailor" role.
         role: "customer",
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        // create-user's contract shows the code prefixed with "+".
-        country_code: code.startsWith("+") ? code : `+${code}`,
-        whatsapp_number: whatsapp.trim(),
+        first_name: form.first_name,
+        last_name: form.last_name,
+        country_code: form.country_code,
+        whatsapp_number: form.whatsapp_number,
       }).unwrap();
       onClose();
       toast.success(getApiMessage(response) ?? F.ADD_SUCCESS);
@@ -98,49 +92,49 @@ export function SailorAddDrawer({ isOpen, onClose }: SailorAddDrawerProps) {
           </div>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
           <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
             <FormRow>
-              <FormField label={F.FIRST_NAME}>
+              <FormField label={F.FIRST_NAME} error={errors.first_name?.message}>
                 <Input
                   placeholder={F.FIRST_NAME_PLACEHOLDER}
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
+                  error={!!errors.first_name}
+                  {...register("first_name")}
                 />
               </FormField>
-              <FormField label={F.LAST_NAME}>
+              <FormField label={F.LAST_NAME} error={errors.last_name?.message}>
                 <Input
                   placeholder={F.LAST_NAME_PLACEHOLDER}
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
+                  error={!!errors.last_name}
+                  {...register("last_name")}
                 />
               </FormField>
             </FormRow>
 
             <FormRow>
-              <FormField label={F.COUNTRY_CODE}>
+              <FormField label={F.COUNTRY_CODE} error={errors.country_code?.message}>
                 <Input
                   placeholder={F.COUNTRY_CODE_PLACEHOLDER}
-                  value={countryCode}
-                  onChange={(e) => setCountryCode(e.target.value)}
+                  error={!!errors.country_code}
+                  {...register("country_code")}
                 />
               </FormField>
-              <FormField label={F.WHATSAPP}>
+              <FormField label={F.WHATSAPP} error={errors.whatsapp_number?.message}>
                 <Input
                   placeholder={F.WHATSAPP_PLACEHOLDER}
-                  value={whatsapp}
-                  onChange={(e) => setWhatsapp(e.target.value)}
+                  error={!!errors.whatsapp_number}
+                  {...register("whatsapp_number")}
                 />
               </FormField>
             </FormRow>
 
             <FormRow columns={1}>
-              <FormField label={F.EMAIL}>
+              <FormField label={F.EMAIL} error={errors.email?.message}>
                 <Input
                   type="email"
                   placeholder={F.EMAIL_PLACEHOLDER}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  error={!!errors.email}
+                  {...register("email")}
                 />
               </FormField>
             </FormRow>
