@@ -1,6 +1,7 @@
-import { useLocation } from "react-router-dom";
-import { IconBell, IconRefresh } from "@tabler/icons-react";
+import { APP_ROUTES } from "@/lib/constants";
 import { NAV_SECTIONS } from "@/lib/navigation";
+import { IconBell, IconRefresh } from "@tabler/icons-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 interface HeaderProps {
@@ -10,6 +11,7 @@ interface HeaderProps {
 
 export function Header(_props: HeaderProps) {
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Find the page title based on active path
   let pageTitle = "Dashboard";
@@ -32,12 +34,18 @@ export function Header(_props: HeaderProps) {
         {pageTitle}
       </div>
 
-      <button className="tb-action" title="Notifications">
+      <button
+        type="button"
+        className="tb-action"
+        title="Notifications"
+        aria-label="Notifications"
+        onClick={() => navigate(APP_ROUTES.NOTIFICATIONS)}
+      >
         <IconBell size={17} />
         <div className="tb-notif-dot" />
       </button>
 
-      <button className="tb-action" title="Refresh data" onClick={handleRefresh}>
+      <button type="button" className="tb-action" title="Refresh data" onClick={handleRefresh}>
         <IconRefresh size={17} />
       </button>
     </header>
