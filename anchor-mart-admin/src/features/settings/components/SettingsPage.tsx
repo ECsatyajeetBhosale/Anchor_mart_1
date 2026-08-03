@@ -19,9 +19,11 @@ export function SettingsPage() {
         <PlatformConfigCard />
 
         <div className="flex flex-col gap-5">
-          {/* Users — provisioning lives on its own page (all five roles). */}
+          {/* Accounts — provisioning moved to Account Management, where it sits
+              beside the deletion queue. This card keeps the path discoverable
+              for anyone who still looks for users under Settings. */}
           <Link
-            to={APP_ROUTES.SETTINGS_USERS}
+            to={APP_ROUTES.ACCOUNT_MANAGEMENT}
             className="card group flex items-center gap-4 p-5 transition-colors hover:bg-[var(--surface-alt)]"
           >
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-md)] bg-[var(--navy-50)] text-[var(--navy-600)]">
@@ -29,10 +31,10 @@ export function SettingsPage() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-[14.5px] font-extrabold text-[var(--t1)]">
-                {MESSAGES.SETTINGS.USERS.CARD_TITLE}
+                {MESSAGES.SETTINGS.ACCOUNTS_LINK.CARD_TITLE}
               </p>
               <p className="text-[12.5px] font-medium text-[var(--t4)]">
-                {MESSAGES.SETTINGS.USERS.CARD_SUBTITLE}
+                {MESSAGES.SETTINGS.ACCOUNTS_LINK.CARD_SUBTITLE}
               </p>
             </div>
             <IconChevronRight

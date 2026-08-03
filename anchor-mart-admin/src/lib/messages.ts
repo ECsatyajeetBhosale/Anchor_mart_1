@@ -916,6 +916,17 @@ export const MESSAGES = {
     ACTIONS: {
       VIEW: "View",
     },
+    // Flow 29c §6 — the .xlsx export. Honours the active status filter, so the
+    // button says which rows it will contain rather than implying "everything".
+    EXPORT: {
+      LABEL: "Export",
+      EXPORTING: "Exporting…",
+      TITLE_ALL: "Download every special request as .xlsx",
+      TITLE_FILTERED: (status: string) => `Download the ${status} requests as .xlsx`,
+      FILENAME: "special_requests.xlsx",
+      SUCCESS: "Export downloaded.",
+      ERROR: "Couldn't generate the export.",
+    },
     // Review drawer — key/value layout shared with the Orders drawer.
     DETAIL: {
       TITLE: (ref: string) => `Special Request ${ref}`,
@@ -1532,33 +1543,14 @@ export const MESSAGES = {
         SAVE_ERROR: "Could not save the loyalty configuration",
       },
     },
-    USERS: {
-      PAGE_TITLE: "Users",
-      PAGE_SUBTITLE: "Create accounts for sailors, partners, sellers and administrators",
-      CARD_TITLE: "Users",
-      CARD_SUBTITLE: "Create an account for any role",
-      ADD_BUTTON: "Create User",
-      CREATE_SHORT: "Create",
-      NOT_MANAGEABLE: "No management screen",
-      ROLE_LOCKED_HINT: "Pre-selected for this entry point",
-      NO_LIST_NOTICE:
-        "One endpoint creates every role. There is no list-users endpoint, so accounts cannot be shown here — use the screen listed against each role to manage them afterwards.",
-      SECTIONS: {
-        ROLE: "Role",
-        ROLES: "Roles & where they are managed",
-        IDENTITY: "Identity",
-        CONTACT: "Contact",
-      },
-      ADD: {
-        TITLE: "Create User",
-        SUBTITLE: "One account, any role — the role decides where it appears.",
-        SUBMIT: "Create Account",
-        SAVING: "Creating…",
-      },
-      TOAST: {
-        CREATE_SUCCESS: "Account created",
-        CREATE_ERROR: "Could not create the account",
-      },
+    /**
+     * User provisioning moved to Account Management, where it sits beside the
+     * deletion queue — one screen for an account's whole life. Settings keeps a
+     * pointer so the old path still leads somewhere.
+     */
+    ACCOUNTS_LINK: {
+      CARD_TITLE: "Account Management",
+      CARD_SUBTITLE: "Create accounts for any role, and review deletion requests",
     },
     FAQ: {
       PAGE_TITLE: "Help & FAQ",
@@ -2807,6 +2799,16 @@ export const MESSAGES = {
     TABS: {
       ROLE: "Role Notification",
       BROADCAST: "Broadcast",
+      HISTORY: "History",
+    },
+    /**
+     * Both send endpoints answer 200 (not a 4xx) when a duplicate campaign is
+     * suppressed — nothing is wrong, the request was simply a no-op. The copy
+     * has to read as "not sent", never as a failure.
+     */
+    SUPPRESSED: {
+      TITLE: "Not sent — duplicate campaign",
+      RETRY: (seconds: number) => `Try again in about ${seconds} second(s).`,
     },
     REACH: {
       TITLE: "Estimated Reach",
@@ -2846,12 +2848,31 @@ export const MESSAGES = {
       ERROR: "Failed to send the notification.",
     },
     BROADCAST_FORM: {
-      TITLE: "Broadcast to everyone",
-      SUBTITLE: "Reaches every user on the platform, regardless of role.",
+      TITLE: "Broadcast",
+      SUBTITLE: "One durable announcement — to a single role, or to everyone.",
       TITLE_FIELD: "Title",
       TITLE_PLACEHOLDER: "e.g. New express catalog is live",
       MESSAGE: "Message",
       MESSAGE_PLACEHOLDER: "What should everyone read?",
+      AUDIENCE: "Audience",
+      AUDIENCE_ALL: "Everyone (all roles)",
+      CATEGORY: "Category",
+      CATEGORY_PROMOTIONAL: "Promotional",
+      CATEGORY_SERVICE: "Service",
+      // This is the consent boundary, not a tag — spell out what each one does
+      // before the button is pressed, because Service overrides an opt-out.
+      CATEGORY_HINT_PROMOTIONAL:
+        "Honours every opt-out and adds a one-click unsubscribe. Use for anything marketing.",
+      CATEGORY_HINT_SERVICE:
+        "Reaches opted-out users too. Reserved for genuine operational notices — the send is recorded against you.",
+      CHANNELS: "Channels",
+      CHANNEL_INAPP: "In-app",
+      CHANNEL_EMAIL: "Email",
+      // The API rejects an empty `channels` array, so the form does too.
+      CHANNELS_HINT: "At least one is required. WhatsApp isn't offered yet.",
+      CHANNELS_REQUIRED: "Pick at least one channel.",
+      EMAIL_ESTIMATE: (n: number) =>
+        `About ${n.toLocaleString("en-US")} email(s) will be queued — the preference gate is already applied.`,
       IMAGE: "Image Path",
       // notification_images/ is not one of the five presigned-mintable
       // directories, so this one really is paste-only.
@@ -2860,11 +2881,55 @@ export const MESSAGES = {
       IMAGE_PLACEHOLDER: "notification_images/banner.jpg",
       SUBMIT: "Send Broadcast",
       SENDING: "Sending…",
-      CONFIRM_TITLE: "Broadcast to every user?",
-      CONFIRM_MESSAGE:
-        "This reaches every user on the platform and can't be recalled. Send it anyway?",
-      SUCCESS: "Broadcast sent.",
+      CONFIRM_TITLE: "Send this broadcast?",
+      CONFIRM_MESSAGE: (audience: string, channels: string, category: string) =>
+        `Going to ${audience} over ${channels} as a ${category} message. It can't be recalled.`,
+      // Service overrides consent, so the confirm step says so explicitly
+      // rather than burying it in a hint above the button.
+      CONFIRM_SERVICE_WARNING:
+        "Service messages reach users who opted out of marketing. Only use this for genuine operational notices.",
+      SUCCESS: "Broadcast queued.",
       ERROR: "Failed to send the broadcast.",
+    },
+    /** Flow 32 §3.5 — the campaign log. */
+    HISTORY: {
+      TITLE: "Sent Campaigns",
+      SUBTITLE: "Every broadcast and role send, attributed to whoever sent it.",
+      EMPTY: "No campaigns match these filters.",
+      FETCH_ERROR: "Couldn't load the campaign history.",
+      ALL_CATEGORIES: "All Categories",
+      ALL_AUDIENCES: "All Audiences",
+      ALL_TYPES: "All Types",
+      AUDIENCE_ALL: "Everyone",
+      SHAPE_ROLE: "Role send",
+      SHAPE_BROADCAST: "Broadcast",
+      DISPATCH_SENT: "Sent",
+      DISPATCH_QUEUED: "Queued",
+      DISPATCH_FAILED: "Failed",
+      // `is_dispatched` is the only honest answer to "did this go out?" — the
+      // row exists from the moment the campaign is *accepted*.
+      DISPATCH_HINT:
+        'A row appears as soon as a campaign is accepted. "Sent" means the fan-out actually ran — queued rows are still waiting on the outbox sweeper (every 5 minutes).',
+      LIVE_IN_APP: "Live in-app",
+      COLUMNS: {
+        SENT_AT: "Created",
+        TITLE: "Title",
+        SHAPE: "Shape",
+        AUDIENCE: "Audience",
+        CATEGORY: "Category",
+        CHANNELS: "Channels",
+        SENT_BY: "Sent By",
+        DISPATCH: "Dispatch",
+      },
+      CATEGORY_LABELS: {
+        promotional: "Promotional",
+        service: "Service",
+      } as Record<string, string>,
+      CHANNEL_LABELS: {
+        inapp: "In-app",
+        email: "Email",
+        whatsapp: "WhatsApp",
+      } as Record<string, string>,
     },
     VALIDATION: {
       TITLE_REQUIRED: "Title is required",
@@ -2989,6 +3054,334 @@ export const MESSAGES = {
       late: "Late",
       wrong_items: "Wrong items",
     } as Record<string, string>,
+  },
+  /**
+   * Flow 31 — Account Administration, end to end: provision an account, then
+   * govern and erase it. The two halves used to live on different screens
+   * (Settings → Users, and a separate deletions queue); they are one page now,
+   * so their copy is one block with a section each.
+   */
+  ACCOUNT_MANAGEMENT: {
+    TITLE: "Account Management",
+    SUBTITLE: "Provision accounts, and review requests to erase them.",
+    TABS: {
+      DELETIONS: "Deletion Requests",
+      PROVISION: "Provision Users",
+    },
+    /** §7 — user provisioning (moved here from Settings → Users). */
+    PROVISION: {
+      ADD_BUTTON: "Create User",
+      CREATE_SHORT: "Create",
+      NOT_MANAGEABLE: "No management screen",
+      ROLE_LOCKED_HINT: "Pre-selected for this entry point",
+      SECTION_TITLE: "Roles & where they are managed",
+      SECTION_SUBTITLE:
+        "One endpoint creates every role — the role decides where the account appears afterwards.",
+      NO_LIST_NOTICE:
+        "There is no list-users endpoint, so accounts cannot be shown here. Use the screen listed against each role to manage them after creation.",
+      MANAGED_AT: "Managed at",
+      SECTIONS: {
+        ROLE: "Role",
+        IDENTITY: "Identity",
+        CONTACT: "Contact",
+      },
+      ADD: {
+        TITLE: "Create User",
+        SUBTITLE: "One account, any role — the role decides where it appears.",
+        SUBMIT: "Create Account",
+        SAVING: "Creating…",
+      },
+      TOAST: {
+        CREATE_SUCCESS: "Account created",
+        CREATE_ERROR: "Could not create the account",
+      },
+    },
+    /** §8–11 — the deletion-review queue. */
+    DELETIONS: {
+      TITLE: "Account Deletions",
+      SUBTITLE: "Review and carry out requests to erase an account.",
+      DASH: "—",
+      SEARCH_PLACEHOLDER: "Search name, email or reason…",
+      ALL_STATUS: "All Statuses",
+      ALL_ROLES: "All Roles",
+      EMPTY: "No deletion requests found.",
+      FETCH_ERROR: "Couldn't load the deletion queue.",
+      STATS: {
+        TOTAL: "Total Requests",
+        PENDING: "Pending",
+        PENDING_FOOTER: "Awaiting a decision",
+        APPROVED: "Approved",
+        APPROVED_FOOTER: "Agreed, not yet erased",
+        REJECTED: "Rejected",
+        COMPLETED: "Completed",
+        COMPLETED_FOOTER: "Account erased",
+      },
+      COLUMNS: {
+        REQUESTER: "Requester",
+        EMAIL: "Email",
+        ROLE: "Role",
+        REASON: "Reason",
+        REQUESTED: "Requested",
+        STATUS: "Status",
+        ACTIONS: "Actions",
+      },
+      STATUS_FILTER: {
+        PENDING: "Pending",
+        APPROVED: "Approved",
+        REJECTED: "Rejected",
+        COMPLETED: "Completed",
+      },
+      DETAIL: {
+        TITLE: "Deletion Request",
+        REQUESTER: "Requester",
+        ACCOUNT_STATE: "Account",
+        ACTIVE: "Active",
+        INACTIVE: "Deactivated",
+        REQUESTED_ON: "Requested",
+        REASON: "Their Reason",
+        FOOTPRINT: "Account Footprint",
+        OPEN_ORDERS: "Open Orders",
+        TOTAL_ORDERS: "Total Orders",
+        POINTS: "Outstanding Points",
+        FOOTPRINT_HINT:
+          "Open orders are the ones not yet in a terminal state. Completion is refused while any remain.",
+        // Shown next to a disabled Complete button, so it has to say what to do,
+        // not just that the button is off.
+        BLOCKED_BY_ORDERS: (n: number) =>
+          `${n.toLocaleString("en-US")} order(s) still in progress — close or cancel them before erasing this account.`,
+        DECISION: "Decision",
+        ADMIN_NOTE: "Admin Note",
+        NOTE_PLACEHOLDER: "Why is this being rejected? Required to reject.",
+        NOTE_HINT: "Required when rejecting. Optional otherwise. Max 2000 characters.",
+        NOTE_REQUIRED: "A note is required when rejecting a deletion request.",
+        RECORDED: "Recorded Decision",
+        REVIEWED_BY: "Reviewed By",
+        REVIEWED_AT: "Reviewed At",
+        PROCESSED_AT: "Erased At",
+        APPROVE: "Approve",
+        REJECT: "Reject",
+        COMPLETE: "Complete Erasure",
+        // Terminal states offer no buttons at all — the API 409s on any further
+        // transition, so a disabled button would only be a promise it can't keep.
+        TERMINAL_REJECTED: "This request was rejected. Rejections are final.",
+        TERMINAL_COMPLETED: "This account has been erased. Completed requests are final.",
+        APPROVED_HINT:
+          "Approved, but the account is untouched. Erasing it is a separate, irreversible step.",
+        FALLBACK: "-",
+      },
+      CONFIRM: {
+        APPROVE_TITLE: "Approve this deletion request?",
+        APPROVE_MESSAGE:
+          "This records your agreement. The account is NOT touched — erasing it is a separate step.",
+        APPROVE_CTA: "Approve",
+        APPROVING: "Approving…",
+        COMPLETE_TITLE: "Erase this account?",
+        COMPLETE_MESSAGE:
+          "This permanently erases the account and cannot be undone. It is refused while the user still has orders in progress.",
+        COMPLETE_CTA: "Erase Account",
+        COMPLETING: "Erasing…",
+      },
+      TOAST: {
+        APPROVED: "Deletion request approved.",
+        APPROVE_ERROR: "Couldn't approve the request.",
+        REJECTED: "Deletion request rejected.",
+        REJECT_ERROR: "Couldn't reject the request.",
+        COMPLETED: "Account erased.",
+        COMPLETE_ERROR: "Couldn't erase the account.",
+      },
+    },
+    ROLE_LABELS: {
+      customer: "Sailor",
+      delivery_partner: "Delivery partner",
+      seller: "Seller",
+      admin: "Admin",
+      super_admin: "Super admin",
+    } as Record<string, string>,
+  },
+  /** Flow 34 — Audit Trail & Tamper-Evidence. */
+  AUDIT: {
+    TITLE: "Audit Trail",
+    SUBTITLE: "Every recorded admin action, hash-chained so tampering shows.",
+    DASH: "—",
+    EMPTY: "No audit entries match these filters.",
+    FETCH_ERROR: "Couldn't load the audit trail.",
+    ALL_CATEGORIES: "All Categories",
+    ALL_SUBJECTS: "All Subjects",
+    ALL_ACTIONS: "All Actions",
+    FILTERS: {
+      SUBJECT_ID: "Subject ID",
+      SUBJECT_ID_PLACEHOLDER: "Filter by subject UUID…",
+      ACTOR_ID: "Actor ID",
+      FROM: "From",
+      TO: "To",
+      CLEAR: "Clear Filters",
+    },
+    COLUMNS: {
+      WHEN: "When",
+      ACTION: "Action",
+      CATEGORY: "Category",
+      SUBJECT: "Subject",
+      ACTOR: "Actor",
+      SUMMARY: "Summary",
+      ACTIONS: "Actions",
+    },
+    CATEGORY_LABELS: {
+      order: "Order",
+      operational: "Operational",
+    } as Record<string, string>,
+    SUBJECT_LABELS: {
+      order: "Order",
+      user: "User",
+      coupon: "Coupon",
+      port: "Port",
+      product: "Product",
+      partner: "Partner",
+      config: "Config",
+    } as Record<string, string>,
+    /**
+     * Sub-admins are scoped to `category=order` server-side, so the console says
+     * so up front rather than letting them pick a filter that 403s.
+     */
+    SUBADMIN_NOTICE:
+      "You're signed in as a sub-admin, so this trail shows order entries only. Operational entries and chain verification are restricted to super admins.",
+    DETAIL: {
+      TITLE: "Audit Entry",
+      WHAT_HAPPENED: "What Happened",
+      ACTION: "Action",
+      CATEGORY: "Category",
+      WHEN: "When",
+      SUBJECT: "Subject",
+      SUBJECT_TYPE: "Subject Type",
+      SUBJECT_ID: "Subject ID",
+      SUBJECT_LABEL: "Subject",
+      ACTOR: "Actor",
+      ACTOR_EMAIL: "Email",
+      ACTOR_ROLE: "Role",
+      ACTOR_ID: "Actor ID",
+      SUMMARY: "Summary",
+      METADATA: "Metadata",
+      METADATA_EMPTY: "No metadata recorded for this entry.",
+      CHAIN: "Chain",
+      ENTRY_HASH: "Entry Hash",
+      PREV_HASH: "Previous Hash",
+      HASH_VERSION: "Hash Version",
+      VERIFY_CTA: "Verify This Subject's Chain",
+      VERIFYING: "Verifying…",
+      FALLBACK: "-",
+    },
+    VERIFY: {
+      TITLE: "Chain Verification",
+      SUBTITLE: "Recomputes every hash for one subject and reports the first break.",
+      SUBJECT_TYPE: "Subject Type",
+      SUBJECT_ID: "Subject ID",
+      SUBJECT_ID_PLACEHOLDER: "Paste the subject UUID…",
+      SUBMIT: "Verify Chain",
+      RUNNING: "Verifying…",
+      REQUIRED: "Both a subject type and a subject ID are required.",
+      CLEAN: "Chain intact",
+      CLEAN_DETAIL: (entries: number) =>
+        `All ${entries.toLocaleString("en-US")} entries hash correctly and link to their predecessor.`,
+      BROKEN: "Chain broken",
+      ENTRIES: "Entries Checked",
+      PRUNED_BEFORE: "Pruned Before",
+      // An authorised truncation is not tampering — the chain records where it
+      // was cut, so a verified chain with a prune date is still clean.
+      PRUNED_HINT: "Entries before this date were pruned by an authorised retention job.",
+      ERROR: "Couldn't run the verification.",
+      // The endpoint answers 200 even for a broken chain, so the UI must read
+      // `verified`, never the status code.
+      RESULT_HINT: "A broken chain still answers 200 — the verdict is in the payload.",
+      SUPER_ADMIN_ONLY: "Chain verification is restricted to super admins.",
+    },
+  },
+  /** Flow 22 §3.1–3.2 — the outbound email / WhatsApp delivery ledger. */
+  OUTBOUND_MESSAGES: {
+    TITLE: "Message Log",
+    SUBTITLE: "Every outbound email and WhatsApp message, and whether it landed.",
+    DASH: "—",
+    // `recipient` is the only partial-match filter the API offers — there is no
+    // general `?search=`, so the placeholder says exactly what it matches.
+    SEARCH_PLACEHOLDER: "Search recipient (email or phone)…",
+    ALL_CHANNELS: "All Channels",
+    ALL_STATUSES: "All Statuses",
+    EVENT_TYPE_PLACEHOLDER: "Event type (exact)…",
+    EMPTY: "No messages match these filters.",
+    FETCH_ERROR: "Couldn't load the message log.",
+    NEWEST_FIRST: "Newest first",
+    OLDEST_FIRST: "Oldest first",
+    COLUMNS: {
+      CREATED: "Created",
+      CHANNEL: "Channel",
+      RECIPIENT: "Recipient",
+      SUBJECT: "Subject",
+      EVENT: "Event",
+      STATUS: "Status",
+      ATTEMPTS: "Attempts",
+      ACTIONS: "Actions",
+    },
+    CHANNEL_LABELS: {
+      email: "Email",
+      whatsapp: "WhatsApp",
+    } as Record<string, string>,
+    STATUS_LABELS: {
+      queued: "Queued",
+      sending: "Sending",
+      sent: "Sent",
+      delivered: "Delivered",
+      read: "Read",
+      failed: "Failed",
+    } as Record<string, string>,
+    DETAIL: {
+      TITLE: "Delivery Record",
+      DELIVERY: "Delivery",
+      CHANNEL: "Channel",
+      STATUS: "Status",
+      RECIPIENT: "Recipient",
+      SUBJECT: "Subject",
+      TEMPLATE: "Template",
+      ATTEMPTS: "Attempts",
+      ERROR: "Error",
+      ACCOUNT: "Account",
+      USER_EMAIL: "Linked Account",
+      USER_ID: "User ID",
+      SOURCE: "Source Event",
+      EVENT_TYPE: "Event Type",
+      EVENT_ID: "Event ID",
+      PROVIDER: "Provider",
+      PROVIDER_MESSAGE_ID: "Provider Message ID",
+      TIMELINE: "Timeline",
+      CREATED_AT: "Created",
+      SENT_AT: "Sent",
+      DELIVERED_AT: "Delivered",
+      READ_AT: "Read",
+      FAILED_AT: "Failed",
+      UPDATED_AT: "Updated",
+      // The API deliberately withholds the rendered body — it can contain a
+      // generated password. Say so, rather than showing an empty panel.
+      NO_BODY_TITLE: "Message content is not available",
+      NO_BODY:
+        "This is a delivery log, not a message reader. The rendered subject line is kept, but the body and its context are never returned — they can contain names, amounts, links and generated passwords.",
+      FALLBACK: "-",
+    },
+  },
+  /** Flow 29c §5 — customer wishlist rows (`SavedProduct`). */
+  SAVED_PRODUCTS: {
+    TITLE: "Saved Products",
+    SUBTITLE: "What sailors have wishlisted — demand signal, not catalog data.",
+    DASH: "—",
+    SEARCH_PLACEHOLDER: "Search product name…",
+    ALL_ACTIVE: "Active & Inactive",
+    ACTIVE_ONLY: "Active only",
+    INACTIVE_ONLY: "Inactive only",
+    EMPTY: "No saved products found.",
+    FETCH_ERROR: "Couldn't load saved products.",
+    COLUMNS: {
+      PRODUCT: "Product",
+      SAILOR: "Saved By",
+      PRODUCT_ID: "Product ID",
+      SAVED: "Saved",
+      UPDATED: "Updated",
+    },
   },
   /**
    * Shared field-validation copy. Every form that takes a person's name or a

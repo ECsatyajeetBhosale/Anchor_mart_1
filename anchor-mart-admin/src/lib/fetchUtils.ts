@@ -65,6 +65,10 @@ export const baseApi = createApi({
     "Chats",
     "Ports",
     "Gifts",
+    "AccountDeletions",
+    "Audit",
+    "OutboundMessages",
+    "SavedProducts",
   ],
   endpoints: () => ({}),
 });

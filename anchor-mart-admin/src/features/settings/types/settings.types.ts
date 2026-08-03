@@ -1,5 +1,8 @@
 /**
- * Settings types — Help & FAQ management and admin-account creation.
+ * Settings types — Help & FAQ management.
+ *
+ * User provisioning used to live here too; it moved to the account-management
+ * feature (`types/user.types.ts`) when provisioning joined the deletion queue.
  *
  * Both FAQ endpoints return a plain DRF page (`results` is a flat array), not
  * the wrapped `results: { message, data }` envelope the catalog endpoints use.
@@ -49,20 +52,4 @@ export type UpdateFaqPayload = AddFaqPayload;
 /** Request body for the FAQ-type add/update endpoints. */
 export interface FaqTypePayload {
   name: string;
-}
-
-/**
- * Every role `create-user` accepts. Verified against the endpoint: an unknown
- * value returns `{"errors":{"role":["… is not a valid choice."]}}`.
- */
-export type UserRole = "customer" | "seller" | "admin" | "super_admin" | "delivery_partner";
-
-/** Request body for POST /superadmin/admin/create-user/. */
-export interface CreateUserPayload {
-  email: string;
-  role: UserRole;
-  first_name: string;
-  last_name: string;
-  country_code: string;
-  whatsapp_number: string;
 }

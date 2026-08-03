@@ -14,15 +14,19 @@ import {
   IconEngine,
   IconFileInvoice,
   IconGift,
+  IconHeart,
   IconLayoutDashboard,
   IconLifebuoy,
+  IconMailFast,
   IconMapPin,
   IconMessages,
   IconMotorbike,
   IconPackage,
   IconSettings,
+  IconShieldLock,
   IconStar,
   IconStarFilled,
+  IconUserCog,
   IconUsers,
 } from "@tabler/icons-react";
 import type { ComponentType } from "react";
@@ -154,6 +158,15 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: IconStarFilled,
         path: APP_ROUTES.RATINGS,
       },
+      {
+        // Flow 29c §5 — an engagement read (what sailors wishlisted), not
+        // catalog administration, so it sits with the demand-side surfaces
+        // rather than beside Products/Categories.
+        key: "saved-products",
+        label: "Saved Products",
+        icon: IconHeart,
+        path: APP_ROUTES.SAVED_PRODUCTS,
+      },
     ],
   },
   {
@@ -213,11 +226,35 @@ export const NAV_SECTIONS: NavSection[] = [
         badge: "4",
         badgeVariant: "warning",
       },
+      {
+        // Flow 31 — provisioning and deletion review on one screen. Sits beside
+        // Seller Requests: both are review queues, and neither is sailor-only
+        // (partners and sellers raise deletion requests too).
+        key: "account-management",
+        label: "Account Management",
+        icon: IconUserCog,
+        path: APP_ROUTES.ACCOUNT_MANAGEMENT,
+      },
+      {
+        // Flow 22 §3.1 — the outbound email/WhatsApp delivery log.
+        key: "messages",
+        label: "Message Log",
+        icon: IconMailFast,
+        path: APP_ROUTES.MESSAGES,
+      },
     ],
   },
   {
     label: "System",
     items: [
+      {
+        // Flow 34. Role-scoped server-side: a sub-admin only ever sees
+        // `category=order` entries, and chain verification is super-admin only.
+        key: "audit",
+        label: "Audit Trail",
+        icon: IconShieldLock,
+        path: APP_ROUTES.AUDIT,
+      },
       {
         key: "settings",
         label: "Settings",

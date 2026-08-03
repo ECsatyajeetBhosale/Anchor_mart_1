@@ -1,6 +1,6 @@
 import { ADMIN_USER_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
-import type { CreateUserPayload } from "../types/settings.types";
+import type { CreateUserPayload } from "../types/user.types";
 
 /**
  * User creation — one endpoint for every role, picked by the `role` field.

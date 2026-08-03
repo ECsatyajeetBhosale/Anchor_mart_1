@@ -1,11 +1,3 @@
-import { MESSAGES } from "@/lib/messages";
-import {
-  countryCodeField,
-  emailField,
-  firstNameField,
-  lastNameField,
-  phoneNumberField,
-} from "@/lib/validation";
 import { z } from "zod";
 
 /** FAQ create/update — the API accepts exactly these three fields. */
@@ -16,21 +8,6 @@ export const faqSchema = z.object({
 });
 
 export type FaqFormData = z.infer<typeof faqSchema>;
-
-/**
- * User creation. Mirrors create-user's documented contract: everything is
- * required except `last_name`.
- */
-export const createUserSchema = z.object({
-  first_name: firstNameField(),
-  last_name: lastNameField(),
-  email: emailField(),
-  role: z.enum(["customer", "seller", "admin", "super_admin", "delivery_partner"]),
-  country_code: countryCodeField(),
-  whatsapp_number: phoneNumberField(MESSAGES.VALIDATION.LABELS.WHATSAPP),
-});
-
-export type CreateUserFormData = z.infer<typeof createUserSchema>;
 
 /**
  * Loyalty configuration — the only part of Platform Configuration with a real

@@ -1,5 +1,5 @@
 import { APP_ROUTES } from "@/lib/constants";
-import type { UserRole } from "../types/settings.types";
+import type { UserRole } from "../types/user.types";
 
 /**
  * The five roles `create-user` accepts. Order runs from the most commonly

@@ -196,6 +196,54 @@ export const specialRequestApi = baseApi.injectEndpoints({
         { type: "SpecialRequests", id: "PARTIAL-LIST" },
       ],
     }),
+
+    /**
+     * Flow 29c §6 — export the requests as `.xlsx`.
+     *
+     * Mounted under `/catalog/export-to-excel/` and named as if it exported the
+     * catalog; it does not. It exports `SpecialRequest` rows and nothing else,
+     * which is why it lives on this feature rather than with the ports.
+     *
+     * The response is a binary attachment, so the same two guards the order-slip
+     * download uses apply here: a **wildcard `Accept`** (DRF negotiates against
+     * its JSON renderers before the view runs, so naming the xlsx type would
+     * 406), and a `responseHandler` that only blobs a successful reply — a
+     * failure returns JSON, and blobbing it would park a non-serializable value
+     * in the store and hide the server's message from `getApiMessage`.
+     */
+    exportSpecialRequests: builder.query<Blob, { status?: string } | undefined>({
+      query: (args) => ({
+        url: SPECIAL_REQUEST_ENDPOINTS.EXPORT_EXCEL,
+        method: "GET",
+        headers: { Accept: "*/*" },
+        params: { status: args?.status || undefined },
+        responseHandler: async (response) => {
+          if (!response.ok) {
+            const text = await response.text();
+            try {
+              return JSON.parse(text);
+            } catch {
+              return { detail: text };
+            }
+          }
+          return response.blob();
+        },
+      }),
+      /** Second line of defence — a Blob must never reach the error slice. */
+      transformErrorResponse: async (error: unknown) => {
+        const data = (error as { data?: unknown })?.data;
+        if (!(data instanceof Blob)) return error;
+        const text = await data.text();
+        try {
+          return { ...(error as object), data: JSON.parse(text) };
+        } catch {
+          return { ...(error as object), data: { detail: text } };
+        }
+      },
+      // The workbook is cached server-side for 5 minutes; caching it again here
+      // would only widen the window in which the download is stale.
+      keepUnusedDataFor: 0,
+    }),
   }),
   overrideExisting: false,
 });
@@ -207,4 +255,5 @@ export const {
   useGenerateBillMutation,
   useRejectSpecialRequestMutation,
   useAllowSpecialRequestChangesMutation,
+  useLazyExportSpecialRequestsQuery,
 } = specialRequestApi;

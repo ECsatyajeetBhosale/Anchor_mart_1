@@ -21,8 +21,8 @@ import { RewardsPage } from "@/pages/RewardsPage";
 import { SailorsPage } from "@/pages/SailorsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 
-// Settings sub-page — Help & FAQ management
-import { FaqsPage, UsersPage } from "@/features/settings";
+// Settings sub-page — Help & FAQ management (Users moved to Account Management)
+import { FaqsPage } from "@/features/settings";
 import { SpecialRequestsPage } from "@/pages/SpecialRequestsPage";
 import { VerificationPage } from "@/pages/VerificationPage";
 
@@ -55,6 +55,18 @@ import { ShipAgentsPage } from "@/features/ship-agents";
 
 // Sellers — from feature
 import { SellerRequestsPage } from "@/features/sellers";
+
+// Account Management (Flow 31) — provision users + review deletion requests
+import { AccountManagementPage } from "@/features/account-management";
+
+// Outbound message ledger (Flow 22) — did the email/WhatsApp actually land?
+import { OutboundMessagesPage } from "@/features/messages";
+
+// Saved products (Flow 29c §5) — sailor wishlists, read-only
+import { SavedProductsPage } from "@/features/saved-products";
+
+// Audit trail (Flow 34) — role-scoped; verification is super-admin only
+import { AuditTrailPage } from "@/features/audit";
 
 // Spares — from feature
 import { SparesPage } from "@/features/spares";
@@ -96,9 +108,24 @@ export function AppRouter() {
             <Route path={APP_ROUTES.CHAT} element={<DeliveryChatsPage />} />
             <Route path={APP_ROUTES.SUPPORT} element={<SupportChatsPage />} />
             <Route path={APP_ROUTES.SELLERS} element={<SellerRequestsPage />} />
+            <Route path={APP_ROUTES.ACCOUNT_MANAGEMENT} element={<AccountManagementPage />} />
+            {/* The two paths Account Management replaced. Redirected rather
+                than dropped so existing links and bookmarks still land — the
+                404 fallback would otherwise send them to the dashboard with no
+                explanation. */}
+            <Route
+              path={APP_ROUTES.ACCOUNT_DELETIONS}
+              element={<Navigate to={APP_ROUTES.ACCOUNT_MANAGEMENT} replace />}
+            />
+            <Route
+              path={APP_ROUTES.SETTINGS_USERS}
+              element={<Navigate to={APP_ROUTES.ACCOUNT_MANAGEMENT} replace />}
+            />
+            <Route path={APP_ROUTES.MESSAGES} element={<OutboundMessagesPage />} />
+            <Route path={APP_ROUTES.SAVED_PRODUCTS} element={<SavedProductsPage />} />
+            <Route path={APP_ROUTES.AUDIT} element={<AuditTrailPage />} />
             <Route path={APP_ROUTES.SETTINGS} element={<SettingsPage />} />
             <Route path={APP_ROUTES.SETTINGS_FAQS} element={<FaqsPage />} />
-            <Route path={APP_ROUTES.SETTINGS_USERS} element={<UsersPage />} />
             <Route path={APP_ROUTES.REQUESTS} element={<SpecialRequestsPage />} />
             <Route path={APP_ROUTES.SPARES} element={<SparesPage />} />
           </Route>

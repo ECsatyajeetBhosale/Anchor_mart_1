@@ -19,8 +19,8 @@ import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useCreateUserMutation } from "../api/adminUserApi";
 import { ROLE_NOTES, ROLE_OPTIONS } from "../lib/roles";
-import { type CreateUserFormData, createUserSchema } from "../schemas/settings.schema";
-import type { UserRole } from "../types/settings.types";
+import { type CreateUserFormData, createUserSchema } from "../schemas/createUser.schema";
+import type { UserRole } from "../types/user.types";
 
 const DEFAULTS: CreateUserFormData = {
   first_name: "",
@@ -71,9 +71,11 @@ export function CreateUserDrawer({ isOpen, onClose, lockedRole }: CreateUserDraw
         whatsapp_number: formData.whatsapp_number,
       }).unwrap();
       onClose();
-      toast.success(getApiMessage(response) ?? MESSAGES.SETTINGS.USERS.TOAST.CREATE_SUCCESS);
+      toast.success(
+        getApiMessage(response) ?? MESSAGES.ACCOUNT_MANAGEMENT.PROVISION.TOAST.CREATE_SUCCESS,
+      );
     } catch (error) {
-      toast.error(getApiMessage(error) ?? MESSAGES.SETTINGS.USERS.TOAST.CREATE_ERROR);
+      toast.error(getApiMessage(error) ?? MESSAGES.ACCOUNT_MANAGEMENT.PROVISION.TOAST.CREATE_ERROR);
     }
   };
 
@@ -91,19 +93,23 @@ export function CreateUserDrawer({ isOpen, onClose, lockedRole }: CreateUserDraw
               <IconUserPlus size={22} />
             </div>
             <div>
-              <SheetTitle className="text-xl">{MESSAGES.SETTINGS.USERS.ADD.TITLE}</SheetTitle>
-              <SheetDescription>{MESSAGES.SETTINGS.USERS.ADD.SUBTITLE}</SheetDescription>
+              <SheetTitle className="text-xl">
+                {MESSAGES.ACCOUNT_MANAGEMENT.PROVISION.ADD.TITLE}
+              </SheetTitle>
+              <SheetDescription>
+                {MESSAGES.ACCOUNT_MANAGEMENT.PROVISION.ADD.SUBTITLE}
+              </SheetDescription>
             </div>
           </div>
         </SheetHeader>
 
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-6 pt-4">
           <section>
-            <div className="sec-label">{MESSAGES.SETTINGS.USERS.SECTIONS.ROLE}</div>
+            <div className="sec-label">{MESSAGES.ACCOUNT_MANAGEMENT.PROVISION.SECTIONS.ROLE}</div>
             <FormField
               label="Role *"
               error={errors.role?.message}
-              hint={lockedRole ? MESSAGES.SETTINGS.USERS.ROLE_LOCKED_HINT : undefined}
+              hint={lockedRole ? MESSAGES.ACCOUNT_MANAGEMENT.PROVISION.ROLE_LOCKED_HINT : undefined}
             >
               <Controller
                 control={control}
@@ -130,7 +136,9 @@ export function CreateUserDrawer({ isOpen, onClose, lockedRole }: CreateUserDraw
           </section>
 
           <section>
-            <div className="sec-label">{MESSAGES.SETTINGS.USERS.SECTIONS.IDENTITY}</div>
+            <div className="sec-label">
+              {MESSAGES.ACCOUNT_MANAGEMENT.PROVISION.SECTIONS.IDENTITY}
+            </div>
             <FormRow>
               <FormField label="First Name *" error={errors.first_name?.message}>
                 <Input
@@ -154,7 +162,9 @@ export function CreateUserDrawer({ isOpen, onClose, lockedRole }: CreateUserDraw
           </section>
 
           <section>
-            <div className="sec-label">{MESSAGES.SETTINGS.USERS.SECTIONS.CONTACT}</div>
+            <div className="sec-label">
+              {MESSAGES.ACCOUNT_MANAGEMENT.PROVISION.SECTIONS.CONTACT}
+            </div>
             <FormRow>
               <FormField label="Country Code *" error={errors.country_code?.message}>
                 <Input
@@ -191,7 +201,9 @@ export function CreateUserDrawer({ isOpen, onClose, lockedRole }: CreateUserDraw
               disabled={isLoading}
             >
               <IconSend size={16} />
-              {isLoading ? MESSAGES.SETTINGS.USERS.ADD.SAVING : MESSAGES.SETTINGS.USERS.ADD.SUBMIT}
+              {isLoading
+                ? MESSAGES.ACCOUNT_MANAGEMENT.PROVISION.ADD.SAVING
+                : MESSAGES.ACCOUNT_MANAGEMENT.PROVISION.ADD.SUBMIT}
             </button>
           </div>
         </SheetFooter>

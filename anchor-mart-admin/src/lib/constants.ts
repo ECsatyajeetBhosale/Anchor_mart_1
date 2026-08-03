@@ -31,6 +31,16 @@ export const APP_ROUTES = {
   GIFTS: "/gifts",
   RATINGS: "/ratings",
   PORTS: "/ports",
+  SAVED_PRODUCTS: "/saved-products",
+  /**
+   * Account Management — provisioning and deletion review on one screen.
+   * `SETTINGS_USERS` and `ACCOUNT_DELETIONS` below are the paths this replaced;
+   * both are kept as redirect sources so existing links and bookmarks still land.
+   */
+  ACCOUNT_MANAGEMENT: "/account-management",
+  ACCOUNT_DELETIONS: "/account-deletions",
+  MESSAGES: "/messages",
+  AUDIT: "/audit",
 } as const;
 
 /**

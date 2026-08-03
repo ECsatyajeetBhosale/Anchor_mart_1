@@ -94,7 +94,7 @@ export function RoleNotificationForm() {
       return;
     }
     try {
-      const response = await sendRoleNotification({
+      const outcome = await sendRoleNotification({
         role,
         notification_type: type,
         title: title.trim(),
@@ -102,7 +102,25 @@ export function RoleNotificationForm() {
         metadata: parsedMetadata,
       }).unwrap();
       setConfirming(false);
-      toast.success(getApiMessage(response) ?? M.ROLE_FORM.SUCCESS);
+
+      /**
+       * An identical campaign (same role + type + title) inside the dedupe
+       * window is **not** re-sent, and the API says so with a `200` — not a
+       * `4xx`, because nothing is wrong; the request was simply a no-op. So a
+       * suppression arrives here, on the success path, and must be reported as
+       * "not sent". The form is left filled so the copy can be edited and
+       * retried.
+       */
+      if (!outcome.sent) {
+        toast.warning(outcome.message || M.SUPPRESSED.TITLE, {
+          description: outcome.retryAfterSeconds
+            ? M.SUPPRESSED.RETRY(outcome.retryAfterSeconds)
+            : undefined,
+        });
+        return;
+      }
+
+      toast.success(outcome.message || M.ROLE_FORM.SUCCESS);
       // Clear the body but keep role/type — an admin usually sends several
       // messages to the same audience in a row.
       setTitle("");

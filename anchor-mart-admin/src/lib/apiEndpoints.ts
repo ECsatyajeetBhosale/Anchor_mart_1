@@ -126,6 +126,84 @@ export const SHIP_AGENT_ENDPOINTS = {
   SET_ORDER_SHIP_AGENT: (orderId: string) => `/superadmin/ship-agents/order/${orderId}/set/`,
 };
 
+/**
+ * Flow 31 §8–11 — Account-deletion review.
+ *
+ * A user asks to be erased (sailors from the app, partners from the partner
+ * app); an admin approves, rejects or *completes* the request. Approve and
+ * complete are deliberately two steps — approving is agreeing, completing is
+ * erasing — so one click can never deactivate a sailor with a delivery in
+ * flight.
+ *
+ * **Request ids are integers**, not the UUIDs used elsewhere, and detail is
+ * fetched via a `?request_id=` query rather than a path segment.
+ */
+export const ACCOUNT_DELETION_ENDPOINTS = {
+  // `{ total, pending, approved, rejected, completed }`. No params.
+  GET_STATS: "/superadmin/account-deletion/stats/",
+  // Queue. Query: `status`, `role`, `user_id`, `search`, `page`, `page_size`.
+  // An unrecognised `status`/`role` or a malformed `user_id` is a 400.
+  GET_REQUESTS: "/superadmin/account-deletion/requests/",
+  // One request plus the account footprint (`open_order_count`,
+  // `total_order_count`, `outstanding_points`). Query: `request_id` (int).
+  GET_REQUEST: "/superadmin/account-deletion/request/",
+  /**
+   * Body: `{ request_id, decision: "approve" | "reject" | "complete", admin_note }`.
+   * `admin_note` is **required** when rejecting. The row is locked for the
+   * duration, so two admins pressing opposite buttons cannot both win — the
+   * loser gets a 409, as does any transition out of a terminal state or a
+   * completion while the account still has open orders.
+   */
+  SET_STATUS: "/superadmin/account-deletion/set-status/",
+};
+
+/**
+ * Flow 34 — Audit Trail & Tamper-Evidence.
+ *
+ * Entries are hash-chained (`entry_hash` / `prev_hash`), so the verify endpoint
+ * can recompute the chain and report tampering. **Both endpoints are role-scoped
+ * beyond the usual admin gate**: a sub-admin (`admin`) may only read
+ * `category=order` — asking for `operational` is a 403 — and verification is
+ * super-admin only. See `lib/roles.ts` for the client-side gate that keeps the
+ * UI from offering what the server will refuse.
+ */
+export const AUDIT_ENDPOINTS = {
+  // Query: `subject_type`, `subject_id`, `actor_id`, `action`, `category`,
+  // `from`, `to` (both ISO-8601), `page`, `page_size` (default 20).
+  GET_ENTRIES: "/superadmin/audit/",
+  // Query: `subject_type` + `subject_id`, **both required** (400 otherwise).
+  // A broken chain is still a 200 — read `verified`, not the status code.
+  VERIFY_CHAIN: "/superadmin/audit/verify/",
+};
+
+/**
+ * Flow 22 §3.1–3.2 — the outbound message ledger (email + WhatsApp).
+ *
+ * Read-only, and deliberately so: it answers "did the sailor actually get the
+ * payment link?". `context` and `body` are **not** returned by the API — they
+ * carry rendered content including generated passwords — so there is no message
+ * reader here, only a delivery record.
+ */
+export const OUTBOUND_MESSAGE_ENDPOINTS = {
+  // Query: `channel`, `status`, `recipient` (the only partial match),
+  // `event_type`, `user_id`, `ordering`, `page`, `page_size` (max 50).
+  GET_MESSAGES: "/superadmin/messages/",
+  GET_MESSAGE: (id: string) => `/superadmin/messages/${id}/`,
+};
+
+/**
+ * Flow 29c §5 — customer wishlist rows (`SavedProduct`).
+ *
+ * Filed under `/catalog/` but it is an engagement read, not catalog
+ * administration — which is why it lives in its own block rather than beside
+ * the port CRUD in {@link PORT_ENDPOINTS}.
+ */
+export const SAVED_PRODUCT_ENDPOINTS = {
+  // Query: `search` (matches the product name), `is_active`, `user`, `product`,
+  // `page`, `page_size`. A malformed `user`/`product`/`is_active` is a 400.
+  GET_SAVED_PRODUCTS: "/superadmin/catalog/get-saved-products/",
+};
+
 export const SAILOR_ENDPOINTS = {
   GET_SAILORS: "/superadmin/sailors/sailors-list/",
   GET_STATS: "/superadmin/sailors/stats/",
@@ -298,6 +376,16 @@ export const SPECIAL_REQUEST_ENDPOINTS = {
   REJECT: (id: string) => `/superadmin/special-requests/${id}/reject/`,
   // Flow 13 API 12 — raise the rebill cap (`additional`, 1–10).
   ALLOW_CHANGES: (id: string) => `/superadmin/special-requests/${id}/allow-changes/`,
+  /**
+   * Flow 29c §6 — the special-request export. Mounted under `/catalog/` and
+   * named `export-to-excel`, but it exports **`SpecialRequest` rows and nothing
+   * else** — there is no catalog export anywhere in the API. It lives here, with
+   * the flow that owns the data, rather than beside the port CRUD.
+   *
+   * Streams a binary `.xlsx` attachment, so the caller must read it as a blob.
+   * Optional `?status=` filters the rows; omit it for all.
+   */
+  EXPORT_EXCEL: "/superadmin/catalog/export-to-excel/",
 };
 
 export const SELLER_ENDPOINTS = {
@@ -484,8 +572,21 @@ export const ADMIN_NOTIFICATION_ENDPOINTS = {
   RECIPIENT_COUNT: "/superadmin/notifications/recipient-count/",
   // Body: `{ role, notification_type, title, message, metadata }`.
   SEND_ROLE_BASED: "/superadmin/notifications/send-rolebased-notification/",
-  // Body: `{ title, message, image_path }` — every user, all channels.
+  /**
+   * Body: `{ title, message, category, channels?, audience?, image_path? }`.
+   *
+   * `category` is **required** — `promotional` honours each user's opt-out and
+   * injects an unsubscribe link, `service` reaches everyone including opted-out
+   * users. It is the legal line, not a label.
+   */
   SEND_BROADCAST: "/superadmin/notifications/send-broadcast-notification/",
+  /**
+   * Flow 32 §3.5 — every broadcast and role-based send, newest first. Query:
+   * `category`, `audience`, `notification_type`, `created_by`, `date_from`,
+   * `date_to`, `page`, `page_size`. Every filter is exact-match and validated —
+   * an unrecognised value is a 400, never a silently empty page.
+   */
+  HISTORY: "/superadmin/notifications/history/",
 };
 
 /** Admin chat monitor — read-only visibility into support and order threads. */

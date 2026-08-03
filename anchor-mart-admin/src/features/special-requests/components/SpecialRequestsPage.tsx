@@ -4,12 +4,14 @@ import {
   IconClipboardText,
   IconClock,
   IconEye,
+  IconFileSpreadsheet,
   IconSend,
   IconShoppingCart,
 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { SearchFilters } from "@/components/common/SearchFilters";
@@ -23,11 +25,14 @@ import {
 } from "@/components/common/tableColumns";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
+import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
+import { downloadBlob } from "@/lib/download";
 import { MESSAGES } from "@/lib/messages";
 import {
   useGetSpecialRequestStatsQuery,
   useGetSpecialRequestsQuery,
+  useLazyExportSpecialRequestsQuery,
 } from "../api/specialRequestApi";
 import { useSpecialRequestActions } from "../hooks/useSpecialRequestActions";
 import {
@@ -183,6 +188,26 @@ export function SpecialRequestsPage() {
     setSearchParams(next);
   };
 
+  /**
+   * Flow 29c §6 — download the requests as `.xlsx`.
+   *
+   * Scoped by the active status filter (and nothing else — the endpoint takes
+   * `status` only, so the search box does **not** narrow the export). The button
+   * label says which set it will contain so that difference is visible rather
+   * than surprising.
+   */
+  const [fetchExport, { isFetching: isExporting }] = useLazyExportSpecialRequestsQuery();
+
+  const handleExport = async () => {
+    try {
+      const blob = await fetchExport({ status: statusParam }).unwrap();
+      downloadBlob(blob, M.EXPORT.FILENAME);
+      toast.success(M.EXPORT.SUCCESS);
+    } catch (error) {
+      toast.error(getApiMessage(error, { labelFields: false }) ?? M.EXPORT.ERROR);
+    }
+  };
+
   const columns: Column<SpecialRequest>[] = [
     idColumn({ id: "ref", header: M.COLUMNS.ORDER_ID, get: (r) => r.r }),
     avatarColumn({
@@ -252,7 +277,22 @@ export function SpecialRequestsPage() {
                 onValueChange: (val) => setParam("status", val),
               },
             ]}
-          />
+          >
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={isExporting}
+              onClick={handleExport}
+              title={
+                statusParam
+                  ? M.EXPORT.TITLE_FILTERED(STATUS_LABEL[statusParam as SpecialRequestStatus])
+                  : M.EXPORT.TITLE_ALL
+              }
+            >
+              <IconFileSpreadsheet size={14} className="mr-1" />
+              {isExporting ? M.EXPORT.EXPORTING : M.EXPORT.LABEL}
+            </Button>
+          </SearchFilters>
         }
       />
 
