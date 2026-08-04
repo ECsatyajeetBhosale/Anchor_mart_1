@@ -1,39 +1,95 @@
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
+import { Badge } from "@/components/ui/badge";
 import { MESSAGES } from "@/lib/messages";
-import { IconMessages, IconPaperclip, IconRefresh } from "@tabler/icons-react";
-import { useEffect, useRef } from "react";
-import { useGetChatMessagesQuery } from "../api/chatApi";
-import type { ChatThread } from "../types/chat.types";
+import {
+  IconMessages,
+  IconPaperclip,
+  IconPencil,
+  IconRefresh,
+  IconTrash,
+} from "@tabler/icons-react";
+import { useEffect, useRef, useState } from "react";
+import { MESSAGE_PAGE_SIZE, useGetChatMessagesQuery } from "../api/chatApi";
+import type { ChatSocketApi } from "../hooks/useChatSocket";
+import { isFromAdmin, resolveChatRole } from "../lib/chatRoles";
+import type { ChatMessage, ChatThread, SocketStatus } from "../types/chat.types";
+import { ChatComposer } from "./ChatComposer";
 
 const M = MESSAGES.CHAT;
 
+/** Live-connection pill. A chat that has silently stopped receiving looks quiet. */
+function StatusPill({ status }: { status: SocketStatus }) {
+  if (status === "open") {
+    return (
+      <Badge variant="success" showDot>
+        {M.SOCKET.OPEN}
+      </Badge>
+    );
+  }
+  if (status === "connecting") return <Badge variant="warning">{M.SOCKET.CONNECTING}</Badge>;
+  if (status === "closed") return <Badge variant="warning">{M.SOCKET.RECONNECTING}</Badge>;
+  if (status === "error") return <Badge variant="danger">{M.SOCKET.OFFLINE}</Badge>;
+  return null;
+}
+
+/** Formats one message's timestamp for the hover meta line. */
+function formatTime(iso: string): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
 export interface ChatMessagePaneProps {
   thread: ChatThread | null;
+  socket: ChatSocketApi;
 }
 
 /**
- * Reader for one thread's messages.
+ * One thread: its history over REST, everything after that over the socket.
  *
- * Deliberately has no composer: the admin API exposes three GETs and no send
- * route — messages are written over the chat websocket. A disabled input would
- * only imply a capability that isn't there.
+ * Laid out to match the AnchorMart-1 chat monitor — admin replies right-aligned
+ * in navy, the counterparty left in grey. Which side a message lands on is
+ * decided against the thread **owner**, not a hardcoded id; see `isFromAdmin`.
  */
-export function ChatMessagePane({ thread }: ChatMessagePaneProps) {
+export function ChatMessagePane({ thread, socket }: ChatMessagePaneProps) {
   const chatId = thread?.id;
   const { data, isLoading, isError, isFetching, refetch } = useGetChatMessagesQuery(
-    { chatId: chatId ?? "" },
+    { chatId: chatId ?? "", page: 1, limit: MESSAGE_PAGE_SIZE },
     { skip: !chatId },
   );
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [editing, setEditing] = useState<{ id: string; content: string } | null>(null);
+  const [toDelete, setToDelete] = useState<ChatMessage | null>(null);
   const messages = data?.items ?? [];
+  const messageCount = messages.length;
+  const hasMessages = messageCount > 0;
 
   // Jump to the newest message when the thread changes or new ones arrive.
   // Guarded so an empty thread doesn't scroll a pane with nothing in it.
   useEffect(() => {
-    if (!chatId || messages.length === 0) return;
+    if (!chatId || messageCount === 0) return;
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatId, messages.length]);
+  }, [chatId, messageCount]);
+
+  // Opening a thread marks it read, which is what clears the sidebar badge.
+  // Held until the history has actually landed — claiming to have read a
+  // still-loading pane would be a lie, and `MessageSeen` marks the whole thread.
+  const { markSeen } = socket;
+  useEffect(() => {
+    if (!chatId || isLoading || !hasMessages) return;
+    markSeen();
+  }, [chatId, isLoading, hasMessages, markSeen]);
+
+  // A thread switch must not leave the previous thread's edit draft open.
+  const draftForRef = useRef(chatId);
+  if (draftForRef.current !== chatId) {
+    draftForRef.current = chatId;
+    if (editing) setEditing(null);
+    if (toDelete) setToDelete(null);
+  }
 
   if (!thread) {
     return (
@@ -47,33 +103,69 @@ export function ChatMessagePane({ thread }: ChatMessagePaneProps) {
     );
   }
 
+  const role = resolveChatRole(thread);
+  const ownerId = thread.owner?.id ?? null;
+
+  /**
+   * Whether *this* admin wrote the message, which is narrower than "the admin
+   * side wrote it": support and order inboxes are worked by more than one
+   * person, and labelling a colleague's reply "You" would misattribute it.
+   * An optimistic row is ours by construction; anything else has to match the
+   * id the socket learned for us, and stays under its author's name until it does.
+   */
+  const isSelf = (msg: ChatMessage) =>
+    Boolean(msg.pending || (socket.selfUserId && msg.senderId === socket.selfUserId));
+
+  const isOnline = Boolean(ownerId && socket.onlineUsers.has(ownerId));
+  const offlineNotice = socket.authError ?? (socket.status === "open" ? null : M.SOCKET.QUEUED);
+  const typingCount = socket.typingSenders.length;
+
+  // The status line under the name: what this person is doing, not just who
+  // they are. Order threads carry the order; support threads have only contact.
+  const contextLine = thread.order
+    ? `${M.MESSAGES.ORDER_PREFIX} ${thread.order.orderNumber} · ${thread.order.status}`
+    : (thread.email ?? M.DASH);
+
   return (
     <div className="card flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between border-b border-[var(--border-xs)] px-4 py-3.5">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="av av-sm av-teal shrink-0">{thread.name.charAt(0).toUpperCase()}</div>
-          <div className="min-w-0">
-            <div className="td-p trunc">{thread.name}</div>
-            <div className="td-m trunc">
-              {thread.orderNumber
-                ? `${M.MESSAGES.ORDER_PREFIX} ${thread.orderNumber}`
-                : (thread.email ?? M.DASH)}
-            </div>
-          </div>
+      {/* Thread header — avatar, name + role badge, presence line, then the
+          identifier and the live/refresh controls. */}
+      <div
+        className="flex items-center gap-3 border-b border-[var(--border-xs)]"
+        style={{ padding: "13px 18px" }}
+      >
+        <div className={`av ${role.avatarClass} shrink-0`}>
+          {thread.name.charAt(0).toUpperCase()}
         </div>
 
+        <div className="min-w-0 flex-1">
+          <div className="mb-[3px] flex items-center gap-2">
+            <span className="w7 c1 trunc">{thread.name}</span>
+            <Badge variant={role.badgeVariant}>{role.label}</Badge>
+          </div>
+          {isOnline ? (
+            <div className="sdot on xs csuccess">{contextLine}</div>
+          ) : (
+            <div className="xs c4 w6 trunc">{contextLine}</div>
+          )}
+        </div>
+
+        {thread.orderNumber && (
+          <span className="badge badge-neutral mono shrink-0">{thread.orderNumber}</span>
+        )}
+        <StatusPill status={socket.status} />
         <button
           type="button"
-          className="btn btn-ghost btn-sm"
+          className="btn btn-ghost btn-sm shrink-0"
           onClick={() => refetch()}
           disabled={isFetching}
+          title={M.MESSAGES.REFRESH}
         >
           <IconRefresh size={15} />
-          {M.MESSAGES.REFRESH}
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
         {isError ? (
           <p className="text-center text-[12.5px] font-semibold text-[var(--danger-text)]">
             {M.MESSAGES.FETCH_ERROR}
@@ -82,35 +174,25 @@ export function ChatMessagePane({ thread }: ChatMessagePaneProps) {
           <p className="text-center text-[12.5px] font-medium text-[var(--t4)]">
             {MESSAGES.COMMON.LOADING}
           </p>
-        ) : messages.length === 0 ? (
+        ) : !hasMessages ? (
           <p className="text-center text-[12.5px] font-medium text-[var(--t4)]">
             {M.MESSAGES.EMPTY}
           </p>
         ) : (
-          <div className="flex flex-col gap-3">
-            {messages.map((msg) => (
-              <div key={msg.id} className="flex flex-col gap-1">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[12px] font-extrabold text-[var(--t2)]">
-                    {msg.senderName}
-                  </span>
-                  <span className="text-[10.5px] font-semibold text-[var(--t4)]">
-                    {msg.createdAt}
-                  </span>
-                </div>
-
-                <div className="max-w-[70%] rounded-[var(--radius-md)] border border-[var(--border-xs)] bg-[var(--surface-alt)] px-3 py-2">
+          messages.map((msg) => {
+            const sent = isFromAdmin(msg, ownerId);
+            return (
+              <div
+                key={msg.id}
+                className={`group flex flex-col gap-1 ${msg.pending ? "opacity-60" : ""}`}
+                style={{ alignItems: sent ? "flex-end" : "flex-start" }}
+              >
+                <div className={`chat-bubble ${sent ? "sent" : "recv"}`}>
                   {msg.isDeleted ? (
-                    <span className="text-[12.5px] font-medium italic text-[var(--t4)]">
-                      {M.MESSAGES.DELETED}
-                    </span>
+                    <span className="italic opacity-70">{M.MESSAGES.DELETED}</span>
                   ) : (
                     <>
-                      {msg.content && (
-                        <p className="whitespace-pre-wrap text-[13px] font-medium text-[var(--t1)]">
-                          {msg.content}
-                        </p>
-                      )}
+                      {msg.content && <span className="whitespace-pre-wrap">{msg.content}</span>}
                       {msg.media &&
                         (msg.messageType === "image" ? (
                           <img
@@ -123,7 +205,7 @@ export function ChatMessagePane({ thread }: ChatMessagePaneProps) {
                             href={msg.media}
                             target="_blank"
                             rel="noreferrer"
-                            className="mt-1 inline-flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--teal-600)]"
+                            className="mt-1 inline-flex items-center gap-1.5 font-bold underline"
                           >
                             <IconPaperclip size={14} />
                             {M.MESSAGES.ATTACHMENT}
@@ -132,14 +214,74 @@ export function ChatMessagePane({ thread }: ChatMessagePaneProps) {
                     </>
                   )}
                 </div>
+
+                {/* Meta + moderation, revealed on hover so the transcript stays
+                    clean. An admin may edit or delete any message in a thread
+                    they can already reach; the server treats an id outside the
+                    thread as not-found, so it cannot probe another conversation. */}
+                <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                  <span className="xs c4 w6">
+                    {isSelf(msg) ? M.MESSAGES.YOU : msg.senderName} · {formatTime(msg.createdAt)}
+                  </span>
+                  {msg.isEdited && <span className="xs c4 italic">{M.COMPOSER.EDITED}</span>}
+                  {!msg.isDeleted && !msg.pending && (
+                    <>
+                      <button
+                        type="button"
+                        title={M.COMPOSER.EDIT}
+                        className="text-[var(--t4)] hover:text-[var(--teal-600)]"
+                        onClick={() => setEditing({ id: msg.id, content: msg.content })}
+                      >
+                        <IconPencil size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        title={M.COMPOSER.DELETE}
+                        className="text-[var(--t4)] hover:text-[var(--danger-text)]"
+                        onClick={() => setToDelete(msg)}
+                      >
+                        <IconTrash size={13} />
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
-            ))}
-            <div ref={bottomRef} />
-          </div>
+            );
+          })
         )}
+
+        {typingCount > 0 && (
+          <p className="xs c4 italic">
+            {typingCount === 1 ? M.COMPOSER.TYPING_ONE : M.COMPOSER.TYPING_MANY(typingCount)}
+          </p>
+        )}
+        <div ref={bottomRef} />
       </div>
 
-      <div className="card-foot">{M.MESSAGES.READ_ONLY}</div>
+      <ChatComposer
+        // A terminal auth failure is the one state where typing is pointless:
+        // the socket will not retry, so the frame could never be delivered.
+        disabled={Boolean(socket.authError)}
+        offlineNotice={offlineNotice}
+        editing={editing}
+        onCancelEdit={() => setEditing(null)}
+        onSend={socket.sendMessage}
+        onSubmitEdit={socket.editMessage}
+        onTyping={socket.notifyTyping}
+        onStoppedTyping={socket.notifyStoppedTyping}
+      />
+
+      <ConfirmDialog
+        isOpen={!!toDelete}
+        onClose={() => setToDelete(null)}
+        onConfirm={() => {
+          if (toDelete) socket.deleteMessage(toDelete.id);
+          setToDelete(null);
+        }}
+        title={M.COMPOSER.CONFIRM_DELETE_TITLE}
+        description={M.COMPOSER.CONFIRM_DELETE_BODY}
+        confirmText={M.COMPOSER.DELETE}
+      />
     </div>
   );
 }

@@ -51,7 +51,10 @@ const ACTION_CONFIG: Record<string, ActionConfig> = {
     icon: <IconShieldCheck size={16} />,
     tone: "info",
     button: M.ACTION_BUTTONS.VERIFY,
-    route: APP_ROUTES.VERIFICATION,
+    // Route parked with the Verifications screen — with no `route` the button
+    // renders disabled, which is honest. Left routed, it would bounce off the
+    // 404 redirect straight back to this dashboard and read as broken.
+    // route: APP_ROUTES.VERIFICATION,
   },
   orders_awaiting_payment: {
     icon: <IconCreditCard size={16} />,

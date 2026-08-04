@@ -127,8 +127,10 @@ export function PartnerDetailDrawer({ partner, isOpen, onClose }: PartnerDetailD
               <IconUsers size={22} />
             </div>
             <div>
+              {/* Titled as the edit step, not "Profile" — the read-only
+                  profile is now PartnerHistoryDrawer, which hands off here. */}
               <SheetTitle className="text-[17px] font-extrabold text-[var(--t1)]">
-                {M.DETAIL.TITLE}
+                {M.FORM.EDIT_TITLE}
               </SheetTitle>
               <SheetDescription className="text-[12.5px] text-[var(--t3)]">
                 {partner?.id ?? M.DETAIL.SUBTITLE}

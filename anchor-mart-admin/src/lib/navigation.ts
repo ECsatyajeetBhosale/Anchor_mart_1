@@ -8,8 +8,11 @@ import {
   IconCategory,
   IconCategory2,
   IconChartAreaLine,
-  IconChecklist,
-  IconClipboardList,
+  // Icons for the three parked nav items below (Assignments, Verifications,
+  // Message Log). Kept commented, not deleted — `noUnusedLocals` would fail the
+  // build if they stayed imported while their entries are off.
+  // IconChecklist,
+  // IconClipboardList,
   IconClipboardText,
   IconEngine,
   IconFileInvoice,
@@ -17,8 +20,9 @@ import {
   IconHeart,
   IconLayoutDashboard,
   IconLifebuoy,
-  IconMailFast,
+  // IconMailFast,
   IconMapPin,
+  IconMessage2,
   IconMessages,
   IconMotorbike,
   IconPackage,
@@ -178,21 +182,24 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: IconMotorbike,
         path: APP_ROUTES.PARTNERS,
       },
-      {
-        key: "assignments",
-        label: "Assignments",
-        icon: IconClipboardList,
-        path: APP_ROUTES.ASSIGNMENTS,
-        badge: "4",
-      },
-      {
-        key: "verification",
-        label: "Verifications",
-        icon: IconChecklist,
-        path: APP_ROUTES.VERIFICATION,
-        badge: "3",
-        badgeVariant: "warning",
-      },
+      // Parked, not removed — both screens are built and wired; they are just
+      // hidden from the drawer for now. Restore these entries together with
+      // their routes in `routes/AppRouter.tsx` to bring them back.
+      // {
+      //   key: "assignments",
+      //   label: "Assignments",
+      //   icon: IconClipboardList,
+      //   path: APP_ROUTES.ASSIGNMENTS,
+      //   badge: "4",
+      // },
+      // {
+      //   key: "verification",
+      //   label: "Verifications",
+      //   icon: IconChecklist,
+      //   path: APP_ROUTES.VERIFICATION,
+      //   badge: "3",
+      //   badgeVariant: "warning",
+      // },
     ],
   },
   {
@@ -219,6 +226,15 @@ export const NAV_SECTIONS: NavSection[] = [
         badge: "3",
       },
       {
+        // Flow 23 §4.3 — per-order threads, deliberately separate from Chat
+        // Monitor: that one is the shared partner support inbox, this one is
+        // scoped to the orders you own (super admins see all).
+        key: "order-chats",
+        label: "Order Chats",
+        icon: IconMessage2,
+        path: APP_ROUTES.ORDER_CHATS,
+      },
+      {
         key: "sellers",
         label: "Seller Requests",
         icon: IconBuildingStore,
@@ -235,13 +251,14 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: IconUserCog,
         path: APP_ROUTES.ACCOUNT_MANAGEMENT,
       },
-      {
-        // Flow 22 §3.1 — the outbound email/WhatsApp delivery log.
-        key: "messages",
-        label: "Message Log",
-        icon: IconMailFast,
-        path: APP_ROUTES.MESSAGES,
-      },
+      // Parked, not removed — see the note on Assignments above.
+      // {
+      //   // Flow 22 §3.1 — the outbound email/WhatsApp delivery log.
+      //   key: "messages",
+      //   label: "Message Log",
+      //   icon: IconMailFast,
+      //   path: APP_ROUTES.MESSAGES,
+      // },
     ],
   },
   {

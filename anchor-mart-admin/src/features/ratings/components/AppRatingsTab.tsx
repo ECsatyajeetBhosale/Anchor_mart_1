@@ -18,17 +18,27 @@ import { ReviewDetailDrawer } from "./ReviewDetailDrawer";
 const M = MESSAGES.RATINGS;
 const LIMIT = 10;
 
-const RATING_OPTIONS = [5, 4, 3, 2, 1].map((n) => ({
-  value: String(n),
-  label: M.FILTERS.RATING_OPTION(n),
-}));
+/**
+ * `""` clears the filter. Without this row the dropdown is a one-way door —
+ * the placeholder reads "All ratings" but is only shown while nothing is
+ * selected, so picking a star left no way back to the unfiltered list.
+ */
+const RATING_OPTIONS = [
+  { value: "", label: M.FILTERS.RATING_PLACEHOLDER },
+  ...[5, 4, 3, 2, 1].map((n) => ({
+    value: String(n),
+    label: M.FILTERS.RATING_OPTION(n),
+  })),
+];
 
 /**
  * Platform values are free text on the backend (whatever the client sent), so
  * the filter offers the three surfaces we ship rather than a server-provided
- * enum. The match is case-insensitive and exact.
+ * enum. The match is case-insensitive and exact. `""` clears the filter, for
+ * the same reason as `RATING_OPTIONS` above.
  */
 const PLATFORM_OPTIONS = [
+  { value: "", label: M.FILTERS.PLATFORM_PLACEHOLDER },
   { value: "ios", label: "iOS" },
   { value: "android", label: "Android" },
   { value: "web", label: "Web" },

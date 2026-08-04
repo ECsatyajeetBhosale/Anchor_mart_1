@@ -1255,6 +1255,77 @@ export const MESSAGES = {
       DELIVERIES: "Total Deliveries",
       SAVE: "Save Changes",
     },
+    // Profile & work-history drawer (Flow 28 API 6b) — the drill-down a row
+    // click opens. Editing is one deliberate step further in.
+    HISTORY: {
+      TITLE: "Partner Profile",
+      SUBTITLE: "Work history & performance",
+      ROLE: "Delivery Partner",
+      EDIT: "Edit Partner",
+      SECTION_SUMMARY: "Performance",
+      SECTION_JOBS: "Work History",
+      // The rollup is computed before the outcome filter is applied, so the
+      // header and the list can never contradict each other.
+      SUMMARY_NOTE: "Totals cover the selected period. The outcome filter narrows the list only.",
+      DASH: "—",
+      CAPABILITY: {
+        VERIFY: "Verify",
+        DELIVER: "Deliver",
+        NONE: "No capability",
+      },
+      STATUS: {
+        AVAILABLE: "Available",
+        UNAVAILABLE: "Unavailable",
+        BLOCKED: "Blocked",
+      },
+      STATS: {
+        TOTAL: "Total Jobs",
+        DELIVERED: "Delivered",
+        VERIFIED: "Verified",
+        FAILED: "Failed",
+        SUCCESS_RATE: "Delivery Success",
+        ON_TIME_RATE: "On Time",
+        // A rate of null means no samples — deliberately not rendered as 0%,
+        // which would read as "this partner fails everything".
+        NO_SAMPLES: "No data yet",
+        SLA_FOOTER: (n: number) => `${n} order${n === 1 ? "" : "s"} with a deadline`,
+      },
+      FILTERS: {
+        OUTCOME_ALL: "All outcomes",
+        PERIOD_ALL: "All time",
+        PERIOD_TODAY: "Today",
+        PERIOD_WEEK: "This week",
+        PERIOD_MONTH: "This month",
+        SEARCH_PLACEHOLDER: "Search order number…",
+      },
+      OUTCOMES: {
+        delivered: "Delivered",
+        failed: "Failed",
+        verified: "Verified",
+        in_progress: "In Progress",
+        rejected: "Rejected",
+        reassigned: "Reassigned",
+        cancelled: "Cancelled",
+      } as Record<string, string>,
+      COLUMNS: {
+        ORDER: "Order",
+        OUTCOME: "Outcome",
+        ASSIGNED: "Assigned",
+        COMPLETED: "Completed",
+        ON_TIME: "On Time",
+        RATING: "Rating",
+      },
+      ON_TIME: {
+        YES: "On time",
+        LATE: "Late",
+        // Only express / emergency / fastest orders carry a deadline; for the
+        // rest punctuality has no answer, and a dash says so.
+        NA_TITLE: "This order carried no delivery deadline",
+      },
+      EMPTY: "No work history for this partner yet.",
+      EMPTY_FILTERED: "No jobs match the current filters.",
+      FETCH_ERROR: "Failed to load partner history.",
+    },
     // Onboard / edit form drawer
     FORM: {
       ADD_TITLE: "Onboard Delivery Partner",
@@ -2769,9 +2840,67 @@ export const MESSAGES = {
     },
     DELIVERY: {
       TITLE: "Chat Monitor",
-      SUBTITLE: "Order conversations between sailors, partners and admins.",
+      SUBTITLE: "Admin ↔ Sailors & Delivery Partners — real-time communication",
+      SEARCH_PLACEHOLDER: "Search conversations…",
+      EMPTY: "No conversations yet.",
+    },
+    ORDER: {
+      TITLE: "Order Chats",
+      SUBTITLE: "Queries about a specific order. You see the orders you own; super admins see all.",
       SEARCH_PLACEHOLDER: "Search order threads…",
       EMPTY: "No order threads yet.",
+      CATEGORY_ALL: "Both sides",
+      CATEGORY_ORDER: "From sailors",
+      CATEGORY_DELIVERY: "From partners",
+      COUNTERPARTY: {
+        customer: "Sailor",
+        delivery_partner: "Partner",
+      } as Record<string, string>,
+      UNCLAIMED: "Unclaimed",
+      ITEMS: (n: number) => `${n} item${n === 1 ? "" : "s"}`,
+    },
+    // Live socket state (Flow 23 §2). Surfaced because a chat that has silently
+    // stopped receiving is indistinguishable from a quiet one.
+    SOCKET: {
+      CONNECTING: "Connecting…",
+      OPEN: "Live",
+      RECONNECTING: "Reconnecting…",
+      OFFLINE: "Offline",
+      AUTH_ERROR: (code: string) => `Chat connection refused (${code}).`,
+      // `blocked` and `invalid_token` are terminal — the client must not retry.
+      AUTH_ERROR_FATAL: "Chat is unavailable for this account. Sign in again or contact support.",
+      QUEUED: "Offline — this will send when the connection returns.",
+    },
+    COMPOSER: {
+      PLACEHOLDER: "Write a reply…",
+      SEND: "Send",
+      HINT: "Enter to send · Shift+Enter for a new line",
+      // The one write the admin panel genuinely cannot do: uploads live under
+      // /api/chat/, which requires a header this panel has no access to.
+      NO_ATTACH: "Attachments can be read here but not sent from the admin panel.",
+      TYPING_ONE: "typing…",
+      TYPING_MANY: (n: number) => `${n} people typing…`,
+      EDIT: "Edit",
+      DELETE: "Delete",
+      EDITING: "Editing message",
+      CANCEL_EDIT: "Cancel",
+      EDITED: "edited",
+      CONFIRM_DELETE_TITLE: "Delete this message?",
+      CONFIRM_DELETE_BODY:
+        "It stays in the thread marked as deleted — everyone in the conversation sees that a message was removed.",
+    },
+    GROUP: {
+      CREATE: "New Group",
+      TITLE: "Create Group Chat",
+      SUBTITLE: "You become the group admin and are added automatically.",
+      NAME: "Group Name",
+      NAME_PLACEHOLDER: "e.g. Singapore Ops Desk",
+      PARTICIPANTS: "Participants",
+      PARTICIPANTS_HINT: "One user ID per line. Every ID must exist, or the request is rejected.",
+      PARTICIPANTS_PLACEHOLDER: "9c1e…\n0b7d…",
+      SUBMIT: "Create Group",
+      CREATED: "Group chat created successfully",
+      ERROR: "Failed to create the group chat",
     },
     THREADS: {
       FETCH_ERROR: "Failed to load conversations.",
@@ -2786,10 +2915,11 @@ export const MESSAGES = {
       DELETED: "This message was deleted.",
       ATTACHMENT: "Attachment",
       REFRESH: "Refresh",
-      // There is no admin REST endpoint for sending — messages go over the chat
-      // websocket. Saying so beats rendering a composer that can't work.
-      READ_ONLY: "Read-only view. Replies are sent from the chat service, not the admin panel.",
       ORDER_PREFIX: "Order",
+      // Your own messages read "You" rather than your email address. Applied
+      // only once the socket has identified you — another admin replying in a
+      // shared inbox keeps their own name.
+      YOU: "You",
     },
   },
   NOTIFICATIONS: {
@@ -3410,6 +3540,9 @@ export const MESSAGES = {
   COMMON: {
     SAVE_CHANGES: "Save Changes",
     CANCEL: "Cancel",
+    // Dismisses a read-only view. "Cancel" implies discarding an edit that a
+    // read-only drawer never had.
+    CLOSE: "Close",
     CONFIRM: "Confirm",
     DELETE: "Delete",
     EDIT: "Edit",

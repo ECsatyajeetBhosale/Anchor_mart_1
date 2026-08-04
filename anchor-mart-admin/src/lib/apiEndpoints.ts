@@ -324,6 +324,18 @@ export const PARTNER_ENDPOINTS = {
   DELETE: "/superadmin/partner/delete/",
   // Update partner detail; user id sent as the `user_id` query param.
   UPDATE: "/superadmin/partner/partner_detail_update/",
+  /**
+   * Flow 28 API 6b — the individual jobs behind one partner's KPI numbers.
+   * Query: `user_id` (**required**, 404 if unknown or soft-deleted), `outcome`,
+   * `period`, `from_date` / `to_date`, `search` (order number only), `page`,
+   * `page_size`. Defaults to **all time**, not a rolling window.
+   *
+   * ⚠️ Deliberately not `GET /orders/?partner_id=`. That filter matches
+   * `assignments__is_active=True`, and delivering an order *closes* its
+   * assignment — so it returns the partner's current workload and silently
+   * omits every completed delivery.
+   */
+  HISTORY: "/superadmin/partner/history/",
 };
 
 export const VERIFICATION_ENDPOINTS = {
@@ -589,13 +601,41 @@ export const ADMIN_NOTIFICATION_ENDPOINTS = {
   HISTORY: "/superadmin/notifications/history/",
 };
 
-/** Admin chat monitor — read-only visibility into support and order threads. */
+/**
+ * Admin chat (Flow 23 §4). Base `/superadmin/chat/` is **exempt from
+ * `ServerSecurityMiddleware`** — unlike `/api/chat/`, it needs no
+ * `server-secret-key` header, which is why the panel reads threads here rather
+ * than through the customer routes.
+ *
+ * Reads are REST; **writes are not** — messages are sent over the chat
+ * websocket (`ws/chat/`), see `features/chat/lib/chatSocket.ts`.
+ */
 export const CHAT_ENDPOINTS = {
-  // Support threads (sailors ↔ admin).
+  // §4.1 — customer support inbox. Shared: every admin sees every thread.
   GET_USER_CHATS: "/superadmin/chat/user-chats/",
-  // Order/delivery threads.
+  // §4.2 — delivery-partner support inbox. Also shared.
   GET_DELIVERY_CHATS: "/superadmin/chat/delivery-chats/",
-  // Messages in one thread. Query: `chat_id` (note: an integer, not a UUID).
+  /**
+   * §4.3 — order-chat inbox. **Not shared**: a sub-admin sees only threads on
+   * orders they own; a super-admin sees all, including still-unclaimed orders.
+   * Query: `category` (`order` | `order_delivery`, anything else → 400),
+   * `page`, `page_size`.
+   */
+  GET_ORDER_CHATS: "/superadmin/chat/order-chats/",
+  /** §4.4 — one order thread by its integer chat id. 404 on a support thread. */
+  GET_ORDER_CHAT: (chatId: string) => `/superadmin/chat/order-chats/${chatId}/`,
+  /**
+   * §4.6 — create a group chat. Body: `{ group_name, participants[] }`. The
+   * creating admin becomes `group_admin` and is added as a participant.
+   */
+  CREATE_GROUP: "/superadmin/chat/create-chat-group/",
+  /**
+   * §4.5 — messages in one thread. Query: `chat_id` (an **integer**, not a
+   * UUID), `page`, `page_size`.
+   *
+   * ⚠️ **Oldest first** on this admin route — the opposite of the customer
+   * route (§3.5), which is newest-first. Do not share paging logic between them.
+   */
   GET_CHAT_MESSAGES: "/superadmin/chat/chat-messenger-detail/",
 };
 

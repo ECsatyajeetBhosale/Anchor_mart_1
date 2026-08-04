@@ -965,12 +965,23 @@ resolves identically.
    "name": "Ravi Kumar",
    "email": "ravi@anchormart.example",
    "port": "Port of Singapore",
-   "is_available": true
+   "is_available": true,
+   "can_verify": true,
+   "can_deliver": false
  }
 }
 ```
 `name` falls back to the email when no first/last name is set; `port` is `null`
 when no port is assigned.
+
+
+> **`can_verify` / `can_deliver` added 2026-08-03.** They ride on the sign-in response — not only
+> on `GET /api/partner/profile/` — so the app knows which screens to render **before its first
+> render**. Serving them from the profile endpoint alone would leave the app blind between sign-in
+> and its first profile fetch, showing the wrong tabs and then silently correcting itself.
+> A partner may be verify-only, deliver-only, or **both** (the default, and the common case).
+> Screen-by-screen rules: [`../../PARTNER_CAPABILITY_FRONTEND_GUIDE.md`](../../PARTNER_CAPABILITY_FRONTEND_GUIDE.md) ·
+> assignment behaviour: [Flow 28](../Wave2/28-delivery-partner-lifecycle.md).
 
 
 **Error Responses**
@@ -1064,6 +1075,8 @@ with `reason: "blocked"`.
 | Partner role permission | [`partner_app/permissions.py`](../../backend/partner_app/permissions.py) |
 | Auth audit events | [`orders/audit.py`](../../backend/orders/audit.py) |
 | DRF config, OTP constants | [`AnchorMart/settings.py`](../../backend/AnchorMart/settings.py) |
+
+
 
 
 

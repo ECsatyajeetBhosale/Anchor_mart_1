@@ -2,8 +2,13 @@ import { PARTNER_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
 import type {
   CreatePartnerPayload,
+  GetPartnerHistoryParams,
   PartnerApi,
   PartnerData,
+  PartnerHistoryHeader,
+  PartnerHistoryResult,
+  PartnerHistoryRow,
+  PartnerHistorySummary,
   PartnerListResult,
   PartnerStats,
   UpdatePartnerPayload,
@@ -84,6 +89,95 @@ function toPartner(row: PartnerApi): PartnerData {
   };
 }
 
+/** Coerces to a finite number, falling back to 0. */
+function num(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Reads a rate that must survive as `null`. The history endpoint returns `null`
+ * (not `0`) when there are no samples — an untested partner is missing data,
+ * not a failing one, and `0%` would read as the latter.
+ */
+function nullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Reads a timestamp that is legitimately absent, e.g. `failed_at` on a success. */
+function nullableStr(value: unknown): string | null {
+  const s = str(value);
+  return s === "" ? null : s;
+}
+
+/**
+ * Reads `on_time`, which is genuinely tri-state: anything that is not a real
+ * boolean (including a missing key) means "no deadline applied", never "late".
+ */
+function nullableBool(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
+
+/** Maps one raw history row (Flow 28 API 6b `results.data[]`). */
+function toHistoryRow(row: unknown): PartnerHistoryRow {
+  return {
+    assignment_id: str(getProp(row, "assignment_id")),
+    order_id: str(getProp(row, "order_id")),
+    order_number: str(getProp(row, "order_number")),
+    order_status: str(getProp(row, "order_status")),
+    order_status_display: str(getProp(row, "order_status_display")),
+    outcome: str(getProp(row, "outcome")),
+    outcome_display: str(getProp(row, "outcome_display")),
+    status: str(getProp(row, "status")),
+    assigned_at: nullableStr(getProp(row, "assigned_at")),
+    first_action_at: nullableStr(getProp(row, "first_action_at")),
+    picked_up_at: nullableStr(getProp(row, "picked_up_at")),
+    completed_at: nullableStr(getProp(row, "completed_at")),
+    failed_at: nullableStr(getProp(row, "failed_at")),
+    deliver_by: nullableStr(getProp(row, "deliver_by")),
+    on_time: nullableBool(getProp(row, "on_time")),
+    rejection_reason: str(getProp(row, "rejection_reason")),
+    rating: nullableNumber(getProp(row, "rating")),
+  };
+}
+
+/** Maps the `results.partner` header block. Returns null when absent. */
+function toHistoryHeader(value: unknown): PartnerHistoryHeader | null {
+  if (!value || typeof value !== "object") return null;
+  return {
+    user_id: str(getProp(value, "user_id")),
+    partner_id: str(getProp(value, "partner_id")),
+    name: str(getProp(value, "name")),
+    email: str(getProp(value, "email")),
+    port: str(getProp(value, "port")),
+    can_verify: getProp(value, "can_verify") === true,
+    can_deliver: getProp(value, "can_deliver") === true,
+    is_available: getProp(value, "is_available") === true,
+    // Absent means "not blocked" — only an explicit false marks a blocked account.
+    is_active: getProp(value, "is_active") !== false,
+  };
+}
+
+/** Maps the `results.summary` rollup. Returns null when absent. */
+function toHistorySummary(value: unknown): PartnerHistorySummary | null {
+  if (!value || typeof value !== "object") return null;
+  return {
+    total_jobs: num(getProp(value, "total_jobs")),
+    delivered: num(getProp(value, "delivered")),
+    failed: num(getProp(value, "failed")),
+    verified: num(getProp(value, "verified")),
+    in_progress: num(getProp(value, "in_progress")),
+    rejected: num(getProp(value, "rejected")),
+    reassigned: num(getProp(value, "reassigned")),
+    cancelled: num(getProp(value, "cancelled")),
+    delivery_success_rate: nullableNumber(getProp(value, "delivery_success_rate")),
+    on_time_rate: nullableNumber(getProp(value, "on_time_rate")),
+    sla_bound_deliveries: num(getProp(value, "sla_bound_deliveries")),
+  };
+}
+
 /**
  * Extracts the rows + total from the list envelope
  * (`{ count, results: { data: [...] } }`), staying defensive about variants.
@@ -144,6 +238,44 @@ export const partnerApi = baseApi.injectEndpoints({
       ],
     }),
 
+    /**
+     * Flow 28 API 6b — one partner's work history: the jobs behind the KPI
+     * numbers. Defaults to **all time**; a period is only applied when the
+     * reader asks for one, since silently hiding older work behind an
+     * unrequested window is what makes a history screen untrustworthy.
+     */
+    getPartnerHistory: builder.query<PartnerHistoryResult, GetPartnerHistoryParams>({
+      query: ({ userId, outcome, period, search, page, limit }) => ({
+        url: PARTNER_ENDPOINTS.HISTORY,
+        method: "GET",
+        // Blank filters are dropped rather than sent empty: `outcome` is
+        // validated server-side and an unrecognised value is a 400.
+        params: {
+          user_id: userId,
+          outcome: outcome || undefined,
+          period: period || undefined,
+          search: search || undefined,
+          page,
+          page_size: limit,
+        },
+      }),
+      transformResponse: (res: unknown): PartnerHistoryResult => {
+        const results = getProp(res, "results");
+        const rows = asArray(getProp(results, "data")) ?? [];
+        const countRaw = getProp(res, "count") ?? getProp(results, "count");
+        return {
+          count: typeof countRaw === "number" ? countRaw : rows.length,
+          period: str(getProp(results, "period")) || "all",
+          partner: toHistoryHeader(getProp(results, "partner")),
+          summary: toHistorySummary(getProp(results, "summary")),
+          rows: rows.map(toHistoryRow),
+        };
+      },
+      providesTags: (_result, _error, { userId }) => [
+        { type: "Partners", id: `HISTORY-${userId}` },
+      ],
+    }),
+
     // Create a new delivery partner.
     createPartner: builder.mutation<unknown, CreatePartnerPayload>({
       query: (body) => ({
@@ -169,6 +301,9 @@ export const partnerApi = baseApi.injectEndpoints({
         { type: "Partners", id: "PARTIAL-LIST" },
         { type: "Partners", id: "STATS" },
         { type: "Partners", id: userId },
+        // The history response carries the partner's name/email/port in its
+        // header block, so an edit makes the cached copy stale too.
+        { type: "Partners", id: `HISTORY-${userId}` },
       ],
     }),
 
@@ -192,6 +327,7 @@ export const {
   useGetPartnersQuery,
   useGetPartnerStatsQuery,
   useGetPartnerDetailQuery,
+  useGetPartnerHistoryQuery,
   useCreatePartnerMutation,
   useUpdatePartnerMutation,
   useDeletePartnerMutation,

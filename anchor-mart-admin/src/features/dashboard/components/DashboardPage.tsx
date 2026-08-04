@@ -100,7 +100,10 @@ export function DashboardPage() {
       value: NA,
       icon: <IconClipboardList size={19} />,
       variant: "amber",
-      onClick: () => navigate(APP_ROUTES.ASSIGNMENTS),
+      // Navigation parked with the Assignments screen. The tile stays as a
+      // counter; without an `onClick` StatCard drops its pointer cursor, so it
+      // no longer advertises a click that would dead-end at the 404 redirect.
+      // onClick: () => navigate(APP_ROUTES.ASSIGNMENTS),
     },
   ];
 
@@ -112,7 +115,9 @@ export function DashboardPage() {
       value: NA,
       icon: <IconChecklist size={19} />,
       variant: "red",
-      onClick: () => navigate(APP_ROUTES.VERIFICATION),
+      // Navigation parked with the Verifications screen — see the Assignments
+      // tile above.
+      // onClick: () => navigate(APP_ROUTES.VERIFICATION),
     },
     {
       id: "intents",

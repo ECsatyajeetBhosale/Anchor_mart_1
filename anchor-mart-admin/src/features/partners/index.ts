@@ -1,10 +1,12 @@
 export { PartnersPage } from "./components/PartnersPage";
 export { PartnerDetailDrawer } from "./components/PartnerDetailDrawer";
 export { PartnerFormDrawer } from "./components/PartnerFormDrawer";
+export { PartnerHistoryDrawer } from "./components/PartnerHistoryDrawer";
 export {
   useGetPartnersQuery,
   useGetPartnerStatsQuery,
   useGetPartnerDetailQuery,
+  useGetPartnerHistoryQuery,
   useCreatePartnerMutation,
   useUpdatePartnerMutation,
   useDeletePartnerMutation,
@@ -14,4 +16,9 @@ export type {
   PartnerApi,
   PartnerListResult,
   PartnerStats,
+  PartnerHistoryRow,
+  PartnerHistorySummary,
+  PartnerHistoryHeader,
+  PartnerHistoryResult,
+  GetPartnerHistoryParams,
 } from "./types/partner.types";

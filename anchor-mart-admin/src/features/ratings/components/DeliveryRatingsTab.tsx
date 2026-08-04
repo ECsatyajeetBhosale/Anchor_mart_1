@@ -18,10 +18,18 @@ import { ReviewDetailDrawer } from "./ReviewDetailDrawer";
 const M = MESSAGES.RATINGS;
 const LIMIT = 10;
 
-const RATING_OPTIONS = [5, 4, 3, 2, 1].map((n) => ({
-  value: String(n),
-  label: M.FILTERS.RATING_OPTION(n),
-}));
+/**
+ * `""` clears the filter. Without this row the dropdown is a one-way door —
+ * the placeholder reads "All ratings" but is only shown while nothing is
+ * selected, so picking a star left no way back to the unfiltered list.
+ */
+const RATING_OPTIONS = [
+  { value: "", label: M.FILTERS.RATING_PLACEHOLDER },
+  ...[5, 4, 3, 2, 1].map((n) => ({
+    value: String(n),
+    label: M.FILTERS.RATING_OPTION(n),
+  })),
+];
 
 /** Human label for a quick tag, falling back to the raw token if it's unknown. */
 function tagLabel(tag: string): string {

@@ -11,7 +11,10 @@ import { AnalyticsPage } from "@/features/analytics";
 // Dashboard — from feature
 import { DashboardPage } from "@/features/dashboard";
 
-import { AssignmentsPage } from "@/pages/AssignmentsPage";
+// Parked screens — hidden from the sidebar and unrouted for now. The pages
+// themselves are untouched; uncomment the import and its <Route> below (and the
+// matching entry in `lib/navigation.ts`) to bring one back.
+// import { AssignmentsPage } from "@/pages/AssignmentsPage";
 import { ExpressPage } from "@/pages/ExpressPage";
 import { IntentsPage } from "@/pages/IntentsPage";
 import { OrdersPage } from "@/pages/OrdersPage";
@@ -24,13 +27,14 @@ import { SettingsPage } from "@/pages/SettingsPage";
 // Settings sub-page — Help & FAQ management (Users moved to Account Management)
 import { FaqsPage } from "@/features/settings";
 import { SpecialRequestsPage } from "@/pages/SpecialRequestsPage";
-import { VerificationPage } from "@/pages/VerificationPage";
+// Parked — see the note above `AssignmentsPage`.
+// import { VerificationPage } from "@/pages/VerificationPage";
 
 // Notification console — role-based sends + platform broadcast
 import { NotificationsPage } from "@/features/notifications";
 
-// Chat monitor — read-only support and order threads
-import { DeliveryChatsPage, SupportChatsPage } from "@/features/chat";
+// Chat — live support, delivery and per-order threads (Flow 23)
+import { DeliveryChatsPage, OrderChatsPage, SupportChatsPage } from "@/features/chat";
 
 // Ratings & Reviews (Flow 16 admin surfaces)
 import { RatingsPage } from "@/features/ratings";
@@ -60,7 +64,8 @@ import { SellerRequestsPage } from "@/features/sellers";
 import { AccountManagementPage } from "@/features/account-management";
 
 // Outbound message ledger (Flow 22) — did the email/WhatsApp actually land?
-import { OutboundMessagesPage } from "@/features/messages";
+// Parked — see the note above `AssignmentsPage`.
+// import { OutboundMessagesPage } from "@/features/messages";
 
 // Saved products (Flow 29c §5) — sailor wishlists, read-only
 import { SavedProductsPage } from "@/features/saved-products";
@@ -102,11 +107,14 @@ export function AppRouter() {
             <Route path={APP_ROUTES.GIFTS} element={<GiftShipsPage />} />
             <Route path={APP_ROUTES.RATINGS} element={<RatingsPage />} />
             <Route path={APP_ROUTES.PARTNERS} element={<PartnersPage />} />
-            <Route path={APP_ROUTES.ASSIGNMENTS} element={<AssignmentsPage />} />
-            <Route path={APP_ROUTES.VERIFICATION} element={<VerificationPage />} />
+            {/* Parked — unrouted for now, so these paths fall through to the
+                404 redirect. Uncomment with their imports and nav entries. */}
+            {/* <Route path={APP_ROUTES.ASSIGNMENTS} element={<AssignmentsPage />} /> */}
+            {/* <Route path={APP_ROUTES.VERIFICATION} element={<VerificationPage />} /> */}
             <Route path={APP_ROUTES.NOTIFICATIONS} element={<NotificationsPage />} />
             <Route path={APP_ROUTES.CHAT} element={<DeliveryChatsPage />} />
             <Route path={APP_ROUTES.SUPPORT} element={<SupportChatsPage />} />
+            <Route path={APP_ROUTES.ORDER_CHATS} element={<OrderChatsPage />} />
             <Route path={APP_ROUTES.SELLERS} element={<SellerRequestsPage />} />
             <Route path={APP_ROUTES.ACCOUNT_MANAGEMENT} element={<AccountManagementPage />} />
             {/* The two paths Account Management replaced. Redirected rather
@@ -121,7 +129,8 @@ export function AppRouter() {
               path={APP_ROUTES.SETTINGS_USERS}
               element={<Navigate to={APP_ROUTES.ACCOUNT_MANAGEMENT} replace />}
             />
-            <Route path={APP_ROUTES.MESSAGES} element={<OutboundMessagesPage />} />
+            {/* Parked — see the note beside the Assignments route above. */}
+            {/* <Route path={APP_ROUTES.MESSAGES} element={<OutboundMessagesPage />} /> */}
             <Route path={APP_ROUTES.SAVED_PRODUCTS} element={<SavedProductsPage />} />
             <Route path={APP_ROUTES.AUDIT} element={<AuditTrailPage />} />
             <Route path={APP_ROUTES.SETTINGS} element={<SettingsPage />} />
