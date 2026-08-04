@@ -4,7 +4,7 @@
 **Wave** 5 (Communications backbone) · **Type** Supporting · **Actors** Customer · Delivery Partner · Admin · Super Admin
 **Platforms** WS · SAILOR · PARTNER · ADMIN · SYS · **Apps** `Chat`, `admin_panel`, `notifications`
 **Models** `Chat`, `Messenger`, `Order`, `Notification`
-**Surface** 12 REST endpoints + 1 WebSocket (6 inbound frame types, 8 outbound event types)
+**Surface** 13 REST endpoints + 1 WebSocket (6 inbound frame types, 8 outbound event types)
 **Related flows** 21 (inbox — the offline fallback) · 26 (media) · 27 (admin order ownership)
 
 
@@ -239,7 +239,15 @@ Every outbound event carries `type` (string), `msg_type` (**integer**) and `send
 ```
 
 
-> **Presence scope.** *Every* connecting user is announced to the whole **admin team**; an **admin** connecting is additionally announced to **delivery partners** (so they know support is available). **Customers are never told about anyone's presence.** Presence frames carry no `chat_id` — they are about the user, not a thread.
+> ### ⚠️ Presence is POLLED, not pushed — read this before building a presence UI
+>
+> **These two frames are sent to delivery partners only, and only when an *admin* connects or disconnects** (so partners know support is available). They are **not** a general presence feed.
+>
+> **Admins do not receive presence frames at all.** An admin dashboard gets presence by **polling `GET /api/superadmin/chat/presence/`** (§4.7) for the users on the page it is rendering.
+>
+> **Why:** broadcasting every user's connect/disconnect to every admin made the cost scale with *connection-event volume* — the one thing that spikes in a reconnect storm, so the storm and the cost of handling it were structurally coupled. 10,000 sailors reconnecting meant 10,000 frames to every admin, then 10,000 more on the way down, almost all discarded on arrival. Polling bounds the cost by polling frequency × roster size instead.
+>
+> **Customers are never told about anyone's presence.** Presence frames carry no `chat_id` — they are about the user, not a thread.
 
 
 ## 2.4 Error frames
@@ -282,7 +290,10 @@ All lists paginate with `page` / `page_size` (default **10**, max **100**).
 ## 3.1 `GET /api/chat/my-chats/` — my whole inbox
 
 
-The caller's global support thread (**created on first access**, so a new user always has a room) plus any group chats. Newest activity first.
+**Everything the caller participates in, in one list:** their global support thread (**created on first access**, so a new user always has a room), **every order thread they own**, and any group chats. Newest activity first.
+
+
+Use `order != null` to tell an order thread from the support thread — or use §3.2 if you want order threads *only*.
 
 
 **Query params:** `page`, `page_size`. No filters, no search.
@@ -311,7 +322,7 @@ The caller's global support thread (**created on first access**, so a new user a
 ## 3.2 `GET /api/chat/order-chats/` — order-wise chat list *(every role)*
 
 
-Only order threads. Distinct from §3.1, which mixes in the support thread and groups.
+**Order threads only.** §3.1 returns order threads too, but mixed in with the support thread and groups — this is the filtered view for an "which of my orders am I mid-conversation about?" screen, and it is the only one that accepts a `category` filter and serves **admins** as well.
 
 
 | Caller | Sees |
@@ -342,6 +353,7 @@ No search.
    "id": 42, "chat_type": "private", "category": "order_delivery",
    "counterparty": "delivery_partner",
    "owner": {"id": "9c1e…", "name": "R. Mehta", "role": "delivery_partner"},
+   "owner_is_online": true,
    "order": {
      "id": "3f2a…", "order_number": "AM-100234", "status": "partner_assigned",
      "item_count": 7,
@@ -354,7 +366,10 @@ No search.
  }]
 }
 ```
-`counterparty` (`customer` | `delivery_partner`) tells an admin **which side is speaking** without opening the thread. `order.item_count` is a **count only** — the full item list is on the order-detail screen.
+`counterparty` (`customer` | `delivery_partner`) tells an admin **which side is speaking** without opening the thread.
+
+
+> **`owner_is_online` is a SEED, not a live value.** It is the presence of the thread's **non-admin** side at *fetch time*, so the list paints correctly on first render instead of flashing presence in a moment later. **It does not stay fresh** — poll `…/chat/presence/` (§4.7) for that; re-fetching this paginated list to refresh presence would be heavier than the roster call it replaced. Only the **owner's** presence is ever exposed: an admin's never is, so a sailor sees their own status and nothing about who is handling them. `order.item_count` is a **count only** — the full item list is on the order-detail screen.
 
 
 ## 3.3 `GET /api/chat/order-chats/<chat_id>/` — one order thread *(every role)*
@@ -397,7 +412,10 @@ Also mounted at `GET /api/superadmin/chat/order-chats/<chat_id>/` (§4.4) — sa
 ## 3.5 `GET /api/chat/chat-messenger-detail/` — a thread's messages
 
 
-**Query params:** `chat_id` (**required**, integer), `page`, `page_size`. Newest first.
+**Query params:** `chat_id` (**required**, integer), `page`, `page_size`.
+
+
+**Order: newest first**, stable. Page 1 is the most recent messages and you page *backwards* through history — the standard "load older on scroll up" shape. Ordering is `-created_at, -id`; the id tiebreaker is what keeps pagination free of dropped or duplicated rows when two messages share a timestamp.
 
 
 **Access:** an **order thread** applies the order rule (owner · assigned admin · super_admin); a **global thread** allows the owner, any participant, or **any admin**.
@@ -479,6 +497,7 @@ Both are **shared inboxes**: every admin sees every thread in that category. New
   "id": 42, "category": "user_support",
   "owner": {"id": "9c1e…", "name": "A. Sailor", "email": "a@x.io",
             "role": "customer", "profile_picture": "https://…/media/…jpg"},
+  "owner_is_online": true,
   "last_message": {"id": 88, "content": "…", "message_type": "text", "media": null,
                    "sender": "9c1e…", "is_deleted": false, "created_at": "…"},
   "last_message_at": "2026-08-02T09:14:22Z",
@@ -503,6 +522,7 @@ Here `unread_count` = messages **from the owner** this admin has not seen.
 {"id": 42, "category": "order_delivery", "counterparty": "delivery_partner",
 "owner": {"id": "9c1e…", "name": "R. Mehta", "email": "r@x.io",
           "role": "delivery_partner", "profile_picture": null},
+"owner_is_online": true,
 "order": {"id": "3f2a…", "order_number": "AM-100234", "status": "partner_assigned",
           "item_count": 7, "assigned_admin": {"id": "0b7d…", "name": "Ops Desk"}},
 "last_message": {...}, "last_message_at": "…", "unread_count": 2, "created_at": "…"}
@@ -518,7 +538,10 @@ The **same view and access rule** as §3.3, mounted here so the admin panel can 
 ## 4.5 `GET …/chat-messenger-detail/` — a thread's messages *(admin)*
 
 
-**Query params:** `chat_id` (**required**, integer), `page`, `page_size`. **Oldest first** — note this is the opposite order to §3.5.
+**Query params:** `chat_id` (**required**, integer), `page`, `page_size`. **Newest first — identical to §3.5.**
+
+
+> Until 2026-08-03 this route returned messages *oldest* first while §3.5 returned them newest first: same thread, same serializer, inverted results. They are now the same order, so one chat component can serve both without knowing which route it called. A test pins the two routes against each other.
 
 
 Any admin may read a **support** thread; an **order** thread is readable only by the order's admin and super_admins. Response shape as §3.5. Errors `400` / `403` / `404` as §3.5.
@@ -540,6 +563,45 @@ The creating admin becomes `group_admin` and is added as a participant automatic
 
 
 **`201`** `{"message": "Group chat created successfully."}` · **`400`** `{"message": {<field errors>}}`
+
+
+## 4.7 `GET …/presence/` — who is online right now *(polled)*
+
+
+The replacement for presence push. Ask for the users on the page you are rendering.
+
+
+**Query params**
+
+
+| Param | Type | Required | Rules |
+|---|---|---|---|
+| `user_ids` | string | **Yes** | comma-separated UUIDs, **max 100** (one page of threads). Non-UUID → `400`; over 100 → `400` |
+
+
+There is deliberately **no "who is online globally"** mode. The presence store is per-user keys carrying their own TTL — the mechanism that lets a crashed worker's ghost entry self-heal — and enumerating would mean maintaining a parallel set that breaks exactly that.
+
+
+**Response `200`**
+```json
+{
+ "online": ["9c1e…"],
+ "presence": {"9c1e…": true, "4b2f…": false},
+ "ttl_seconds": 300
+}
+```
+
+
+`presence` has an entry for **every** id you asked about; `online` is the convenience subset. An unknown-but-valid UUID is simply `false`, not an error. `ttl_seconds` is how long a marker survives without activity — show "as of…" rather than implying live truth.
+
+
+**Failure direction:** if the presence store is unreachable everyone reports **offline**. Better a visible "nobody online" than a confidently wrong "everyone online".
+
+
+**Suggested polling:** once per 20–30 s while a chat screen is open. Cost is bounded by that frequency × roster size, and is unaffected by platform-wide connection churn.
+
+
+**Errors:** `400` validation · `401` no token · `403` not admin-tier.
 
 
 ---
@@ -568,7 +630,10 @@ The creating admin becomes `group_admin` and is added as a participant automatic
 - [ ] Use `counterparty` to label who is speaking in an admin order inbox.
 - [ ] Upload images over REST (§3.6), not the socket — the server broadcasts them for you.
 - [ ] Handle `413` on upload, not just `400`.
-- [ ] Expect `chat-messenger-detail` newest-first on the customer route and **oldest-first** on the admin route.
+- [ ] `chat-messenger-detail` is **newest-first on both routes**; page 1 is the latest messages and you page backwards through history.
+- [ ] **Do not wait for presence frames as an admin — poll `…/chat/presence/` (§4.7).** Admins receive no presence pushes.
+
+
 
 
 
