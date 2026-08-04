@@ -192,7 +192,6 @@ export function AuditTrailPage() {
     <div className="page-enter">
       <PageHeader
         title={M.TITLE}
-        subtitle={M.SUBTITLE}
         actions={
           <SearchFilters
             searchValue={subjectId}

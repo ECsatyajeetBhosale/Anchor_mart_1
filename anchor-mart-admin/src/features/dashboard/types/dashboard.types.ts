@@ -71,6 +71,19 @@ export interface DashboardStatsResponse {
   delta_expired: number;
   /** snapshot — customer location reports awaiting price-or-dismiss. */
   location_reports_pending: number;
+  /**
+   * Catalog and workload counters. These back the tiles that used to render
+   * "-" because no field existed for them; they are snapshots like everything
+   * above, so the period filter does not move them either.
+   */
+  products: number;
+  marine_emergency_spares: number;
+  express_items: number;
+  assignments: number;
+  verifications: number;
+  special_requests: number;
+  special_request_cancellations: number;
+  rewards: number;
   /** period — `placed_at` inside the window. */
   orders_placed: number;
   /** period — `cancelled_at` inside the window. */

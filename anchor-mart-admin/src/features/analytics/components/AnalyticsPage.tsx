@@ -1,4 +1,4 @@
-import { IconCurrencyDollar, IconPackage, IconUsers } from "@tabler/icons-react";
+import { IconCurrencyDollar, IconFilterOff, IconPackage, IconUsers } from "@tabler/icons-react";
 import { useEffect } from "react";
 import { toast } from "sonner";
 
@@ -87,6 +87,19 @@ export function AnalyticsPage() {
               onChange={selectPeriod}
             />
             <DateRangePicker value={dateRange} onChange={setDateRange} />
+            {/* A custom range overrides the period pills, so clearing it is the
+                only way back to a named window. */}
+            {dateRange?.from && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setDateRange(undefined)}
+                title={MESSAGES.COMMON.RESET_FILTERS}
+              >
+                <IconFilterOff size={15} />
+                {MESSAGES.COMMON.RESET}
+              </button>
+            )}
           </>
         }
       />

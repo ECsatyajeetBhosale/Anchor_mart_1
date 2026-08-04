@@ -9,6 +9,7 @@ import { badgeColumn, textColumn, truncatedColumn } from "@/components/common/ta
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { MESSAGES } from "@/lib/messages";
+import { clearParams } from "@/lib/utils";
 import { useGetOutboundMessagesQuery } from "../api/outboundMessageApi";
 import {
   MESSAGE_CHANNELS,
@@ -163,7 +164,6 @@ export function OutboundMessagesPage() {
     <div className="page-enter">
       <PageHeader
         title={M.TITLE}
-        subtitle={M.SUBTITLE}
         actions={
           <SearchFilters
             searchValue={recipient}
@@ -179,6 +179,7 @@ export function OutboundMessagesPage() {
                 options: CHANNEL_OPTIONS,
                 width: "140px",
                 onValueChange: (val) => setParam("channel", val),
+                emptyValue: "all",
               },
               {
                 id: "status",
@@ -187,6 +188,7 @@ export function OutboundMessagesPage() {
                 options: STATUS_OPTIONS,
                 width: "140px",
                 onValueChange: (val) => setParam("status", val),
+                emptyValue: "all",
               },
               {
                 id: "ordering",
@@ -195,8 +197,22 @@ export function OutboundMessagesPage() {
                 options: ORDERING_OPTIONS,
                 width: "150px",
                 onValueChange: (val) => setParam("ordering", val),
+                emptyValue: "-created_at",
               },
             ]}
+            isFiltered={!!eventType}
+            onReset={() =>
+              setSearchParams(
+                clearParams(searchParams, [
+                  "recipient",
+                  "event_type",
+                  "channel",
+                  "status",
+                  "ordering",
+                  "page",
+                ]),
+              )
+            }
           >
             {/* Exact-match, unlike the recipient box beside it. */}
             <Search

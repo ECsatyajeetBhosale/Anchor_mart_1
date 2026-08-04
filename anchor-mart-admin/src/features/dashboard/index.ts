@@ -1,5 +1,4 @@
 export { DashboardPage } from "./components/DashboardPage";
-export { DashboardOrdersCard } from "./components/DashboardOrdersCard";
 export { useDashboard } from "./hooks/useDashboard";
 export { useRevenue } from "./hooks/useRevenue";
 export {

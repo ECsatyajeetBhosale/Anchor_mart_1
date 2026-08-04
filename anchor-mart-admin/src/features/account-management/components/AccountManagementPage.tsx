@@ -64,7 +64,6 @@ export function AccountManagementPage() {
     <div className="page-enter">
       <PageHeader
         title={M.TITLE}
-        subtitle={M.SUBTITLE}
         actions={
           <button type="button" className="btn btn-primary" onClick={() => openCreate(undefined)}>
             <IconUserPlus size={16} />

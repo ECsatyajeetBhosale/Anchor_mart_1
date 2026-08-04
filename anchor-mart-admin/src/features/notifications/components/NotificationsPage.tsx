@@ -24,7 +24,7 @@ export function NotificationsPage() {
 
   return (
     <div className="page-enter">
-      <PageHeader title={M.TITLE} subtitle={M.SUBTITLE} />
+      <PageHeader title={M.TITLE} />
 
       <DynamicTabs
         value={activeTab}

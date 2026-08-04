@@ -3,6 +3,7 @@ import { IconCheck, IconTicket } from "@tabler/icons-react";
 import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 
+import { DatePicker } from "@/components/common/DatePicker";
 import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { FormField } from "@/components/common/FormField";
 import { FormRow } from "@/components/common/FormRow";
@@ -242,10 +243,32 @@ export function CouponFormDrawer({
               <div className="sec-label">{M.FORM.SECTIONS.VALIDITY}</div>
               <FormRow>
                 <FormField label={M.FORM.VALID_FROM} error={errors.valid_from?.message}>
-                  <Input type="date" error={!!errors.valid_from} {...register("valid_from")} />
+                  <Controller
+                    control={control}
+                    name="valid_from"
+                    render={({ field }) => (
+                      <DatePicker
+                        value={field.value}
+                        onChange={field.onChange}
+                        error={!!errors.valid_from}
+                        placeholder={MESSAGES.COMMON.PICK_DATE}
+                      />
+                    )}
+                  />
                 </FormField>
                 <FormField label={M.FORM.VALID_TO} error={errors.valid_to?.message}>
-                  <Input type="date" error={!!errors.valid_to} {...register("valid_to")} />
+                  <Controller
+                    control={control}
+                    name="valid_to"
+                    render={({ field }) => (
+                      <DatePicker
+                        value={field.value}
+                        onChange={field.onChange}
+                        error={!!errors.valid_to}
+                        placeholder={MESSAGES.COMMON.PICK_DATE}
+                      />
+                    )}
+                  />
                 </FormField>
               </FormRow>
             </section>

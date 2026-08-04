@@ -40,7 +40,6 @@ const STATUS_OPTIONS = [
 const STAT_CONFIG: {
   id: string;
   label: string;
-  footer: string;
   key: keyof SellerRequestStats;
   icon: ReactNode;
   variant: StatVariant;
@@ -48,7 +47,6 @@ const STAT_CONFIG: {
   {
     id: "pending",
     label: M.STATS.PENDING,
-    footer: M.STATS.PENDING_FOOTER,
     key: "pending",
     icon: <IconClock size={20} />,
     variant: "amber",
@@ -56,7 +54,6 @@ const STAT_CONFIG: {
   {
     id: "approved",
     label: M.STATS.APPROVED,
-    footer: M.STATS.APPROVED_FOOTER,
     key: "approved",
     icon: <IconCheck size={20} />,
     variant: "green",
@@ -64,7 +61,6 @@ const STAT_CONFIG: {
   {
     id: "rejected",
     label: M.STATS.REJECTED,
-    footer: M.STATS.REJECTED_FOOTER,
     key: "rejected",
     icon: <IconX size={20} />,
     variant: "red",
@@ -72,7 +68,6 @@ const STAT_CONFIG: {
   {
     id: "active",
     label: M.STATS.ACTIVE,
-    footer: M.STATS.ACTIVE_FOOTER,
     key: "active_sellers",
     icon: <IconBuildingStore size={20} />,
     variant: "navy",
@@ -106,7 +101,6 @@ export function SellerRequestsPage() {
   const statItems = STAT_CONFIG.map((c) => ({
     id: c.id,
     label: c.label,
-    footer: c.footer,
     value: statsLoading ? "—" : (stats?.[c.key] ?? 0).toLocaleString(),
     icon: c.icon,
     variant: c.variant,

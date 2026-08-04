@@ -2,6 +2,7 @@ import { IconDiscount2 } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { DatePicker } from "@/components/common/DatePicker";
 import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { FormField } from "@/components/common/FormField";
 import { Button } from "@/components/ui/button";
@@ -188,10 +189,14 @@ export function DealFormDrawer({ deal, isOpen, onClose }: DealFormDrawerProps) {
 
           <div className="form-row">
             <FormField label={F.START} error={errors.start}>
-              <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+              <DatePicker
+                value={start}
+                onChange={setStart}
+                placeholder={MESSAGES.COMMON.PICK_DATE}
+              />
             </FormField>
             <FormField label={F.END} error={errors.end}>
-              <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+              <DatePicker value={end} onChange={setEnd} placeholder={MESSAGES.COMMON.PICK_DATE} />
             </FormField>
           </div>
 

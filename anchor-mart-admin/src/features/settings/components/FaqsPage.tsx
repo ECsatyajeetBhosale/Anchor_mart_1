@@ -1,10 +1,10 @@
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { PageHeader } from "@/components/common/PageHeader";
-import { SearchFilters } from "@/components/common/SearchFilters";
-import { StatsGrid } from "@/components/common/StatsGrid";
 // The `ui/pagination` module's `Pagination` is the shadcn <nav> wrapper, which
 // takes no page props — the page-aware one lives in components/common.
 import { Pagination } from "@/components/common/Pagination";
+import { SearchFilters } from "@/components/common/SearchFilters";
+import { StatsGrid } from "@/components/common/StatsGrid";
 import { getApiMessage } from "@/lib/apiError";
 import { APP_ROUTES } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
@@ -115,7 +115,6 @@ export function FaqsPage() {
     <div>
       <PageHeader
         title={MESSAGES.SETTINGS.FAQ.PAGE_TITLE}
-        subtitle={MESSAGES.SETTINGS.FAQ.PAGE_SUBTITLE}
         actions={
           <SearchFilters
             searchValue={search}

@@ -5,13 +5,13 @@ import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import { DataTable } from "@/components/ui/data-table";
 import { useGetCategoriesQuery } from "@/features/catalog";
+import { ProductVariantsDrawer } from "@/features/variants";
+import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { IconBoxSeam, IconCategory, IconPlus, IconStar } from "@tabler/icons-react";
 import React, { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ProductVariantsDrawer } from "@/features/variants";
-import { getApiMessage } from "@/lib/apiError";
 import {
   useAnnounceProductAvailabilityMutation,
   useDeleteProductMutation,

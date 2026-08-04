@@ -1,19 +1,16 @@
 import {
-  IconAlertTriangle,
   IconBolt,
   IconBoxSeam,
-  IconCashOff,
   IconChecklist,
   IconClipboardList,
   IconClipboardText,
   IconEngine,
   IconFileInvoice,
-  IconMapPin,
+  IconFilterOff,
   IconMotorbike,
   IconPackage,
   IconReceiptRefund,
   IconStar,
-  IconTruckOff,
   IconUsers,
 } from "@tabler/icons-react";
 import { format } from "date-fns";
@@ -21,19 +18,18 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+import { DateRangePicker } from "@/components/common/DateRangePicker";
+import { PillToggle } from "@/components/common/PillToggle";
 import { StatsGrid, type StatsGridItem } from "@/components/common/StatsGrid";
 import { getApiMessage } from "@/lib/apiError";
 import { APP_ROUTES } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 
+import type { TimeRange } from "../types/dashboard.types";
+
 import { useDashboard } from "../hooks/useDashboard";
-import { DashboardOrdersCard } from "./DashboardOrdersCard";
 
 const M = MESSAGES.DASHBOARD;
-const A = MESSAGES.DASHBOARD.ATTENTION;
-
-/** Value shown for source cards/fields the API does not return. */
-const NA = "-";
 
 /* ═══════════════════════════════════════════════════════
    DashboardPage
@@ -46,7 +42,8 @@ const NA = "-";
 ════════════════════════════════════════════════════════ */
 export function DashboardPage() {
   const navigate = useNavigate();
-  const { stats, isError, error } = useDashboard();
+  const { stats, activeTab, selectPeriod, dateRange, setDateRange, isError, error } =
+    useDashboard();
 
   // Surface stat load failures through the shared toast convention.
   useEffect(() => {
@@ -86,7 +83,7 @@ export function DashboardPage() {
     {
       id: "products",
       label: "Products",
-      value: NA,
+      value: stats.products,
       icon: <IconBoxSeam size={19} />,
       variant: "purple",
       onClick: () => navigate(APP_ROUTES.PRODUCTS),
@@ -94,7 +91,7 @@ export function DashboardPage() {
     {
       id: "spares",
       label: "Marine Emergency Spares",
-      value: NA,
+      value: stats.marineEmergencySpares,
       icon: <IconEngine size={19} />,
       variant: "red",
       onClick: () => navigate(APP_ROUTES.SPARES),
@@ -102,7 +99,7 @@ export function DashboardPage() {
     {
       id: "assignments",
       label: "Assignments",
-      value: NA,
+      value: stats.assignments,
       icon: <IconClipboardList size={19} />,
       variant: "amber",
       // Navigation parked with the Assignments screen. The tile stays as a
@@ -117,7 +114,7 @@ export function DashboardPage() {
     {
       id: "verifications",
       label: "Verifications",
-      value: NA,
+      value: stats.verifications,
       icon: <IconChecklist size={19} />,
       variant: "red",
       // Navigation parked with the Verifications screen — see the Assignments
@@ -135,7 +132,7 @@ export function DashboardPage() {
     {
       id: "requests",
       label: "Special Requests",
-      value: NA,
+      value: stats.specialRequests,
       icon: <IconClipboardText size={19} />,
       variant: "navy",
       onClick: () => navigate(APP_ROUTES.REQUESTS),
@@ -144,14 +141,14 @@ export function DashboardPage() {
       // No dedicated route exists for cancellations — left non-navigable.
       id: "cancellation",
       label: "Special Request Cancellation",
-      value: NA,
+      value: stats.specialRequestCancellations,
       icon: <IconReceiptRefund size={19} />,
       variant: "amber",
     },
     {
       id: "express",
       label: "Express Items",
-      value: NA,
+      value: stats.expressItems,
       icon: <IconBolt size={19} />,
       variant: "green",
       onClick: () => navigate(APP_ROUTES.EXPRESS),
@@ -159,54 +156,10 @@ export function DashboardPage() {
     {
       id: "rewards",
       label: "Rewards",
-      value: NA,
+      value: stats.rewards,
       icon: <IconStar size={19} />,
       variant: "teal",
       onClick: () => navigate(APP_ROUTES.REWARDS),
-    },
-  ];
-
-  // Row 3 — exception signals from the same stats call. Kept in their own row
-  // because they are snapshots: unlike the period counts above they never move
-  // with the header filter, and mixing the two kinds in one grid is exactly the
-  // conflation the API docs warn about.
-  const attention: StatsGridItem[] = [
-    {
-      id: "delivery-failed",
-      label: A.DELIVERY_FAILED,
-      value: stats.deliveryFailed,
-      icon: <IconTruckOff size={19} />,
-      variant: "red",
-      // The staleness qualifier belongs on this tile, not beside it — the age
-      // is meaningless without the count it describes.
-      footer: stats.oldestFailedAge ? A.OLDEST(stats.oldestFailedAge) : undefined,
-      // The one signal here with a real destination: `delivery_failed` is an
-      // accepted Orders filter, so the drilldown lands on the actual queue.
-      onClick: () => navigate(`${APP_ROUTES.ORDERS}?status=delivery_failed`),
-    },
-    {
-      id: "delta-open",
-      label: A.DELTA_OPEN,
-      value: stats.deltaOpen,
-      icon: <IconCashOff size={19} />,
-      variant: "amber",
-      // Deltas and location reports are reviewed inside the order-detail
-      // drawer, not on a queue screen of their own — so these three stay
-      // counters rather than advertising a click that dead-ends.
-    },
-    {
-      id: "delta-expired",
-      label: A.DELTA_EXPIRED,
-      value: stats.deltaExpired,
-      icon: <IconAlertTriangle size={19} />,
-      variant: "red",
-    },
-    {
-      id: "location-reports",
-      label: A.LOCATION_REPORTS,
-      value: stats.locationReportsPending,
-      icon: <IconMapPin size={19} />,
-      variant: "purple",
     },
   ];
 
@@ -222,25 +175,53 @@ export function DashboardPage() {
               orders), not `orders_placed` (volume placed in the window) — the
               two answer different questions and were previously swapped. */}
           <p className="dash-hero-desc">
-            You have <b>{NA}</b> verifications to review, <b>{stats.pendingIntents}</b> pending
-            intents, and <b>{stats.inProgress}</b> orders in flight.
+            You have <b>{stats.verifications}</b> verifications to review,{" "}
+            <b>{stats.pendingIntents}</b> pending intents, and <b>{stats.inProgress}</b> orders in
+            flight.
           </p>
+        </div>
+      </div>
+
+      {/* ── Period filter ─────────────────────────────────
+          Only Orders, Cancelled and Refunded move with this — every other tile
+          is a snapshot the API computes as "right now" and returns unchanged
+          whatever window is asked for. Saying so beats letting the pills imply
+          they filter the whole board. */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[12px] text-[var(--t2)]">{M.PERIOD_NOTE}</p>
+        <div className="flex items-center gap-2">
+          <PillToggle
+            options={[
+              { value: "Today", label: M.PERIOD.TODAY },
+              { value: "Week", label: M.PERIOD.WEEK },
+              { value: "Month", label: M.PERIOD.MONTH },
+            ]}
+            value={dateRange?.from ? "" : activeTab}
+            onChange={(v) => selectPeriod(v as TimeRange)}
+          />
+          <DateRangePicker
+            value={dateRange}
+            onChange={setDateRange}
+            placeholder={M.DATE_RANGE_PLACEHOLDER}
+          />
+          {/* A custom range overrides the pills, so it needs its own way back. */}
+          {dateRange?.from && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setDateRange(undefined)}
+              title={MESSAGES.COMMON.RESET_FILTERS}
+            >
+              <IconFilterOff size={15} />
+              {MESSAGES.COMMON.RESET}
+            </button>
+          )}
         </div>
       </div>
 
       {/* ── Stat cards (2 rows of 6) ──────────────────── */}
       <StatsGrid items={row1} />
       <StatsGrid items={row2} />
-
-      {/* ── Exception signals (snapshots — no period filter) ── */}
-      <div className="mt-6 mb-3">
-        <h2 className="text-[15px] font-bold text-[var(--t1)]">{A.TITLE}</h2>
-        <p className="text-[12px] text-[var(--t2)]">{A.SUBTITLE}</p>
-      </div>
-      <StatsGrid items={attention} />
-
-      {/* ── Full order list (search · status · port) ──── */}
-      <DashboardOrdersCard />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { SectionCard } from "@/components/common/SectionCard";
 import { Badge } from "@/components/ui/badge";
 import { MESSAGES } from "@/lib/messages";
+import { cn } from "@/lib/utils";
 import {
   IconBuildingStore,
   IconChevronRight,
@@ -12,7 +13,7 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 import type { ComponentType } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { ROLE_MANAGED_AT, ROLE_NOTES, ROLE_OPTIONS } from "../lib/roles";
 import type { UserRole } from "../types/user.types";
 
@@ -55,6 +56,7 @@ export interface ProvisionUsersTabProps {
  * as an empty table an admin would keep waiting to fill.
  */
 export function ProvisionUsersTab({ onCreate }: ProvisionUsersTabProps) {
+  const navigate = useNavigate();
   return (
     <SectionCard
       icon={<IconUserPlus size={18} />}
@@ -86,7 +88,27 @@ export function ProvisionUsersTab({ onCreate }: ProvisionUsersTabProps) {
           return (
             <div
               key={role.value}
-              className="flex items-center gap-4 rounded-[var(--radius-md)] border border-[var(--border-sm)] bg-[var(--surface)] px-4 py-3 transition-colors hover:border-[var(--border-lg)]"
+              // The whole row navigates to the screen that manages the role —
+              // the small link on the right was the only way through and was
+              // easy to miss. Admin and super-admin have no such screen, so
+              // those rows stay inert rather than advertising a dead click.
+              role={managedAt ? "button" : undefined}
+              tabIndex={managedAt ? 0 : undefined}
+              onClick={managedAt ? () => navigate(managedAt.path) : undefined}
+              onKeyDown={
+                managedAt
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigate(managedAt.path);
+                      }
+                    }
+                  : undefined
+              }
+              className={cn(
+                "flex items-center gap-4 rounded-[var(--radius-md)] border border-[var(--border-sm)] bg-[var(--surface)] px-4 py-3 transition-colors hover:border-[var(--border-lg)]",
+                managedAt && "cursor-pointer hover:bg-[var(--surface-alt)]",
+              )}
             >
               <div
                 className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-md)] ${ROLE_TINT[role.value]}`}
@@ -109,13 +131,10 @@ export function ProvisionUsersTab({ onCreate }: ProvisionUsersTabProps) {
               </div>
 
               {managedAt ? (
-                <Link
-                  to={managedAt.path}
-                  className="inline-flex shrink-0 items-center gap-1 text-[12.5px] font-bold text-[var(--teal-600)] hover:text-[var(--teal-700)]"
-                >
+                <span className="inline-flex shrink-0 items-center gap-1 text-[12.5px] font-bold text-[var(--teal-600)]">
                   {managedAt.label}
                   <IconChevronRight size={15} />
-                </Link>
+                </span>
               ) : (
                 // Admin and super-admin have no list/remove endpoint at all —
                 // say so rather than linking somewhere that can't help.
@@ -125,7 +144,10 @@ export function ProvisionUsersTab({ onCreate }: ProvisionUsersTabProps) {
               <button
                 type="button"
                 className="btn btn-secondary btn-sm shrink-0"
-                onClick={() => onCreate(role.value)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCreate(role.value);
+                }}
               >
                 <IconUserPlus size={14} />
                 {P.CREATE_SHORT}

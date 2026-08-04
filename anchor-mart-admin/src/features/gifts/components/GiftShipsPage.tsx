@@ -8,6 +8,7 @@ import { type Column, DataTable } from "@/components/ui/data-table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
+import { clearParams } from "@/lib/utils";
 import {
   IconAlertTriangle,
   IconGift,
@@ -337,6 +338,7 @@ export function GiftShipsPage() {
                 options: GIFT_STATUS_OPTIONS,
                 width: "165px",
                 onValueChange: (v) => setParam("gift_status", v),
+                emptyValue: GIFT_STATUS_ANY,
               },
               {
                 id: "ordering",
@@ -345,6 +347,7 @@ export function GiftShipsPage() {
                 options: ORDERING_OPTIONS,
                 width: "165px",
                 onValueChange: (v) => setParam("ordering", v),
+                emptyValue: "arrival",
               },
               {
                 id: "visibility",
@@ -353,8 +356,20 @@ export function GiftShipsPage() {
                 options: VISIBILITY_OPTIONS,
                 width: "165px",
                 onValueChange: (v) => setParam("visibility", v),
+                emptyValue: "active",
               },
             ]}
+            onReset={() =>
+              setSearchParams(
+                clearParams(searchParams, [
+                  "search",
+                  "gift_status",
+                  "ordering",
+                  "visibility",
+                  "page",
+                ]),
+              )
+            }
           >
             {/* Icon-only: the header already carries three filter selects, and
                 the programme settings are opened rarely. `aria-label` carries

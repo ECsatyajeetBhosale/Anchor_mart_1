@@ -1,3 +1,4 @@
+import { Thumbnail } from "@/components/common/Thumbnail";
 import {
   actionsColumn,
   badgeColumn,
@@ -18,19 +19,19 @@ const STATUS_FILTER_OPTIONS = [
   { label: MESSAGES.PRODUCTS.STATUS_FILTER.INACTIVE, value: "inactive" },
 ];
 
-function getProductImage(images: Product["images"]) {
-  if (!images || images.length === 0) {
-    return <IconDeviceSpeaker size={18} />;
-  }
-  const primary = images.find((img) => img.is_primary);
-  const imageUrl = primary ? primary.image_url : images[0].image_url;
-  return (
-    <img
-      src={imageUrl}
-      alt={MESSAGES.PRODUCTS.IMAGE_ALT}
-      className="h-8 w-8 rounded object-cover"
-    />
-  );
+/**
+ * Product thumbnail: the primary image, else the first, else the list
+ * serializer's single `image` field, else a glyph.
+ *
+ * Both `image_url` and `image` are read because the two serializers disagree —
+ * the detail payload carries `image_url` while the list rows carry the absolute
+ * URL under `image`. Reading only the former left every row on the glyph even
+ * though images were being returned.
+ */
+function getProductImageUrl(row: Product): string {
+  const images = row.images ?? [];
+  const primary = images.find((img) => img.is_primary) ?? images[0];
+  return primary?.image_url || primary?.image || row.image || "";
 }
 
 export interface UseProductColumnsOptions {
@@ -70,7 +71,13 @@ export function useProductColumns({
     {
       id: "image",
       header: "",
-      cell: (row) => <div className="prod-thumb">{getProductImage(row.images)}</div>,
+      cell: (row) => (
+        <Thumbnail
+          src={getProductImageUrl(row)}
+          alt={MESSAGES.PRODUCTS.IMAGE_ALT}
+          placeholder={<IconDeviceSpeaker size={18} />}
+        />
+      ),
       className: "w-12",
     },
     twoLineColumn({

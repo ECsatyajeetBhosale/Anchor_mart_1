@@ -8,6 +8,7 @@ import {
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import { MESSAGES } from "@/lib/messages";
+import { clearParams } from "@/lib/utils";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useGetAppRatingsQuery } from "../api/ratingApi";
@@ -150,6 +151,18 @@ export function AppRatingsTab() {
               onValueChange: (v) => setParam("a_platform", v),
             },
           ]}
+          isFiltered={!!appVersion}
+          onReset={() =>
+            setSearchParams(
+              clearParams(searchParams, [
+                "a_search",
+                "a_rating",
+                "a_platform",
+                "a_version",
+                "a_page",
+              ]),
+            )
+          }
         >
           {/* Version is an exact match on a free-text field, so it takes a text
               box rather than a dropdown — there is no endpoint listing versions. */}

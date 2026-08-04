@@ -1,8 +1,9 @@
-import { IconEdit, IconPlus, IconStack2, IconTrash } from "@tabler/icons-react";
+import { IconEdit, IconPhotoOff, IconPlus, IconStack2, IconTrash } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { Thumbnail } from "@/components/common/Thumbnail";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
@@ -127,6 +128,17 @@ export function ProductVariantsDrawer({
   };
 
   const columns: Column<ProductVariant>[] = [
+    {
+      // The variants endpoint returns a full `images` array; until now the
+      // transform kept only the write-payload paths, so nothing was renderable
+      // and the drawer showed SKUs against no picture at all.
+      id: "image",
+      header: "",
+      className: "w-12",
+      cell: (v) => (
+        <Thumbnail src={v.imageUrl} alt={v.sku} placeholder={<IconPhotoOff size={15} />} />
+      ),
+    },
     { id: "sku", header: M.COLUMNS.SKU, className: "td-id", cell: (v) => v.sku },
     {
       id: "price",

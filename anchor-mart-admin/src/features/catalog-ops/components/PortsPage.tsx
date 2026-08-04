@@ -133,7 +133,6 @@ export function PortsPage() {
     <div className="page-enter">
       <PageHeader
         title={M.TITLE}
-        subtitle={M.SUBTITLE}
         actions={
           <SearchFilters
             searchValue={search}

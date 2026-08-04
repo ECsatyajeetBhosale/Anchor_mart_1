@@ -38,7 +38,6 @@ const STATUS_OPTIONS = [
 const STAT_CONFIG: {
   id: string;
   label: string;
-  footer: string;
   key: keyof ApiVerificationStats;
   icon: React.ReactNode;
   variant: "navy" | "green" | "red";
@@ -46,7 +45,6 @@ const STAT_CONFIG: {
   {
     id: "in_verification",
     label: M.STATS.IN_VERIFICATION,
-    footer: M.STATS.IN_VERIFICATION_FOOTER,
     key: "in_verification",
     icon: <IconClipboardList size={20} />,
     variant: "navy",
@@ -54,7 +52,6 @@ const STAT_CONFIG: {
   {
     id: "verified_today",
     label: M.STATS.VERIFIED_TODAY,
-    footer: M.STATS.VERIFIED_TODAY_FOOTER,
     key: "verified_today",
     icon: <IconChecks size={20} />,
     variant: "green",
@@ -62,7 +59,6 @@ const STAT_CONFIG: {
   {
     id: "unavailable_items",
     label: M.STATS.UNAVAILABLE,
-    footer: M.STATS.UNAVAILABLE_FOOTER,
     key: "unavailable_items",
     icon: <IconAlertTriangle size={20} />,
     variant: "red",
@@ -112,7 +108,6 @@ export function VerificationPage() {
   const statItems = STAT_CONFIG.map((c) => ({
     id: c.id,
     label: c.label,
-    footer: c.footer,
     value: statsLoading ? M.DASH : (stats?.[c.key] ?? 0).toLocaleString(),
     icon: c.icon,
     variant: c.variant,

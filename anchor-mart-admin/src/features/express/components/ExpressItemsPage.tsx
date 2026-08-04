@@ -86,13 +86,6 @@ export function ExpressItemsPage() {
     {
       id: "products",
       label: M.STATS.PRODUCTS,
-      footer: statsLoading
-        ? M.STATS.PRODUCTS_FOOTER
-        : M.STATS.PRODUCTS_BREAKDOWN(
-            count(items?.active_products),
-            count(items?.top_rated),
-            count(items?.on_deal),
-          ),
       value: statsLoading ? M.DASH : count(items?.total_products),
       icon: <IconPackage size={20} />,
       variant: "navy" as const,
@@ -100,9 +93,6 @@ export function ExpressItemsPage() {
     {
       id: "variants",
       label: M.STATS.VARIANTS,
-      footer: statsLoading
-        ? M.STATS.VARIANTS_FOOTER
-        : M.STATS.VARIANTS_BREAKDOWN(count(items?.active_variants)),
       value: statsLoading ? M.DASH : count(items?.total_variants),
       icon: <IconStack2 size={20} />,
       variant: "purple" as const,
@@ -110,9 +100,6 @@ export function ExpressItemsPage() {
     {
       id: "sourceable",
       label: M.STATS.SOURCEABLE,
-      footer: statsLoading
-        ? M.STATS.SOURCEABLE_FOOTER
-        : M.STATS.SOURCEABLE_BREAKDOWN(count(items?.sourceable_products)),
       value: statsLoading ? M.DASH : count(items?.sourceable_variants),
       icon: <IconBolt size={20} />,
       variant: "teal" as const,
@@ -122,13 +109,6 @@ export function ExpressItemsPage() {
       label: M.STATS.ORDERS,
       // `total_orders` is the backend's own aggregate — the sibling keys are its
       // breakdown, so summing them alongside it would double-count.
-      footer: statsLoading
-        ? M.STATS.ORDERS_FOOTER
-        : M.STATS.ORDERS_BREAKDOWN(
-            count(orderStats?.new),
-            count(orderStats?.in_progress),
-            count(orderStats?.delivered),
-          ),
       value: statsLoading ? M.DASH : count(orderStats?.total_orders),
       icon: <IconShoppingCart size={20} />,
       variant: "amber" as const,
@@ -136,9 +116,6 @@ export function ExpressItemsPage() {
     {
       id: "failed",
       label: M.STATS.FAILED,
-      footer: statsLoading
-        ? M.STATS.FAILED_FOOTER
-        : M.STATS.FAILED_BREAKDOWN(count(orderStats?.cancelled), count(orderStats?.refunded)),
       value: statsLoading ? M.DASH : count(orderStats?.delivery_failed),
       icon: <IconTruckOff size={20} />,
       variant: "red" as const,
@@ -269,7 +246,7 @@ export function ExpressItemsPage() {
 
   return (
     <div className="page-enter">
-      <PageHeader title={M.TITLE} subtitle={M.SUBTITLE} />
+      <PageHeader title={M.TITLE} />
 
       <StatsGrid items={statItems} />
 

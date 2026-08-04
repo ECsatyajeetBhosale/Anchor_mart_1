@@ -1,6 +1,7 @@
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { SearchFilters } from "@/components/common/SearchFilters";
 import { TableActions } from "@/components/common/TableActions";
+import { Thumbnail } from "@/components/common/Thumbnail";
 import { idColumn, textColumn, truncatedColumn } from "@/components/common/tableColumns";
 import { Badge } from "@/components/ui/badge";
 import { type Column, DataTable } from "@/components/ui/data-table";
@@ -142,13 +143,12 @@ export function ExpressCatalogTab({
       // general-scope categories — there is no express category bucket).
       cell: (r) => (
         <div className="flex aic g8">
-          {r.imageUrl ? (
-            <img src={r.imageUrl} alt={M.IMAGE_ALT} className="h-8 w-8 rounded object-cover" />
-          ) : (
-            <div className="prod-thumb h-8 w-8">
-              <IconPackage size={16} />
-            </div>
-          )}
+          <Thumbnail
+            src={r.imageUrl}
+            alt={M.IMAGE_ALT}
+            placeholder={<IconPackage size={16} />}
+            className="h-8 w-8"
+          />
           <span
             className="trunc block max-w-[200px] text-[12.5px] font-medium"
             title={r.about || r.name}

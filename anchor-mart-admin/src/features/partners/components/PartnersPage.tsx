@@ -50,7 +50,6 @@ export function PartnersPage() {
     {
       id: "total",
       label: M.STATS.TOTAL,
-      footer: M.STATS.TOTAL_FOOTER,
       value: statsLoading ? "—" : (stats?.total_partners ?? 0).toLocaleString(),
       icon: <IconUsers size={20} />,
       variant: "navy" as const,
@@ -58,7 +57,6 @@ export function PartnersPage() {
     {
       id: "active",
       label: M.STATS.ACTIVE_DELIVERIES,
-      footer: M.STATS.ACTIVE_DELIVERIES_FOOTER,
       value: statsLoading ? "—" : (stats?.active_deliveries ?? 0).toLocaleString(),
       icon: <IconTruckDelivery size={20} />,
       variant: "teal" as const,

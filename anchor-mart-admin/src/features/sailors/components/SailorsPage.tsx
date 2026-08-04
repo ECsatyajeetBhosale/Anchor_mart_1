@@ -1,4 +1,4 @@
-import { IconEdit, IconEye, IconGift, IconPlus, IconShare, IconUsers } from "@tabler/icons-react";
+import { IconEdit, IconGift, IconPlus, IconShare, IconUsers } from "@tabler/icons-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -202,14 +202,6 @@ export function SailorsPage() {
         <TableActions
           row={s}
           actions={[
-            {
-              icon: <IconEye size={16} />,
-              title: M.ACTIONS.VIEW,
-              onClick: (e) => {
-                e.stopPropagation();
-                showSailorProfile(s);
-              },
-            },
             {
               icon: <IconEdit size={16} />,
               title: M.ACTIONS.EDIT,

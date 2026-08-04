@@ -55,7 +55,6 @@ export function DealsTab() {
     {
       id: "total",
       label: M.STATS.TOTAL,
-      footer: M.STATS.TOTAL_FOOTER,
       value: statsLoading ? DASH : (stats?.total ?? 0).toLocaleString(),
       icon: <IconDiscount2 size={20} />,
       variant: "navy" as const,
@@ -63,7 +62,6 @@ export function DealsTab() {
     {
       id: "active",
       label: M.STATS.ACTIVE,
-      footer: M.STATS.ACTIVE_FOOTER,
       value: statsLoading ? DASH : (stats?.active ?? 0).toLocaleString(),
       icon: <IconCircleCheck size={20} />,
       variant: "green" as const,
@@ -71,7 +69,6 @@ export function DealsTab() {
     {
       id: "upcoming",
       label: M.STATS.UPCOMING,
-      footer: M.STATS.UPCOMING_FOOTER,
       value: statsLoading ? DASH : (stats?.upcoming ?? 0).toLocaleString(),
       icon: <IconCalendarClock size={20} />,
       variant: "amber" as const,
@@ -79,7 +76,6 @@ export function DealsTab() {
     {
       id: "expired",
       label: M.STATS.EXPIRED,
-      footer: M.STATS.EXPIRED_FOOTER,
       value: statsLoading ? DASH : (stats?.expired ?? 0).toLocaleString(),
       icon: <IconCircleOff size={20} />,
       variant: "red" as const,
@@ -124,7 +120,8 @@ export function DealsTab() {
       id: "window",
       header: M.COLUMNS.WINDOW,
       className: "td-m",
-      cell: (d) => (d.startTime || d.endTime ? `${d.startTime || DASH} → ${d.endTime || DASH}` : DASH),
+      cell: (d) =>
+        d.startTime || d.endTime ? `${d.startTime || DASH} → ${d.endTime || DASH}` : DASH,
     },
     {
       id: "active",

@@ -46,3 +46,15 @@ export function getInitials(name: string): string {
     .toUpperCase()
     .slice(0, 2);
 }
+
+/**
+ * Returns a copy of `params` with `keys` removed — the backing operation for a
+ * filter toolbar's Reset button on URL-driven screens. Always include the page
+ * key: dropping to an unfiltered list while still on page 4 usually lands on an
+ * empty table.
+ */
+export function clearParams(params: URLSearchParams, keys: string[]): URLSearchParams {
+  const next = new URLSearchParams(params);
+  for (const key of keys) next.delete(key);
+  return next;
+}

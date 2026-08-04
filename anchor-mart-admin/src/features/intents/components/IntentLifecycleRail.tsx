@@ -116,7 +116,10 @@ interface Segment {
 function fromSteps(steps: OrderTimelineStep[]): Segment[] {
   const firstPending = steps.findIndex((s) => !s.is_done);
   return steps.map((s, i) => ({
-    label: s.label,
+    // Canonical label first — the same source the status legend and the status
+    // column read from, so the rail can't name a stage differently from the
+    // popup that explains it.
+    label: ORDER_STATUS_BY_KEY[s.key]?.label ?? s.label,
     state: s.is_done ? "done" : i === firstPending ? "active" : "pend",
   }));
 }
@@ -165,9 +168,14 @@ export function IntentLifecycleRail({ status, steps, className }: IntentLifecycl
         {segments.map((seg, i) => (
           <div key={`${seg.label}-${i}`} className="min-w-0 flex-1">
             <div className={cn("h-1.5 rounded-full transition-colors", BAR[seg.state])} />
+            {/* Wraps to two lines instead of truncating: segments are narrow
+                and the canonical labels are long ("Verification Submitted",
+                "Pending Customer Response"), so a single clipped line left most
+                stages unreadable. `min-h` keeps every segment the same height
+                whether its label wraps or not, so the bars stay aligned. */}
             <div
               className={cn(
-                "trunc mt-1.5 text-[10px] font-extrabold uppercase tracking-[0.6px]",
+                "mt-1.5 line-clamp-2 min-h-[24px] text-[10px] font-extrabold uppercase leading-[1.2] tracking-[0.4px] [overflow-wrap:anywhere]",
                 LABEL[seg.state],
               )}
               title={seg.label}

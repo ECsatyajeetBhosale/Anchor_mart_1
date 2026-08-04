@@ -100,7 +100,6 @@ export function ChatMonitorPage({ source }: ChatMonitorPageProps) {
     <div className="page-enter">
       <PageHeader
         title={copy.TITLE}
-        subtitle={copy.SUBTITLE}
         actions={
           <div className="flex items-center gap-2.5">
             {source === "order" && (
@@ -124,7 +123,12 @@ export function ChatMonitorPage({ source }: ChatMonitorPageProps) {
         }
       />
 
-      <div className="grid h-[580px] grid-cols-1 gap-4 lg:grid-cols-[290px_1fr]">
+      {/* Height follows the viewport rather than a fixed 580px box. The old
+          fixed height left dead space below the panes on a normal screen while
+          scrolling the thread list and message history internally against it —
+          the one layout on the app where the content genuinely wants the whole
+          page. `min-h` keeps it usable on short windows. */}
+      <div className="grid h-[calc(100vh-230px)] min-h-[480px] grid-cols-1 gap-4 lg:grid-cols-[290px_1fr]">
         <ChatThreadList
           threads={visibleThreads}
           activeId={activeId}

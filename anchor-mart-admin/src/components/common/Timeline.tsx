@@ -1,23 +1,52 @@
+import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
 import { cn } from "@/lib/utils";
 import {
+  IconAlertTriangle,
+  IconAnchor,
+  IconBan,
   IconChecks,
+  IconClipboardCheck,
   IconCreditCard,
   IconFileInvoice,
-  IconMotorbike,
+  IconMessage,
   IconPackage,
+  IconReceiptRefund,
+  IconSearch,
+  IconShip,
   IconUserCheck,
 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import type { OrderTimelineItem } from "./OrderDetailDrawer";
 
-/** Per-step icons, keyed by the timeline `key` (falls back to a generic icon). */
+/**
+ * Per-step icons, keyed by the **canonical status keys** (`lib/orderStatuses.ts`
+ * — the same 18 the status-legend popup explains), so a step in this timeline
+ * reads as the status the rest of the app names.
+ *
+ * The previous keys (`intent_submitted`, `payment_confirmed`, `assigned`,
+ * `out_for_delivery`) were not statuses at all, so every row fell through to the
+ * generic icon and the timeline told a different story from the legend.
+ * Anything unrecognised still falls back rather than rendering blank.
+ */
 const TIMELINE_ICONS: Record<string, ReactNode> = {
-  intent_submitted: <IconFileInvoice size={14} />,
-  intent_confirmed: <IconChecks size={14} />,
-  payment_confirmed: <IconCreditCard size={14} />,
-  assigned: <IconUserCheck size={14} />,
-  out_for_delivery: <IconMotorbike size={14} />,
+  intent_received: <IconFileInvoice size={14} />,
+  pending_intent: <IconFileInvoice size={14} />,
+  sourcing: <IconSearch size={14} />,
+  partner_verifying: <IconClipboardCheck size={14} />,
+  verification_submitted: <IconChecks size={14} />,
+  pending_customer_response: <IconMessage size={14} />,
+  payment_pending: <IconCreditCard size={14} />,
+  payment_received: <IconCreditCard size={14} />,
+  order_confirmed: <IconChecks size={14} />,
+  partner_assigned: <IconUserCheck size={14} />,
+  items_collected: <IconPackage size={14} />,
+  at_port: <IconAnchor size={14} />,
+  at_berth: <IconShip size={14} />,
   delivered: <IconPackage size={14} />,
+  delivery_failed: <IconAlertTriangle size={14} />,
+  intent_rejected: <IconBan size={14} />,
+  cancelled: <IconBan size={14} />,
+  refunded: <IconReceiptRefund size={14} />,
 };
 
 /** Dot styling per step state (Tailwind utilities over design tokens). */
@@ -58,7 +87,9 @@ export function Timeline({
     id: item.key,
     state: item.is_done ? "done" : i === firstPendingIdx ? "active" : "pend",
     icon: TIMELINE_ICONS[item.key] ?? <IconFileInvoice size={14} />,
-    title: item.label,
+    // Prefer the canonical label over whatever the API sent, so a step reads
+    // identically here, in the status column, and in the legend.
+    title: ORDER_STATUS_BY_KEY[item.key]?.label ?? item.label,
     // Empty date/detail is fine — the sub line reserves its height via min-h.
     sub: [item.at, item.detail].filter(Boolean).join(" · "),
   }));

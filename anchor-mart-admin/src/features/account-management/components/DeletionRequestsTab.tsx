@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
+import { clearParams } from "@/lib/utils";
 import {
   useGetAccountDeletionRequestsQuery,
   useGetAccountDeletionStatsQuery,
@@ -56,7 +57,6 @@ const ROLE_OPTIONS = [
 const STAT_CONFIG: {
   id: string;
   label: string;
-  footer?: string;
   key: keyof AccountDeletionStats;
   icon: ReactNode;
   variant: StatVariant;
@@ -71,7 +71,6 @@ const STAT_CONFIG: {
   {
     id: "pending",
     label: M.STATS.PENDING,
-    footer: M.STATS.PENDING_FOOTER,
     key: "pending",
     icon: <IconClock size={20} />,
     variant: "amber",
@@ -79,7 +78,6 @@ const STAT_CONFIG: {
   {
     id: "approved",
     label: M.STATS.APPROVED,
-    footer: M.STATS.APPROVED_FOOTER,
     key: "approved",
     icon: <IconCheck size={20} />,
     variant: "blue",
@@ -94,7 +92,6 @@ const STAT_CONFIG: {
   {
     id: "completed",
     label: M.STATS.COMPLETED,
-    footer: M.STATS.COMPLETED_FOOTER,
     key: "completed",
     icon: <IconTrash size={20} />,
     variant: "purple",
@@ -146,7 +143,6 @@ export function DeletionRequestsTab() {
   const statItems = STAT_CONFIG.map((c) => ({
     id: c.id,
     label: c.label,
-    footer: c.footer,
     value: statsLoading ? M.DASH : (stats?.[c.key] ?? 0).toLocaleString(),
     icon: c.icon,
     variant: c.variant,
@@ -240,6 +236,7 @@ export function DeletionRequestsTab() {
               options: STATUS_OPTIONS,
               width: "150px",
               onValueChange: (val) => setParam("status", val),
+              emptyValue: "all",
             },
             {
               id: "role",
@@ -248,8 +245,12 @@ export function DeletionRequestsTab() {
               options: ROLE_OPTIONS,
               width: "160px",
               onValueChange: (val) => setParam("role", val),
+              emptyValue: "all",
             },
           ]}
+          onReset={() =>
+            setSearchParams(clearParams(searchParams, ["search", "status", "role", "page"]))
+          }
         />
       </div>
 

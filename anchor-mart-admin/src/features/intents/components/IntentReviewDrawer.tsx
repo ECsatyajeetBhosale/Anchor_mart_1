@@ -1,7 +1,6 @@
 import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { DynamicTabs } from "@/components/common/DynamicTabs";
 import { FormField } from "@/components/common/FormField";
-import { Timeline } from "@/components/common/Timeline";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
@@ -266,7 +265,10 @@ export function IntentReviewDrawer({
 
   // Flow 28 API 16 — the real milestone ladder (timestamps + done flags),
   // replacing a position guessed from the current status.
-  const { data: timeline, isFetching: timelineLoading } = useGetOrderTimelineQuery(orderId, {
+  // Still fetched for the compact rail — the vertical timeline that also used
+  // this was removed, since the rail already answers "where is this order?"
+  // and the two sat one above the other saying the same thing.
+  const { data: timeline } = useGetOrderTimelineQuery(orderId, {
     skip: !isOpen || !orderId,
   });
 
@@ -668,17 +670,6 @@ export function IntentReviewDrawer({
                           <div className="mini-stat-lbl">{R.EXPECTED_STAY}</div>
                         </div>
                       </div>
-                    </Section>
-
-                    {/* Flow 28 API 16 — the real milestone ladder, with the
-                        timestamps the compact rail can't show. */}
-                    <Section title={R.TIMELINE_SECTION}>
-                      <Timeline
-                        items={timeline?.steps}
-                        loading={timelineLoading}
-                        loadingLabel={R.TIMELINE_LOADING}
-                        emptyLabel={R.TIMELINE_EMPTY}
-                      />
                     </Section>
 
                     <Section title={R.ORDER_SUMMARY}>

@@ -18,6 +18,14 @@ export interface ProductVariant {
   attributes: Record<string, unknown>;
   /** Stored relative image paths, e.g. "variant_images/x.png". */
   images: string[];
+  /**
+   * Absolute URL of the primary image, for display only.
+   *
+   * Kept separate from `images` because that field is deliberately stripped
+   * back to media-root relative paths for the write payload — the serializer
+   * rejects a full CDN URL — which leaves nothing renderable.
+   */
+  imageUrl: string;
   isActive: boolean;
   /** Variant-level express flag (`set-express`). */
   isExpress: boolean;

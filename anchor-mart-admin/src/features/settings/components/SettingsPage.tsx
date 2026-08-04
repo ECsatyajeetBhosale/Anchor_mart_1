@@ -13,7 +13,7 @@ export function SettingsPage() {
 
   return (
     <div>
-      <PageHeader title={MESSAGES.SETTINGS.TITLE} subtitle={MESSAGES.SETTINGS.SUBTITLE} />
+      <PageHeader title={MESSAGES.SETTINGS.TITLE} />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <PlatformConfigCard />

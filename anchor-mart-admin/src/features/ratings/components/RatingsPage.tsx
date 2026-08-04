@@ -39,7 +39,6 @@ export function RatingsPage() {
     <div className="page-enter">
       <PageHeader
         title={M.TITLE}
-        subtitle={M.SUBTITLE}
         actions={
           <DropdownSelect
             value={days}

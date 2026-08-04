@@ -20,6 +20,7 @@ import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
+import { clearParams } from "@/lib/utils";
 import {
   IconBan,
   IconCircleCheck,
@@ -44,10 +45,10 @@ import { useOrderOwnership } from "../hooks/useOrderOwnership";
 import type { Order } from "../types/order.types";
 import type { ClaimConflict } from "../types/ownership.types";
 import { CancelOrderDialog } from "./CancelOrderDialog";
+import { OpenCartsCard } from "./OpenCartsCard";
 import { OrderAssignPartnerSection } from "./OrderAssignPartnerSection";
 import { OrderLocationDeltaSection } from "./OrderLocationDeltaSection";
 import { OrderShipAgentSection } from "./OrderShipAgentSection";
-import { OpenCartsCard } from "./OpenCartsCard";
 import { OwnerCell } from "./OwnerCell";
 import { RefundOrderDialog } from "./RefundOrderDialog";
 
@@ -609,8 +610,16 @@ export function OrdersPage() {
                   options: STATUS_OPTIONS,
                   width: "150px",
                   onValueChange: (val) => setParam("status", val),
+                  emptyValue: "all",
                 },
               ]}
+              // The date range is local state, not a URL param, so the toolbar
+              // can't see it — report it so Reset offers itself for a range too.
+              isFiltered={!!dateRange?.from}
+              onReset={() => {
+                setDateRange(undefined);
+                setSearchParams(clearParams(searchParams, ["search", "status", "page"]));
+              }}
             >
               {/* Info icon beside the status filter → the shared status legend. */}
               <button

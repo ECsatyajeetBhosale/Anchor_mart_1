@@ -1,5 +1,6 @@
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import type { Column, ColumnFilter } from "@/components/ui/data-table";
+import type { ReactNode } from "react";
 import type * as React from "react";
 import { RowActions, type RowActionsProps } from "./RowActions";
 import { StatusBadge } from "./StatusBadge";
@@ -111,6 +112,13 @@ export function avatarColumn<T>(
     initial?: (row: T) => string;
     /** When provided, renders this image URL instead of an initial. */
     image?: (row: T) => string;
+    /**
+     * Rendered when `image` comes back empty. Rows that aren't people — a spare
+     * part, a product — should pass a neutral glyph here: falling through to
+     * the initial block or a generated person avatar labels a component with a
+     * human face, which reads as a user record.
+     */
+    placeholder?: ReactNode;
     variant?: AvatarVariant;
   },
 ): Column<T> {
@@ -122,11 +130,16 @@ export function avatarColumn<T>(
     className: opts.className,
     cell: (row) => {
       const label = opts.name(row);
+      const src = opts.image?.(row);
       return (
         <div className="flex items-center gap-2">
-          {opts.image ? (
+          {src ? (
             <div className="av av-sm av-img">
-              <img src={opts.image(row)} alt={label} loading="lazy" />
+              <img src={src} alt={label} loading="lazy" />
+            </div>
+          ) : opts.placeholder ? (
+            <div className="av av-sm av-img flex items-center justify-center bg-[var(--surface-alt)] text-[var(--t4)]">
+              {opts.placeholder}
             </div>
           ) : (
             <div className={`av av-sm av-${variant}`}>

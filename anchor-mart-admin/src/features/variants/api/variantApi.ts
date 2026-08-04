@@ -48,6 +48,18 @@ function toImagePaths(value: unknown): string[] {
     .filter((s): s is string => Boolean(s));
 }
 
+/**
+ * Absolute URL of the primary image (falling back to the first), for rendering.
+ * Unlike {@link toImagePaths} this keeps the URL intact — it never round-trips
+ * to the API, so the stored-path normalisation would only break the `<img>`.
+ */
+function primaryImageUrl(value: unknown): string {
+  const rows = asArray(value);
+  if (!rows?.length) return "";
+  const primary = rows.find((row) => getProp(row, "is_primary") === true) ?? rows[0];
+  return typeof primary === "string" ? primary : pick(primary, "image", "image_url", "url");
+}
+
 /** Maps a raw variant record onto the flat UI row. */
 function toVariant(raw: unknown, index: number): ProductVariant {
   const product = getProp(raw, "product");
@@ -64,6 +76,7 @@ function toVariant(raw: unknown, index: number): ProductVariant {
         ? (attrs as Record<string, unknown>)
         : {},
     images: toImagePaths(getProp(raw, "images")),
+    imageUrl: primaryImageUrl(getProp(raw, "images")),
     isActive: getProp(raw, "is_active") !== false,
     isExpress: getProp(raw, "is_express") === true,
     adminSourceable: getProp(raw, "admin_sourceable") !== false,

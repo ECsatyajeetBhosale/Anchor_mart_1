@@ -67,6 +67,11 @@ export const MESSAGES = {
       WEEK: "Week",
       MONTH: "Month",
     },
+    DATE_RANGE_PLACEHOLDER: "Custom range",
+    // The API returns snapshots and period counts in one payload; only three of
+    // the fields respond to this filter, so the board says which.
+    PERIOD_NOTE:
+      "Orders, Cancelled and Refunded follow this period — every other tile is live now.",
     // KPI stat-card labels
     STATS: {
       TOTAL_SAILORS: "Total Sailors",
@@ -76,21 +81,6 @@ export const MESSAGES = {
       IN_PROGRESS: "In Progress",
       CANCELLED: "Cancelled",
       PENDING_INTENTS: "Pending Intents",
-    },
-    /**
-     * Exception signals from the same stats call. These are snapshots — they
-     * ignore the period filter — so the row is labelled "right now" to stop the
-     * header pills from being read as applying to them.
-     */
-    ATTENTION: {
-      TITLE: "Needs Attention",
-      SUBTITLE: "Right now — these counts ignore the period filter above",
-      DELIVERY_FAILED: "Delivery Failed",
-      /** Footer on the failed tile — how long the oldest one has sat. */
-      OLDEST: (age: string) => `oldest ${age} ago`,
-      DELTA_OPEN: "Surcharges Unpaid",
-      DELTA_EXPIRED: "Surcharges Lapsed",
-      LOCATION_REPORTS: "Location Reports",
     },
     // Live Orders card
     LIVE_ORDERS: "Live Orders",
@@ -3669,6 +3659,8 @@ export const MESSAGES = {
     LOADING: "Loading…",
     ERROR: "Something went wrong. Please try again.",
     RETRY: "Retry",
+    RESET: "Reset",
+    PICK_DATE: "Pick a date",
     RESET_FILTERS: "Reset Filters",
     SEARCH_PLACEHOLDER: "Search…",
     SHOWING_OF: (shown: number, total: number) => `Showing ${shown} of ${total}`,

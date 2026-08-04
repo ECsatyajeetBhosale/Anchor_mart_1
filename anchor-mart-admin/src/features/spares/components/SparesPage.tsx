@@ -3,6 +3,7 @@ import {
   IconClipboardText,
   IconDiscount2,
   IconEdit,
+  IconEngine,
   IconEye,
   IconPlus,
   IconStar,
@@ -22,8 +23,8 @@ import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { useGetEmergencyCategoriesQuery } from "@/features/emergency-categories";
 import { getApiMessage } from "@/lib/apiError";
-import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
+import { clearParams } from "@/lib/utils";
 import {
   useDeleteSpareProductMutation,
   useGetSpareProductsQuery,
@@ -43,7 +44,6 @@ type StatVariant = "navy" | "teal" | "amber" | "red" | "green" | "purple" | "blu
 const STAT_CONFIG: {
   id: string;
   label: string;
-  footer: string;
   key: keyof SpareStats;
   icon: ReactNode;
   variant: StatVariant;
@@ -51,7 +51,6 @@ const STAT_CONFIG: {
   {
     id: "total",
     label: M.STATS.TOTAL,
-    footer: M.STATS.TOTAL_FOOTER,
     key: "total",
     icon: <IconClipboardText size={20} />,
     variant: "navy",
@@ -59,7 +58,6 @@ const STAT_CONFIG: {
   {
     id: "active",
     label: M.STATS.ACTIVE,
-    footer: M.STATS.ACTIVE_FOOTER,
     key: "active",
     icon: <IconCheck size={20} />,
     variant: "green",
@@ -67,7 +65,6 @@ const STAT_CONFIG: {
   {
     id: "top_rated",
     label: M.STATS.TOP_RATED,
-    footer: M.STATS.TOP_RATED_FOOTER,
     key: "top_rated",
     icon: <IconStar size={20} />,
     variant: "amber",
@@ -75,7 +72,6 @@ const STAT_CONFIG: {
   {
     id: "on_deal",
     label: M.STATS.ON_DEAL,
-    footer: M.STATS.ON_DEAL_FOOTER,
     key: "on_deal",
     icon: <IconDiscount2 size={20} />,
     variant: "teal",
@@ -128,7 +124,6 @@ export function SparesPage() {
   const statItems = STAT_CONFIG.map((c) => ({
     id: c.id,
     label: c.label,
-    footer: c.footer,
     value: statsLoading ? "—" : (stats?.[c.key] ?? 0).toLocaleString(),
     icon: c.icon,
     variant: c.variant,
@@ -188,7 +183,11 @@ export function SparesPage() {
       id: "product",
       header: M.COLUMNS.PRODUCT,
       name: (r) => r.name,
-      image: (r) => r.image || getFallbackAvatar(r.name),
+      // A spare is a part, not a person — with no image the old
+      // `getFallbackAvatar(name)` drew a generated human face on every newly
+      // created spare, which read as a user row.
+      image: (r) => r.image,
+      placeholder: <IconEngine size={15} />,
     }),
     textColumn({
       id: "category",
@@ -282,6 +281,7 @@ export function SparesPage() {
                 options: categoryOptions,
                 width: "190px",
                 onValueChange: (val) => setParam("category", val),
+                emptyValue: "all",
               },
               {
                 id: "status",
@@ -290,8 +290,12 @@ export function SparesPage() {
                 options: STATUS_OPTIONS,
                 width: "140px",
                 onValueChange: (val) => setParam("status", val),
+                emptyValue: "all",
               },
             ]}
+            onReset={() =>
+              setSearchParams(clearParams(searchParams, ["search", "category", "status", "page"]))
+            }
           >
             <Button variant="primary" size="default" onClick={openAdd}>
               <IconPlus size={15} className="mr-1" />
