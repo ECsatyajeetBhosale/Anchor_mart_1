@@ -27,14 +27,23 @@ import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
 import { toast } from "sonner";
-import { useCreateBillMutation, useUpdateBillMutation } from "../api/billingApi";
+import {
+  useCreateBillMutation,
+  useGeneratePaymentLinkMutation,
+  useUpdateBillMutation,
+} from "../api/billingApi";
 import {
   useGetIntentStatsQuery,
   useGetIntentsQuery,
   useRejectIntentMutation,
 } from "../api/intentApi";
 import { useReleaseSuggestionsMutation } from "../api/substitutionApi";
-import type { IntentAction, IntentData, IntentStats } from "../types/intent.types";
+import type {
+  GeneratePaymentLinkResponse,
+  IntentAction,
+  IntentData,
+  IntentStats,
+} from "../types/intent.types";
 import { type BillFees, CreateBillDialog } from "./CreateBillDialog";
 import { IntentReviewDrawer } from "./IntentReviewDrawer";
 import { RejectIntentDialog } from "./RejectIntentDialog";
@@ -122,6 +131,12 @@ export function IntentsPage() {
   const [isBillOpen, setIsBillOpen] = useState(false);
   /** create → Flow 07 API 1; update → API 2 (re-price an already-pending bill). */
   const [billMode, setBillMode] = useState<"create" | "update">("create");
+  /**
+   * Flow 07 API 3 result. Held here rather than inside the dialog so the
+   * checkout URL survives the dialog's own re-renders — it is the one piece of
+   * the response the admin can't get back from any list or drawer.
+   */
+  const [linkResult, setLinkResult] = useState<GeneratePaymentLinkResponse | null>(null);
   const [isLegendOpen, setIsLegendOpen] = useState(false);
   /** Which row's claim is in flight — scopes the spinner to that button. */
   const [claimingId, setClaimingId] = useState<string | null>(null);
@@ -132,6 +147,7 @@ export function IntentsPage() {
   const [releaseSuggestions, { isLoading: isReleasing }] = useReleaseSuggestionsMutation();
   const [createBill, { isLoading: isBilling }] = useCreateBillMutation();
   const [updateBill, { isLoading: isUpdatingBill }] = useUpdateBillMutation();
+  const [generatePaymentLink, { isLoading: isGeneratingLink }] = useGeneratePaymentLinkMutation();
 
   // Intents list — search + status filter server-side; paginated by DRF.
   const statusParam = statusFilter !== "all" ? statusFilter : undefined;
@@ -221,7 +237,7 @@ export function IntentsPage() {
    * The drawer's primary action, dispatched on the intent's derived state:
    *  - `suggest`   → release staged suggestions to the sailor (Flow 06 API 13)
    *  - `assign`    → partner assignment (Flow 28 — endpoint not yet wired)
-   *  - `bill`      → generate payment link (Flow 7 — not yet wired)
+   *  - `bill`      → open the fee popup (Flow 07 — bill and/or Stripe link)
    */
   const handlePrimaryAction = async (action: IntentAction) => {
     if (!selectedIntent) return;
@@ -249,6 +265,7 @@ export function IntentsPage() {
       // Close the drawer first — the fee popup (a custom Dialog) would render
       // behind the Sheet overlay otherwise. `selectedIntent` is retained.
       setBillMode(action === "bill" ? "create" : "update");
+      setLinkResult(null);
       setIsReviewOpen(false);
       setIsBillOpen(true);
     }
@@ -285,6 +302,41 @@ export function IntentsPage() {
       toast.error(
         getApiMessage(err) ?? (isUpdate ? M.TOAST.BILL_UPDATE_FAILED : M.TOAST.BILL_FAILED),
       );
+    }
+  };
+
+  /**
+   * Flow 07 API 3 — set the same fees, but also mint (or reuse) a Stripe
+   * Checkout link, which the backend sends to the sailor itself.
+   *
+   * The dialog stays open on success: the checkout URL is only returned here,
+   * so closing straight away would throw away the one thing the admin came for.
+   *
+   * Failure modes match create-bill (409 unclaimed / paid / unanswered subs,
+   * 403 wrong owner, 400 too late in the lifecycle) plus **502**, which is
+   * Stripe failing rather than us — worth its own message, because a retry is
+   * the right response to that one and not to the others.
+   */
+  const handleGenerateLink = async (fees: BillFees) => {
+    if (!selectedIntent) return;
+    try {
+      const res = await generatePaymentLink({ order_id: selectedIntent.id, ...fees }).unwrap();
+      const ref = res.order_number || selectedIntent.r;
+      toast.success(
+        res.reused ? M.TOAST.LINK_REUSED(ref) : M.TOAST.LINK_GENERATED(ref, res.amount ?? ""),
+      );
+      setLinkResult(res);
+    } catch (err) {
+      const status = (err as { status?: unknown })?.status;
+      if (status === 502) {
+        toast.error(getApiMessage(err) ?? M.TOAST.LINK_PROVIDER_ERROR);
+        return;
+      }
+      if (status === 409) {
+        toast.error(getApiMessage(err) ?? O.CLAIM_FIRST);
+        return;
+      }
+      toast.error(getApiMessage(err) ?? M.TOAST.LINK_FAILED);
     }
   };
 
@@ -480,14 +532,21 @@ export function IntentsPage() {
         onConfirm={handleConfirmReject}
       />
 
-      {/* Fee popup — create (Flow 07 API 1) or update (API 2) the bill */}
+      {/* Fee popup — create (Flow 07 API 1), update (API 2), or generate a
+          Stripe link (API 3); all three take the same fee body. */}
       <CreateBillDialog
         isOpen={isBillOpen}
         mode={billMode}
         orderRef={selectedIntent?.r ?? ""}
         isLoading={isBilling || isUpdatingBill}
-        onClose={() => setIsBillOpen(false)}
+        isGeneratingLink={isGeneratingLink}
+        linkResult={linkResult}
+        onClose={() => {
+          setIsBillOpen(false);
+          setLinkResult(null);
+        }}
         onConfirm={handleConfirmBill}
+        onGenerateLink={handleGenerateLink}
       />
 
       {/* Status terminology legend (opened from the info icon by the filter) */}

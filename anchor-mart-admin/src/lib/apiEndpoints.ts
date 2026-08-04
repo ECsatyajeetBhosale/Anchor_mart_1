@@ -286,13 +286,14 @@ export const INTENT_ENDPOINTS = {
 };
 
 // Flow 07 — Order Billing & Payment (admin billing surface).
-// `generate-link` (Stripe) is intentionally omitted — the flow doc says not to
-// build it yet.
 export const PAYMENT_ENDPOINTS = {
   // API 1 — set fees, move order to PAYMENT_PENDING, notify the customer (no link).
   CREATE_BILL: "/superadmin/payments/create-bill/",
   // API 2 — recompute a pending bill (available for a later step).
   UPDATE_BILL: "/superadmin/payments/update-bill/",
+  // API 3 — set fees, move order to PAYMENT_PENDING *and* mint a Stripe Checkout
+  // link (or reuse an open, same-amount one). 201 = newly created, 200 = reused.
+  GENERATE_LINK: "/superadmin/payments/generate-link/",
 };
 
 // Flow 06 — Stock Verification & Substitution (admin substitution surface).

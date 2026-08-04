@@ -1,15 +1,19 @@
 import {
+  IconAlertTriangle,
   IconBolt,
   IconBoxSeam,
+  IconCashOff,
   IconChecklist,
   IconClipboardList,
   IconClipboardText,
   IconEngine,
   IconFileInvoice,
+  IconMapPin,
   IconMotorbike,
   IconPackage,
   IconReceiptRefund,
   IconStar,
+  IconTruckOff,
   IconUsers,
 } from "@tabler/icons-react";
 import { format } from "date-fns";
@@ -26,6 +30,7 @@ import { useDashboard } from "../hooks/useDashboard";
 import { DashboardOrdersCard } from "./DashboardOrdersCard";
 
 const M = MESSAGES.DASHBOARD;
+const A = MESSAGES.DASHBOARD.ATTENTION;
 
 /** Value shown for source cards/fields the API does not return. */
 const NA = "-";
@@ -161,6 +166,50 @@ export function DashboardPage() {
     },
   ];
 
+  // Row 3 — exception signals from the same stats call. Kept in their own row
+  // because they are snapshots: unlike the period counts above they never move
+  // with the header filter, and mixing the two kinds in one grid is exactly the
+  // conflation the API docs warn about.
+  const attention: StatsGridItem[] = [
+    {
+      id: "delivery-failed",
+      label: A.DELIVERY_FAILED,
+      value: stats.deliveryFailed,
+      icon: <IconTruckOff size={19} />,
+      variant: "red",
+      // The staleness qualifier belongs on this tile, not beside it — the age
+      // is meaningless without the count it describes.
+      footer: stats.oldestFailedAge ? A.OLDEST(stats.oldestFailedAge) : undefined,
+      // The one signal here with a real destination: `delivery_failed` is an
+      // accepted Orders filter, so the drilldown lands on the actual queue.
+      onClick: () => navigate(`${APP_ROUTES.ORDERS}?status=delivery_failed`),
+    },
+    {
+      id: "delta-open",
+      label: A.DELTA_OPEN,
+      value: stats.deltaOpen,
+      icon: <IconCashOff size={19} />,
+      variant: "amber",
+      // Deltas and location reports are reviewed inside the order-detail
+      // drawer, not on a queue screen of their own — so these three stay
+      // counters rather than advertising a click that dead-ends.
+    },
+    {
+      id: "delta-expired",
+      label: A.DELTA_EXPIRED,
+      value: stats.deltaExpired,
+      icon: <IconAlertTriangle size={19} />,
+      variant: "red",
+    },
+    {
+      id: "location-reports",
+      label: A.LOCATION_REPORTS,
+      value: stats.locationReportsPending,
+      icon: <IconMapPin size={19} />,
+      variant: "purple",
+    },
+  ];
+
   return (
     <div className="page-enter">
       {/* ── Welcome hero ──────────────────────────────── */}
@@ -169,9 +218,12 @@ export function DashboardPage() {
         <div className="dash-hero-inner">
           <div className="dash-hero-eyebrow">Operations Dashboard · {today}</div>
           <h1 className="dash-hero-title">Welcome back, Super Admin</h1>
+          {/* "In flight" is `in_progress` (a snapshot of actively-worked
+              orders), not `orders_placed` (volume placed in the window) — the
+              two answer different questions and were previously swapped. */}
           <p className="dash-hero-desc">
-            You have <b>{NA}</b> verifications to review, <b>{stats.pendingIntents}</b> intents
-            awaiting payment, and <b>{stats.ordersPlaced}</b> orders in flight today.
+            You have <b>{NA}</b> verifications to review, <b>{stats.pendingIntents}</b> pending
+            intents, and <b>{stats.inProgress}</b> orders in flight.
           </p>
         </div>
       </div>
@@ -179,6 +231,13 @@ export function DashboardPage() {
       {/* ── Stat cards (2 rows of 6) ──────────────────── */}
       <StatsGrid items={row1} />
       <StatsGrid items={row2} />
+
+      {/* ── Exception signals (snapshots — no period filter) ── */}
+      <div className="mt-6 mb-3">
+        <h2 className="text-[15px] font-bold text-[var(--t1)]">{A.TITLE}</h2>
+        <p className="text-[12px] text-[var(--t2)]">{A.SUBTITLE}</p>
+      </div>
+      <StatsGrid items={attention} />
 
       {/* ── Full order list (search · status · port) ──── */}
       <DashboardOrdersCard />

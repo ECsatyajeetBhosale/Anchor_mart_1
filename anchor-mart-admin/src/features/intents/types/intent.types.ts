@@ -352,6 +352,31 @@ export type UpdateBillPayload = CreateBillPayload;
 export type UpdateBillResponse = CreateBillResponse;
 
 /**
+ * Body of `POST /superadmin/payments/generate-link/` (Flow 07 API 3). Same fee
+ * shape as create-bill — `GeneratePaymentLinkSerializer` accepts the breakdown
+ * only, never a subtotal.
+ */
+export type GeneratePaymentLinkPayload = CreateBillPayload;
+
+/**
+ * Success body of generate-link. The endpoint answers **201** when it minted a
+ * fresh Stripe Checkout session and **200** when it reused an open, same-amount
+ * one — `reused` carries that distinction into the body, since RTK Query
+ * doesn't expose the status code on a successful `unwrap()`.
+ *
+ * `expires_at` is an ISO timestamp clamped strictly under Stripe's 24h ceiling.
+ */
+export interface GeneratePaymentLinkResponse {
+  message: string;
+  reused: boolean;
+  order_id: string;
+  order_number: string;
+  amount: string;
+  checkout_url: string;
+  expires_at: string;
+}
+
+/**
  * Request body for creating + suggesting a brand-new product (API 12).
  * `quantity` and `base_price` are strings, matching the documented sample.
  * `attributes` is a free-form JSON object and `images` a list of stored paths

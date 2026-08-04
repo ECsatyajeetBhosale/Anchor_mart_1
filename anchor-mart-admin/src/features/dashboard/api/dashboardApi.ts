@@ -131,11 +131,7 @@ export const dashboardApi = baseApi.injectEndpoints({
 
         const results = prop(res, "results");
         const rawRows =
-          arr(prop(results, "data")) ??
-          arr(results) ??
-          arr(prop(res, "data")) ??
-          arr(res) ??
-          [];
+          arr(prop(results, "data")) ?? arr(results) ?? arr(prop(res, "data")) ?? arr(res) ?? [];
         const countRaw = prop(res, "count") ?? prop(results, "count");
 
         const rows: DashboardOrderRow[] = rawRows.map((row, index) => {

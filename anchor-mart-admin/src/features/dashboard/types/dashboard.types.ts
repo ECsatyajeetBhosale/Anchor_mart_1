@@ -25,16 +25,57 @@ export interface DashboardPeriodInfo {
   label: string;
 }
 
-/** Stats payload returned by `GET /superadmin/dashboard/dashboard/stats/`. */
+/**
+ * Stats payload returned by `GET /superadmin/dashboard/dashboard/stats/`.
+ *
+ * The response mixes **two kinds of count**, and conflating them is the mistake
+ * the API docs call out by name (Flow 33 §2):
+ *
+ * - **snapshot** — current pipeline state. These *ignore* `?period=` entirely
+ *   and always mean "right now", however the header filter is set.
+ * - **period** — volume inside the selected window, measured off dedicated
+ *   event timestamps (`placed_at` / `cancelled_at` / `refunded_at`), never
+ *   `created_at` or `updated_at`.
+ *
+ * Only the three marked `period` below move when the period toggle changes.
+ */
 export interface DashboardStatsResponse {
+  /** The resolved window — echoed back even though most fields ignore it. */
   period: DashboardPeriodInfo;
+  /** snapshot — customers with `is_active`, not deleted. */
   total_sailors: number;
+  /** snapshot — partner *accounts* that are active; not an on-duty count. */
   active_partners: number;
+  /** snapshot — orders in an actively-worked status (sourcing → at berth). */
   in_progress: number;
+  /** snapshot — awaiting admin intent review. */
   intent_received: number;
+  /** snapshot — orders sitting at `pending_intent`. */
   pending_intents: number;
+  /**
+   * snapshot — exception state needing intervention. Deliberately held *out* of
+   * `in_progress` so the signal isn't buried in routine work, which is why the
+   * two are shown as separate tiles rather than one total.
+   */
+  delivery_failed: number;
+  /**
+   * snapshot — of the orders still failing, the earliest time any of them
+   * entered `delivery_failed`. A staleness signal for the oldest unattended
+   * failure, so it qualifies `delivery_failed` rather than standing alone.
+   * `null` when nothing is failing.
+   */
+  oldest_failed_at: string | null;
+  /** snapshot — delivery surcharges awaiting customer payment. */
+  delta_open: number;
+  /** snapshot — surcharges lapsed unpaid; needs an admin re-raise or absorb. */
+  delta_expired: number;
+  /** snapshot — customer location reports awaiting price-or-dismiss. */
+  location_reports_pending: number;
+  /** period — `placed_at` inside the window. */
   orders_placed: number;
+  /** period — `cancelled_at` inside the window. */
   cancelled: number;
+  /** period — `refunded_at` inside the window. */
   refunded: number;
 }
 

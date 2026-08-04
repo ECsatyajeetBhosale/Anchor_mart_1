@@ -10,8 +10,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { MESSAGES } from "@/lib/messages";
-import { IconFileInvoice } from "@tabler/icons-react";
+import { IconCopy, IconExternalLink, IconFileInvoice, IconLink } from "@tabler/icons-react";
+import { format, parseISO } from "date-fns";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import type { GeneratePaymentLinkResponse } from "../types/intent.types";
 
 const B = MESSAGES.INTENTS.BILL_DIALOG;
 
@@ -32,8 +35,17 @@ export interface CreateBillDialogProps {
   mode?: "create" | "update";
   orderRef: string;
   isLoading: boolean;
+  /** Flow 07 API 3 in flight — scopes the spinner to the link button. */
+  isGeneratingLink?: boolean;
+  /**
+   * Set once generate-link has succeeded; the fee form is replaced by the
+   * checkout URL. Cleared by the owner when the dialog closes.
+   */
+  linkResult?: GeneratePaymentLinkResponse | null;
   onClose: () => void;
   onConfirm: (fees: BillFees) => void;
+  /** Flow 07 API 3 — same fees, but also mints/reuses a Stripe Checkout link. */
+  onGenerateLink: (fees: BillFees) => void;
 }
 
 /** Trims a fee input; returns undefined when blank so the API receives 0. */
@@ -42,18 +54,34 @@ function fee(value: string): string | undefined {
   return t === "" ? undefined : t;
 }
 
+/** `expires_at` is ISO; fall back to the raw string if it doesn't parse. */
+function expiryLabel(iso: string): string {
+  try {
+    return format(parseISO(iso), "d MMM yyyy, h:mm a");
+  } catch {
+    return iso;
+  }
+}
+
 /**
- * Flow 07 API 1 — create-bill fee entry. Fees are optional (blank → omitted →
- * treated as 0 by the backend); the subtotal is computed server-side and is
- * intentionally not collected here.
+ * Flow 07 fee entry, shared by all three billing calls: create-bill (API 1),
+ * update-bill (API 2), and generate-link (API 3) — they take the same body, so
+ * splitting them across dialogs would have meant three copies of one form.
+ *
+ * Once a link comes back the form is replaced by the URL panel, because the
+ * checkout URL is the whole point of that call and is not recoverable from
+ * anywhere else in the admin UI.
  */
 export function CreateBillDialog({
   isOpen,
   mode = "create",
   orderRef,
   isLoading,
+  isGeneratingLink = false,
+  linkResult = null,
   onClose,
   onConfirm,
+  onGenerateLink,
 }: CreateBillDialogProps) {
   const isUpdate = mode === "update";
   const [shipping, setShipping] = useState("");
@@ -68,72 +96,153 @@ export function CreateBillDialog({
     }
   }, [isOpen]);
 
-  const handleConfirm = () => {
-    onConfirm({
-      shipping_fee: fee(shipping),
-      tax_amount: fee(tax),
-      platform_fee: fee(platform),
-    });
+  const fees = (): BillFees => ({
+    shipping_fee: fee(shipping),
+    tax_amount: fee(tax),
+    platform_fee: fee(platform),
+  });
+
+  const busy = isLoading || isGeneratingLink;
+
+  const copyLink = () => {
+    if (!linkResult) return;
+    navigator.clipboard?.writeText(linkResult.checkout_url).then(
+      () => toast.success(B.LINK_COPIED),
+      () => undefined,
+    );
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{isUpdate ? B.UPDATE_TITLE : B.TITLE}</DialogTitle>
-          <DialogDescription>
-            {isUpdate ? B.UPDATE_DESCRIPTION(orderRef) : B.DESCRIPTION(orderRef)}
-          </DialogDescription>
-        </DialogHeader>
+        {linkResult ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>{B.LINK_READY_TITLE}</DialogTitle>
+              <DialogDescription>
+                {B.LINK_READY_DESCRIPTION(
+                  linkResult.order_number || orderRef,
+                  linkResult.amount ?? "",
+                )}
+              </DialogDescription>
+            </DialogHeader>
 
-        <div className="form-row !mb-0">
-          <FormField label={B.SHIPPING_FEE} hint={isUpdate ? B.UPDATE_HINT : B.HINT}>
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder={B.FEE_PLACEHOLDER}
-              value={shipping}
-              onChange={(e) => setShipping(e.target.value)}
-            />
-          </FormField>
-          <FormField label={B.TAX_AMOUNT}>
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder={B.FEE_PLACEHOLDER}
-              value={tax}
-              onChange={(e) => setTax(e.target.value)}
-            />
-          </FormField>
-          <FormField label={B.PLATFORM_FEE}>
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder={B.FEE_PLACEHOLDER}
-              value={platform}
-              onChange={(e) => setPlatform(e.target.value)}
-            />
-          </FormField>
-        </div>
+            <div className="mt-1">
+              {/* Reuse is a normal, deliberate outcome — say so, so the admin
+                  doesn't read the unchanged URL as a failed regeneration. */}
+              {linkResult.reused && (
+                <p className="mb-2 text-[12px] text-[var(--t2)]">{B.LINK_REUSED_NOTE}</p>
+              )}
 
-        <DialogFooter className="mt-4">
-          <Button variant="ghost" size="sm" onClick={onClose} disabled={isLoading}>
-            {B.CANCEL}
-          </Button>
-          <Button variant="primary" size="sm" onClick={handleConfirm} disabled={isLoading}>
-            <IconFileInvoice size={15} className="mr-1" />
-            {isLoading
-              ? isUpdate
-                ? B.UPDATING
-                : B.CREATING
-              : isUpdate
-                ? B.UPDATE_CONFIRM
-                : B.CONFIRM}
-          </Button>
-        </DialogFooter>
+              <FormField
+                label={B.LINK_URL_LABEL}
+                hint={
+                  linkResult.expires_at
+                    ? B.LINK_EXPIRES(expiryLabel(linkResult.expires_at))
+                    : undefined
+                }
+              >
+                <Input
+                  readOnly
+                  value={linkResult.checkout_url}
+                  onFocus={(e) => e.target.select()}
+                />
+              </FormField>
+            </div>
+
+            <DialogFooter className="mt-4">
+              <Button variant="ghost" size="sm" onClick={copyLink}>
+                <IconCopy size={15} className="mr-1" />
+                {B.LINK_COPY}
+              </Button>
+              {/* An anchor, not a Button — Button has no `asChild`, and a real
+                  link is what gives target/rel their meaning. */}
+              <a
+                className="btn btn-ghost btn-sm"
+                href={linkResult.checkout_url}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                <IconExternalLink size={15} className="mr-1" />
+                {B.LINK_OPEN}
+              </a>
+              <Button variant="primary" size="sm" onClick={onClose}>
+                {B.LINK_DONE}
+              </Button>
+            </DialogFooter>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle>{isUpdate ? B.UPDATE_TITLE : B.TITLE}</DialogTitle>
+              <DialogDescription>
+                {isUpdate ? B.UPDATE_DESCRIPTION(orderRef) : B.DESCRIPTION(orderRef)}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="form-row !mb-0">
+              <FormField label={B.SHIPPING_FEE} hint={isUpdate ? B.UPDATE_HINT : B.HINT}>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder={B.FEE_PLACEHOLDER}
+                  value={shipping}
+                  onChange={(e) => setShipping(e.target.value)}
+                />
+              </FormField>
+              <FormField label={B.TAX_AMOUNT}>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder={B.FEE_PLACEHOLDER}
+                  value={tax}
+                  onChange={(e) => setTax(e.target.value)}
+                />
+              </FormField>
+              <FormField label={B.PLATFORM_FEE}>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder={B.FEE_PLACEHOLDER}
+                  value={platform}
+                  onChange={(e) => setPlatform(e.target.value)}
+                />
+              </FormField>
+            </div>
+
+            <p className="mt-2 text-[12px] text-[var(--t2)]">{B.LINK_HINT}</p>
+
+            <DialogFooter className="mt-4">
+              <Button variant="ghost" size="sm" onClick={onClose} disabled={busy}>
+                {B.CANCEL}
+              </Button>
+              {/* API 3 — a peer of create/update rather than a follow-up: it sets
+                  the same fees itself, so it works from either mode. */}
+              <Button
+                variant="teal"
+                size="sm"
+                onClick={() => onGenerateLink(fees())}
+                disabled={busy}
+              >
+                <IconLink size={15} className="mr-1" />
+                {isGeneratingLink ? B.LINK_GENERATING : B.LINK_CONFIRM}
+              </Button>
+              <Button variant="primary" size="sm" onClick={() => onConfirm(fees())} disabled={busy}>
+                <IconFileInvoice size={15} className="mr-1" />
+                {isLoading
+                  ? isUpdate
+                    ? B.UPDATING
+                    : B.CREATING
+                  : isUpdate
+                    ? B.UPDATE_CONFIRM
+                    : B.CONFIRM}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -21,6 +21,17 @@ export {
   useSuggestNewProductMutation,
   useReleaseSuggestionsMutation,
 } from "./api/substitutionApi";
-export { useCreateBillMutation } from "./api/billingApi";
+export {
+  useCreateBillMutation,
+  useUpdateBillMutation,
+  useGeneratePaymentLinkMutation,
+} from "./api/billingApi";
 export { deriveIntentAction } from "./lib/intentAction";
-export type { IntentAction, IntentData, IntentDetail, IntentStats } from "./types/intent.types";
+export type {
+  GeneratePaymentLinkPayload,
+  GeneratePaymentLinkResponse,
+  IntentAction,
+  IntentData,
+  IntentDetail,
+  IntentStats,
+} from "./types/intent.types";

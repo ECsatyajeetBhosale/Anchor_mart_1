@@ -77,6 +77,21 @@ export const MESSAGES = {
       CANCELLED: "Cancelled",
       PENDING_INTENTS: "Pending Intents",
     },
+    /**
+     * Exception signals from the same stats call. These are snapshots — they
+     * ignore the period filter — so the row is labelled "right now" to stop the
+     * header pills from being read as applying to them.
+     */
+    ATTENTION: {
+      TITLE: "Needs Attention",
+      SUBTITLE: "Right now — these counts ignore the period filter above",
+      DELIVERY_FAILED: "Delivery Failed",
+      /** Footer on the failed tile — how long the oldest one has sat. */
+      OLDEST: (age: string) => `oldest ${age} ago`,
+      DELTA_OPEN: "Surcharges Unpaid",
+      DELTA_EXPIRED: "Surcharges Lapsed",
+      LOCATION_REPORTS: "Location Reports",
+    },
     // Live Orders card
     LIVE_ORDERS: "Live Orders",
     REALTIME: "Real-time",
@@ -851,6 +866,24 @@ export const MESSAGES = {
       UPDATE_CONFIRM: "Update Bill & Notify",
       UPDATING: "Updating…",
       UPDATE_HINT: "Leave a fee blank to keep its current value.",
+      // Flow 07 API 3 — generate-link runs off the same fee form, so it is
+      // offered as a second action rather than a separate dialog.
+      LINK_CONFIRM: "Generate Payment Link",
+      LINK_GENERATING: "Generating…",
+      LINK_HINT:
+        "Generating a link also sets these fees and notifies the sailor — you don't need to create the bill first.",
+      // Result panel, shown in place of the fee form once a link exists.
+      LINK_READY_TITLE: "Payment Link Ready",
+      LINK_READY_DESCRIPTION: (ref: string, amount: string) =>
+        `Order ${ref} is now awaiting payment of $${amount}. The link has been sent to the sailor by email, WhatsApp and in-app.`,
+      LINK_REUSED_NOTE:
+        "This reuses the link already open for this amount, so the sailor's existing link still works.",
+      LINK_URL_LABEL: "Stripe Checkout URL",
+      LINK_EXPIRES: (when: string) => `Expires ${when}`,
+      LINK_COPY: "Copy Link",
+      LINK_COPIED: "Payment link copied.",
+      LINK_OPEN: "Open",
+      LINK_DONE: "Done",
     },
     // Toasts
     TOAST: {
@@ -874,6 +907,13 @@ export const MESSAGES = {
       BILL_UPDATED: (ref: string, amount: string) =>
         `Bill for ${ref} updated to $${amount} — sailor notified again.`,
       BILL_UPDATE_FAILED: "Could not update the bill. Please try again.",
+      LINK_GENERATED: (ref: string, amount: string) =>
+        `Payment link created for ${ref} ($${amount}) — sent to the sailor.`,
+      LINK_REUSED: (ref: string) => `Reused the payment link already open for ${ref}.`,
+      LINK_FAILED: "Could not generate the payment link. Please try again.",
+      // 502 — the request reached us fine; Stripe is what broke. Worth saying so,
+      // because retrying is the right move here and not for the other failures.
+      LINK_PROVIDER_ERROR: "Stripe couldn't create the link right now. Try again in a moment.",
     },
   },
   SPECIAL_REQUESTS: {

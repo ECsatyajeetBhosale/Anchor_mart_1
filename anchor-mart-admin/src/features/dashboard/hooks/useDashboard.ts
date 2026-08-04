@@ -28,6 +28,24 @@ function formatStat(value: number | undefined): string {
 }
 
 /**
+ * `oldest_failed_at` as an age ("3d", "5h", "12m") for the delivery-failed
+ * tile's footer. It is a staleness signal, not a count — an absolute timestamp
+ * would make the reader do the subtraction, which is the whole point of it.
+ *
+ * `null` is the normal "nothing is failing" case, so it yields no footer at all
+ * rather than a placeholder.
+ */
+function formatAge(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return null;
+  const minutes = Math.max(0, Math.floor((Date.now() - then) / 60_000));
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  return hours < 24 ? `${hours}h` : `${Math.floor(hours / 24)}d`;
+}
+
+/**
  * Dashboard data access + header filter state.
  *
  * Owns the period toggle and custom date range, derives the shared stats query
@@ -71,17 +89,36 @@ export function useDashboard() {
     actionRequiredQuery.refetch();
   };
 
-  // Pre-formatted values mapped to the existing dashboard cards.
+  // Pre-formatted values mapped to the dashboard cards. Grouped by how each
+  // field responds to the header filter — see `DashboardStatsResponse`. Only
+  // the `period` block below moves when the period toggle changes; everything
+  // else is "right now" regardless, so the UI must not imply otherwise.
   const stats = {
+    /* ── snapshots — period-independent ──────────────────────────────────── */
     totalSailors: formatStat(statsQuery.data?.total_sailors),
     activePartners: formatStat(statsQuery.data?.active_partners),
-    ordersPlaced: formatStat(statsQuery.data?.orders_placed),
     intentReceived: formatStat(statsQuery.data?.intent_received),
     inProgress: formatStat(statsQuery.data?.in_progress),
-    cancelled: formatStat(statsQuery.data?.cancelled),
     pendingIntents: formatStat(statsQuery.data?.pending_intents),
+    deliveryFailed: formatStat(statsQuery.data?.delivery_failed),
+    /** Age of the oldest still-failing delivery; `null` when none are. */
+    oldestFailedAge: formatAge(statsQuery.data?.oldest_failed_at),
+    deltaOpen: formatStat(statsQuery.data?.delta_open),
+    deltaExpired: formatStat(statsQuery.data?.delta_expired),
+    locationReportsPending: formatStat(statsQuery.data?.location_reports_pending),
+
+    /* ── period counts — these follow the header filter ──────────────────── */
+    ordersPlaced: formatStat(statsQuery.data?.orders_placed),
+    cancelled: formatStat(statsQuery.data?.cancelled),
     refunded: formatStat(statsQuery.data?.refunded),
   };
+
+  /**
+   * The window the backend actually resolved, echoed back from the response.
+   * Worth surfacing: on a custom range the label is the only confirmation that
+   * the server read the same dates the picker sent.
+   */
+  const period = statsQuery.data?.period ?? null;
 
   const liveOrders = {
     // Dashboard shows a capped preview; `count` keeps the true total for the footer.
@@ -129,6 +166,8 @@ export function useDashboard() {
     dateRange,
     setDateRange,
     stats,
+    period,
+    isStatsLoading: statsQuery.isLoading,
     isError: statsQuery.isError,
     error: statsQuery.error,
     refetch,
