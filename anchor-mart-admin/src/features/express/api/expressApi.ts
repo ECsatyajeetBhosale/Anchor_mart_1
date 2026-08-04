@@ -8,14 +8,30 @@ import type {
   GetExpressCatalogParams,
 } from "../types/expressItem.types";
 
-// Query parameters for fetching express orders.
+/**
+ * Query parameters for the express **orders** list (Flow 09 API 2) — named for
+ * the hook (`getExpressItems`) rather than the resource, unlike
+ * `GetExpressCatalogParams` which covers `/express/items/`.
+ *
+ * This list shares `_apply_order_list_filters()` with the main Orders screen,
+ * so it accepts the same set and validates identically.
+ */
 export interface GetExpressItemsParams {
   page?: number;
   limit?: number;
   // Free-text search term, sent to the backend as `?search=...`.
   search?: string;
-  // Order status filter, sent as `?status=<value>`. Omit for "all".
+  /**
+   * Order status filter, sent as `?status=<value>`. Omit for "all".
+   * **Post-payment statuses only** — a pre-payment value is a 400 with an
+   * explanatory message, not an empty 200.
+   */
   status?: string;
+  /** `YYYY-MM-DD`, filtering on `payment_completed_at`. */
+  dateFrom?: string;
+  dateTo?: string;
+  /** UUID of the assigned delivery partner. */
+  partnerId?: string;
 }
 
 /** Safe property read off an unknown value. */
@@ -56,6 +72,18 @@ function summariseAttributes(value: unknown): string {
   return entries.length ? entries.join(" · ") : "-";
 }
 
+/**
+ * Primary image URL off a variant's `images` array, falling back to the first
+ * entry when none is flagged primary. `""` when there are no images, so the
+ * column can render a placeholder instead of a broken `<img>`.
+ */
+function primaryImage(value: unknown): string {
+  const images = asArray(value);
+  if (!images?.length) return "";
+  const primary = images.find((img) => getProp(img, "is_primary") === true);
+  return pick(primary ?? images[0], "image", "image_url");
+}
+
 /** Maps a raw ProductVariant record onto the flat catalog row the table renders. */
 function toExpressItem(raw: unknown, index: number): ExpressItem {
   const product = getProp(raw, "product");
@@ -65,12 +93,15 @@ function toExpressItem(raw: unknown, index: number): ExpressItem {
     productId: typeof product === "string" ? product : pick(product, "id"),
     name: pick(raw, "product_name", "name") || pick(product, "name") || "-",
     sku: pick(raw, "sku") || "-",
-    category:
-      pick(raw, "category_name", "category") || pick(getProp(product, "category"), "name") || "-",
+    imageUrl: primaryImage(getProp(raw, "images")),
     price: formatPrice(getProp(raw, "price") ?? getProp(raw, "base_price")),
     attributes: summariseAttributes(getProp(raw, "attributes")),
+    about: pick(raw, "about_product"),
     // The API already folds the product flag in, so this is the effective value.
     adminSourceable: getProp(raw, "admin_sourceable") !== false,
+    // Defaults to false, unlike the two flags above: absent must not read as
+    // "express" on the one column whose whole job is to flag the exceptions.
+    isExpress: getProp(raw, "is_express") === true,
     isActive: getProp(raw, "is_active") !== false,
   };
 }
@@ -87,6 +118,9 @@ export const expressApi = baseApi.injectEndpoints({
           page_size: params.limit,
           search: params.search || undefined,
           status: params.status || undefined,
+          date_from: params.dateFrom || undefined,
+          date_to: params.dateTo || undefined,
+          partner_id: params.partnerId || undefined,
         },
       }),
       providesTags: (result) =>
@@ -116,7 +150,10 @@ export const expressApi = baseApi.injectEndpoints({
           product_id: params.productId || undefined,
           min_price: params.minPrice || undefined,
           max_price: params.maxPrice || undefined,
+          admin_sourceable: params.adminSourceable || undefined,
+          is_active: params.isActive || undefined,
           sort_by_price: params.sortByPrice || undefined,
+          sort_by_popularity: params.sortByPopularity || undefined,
           sort_by_relevance: params.sortByRelevance || undefined,
         },
       }),

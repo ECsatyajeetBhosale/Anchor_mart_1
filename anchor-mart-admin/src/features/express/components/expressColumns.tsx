@@ -1,29 +1,44 @@
 import { StatusBadge } from "@/components/common/StatusBadge";
-import { TableActions } from "@/components/common/TableActions";
 import { Badge } from "@/components/ui/badge";
 import type { Column } from "@/components/ui/data-table";
 import { MESSAGES } from "@/lib/messages";
-import { IconEye } from "@tabler/icons-react";
-import type React from "react";
+import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
 import type { ExpressOrder } from "../types/expressItem.types";
 
 const M = MESSAGES.EXPRESS;
 
+/**
+ * Flow 09 API 2: this list shares `_apply_order_list_filters()` with the main
+ * Orders screen, so `?status=` takes **post-payment statuses only** and 400s on
+ * anything else. These are the same nine keys the Orders page offers, labelled
+ * from the single source of truth.
+ *
+ * The previous set (`pending`, `confirmed`, `processing`, `delivering`, …) was
+ * invented rather than taken from `Order.Status`; only two of its six values
+ * existed, so picking any of the other four returned 400 instead of filtering.
+ */
 const STATUS_FILTER_OPTIONS = [
-  { label: M.STATUS_FILTER.PENDING, value: "pending" },
-  { label: M.STATUS_FILTER.CONFIRMED, value: "confirmed" },
-  { label: M.STATUS_FILTER.PROCESSING, value: "processing" },
-  { label: M.STATUS_FILTER.DELIVERING, value: "delivering" },
-  { label: M.STATUS_FILTER.DELIVERED, value: "delivered" },
-  { label: M.STATUS_FILTER.CANCELLED, value: "cancelled" },
-];
+  "order_confirmed",
+  "partner_assigned",
+  "items_collected",
+  "at_port",
+  "at_berth",
+  "delivered",
+  "delivery_failed",
+  "cancelled",
+  "refunded",
+].map((value) => ({ value, label: ORDER_STATUS_BY_KEY[value].label }));
 
 const DASH = M.DASH;
 
+/**
+ * No actions column: the row itself opens the detail drawer, and the drawer is
+ * where partner assignment lives — the same shape as the intents queue, rather
+ * than a per-row icon that duplicates the row click.
+ */
 export interface UseExpressColumnsOptions {
   statusFilter: string;
   onStatusFilter: (value: string) => void;
-  onView: (e: React.MouseEvent, order: ExpressOrder) => void;
 }
 
 /**
@@ -34,7 +49,6 @@ export interface UseExpressColumnsOptions {
 export function useExpressColumns({
   statusFilter,
   onStatusFilter,
-  onView,
 }: UseExpressColumnsOptions): Column<ExpressOrder>[] {
   return [
     {
@@ -151,23 +165,6 @@ export function useExpressColumns({
         options: STATUS_FILTER_OPTIONS,
         onChange: onStatusFilter,
       },
-    },
-    {
-      id: "actions",
-      header: M.COLUMNS.ACTIONS,
-      cell: (row) => (
-        <TableActions
-          row={row}
-          actions={[
-            {
-              icon: <IconEye size={16} />,
-              title: M.ACTION_VIEW,
-              onClick: (e, r) => onView(e, r),
-            },
-          ]}
-        />
-      ),
-      className: "w-16 text-right",
     },
   ];
 }

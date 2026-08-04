@@ -50,17 +50,27 @@ export interface ExpressItem {
   name: string;
   /** Variant SKU. */
   sku: string;
-  /** Category name, or "-". */
-  category: string;
+  /** Primary image URL (falls back to the first), or "" when none. */
+  imageUrl: string;
   /** Formatted price, e.g. "$120.00". */
   price: string;
   /** Attribute summary, e.g. "color: red · size: M". */
   attributes: string;
+  /** Long description, or "" — shown as the row's hover title. */
+  about: string;
   /**
    * Effective sourceability — the API reports this as product AND variant, so a
    * true here means the item is genuinely orderable.
    */
   adminSourceable: boolean;
+  /**
+   * The **variant-level** express flag. Not redundant with the row's presence
+   * in this list: the list is scoped by the parent product's `catalog_type`, so
+   * a variant of an express product appears here whether or not it is itself
+   * flagged for express. `false` means it ships in the express catalog's
+   * product but is not express-orderable on its own.
+   */
+  isExpress: boolean;
   isActive: boolean;
 }
 
@@ -79,30 +89,63 @@ export interface GetExpressCatalogParams {
   productId?: string;
   minPrice?: string;
   maxPrice?: string;
+  /**
+   * `"true"` / `"false"`, filtering on the **effective** sourceable value —
+   * product AND variant, not the raw variant column. `"false"` therefore means
+   * "either flag is off", which is the correct notion of "not orderable" and is
+   * exactly what express checkout rejects a line for.
+   */
+  adminSourceable?: string;
+  /** `"true"` / `"false"` — variant liveness, independent of sourceability. */
+  isActive?: string;
   /** Literal phrase the API expects: "low to high" | "high to low". */
   sortByPrice?: string;
+  /** Same phrases as `sortByPrice`, ranked by average rating. */
+  sortByPopularity?: string;
   /** "newest_first" | "oldest_first". */
   sortByRelevance?: string;
 }
 
 /**
- * `GET /superadmin/express/stats/` (Flow 09 API 4) — three aggregate blocks in
- * one payload. Every field is optional so a partial response degrades to 0.
+ * Catalog half of the express stats payload. The flow doc describes products
+ * and variants as two separate aggregates, but the API returns them flattened
+ * into one `items` object with prefixed keys — so they are modelled as sent.
+ */
+export interface ExpressItemStats {
+  total_products?: number;
+  active_products?: number;
+  /** Products whose master sourceable switch is on. */
+  sourceable_products?: number;
+  top_rated?: number;
+  on_deal?: number;
+  total_variants?: number;
+  active_variants?: number;
+  /** Effective sourceable — product AND variant, not the raw variant column. */
+  sourceable_variants?: number;
+}
+
+/**
+ * Order-volume half. `total_orders` is the aggregate the backend computes; the
+ * sibling keys are its per-status breakdown, so the two must never be summed
+ * together — `total_orders` already counts them.
+ */
+export interface ExpressOrderStats {
+  total_orders?: number;
+  /** Paid but not yet worked — the head of the express queue. */
+  new?: number;
+  in_progress?: number;
+  delivered?: number;
+  delivery_failed?: number;
+  cancelled?: number;
+  refunded?: number;
+}
+
+/**
+ * `GET /superadmin/express/stats/` (Flow 09 API 4) — catalog counts and order
+ * volume in one call, under two top-level keys. Every field is optional so a
+ * partial response degrades to 0 rather than blanking a card.
  */
 export interface ExpressStats {
-  products?: {
-    total?: number;
-    active?: number;
-    sourceable?: number;
-    top_rated?: number;
-    on_deal?: number;
-  };
-  variants?: {
-    total?: number;
-    active?: number;
-    /** Effective = product AND variant. */
-    sourceable?: number;
-  };
-  /** Order counts keyed by status token, e.g. `{ delivered: 12 }`. */
-  orders_by_status?: Record<string, number>;
+  items?: ExpressItemStats;
+  orders?: ExpressOrderStats;
 }

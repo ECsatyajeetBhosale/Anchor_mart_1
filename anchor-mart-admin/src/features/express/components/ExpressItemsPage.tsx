@@ -1,12 +1,22 @@
-import { IconBolt, IconPackage, IconShoppingCart, IconStack2 } from "@tabler/icons-react";
+import {
+  IconBolt,
+  IconPackage,
+  IconShoppingCart,
+  IconStack2,
+  IconTruckOff,
+} from "@tabler/icons-react";
+import { format } from "date-fns";
 import { useState } from "react";
+import type { DateRange } from "react-day-picker";
 import { useSearchParams } from "react-router-dom";
 
+import { DateRangePicker } from "@/components/common/DateRangePicker";
 import { DynamicTabs } from "@/components/common/DynamicTabs";
 import { PageHeader } from "@/components/common/PageHeader";
 import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import { DataTable } from "@/components/ui/data-table";
+import { useGetPartnersQuery } from "@/features/partners";
 import { MESSAGES } from "@/lib/messages";
 import { useGetExpressItemsQuery, useGetExpressStatsQuery } from "../api/expressApi";
 import type { ExpressOrder } from "../types/expressItem.types";
@@ -20,10 +30,9 @@ const LIMIT = 10;
 const TAB_ORDERS = "orders";
 const TAB_CATALOG = "catalog";
 
-/** Sums the per-status order counts into a single total. */
-function totalOrders(byStatus?: Record<string, number>): number {
-  if (!byStatus) return 0;
-  return Object.values(byStatus).reduce((sum, n) => sum + (typeof n === "number" ? n : 0), 0);
+/** Thousands-separated count; `undefined` degrades to 0, not a blank card. */
+function count(value: number | undefined): string {
+  return (value ?? 0).toLocaleString();
 }
 
 export function ExpressItemsPage() {
@@ -37,47 +46,102 @@ export function ExpressItemsPage() {
   const searchTerm = searchParams.get("search") ?? "";
   const statusFilter = searchParams.get("status") ?? ""; // "" = all
   const sort = searchParams.get("sort") ?? "";
+  const partnerFilter = searchParams.get("partner") ?? "";
+  const sourceableFilter = searchParams.get("sourceable") ?? "";
+  const activeFilter = searchParams.get("active") ?? "";
+  const dateFrom = searchParams.get("from") ?? "";
+  const dateTo = searchParams.get("to") ?? "";
 
   const { data, isLoading, isError, refetch } = useGetExpressItemsQuery(
-    { page, limit: LIMIT, search: searchTerm, status: statusFilter },
+    {
+      page,
+      limit: LIMIT,
+      search: searchTerm,
+      status: statusFilter,
+      dateFrom,
+      dateTo,
+      partnerId: partnerFilter,
+    },
     // The orders list is only rendered on its own tab — don't fetch it otherwise.
     { skip: tab !== TAB_ORDERS },
   );
 
+  // Feeds the `?partner_id=` filter only — the drawer fetches its own
+  // assignable list, which is a different question (who *may* take this order).
+  const { data: partnersData } = useGetPartnersQuery(undefined, { skip: tab !== TAB_ORDERS });
+  const partnerOptions = [
+    { value: "", label: M.ORDER_FILTERS.PARTNER_ALL },
+    ...(partnersData?.partners ?? []).map((p) => ({ value: p.deliveryPartnerId, label: p.n })),
+  ];
+
   // Aggregates span both tabs, so they load regardless of which one is active.
   const { data: stats, isLoading: statsLoading } = useGetExpressStatsQuery();
+  const items = stats?.items;
+  const orderStats = stats?.orders;
+
+  // Each card shows one headline number and folds its related counts into the
+  // footer — the payload carries 15 figures and 15 cards would bury the four
+  // that matter.
   const statItems = [
     {
       id: "products",
       label: M.STATS.PRODUCTS,
-      footer: M.STATS.PRODUCTS_FOOTER,
-      value: statsLoading ? M.DASH : (stats?.products?.total ?? 0).toLocaleString(),
+      footer: statsLoading
+        ? M.STATS.PRODUCTS_FOOTER
+        : M.STATS.PRODUCTS_BREAKDOWN(
+            count(items?.active_products),
+            count(items?.top_rated),
+            count(items?.on_deal),
+          ),
+      value: statsLoading ? M.DASH : count(items?.total_products),
       icon: <IconPackage size={20} />,
       variant: "navy" as const,
     },
     {
       id: "variants",
       label: M.STATS.VARIANTS,
-      footer: M.STATS.VARIANTS_FOOTER,
-      value: statsLoading ? M.DASH : (stats?.variants?.total ?? 0).toLocaleString(),
+      footer: statsLoading
+        ? M.STATS.VARIANTS_FOOTER
+        : M.STATS.VARIANTS_BREAKDOWN(count(items?.active_variants)),
+      value: statsLoading ? M.DASH : count(items?.total_variants),
       icon: <IconStack2 size={20} />,
       variant: "purple" as const,
     },
     {
       id: "sourceable",
       label: M.STATS.SOURCEABLE,
-      footer: M.STATS.SOURCEABLE_FOOTER,
-      value: statsLoading ? M.DASH : (stats?.variants?.sourceable ?? 0).toLocaleString(),
+      footer: statsLoading
+        ? M.STATS.SOURCEABLE_FOOTER
+        : M.STATS.SOURCEABLE_BREAKDOWN(count(items?.sourceable_products)),
+      value: statsLoading ? M.DASH : count(items?.sourceable_variants),
       icon: <IconBolt size={20} />,
       variant: "teal" as const,
     },
     {
       id: "orders",
       label: M.STATS.ORDERS,
-      footer: M.STATS.ORDERS_FOOTER,
-      value: statsLoading ? M.DASH : totalOrders(stats?.orders_by_status).toLocaleString(),
+      // `total_orders` is the backend's own aggregate — the sibling keys are its
+      // breakdown, so summing them alongside it would double-count.
+      footer: statsLoading
+        ? M.STATS.ORDERS_FOOTER
+        : M.STATS.ORDERS_BREAKDOWN(
+            count(orderStats?.new),
+            count(orderStats?.in_progress),
+            count(orderStats?.delivered),
+          ),
+      value: statsLoading ? M.DASH : count(orderStats?.total_orders),
       icon: <IconShoppingCart size={20} />,
       variant: "amber" as const,
+    },
+    {
+      id: "failed",
+      label: M.STATS.FAILED,
+      footer: statsLoading
+        ? M.STATS.FAILED_FOOTER
+        : M.STATS.FAILED_BREAKDOWN(count(orderStats?.cancelled), count(orderStats?.refunded)),
+      value: statsLoading ? M.DASH : count(orderStats?.delivery_failed),
+      icon: <IconTruckOff size={20} />,
+      variant: "red" as const,
     },
   ];
 
@@ -103,15 +167,44 @@ export function ExpressItemsPage() {
     setSearchParams(next);
   };
 
+  /** The picker hands back a range; the API wants two `YYYY-MM-DD` params. */
+  const dateRange: DateRange | undefined = dateFrom
+    ? { from: new Date(dateFrom), to: dateTo ? new Date(dateTo) : undefined }
+    : undefined;
+
+  const handleDateRange = (range: DateRange | undefined) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("page", "1");
+    // Only a *complete* range is sent — a half-picked one would silently widen
+    // the query to "everything after X" while the picker still looks pending.
+    if (range?.from && range?.to) {
+      next.set("from", format(range.from, "yyyy-MM-dd"));
+      next.set("to", format(range.to, "yyyy-MM-dd"));
+    } else {
+      next.delete("from");
+      next.delete("to");
+    }
+    setSearchParams(next);
+  };
+
   // Switching tabs resets paging and the filters, which mean different things
-  // on each side (order status vs catalog sort).
+  // on each side (order status/partner/date vs catalog sort/sourceable/active).
   const handleTabChange = (value: string) => {
     const next = new URLSearchParams(searchParams);
     next.set("tab", value);
-    next.delete("page");
-    next.delete("search");
-    next.delete("status");
-    next.delete("sort");
+    for (const key of [
+      "page",
+      "search",
+      "status",
+      "sort",
+      "partner",
+      "from",
+      "to",
+      "sourceable",
+      "active",
+    ]) {
+      next.delete(key);
+    }
     setSearchParams(next);
   };
 
@@ -120,25 +213,40 @@ export function ExpressItemsPage() {
     setIsDrawerOpen(true);
   };
 
+  // Assignment lives in the drawer (Flow 28 API 12) — the page only opens it.
   const columns = useExpressColumns({
     statusFilter,
     onStatusFilter: (value) => setFilterParam("status", value),
-    onView: (e, order) => {
-      e.stopPropagation();
-      openOrder(order);
-    },
   });
 
   const ordersTab = (
     <>
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex justify-end items-center gap-2">
         <SearchFilters
           searchValue={searchTerm}
           onSearchChange={(val) => setFilterParam("search", val)}
           searchPlaceholder={M.SEARCH_PLACEHOLDER}
           searchDebounceMs={180}
           searchLoading={isLoading}
-        />
+          filters={[
+            {
+              id: "partner",
+              value: partnerFilter,
+              placeholder: M.ORDER_FILTERS.PARTNER_PLACEHOLDER,
+              options: partnerOptions,
+              width: "180px",
+              onValueChange: (val) => setFilterParam("partner", val),
+            },
+          ]}
+        >
+          {/* `date_from`/`date_to` filter on `payment_completed_at`, so the
+              picker is labelled by that rather than "created". */}
+          <DateRangePicker
+            value={dateRange}
+            onChange={handleDateRange}
+            placeholder={M.ORDER_FILTERS.DATE_PLACEHOLDER}
+          />
+        </SearchFilters>
       </div>
 
       <DataTable
@@ -178,15 +286,20 @@ export function ExpressItemsPage() {
                 page={page}
                 search={searchTerm}
                 sort={sort}
+                sourceable={sourceableFilter}
+                active={activeFilter}
                 onPageChange={handlePageChange}
                 onSearchChange={(val) => setFilterParam("search", val)}
                 onSortChange={(val) => setFilterParam("sort", val)}
+                onSourceableChange={(val) => setFilterParam("sourceable", val)}
+                onActiveChange={(val) => setFilterParam("active", val)}
               />
             ),
           },
         ]}
       />
 
+      {/* Owns the partner picker (Flow 28 API 12) as well as the order detail. */}
       <ExpressItemDrawer
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}

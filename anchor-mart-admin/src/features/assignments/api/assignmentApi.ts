@@ -3,9 +3,9 @@ import { baseApi } from "@/lib/fetchUtils";
 import type {
   ApiUnassignedOrder,
   ApiUnassignedOrdersResponse,
-  Assignment,
   AssignOrderPayload,
   AssignablePartner,
+  Assignment,
   OrderAssignmentHistory,
   OrderTimeline,
   OrderTimelineStep,
@@ -218,7 +218,9 @@ export const assignmentApi = baseApi.injectEndpoints({
         body,
       }),
       // Refresh the unassigned list AND the intent queue/stats — an intent-stage
-      // assignment moves the order to `partner_verifying`.
+      // assignment moves the order to `partner_verifying`. The express orders
+      // list shows a partner column off the same orders, so it is invalidated
+      // here rather than each caller refetching by hand.
       invalidatesTags: (_r, _e, { order_id }) => [
         { type: "Assignments", id: "UNASSIGNED-LIST" },
         { type: "Assignments", id: "ACTIVE-LIST" },
@@ -227,6 +229,8 @@ export const assignmentApi = baseApi.injectEndpoints({
         { type: "Intents", id: order_id },
         { type: "Intents", id: "PARTIAL-LIST" },
         { type: "Intents", id: "STATS" },
+        { type: "ExpressItems", id: order_id },
+        { type: "ExpressItems", id: "PARTIAL-LIST" },
       ],
     }),
   }),

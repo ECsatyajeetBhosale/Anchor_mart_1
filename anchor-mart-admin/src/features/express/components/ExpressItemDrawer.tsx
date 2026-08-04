@@ -1,5 +1,8 @@
+import { DropdownSelect } from "@/components/common/DropdownSelect";
+import { FormField } from "@/components/common/FormField";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -8,12 +11,17 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useAssignOrderMutation, useGetAssignablePartnersQuery } from "@/features/assignments";
+import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
-import { IconBolt } from "@tabler/icons-react";
+import { IconBolt, IconTransfer } from "@tabler/icons-react";
 import type React from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import type { ExpressOrder } from "../types/expressItem.types";
 
 const M = MESSAGES.EXPRESS;
+const A = MESSAGES.EXPRESS.ASSIGN;
 
 export interface ExpressItemDrawerProps {
   isOpen: boolean;
@@ -31,6 +39,75 @@ function DetailRow({ label, value }: { label: string; value?: React.ReactNode })
 }
 
 export function ExpressItemDrawer({ isOpen, onClose, item }: ExpressItemDrawerProps) {
+  // Reset per open so a previous order's pick can't carry over onto this one.
+  const [partnerId, setPartnerId] = useState("");
+  /** Set by a 409 `requires_confirmation`, so the next click reassigns. */
+  const [forceReassign, setForceReassign] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setPartnerId("");
+      setForceReassign(false);
+    }
+  }, [isOpen]);
+
+  // Flow 28 API 11. `order_id` is deliberately not sent: scoping by it filters
+  // to the order's port and required capability, which returns an empty picker
+  // while partner port/capability data is incomplete. API 12 enforces the rule
+  // regardless, so a mismatched pick is rejected server-side.
+  const { data: partners = [], isLoading: partnersLoading } = useGetAssignablePartnersQuery(
+    {},
+    { skip: !isOpen },
+  );
+  const [assignOrder, { isLoading: assigning }] = useAssignOrderMutation();
+
+  const partnerOptions = partners.map((p) => ({
+    value: p.deliveryPartnerId,
+    label: `${p.name}${p.code ? ` · ${p.code}` : ""}${p.port ? ` · ${p.port}` : ""}`,
+  }));
+  const placeholder = partnersLoading
+    ? A.PARTNER_LOADING
+    : partnerOptions.length === 0
+      ? A.PARTNER_EMPTY
+      : A.PARTNER_PLACEHOLDER;
+
+  // An order that already holds a partner is a reassignment, which the API only
+  // performs with an explicit `confirm`.
+  const isReassign = !!item?.partner_allocated;
+
+  /**
+   * Flow 28 API 12. On a 409 `requires_confirmation` the drawer stays open and
+   * flips `forceReassign`, so the next click goes through rather than making
+   * the admin start over.
+   */
+  const handleAssign = async () => {
+    if (!item || !partnerId) {
+      toast.error(A.SELECT_PARTNER);
+      return;
+    }
+    const ref = item.order_number || item.id;
+    const partnerName = partnerOptions.find((o) => o.value === partnerId)?.label ?? "";
+    try {
+      await assignOrder({
+        order_id: item.id,
+        delivery_partner_id: partnerId,
+        confirm: isReassign || forceReassign,
+      }).unwrap();
+      toast.success(
+        isReassign || forceReassign ? A.REASSIGNED(partnerName, ref) : A.ASSIGNED(partnerName, ref),
+      );
+      onClose();
+    } catch (err) {
+      const e = err as { status?: unknown; data?: { requires_confirmation?: boolean } };
+      if (e?.status === 409 && e?.data?.requires_confirmation) {
+        setForceReassign(true);
+        toast.error(getApiMessage(err) ?? A.NEEDS_CONFIRM);
+        return;
+      }
+      toast.error(getApiMessage(err) ?? A.FAILED);
+    }
+  };
+
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
@@ -68,8 +145,14 @@ export function ExpressItemDrawer({ isOpen, onClose, item }: ExpressItemDrawerPr
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <DetailRow label={M.COLUMNS.AMOUNT} value={`$${Number(item.total_amount).toFixed(2)}`} />
-                  <DetailRow label={M.COLUMNS.ITEMS} value={M.DRAWER.ITEM_COUNT(item.item_count ?? 0)} />
+                  <DetailRow
+                    label={M.COLUMNS.AMOUNT}
+                    value={`$${Number(item.total_amount).toFixed(2)}`}
+                  />
+                  <DetailRow
+                    label={M.COLUMNS.ITEMS}
+                    value={M.DRAWER.ITEM_COUNT(item.item_count ?? 0)}
+                  />
                 </div>
               </section>
 
@@ -101,16 +184,41 @@ export function ExpressItemDrawer({ isOpen, onClose, item }: ExpressItemDrawerPr
                   <DetailRow label="Created" value={item.created_at} />
                 </div>
               </section>
+
+              {/* Flow 28 API 12 — assignment lives here rather than as a row
+                  icon, matching the intents queue. */}
+              <section>
+                <div className="sec-label">{isReassign ? A.SECTION_REASSIGN : A.SECTION}</div>
+                <FormField
+                  label={A.PARTNER_LABEL}
+                  hint={isReassign ? A.REASSIGN_HINT(item.partner_name ?? "") : undefined}
+                >
+                  <DropdownSelect
+                    value={partnerId}
+                    onValueChange={setPartnerId}
+                    placeholder={placeholder}
+                    options={partnerOptions}
+                    width="100%"
+                  />
+                </FormField>
+              </section>
             </>
           )}
         </div>
 
         <SheetFooter className="p-6 border-t border-[var(--border-md)] bg-[var(--surface)]">
-          <div className="flex justify-end w-full">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              <IconBolt size={16} />
+          <div className="flex justify-end gap-3 w-full">
+            <Button variant="ghost" size="sm" onClick={onClose} disabled={assigning}>
               {M.DRAWER.CLOSE}
-            </button>
+            </Button>
+            <Button variant="primary" size="sm" onClick={handleAssign} disabled={assigning}>
+              <IconTransfer size={15} className="mr-1" />
+              {assigning
+                ? A.ASSIGNING
+                : isReassign || forceReassign
+                  ? A.CONFIRM_REASSIGN
+                  : A.CONFIRM}
+            </Button>
           </div>
         </SheetFooter>
       </SheetContent>

@@ -1979,14 +1979,29 @@ export const MESSAGES = {
     // KPI cards (express stats aggregates)
     STATS: {
       PRODUCTS: "Express Products",
+      // Plain footers are the loading state; the *_BREAKDOWN forms replace them
+      // once the counts arrive, so each card carries its own secondary figures
+      // instead of the payload needing a card per field.
       PRODUCTS_FOOTER: "In the express catalog",
+      PRODUCTS_BREAKDOWN: (active: string, topRated: string, onDeal: string) =>
+        `${active} active · ${topRated} top-rated · ${onDeal} on deal`,
       VARIANTS: "Express Variants",
       VARIANTS_FOOTER: "Across all products",
+      VARIANTS_BREAKDOWN: (active: string) => `${active} active`,
       SOURCEABLE: "Sourceable Variants",
       // Spelling out the AND rule: a variant is only orderable when both flags hold.
       SOURCEABLE_FOOTER: "Product and variant both flagged",
+      SOURCEABLE_BREAKDOWN: (products: string) => `${products} sourceable products`,
       ORDERS: "Express Orders",
       ORDERS_FOOTER: "All statuses",
+      ORDERS_BREAKDOWN: (newCount: string, inProgress: string, delivered: string) =>
+        `${newCount} new · ${inProgress} in progress · ${delivered} delivered`,
+      // Express skips verification entirely, so a failed delivery is the first
+      // point where an express order needs a human — it earns its own card.
+      FAILED: "Failed Deliveries",
+      FAILED_FOOTER: "Needs intervention",
+      FAILED_BREAKDOWN: (cancelled: string, refunded: string) =>
+        `${cancelled} cancelled · ${refunded} refunded`,
     },
     // Express variant catalog tab
     CATALOG: {
@@ -2000,20 +2015,61 @@ export const MESSAGES = {
         OLDEST: "Oldest first",
         PRICE_ASC: "Price: low to high",
         PRICE_DESC: "Price: high to low",
+        POPULARITY_DESC: "Most popular",
+        POPULARITY_ASC: "Least popular",
+      },
+      FILTERS: {
+        // "Not orderable" is the operationally useful one: express checkout
+        // rejects a line whose variant fails this gate, so it answers "what
+        // would fail at checkout right now?".
+        SOURCEABLE_ALL: "Any sourceability",
+        SOURCEABLE_YES: "Sourceable",
+        SOURCEABLE_NO: "Not orderable",
+        ACTIVE_ALL: "Any status",
+        ACTIVE_YES: "Active",
+        ACTIVE_NO: "Inactive",
+      },
+      /** Flow 29a §6 — the variant-level express switch and its cascade. */
+      EXPRESS_TOGGLE: {
+        ON: "Mark express",
+        OFF: "Remove express",
+        SAVING: "Saving…",
+        ON_TITLE: "Mark this variant express?",
+        ON_DESCRIPTION: (sku: string) =>
+          `${sku} becomes express-orderable. If its product isn't already in the express catalog, it will be moved there — a variant can only be express when its product is.`,
+        OFF_TITLE: "Remove express from this variant?",
+        OFF_DESCRIPTION: (sku: string) =>
+          `${sku} stops being express-orderable. If it is the last express variant on its product, the product leaves the express catalog and reverts to regular or marine emergency, depending on its category.`,
+        DONE: (sku: string, on: boolean, catalogType: string) =>
+          `${sku} is ${on ? "now express" : "no longer express"}${
+            catalogType ? ` — product catalog: ${catalogType}` : ""
+          }.`,
+        FAILED: "Could not change the express flag. Please try again.",
       },
       COLUMNS: {
         PRODUCT: "Product",
         SKU: "SKU",
-        CATEGORY: "Category",
         ATTRIBUTES: "Attributes",
         PRICE: "Price",
+        EXPRESS: "Express",
         SOURCEABLE: "Sourceable",
         ACTIVE: "Active",
+        ACTIONS: "Actions",
       },
+      IMAGE_ALT: "Variant image",
       YES: "Yes",
       NO: "No",
       ACTIVE: "Active",
       INACTIVE: "Inactive",
+      /**
+       * The variant-level express flag. The list is scoped by the parent
+       * product's catalog type, so a row can sit in the express catalog without
+       * being express-orderable itself — this column is what makes that visible.
+       */
+      EXPRESS_ON: "Express",
+      EXPRESS_OFF: "Product only",
+      EXPRESS_OFF_HINT:
+        "In an express product, but this variant is not flagged for express ordering.",
     },
     // Table
     COLUMNS: {
@@ -2026,16 +2082,16 @@ export const MESSAGES = {
       PARTNER: "Partner",
       ARRIVAL: "Ship Arrival",
       STATUS: "Status",
-      ACTIONS: "Actions",
     },
-    // Order status filter (sent to the backend as `?status=<value>`)
-    STATUS_FILTER: {
-      PENDING: "Pending",
-      CONFIRMED: "Confirmed",
-      PROCESSING: "Processing",
-      DELIVERING: "Delivering",
-      DELIVERED: "Delivered",
-      CANCELLED: "Cancelled",
+    // The order status filter's labels now come from `lib/orderStatuses.ts`,
+    // the single source of truth for all 18 lifecycle statuses — the hand-written
+    // set that used to live here held four values `Order.Status` has never had,
+    // so choosing one returned 400 instead of filtering.
+    // Filter toolbar on the orders tab
+    ORDER_FILTERS: {
+      DATE_PLACEHOLDER: "Payment date",
+      PARTNER_ALL: "Any partner",
+      PARTNER_PLACEHOLDER: "Partner",
     },
     // Boolean flag badge labels
     FLAGS: {
@@ -2046,7 +2102,30 @@ export const MESSAGES = {
     },
     // Partner allocation
     UNALLOCATED: "Unallocated",
-    ACTION_VIEW: "View details",
+    // Flow 28 API 12 — partner assignment, from inside the order drawer.
+    ASSIGN: {
+      SECTION: "Assign Delivery Partner",
+      SECTION_REASSIGN: "Reassign Delivery Partner",
+      PARTNER_LABEL: "Delivery partner",
+      PARTNER_PLACEHOLDER: "Select a partner",
+      PARTNER_LOADING: "Loading partners…",
+      PARTNER_EMPTY: "No partners available",
+      REASSIGN_HINT: (current: string) =>
+        `Currently held by ${current || "another partner"} — assigning takes the order off them.`,
+      CONFIRM: "Assign Partner",
+      CONFIRM_REASSIGN: "Confirm Reassign",
+      ASSIGNING: "Assigning…",
+      SELECT_PARTNER: "Select a delivery partner first.",
+      ASSIGNED: (partner: string, order: string) => `${partner} assigned to ${order}.`,
+      REASSIGNED: (partner: string, order: string) => `${order} reassigned to ${partner}.`,
+      FAILED: "Could not assign the delivery partner. Please try again.",
+      /**
+       * A bare assign on an order someone already holds comes back 409
+       * `requires_confirmation`. The drawer stays open and the next click sends
+       * `confirm: true`, so this reads as a prompt rather than a dead end.
+       */
+      NEEDS_CONFIRM: "That order is already held by a partner — confirm again to reassign it.",
+    },
     // Detail drawer
     DRAWER: {
       TITLE_FALLBACK: "Express Order",
