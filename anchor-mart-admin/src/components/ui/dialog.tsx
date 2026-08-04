@@ -109,7 +109,15 @@ export function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLD
 export function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-3", className)}
+      className={cn(
+        // `gap-3` rather than `sm:space-x-3`: the latter only spaces horizontal
+        // siblings, so the stacked mobile layout had no gap at all and a footer
+        // that wrapped would have none between rows either.
+        // `flex-wrap` because three actions with real labels exceed the dialog's
+        // 512px at `sm`, and buttons running off the edge is worse than two rows.
+        "flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end",
+        className,
+      )}
       {...props}
     />
   );

@@ -152,18 +152,21 @@ export function CreateBillDialog({
 
             <DialogFooter className="mt-4">
               <Button variant="ghost" size="sm" onClick={copyLink}>
-                <IconCopy size={15} className="mr-1" />
+                <IconCopy size={15} />
                 {B.LINK_COPY}
               </Button>
               {/* An anchor, not a Button — Button has no `asChild`, and a real
-                  link is what gives target/rel their meaning. */}
+                  link is what gives target/rel their meaning. The classes
+                  mirror `Button variant="ghost" size="sm"` rather than using
+                  the `.btn` CSS, whose gap and radius differ just enough to
+                  read as misaligned beside the two real buttons. */}
               <a
-                className="btn btn-ghost btn-sm"
+                className="inline-flex h-[32px] cursor-pointer select-none items-center justify-center gap-2 rounded-[var(--radius-sm)] border-[1.5px] border-transparent bg-transparent px-3 font-body text-[12.5px] font-bold text-[var(--t2)] transition-all duration-150 hover:bg-[var(--surface-hover)] hover:text-[var(--t1)]"
                 href={linkResult.checkout_url}
                 target="_blank"
                 rel="noreferrer noopener"
               >
-                <IconExternalLink size={15} className="mr-1" />
+                <IconExternalLink size={15} />
                 {B.LINK_OPEN}
               </a>
               <Button variant="primary" size="sm" onClick={onClose}>
@@ -219,19 +222,23 @@ export function CreateBillDialog({
               <Button variant="ghost" size="sm" onClick={onClose} disabled={busy}>
                 {B.CANCEL}
               </Button>
-              {/* API 3 — a peer of create/update rather than a follow-up: it sets
-                  the same fees itself, so it works from either mode. */}
+              {/* API 3 — a peer of create/update rather than a follow-up: it
+                  sets the same fees itself, so it works from either mode.
+                  Styled `secondary`, not `teal`: two saturated buttons side by
+                  side give the footer no primary action to land on, and
+                  create-bill is the default path (the sailor applies a coupon
+                  or points, then pays in-app). */}
               <Button
-                variant="teal"
+                variant="secondary"
                 size="sm"
                 onClick={() => onGenerateLink(fees())}
                 disabled={busy}
               >
-                <IconLink size={15} className="mr-1" />
+                <IconLink size={15} />
                 {isGeneratingLink ? B.LINK_GENERATING : B.LINK_CONFIRM}
               </Button>
               <Button variant="primary" size="sm" onClick={() => onConfirm(fees())} disabled={busy}>
-                <IconFileInvoice size={15} className="mr-1" />
+                <IconFileInvoice size={15} />
                 {isLoading
                   ? isUpdate
                     ? B.UPDATING

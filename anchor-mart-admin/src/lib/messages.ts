@@ -846,19 +846,19 @@ export const MESSAGES = {
       PLATFORM_FEE: "Platform fee ($)",
       FEE_PLACEHOLDER: "0.00",
       HINT: "Leave a fee blank to send it as 0.",
-      CONFIRM: "Create Bill & Notify",
+      CONFIRM: "Create Bill",
       CREATING: "Creating…",
       CANCEL: "Cancel",
       // Flow 07 API 2 — update-bill reuses the same fee form in "update" mode.
       UPDATE_TITLE: "Update Payment Bill",
       UPDATE_DESCRIPTION: (ref: string) =>
         `Re-price the pending bill for order ${ref}. Any open payment link is voided and the sailor is notified again.`,
-      UPDATE_CONFIRM: "Update Bill & Notify",
+      UPDATE_CONFIRM: "Update Bill",
       UPDATING: "Updating…",
       UPDATE_HINT: "Leave a fee blank to keep its current value.",
       // Flow 07 API 3 — generate-link runs off the same fee form, so it is
       // offered as a second action rather than a separate dialog.
-      LINK_CONFIRM: "Generate Payment Link",
+      LINK_CONFIRM: "Generate Link",
       LINK_GENERATING: "Generating…",
       LINK_HINT:
         "Generating a link also sets these fees and notifies the sailor — you don't need to create the bill first.",
