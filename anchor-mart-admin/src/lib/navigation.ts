@@ -49,6 +49,20 @@ export interface NavSection {
   items: NavItem[];
 }
 
+/**
+ * Sidebar grouping.
+ *
+ * Sections are kept few and broad on purpose. "Sailors App" previously held 16
+ * entries — order queues, catalog administration and promotion surfaces in one
+ * undifferentiated run — which is long enough that finding anything meant
+ * reading the whole list. It is split by *what the admin is doing*: working the
+ * order funnel, administering the catalog, or running promotions.
+ *
+ * The counterweight is that a section per screen is no better than none, so
+ * related work stays together even when the fit isn't perfect (Ports and Ship
+ * Agents are master data rather than catalog, but they are administered the
+ * same way and don't earn a section of their own).
+ */
 export const NAV_SECTIONS: NavSection[] = [
   {
     label: "Overview",
@@ -68,14 +82,11 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    label: "Sailors App",
+    // The order funnel end to end, plus the two parties to it. Delivery
+    // Partners joins here rather than keeping a one-item "Delivery App"
+    // section — assignment is the tail of this same flow.
+    label: "Orders & Delivery",
     items: [
-      {
-        key: "sailors",
-        label: "Sailors",
-        icon: IconUsers,
-        path: APP_ROUTES.SAILORS,
-      },
       {
         key: "orders",
         label: "Orders",
@@ -100,82 +111,11 @@ export const NAV_SECTIONS: NavSection[] = [
         badgeVariant: "warning",
       },
       {
-        key: "products",
-        label: "Products",
-        icon: IconBoxSeam,
-        path: APP_ROUTES.PRODUCTS,
+        key: "sailors",
+        label: "Sailors",
+        icon: IconUsers,
+        path: APP_ROUTES.SAILORS,
       },
-      {
-        key: "categories",
-        label: "Categories",
-        icon: IconCategory,
-        path: APP_ROUTES.CATEGORIES,
-      },
-      {
-        key: "emergency-categories",
-        label: "Marine Emergency Categories",
-        icon: IconCategory2,
-        path: APP_ROUTES.EMERGENCY_CATEGORIES,
-      },
-      {
-        key: "ship-agents",
-        label: "Ship Agents",
-        icon: IconAnchor,
-        path: APP_ROUTES.SHIP_AGENTS,
-      },
-      {
-        key: "ports",
-        label: "Ports",
-        icon: IconMapPin,
-        path: APP_ROUTES.PORTS,
-      },
-      {
-        key: "spares",
-        label: "Marine Emergency Spares",
-        icon: IconEngine,
-        path: APP_ROUTES.SPARES,
-      },
-      {
-        key: "express",
-        label: "Express Items",
-        icon: IconBolt,
-        path: APP_ROUTES.EXPRESS,
-      },
-      {
-        key: "rewards",
-        label: "Rewards & Coupons",
-        icon: IconStar,
-        path: APP_ROUTES.REWARDS,
-      },
-      {
-        // Sits with the promotion surfaces, not the order funnel: Flow 20 is
-        // platform advertising ("reach, not reward"), run by whoever runs
-        // coupons and deals rather than the fulfilment desk.
-        key: "gifts",
-        label: "Surprise Gifts",
-        icon: IconGift,
-        path: APP_ROUTES.GIFTS,
-      },
-      {
-        key: "ratings",
-        label: "Ratings & Reviews",
-        icon: IconStarFilled,
-        path: APP_ROUTES.RATINGS,
-      },
-      {
-        // Flow 29c §5 — an engagement read (what sailors wishlisted), not
-        // catalog administration, so it sits with the demand-side surfaces
-        // rather than beside Products/Categories.
-        key: "saved-products",
-        label: "Saved Products",
-        icon: IconHeart,
-        path: APP_ROUTES.SAVED_PRODUCTS,
-      },
-    ],
-  },
-  {
-    label: "Delivery App",
-    items: [
       {
         key: "partners",
         label: "Delivery Partners",
@@ -200,6 +140,92 @@ export const NAV_SECTIONS: NavSection[] = [
       //   badge: "3",
       //   badgeVariant: "warning",
       // },
+    ],
+  },
+  {
+    // Everything that defines what can be bought and where it goes. The three
+    // catalogs (regular, express, marine emergency) sit together because they
+    // are the same administration job against different scopes.
+    label: "Catalog",
+    items: [
+      {
+        key: "products",
+        label: "Products",
+        icon: IconBoxSeam,
+        path: APP_ROUTES.PRODUCTS,
+      },
+      {
+        key: "categories",
+        label: "Categories",
+        icon: IconCategory,
+        path: APP_ROUTES.CATEGORIES,
+      },
+      {
+        key: "express",
+        label: "Express Items",
+        icon: IconBolt,
+        path: APP_ROUTES.EXPRESS,
+      },
+      {
+        key: "spares",
+        label: "Marine Emergency Spares",
+        icon: IconEngine,
+        path: APP_ROUTES.SPARES,
+      },
+      {
+        key: "emergency-categories",
+        label: "Marine Emergency Categories",
+        icon: IconCategory2,
+        path: APP_ROUTES.EMERGENCY_CATEGORIES,
+      },
+      {
+        key: "ports",
+        label: "Ports",
+        icon: IconMapPin,
+        path: APP_ROUTES.PORTS,
+      },
+      {
+        key: "ship-agents",
+        label: "Ship Agents",
+        icon: IconAnchor,
+        path: APP_ROUTES.SHIP_AGENTS,
+      },
+    ],
+  },
+  {
+    // Demand-side surfaces: what the platform pushes to sailors and what comes
+    // back. Run by whoever runs promotions, not the fulfilment desk.
+    label: "Marketing",
+    items: [
+      {
+        key: "rewards",
+        label: "Rewards & Coupons",
+        icon: IconStar,
+        path: APP_ROUTES.REWARDS,
+      },
+      {
+        // Flow 20 is platform advertising ("reach, not reward"), so it belongs
+        // with coupons and deals rather than the order funnel.
+        key: "gifts",
+        label: "Surprise Gifts",
+        icon: IconGift,
+        path: APP_ROUTES.GIFTS,
+      },
+      {
+        key: "ratings",
+        label: "Ratings & Reviews",
+        icon: IconStarFilled,
+        path: APP_ROUTES.RATINGS,
+      },
+      {
+        // Flow 29c §5 — an engagement read (what sailors wishlisted), not
+        // catalog administration, so it sits with the demand-side surfaces
+        // rather than beside Products/Categories.
+        key: "saved-products",
+        label: "Saved Products",
+        icon: IconHeart,
+        path: APP_ROUTES.SAVED_PRODUCTS,
+      },
     ],
   },
   {
