@@ -46,6 +46,11 @@
     "tw-animate-css": "^1.2.5",
     "zod": "^3.24.1"
   },
+  "overrides": {
+    "@radix-ui/react-dismissable-layer": "^1.1.12",
+    "@radix-ui/react-focus-scope": "^1.1.9",
+    "@radix-ui/react-focus-guards": "^1.1.4"
+  },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@tailwindcss/vite": "^4.0.0",

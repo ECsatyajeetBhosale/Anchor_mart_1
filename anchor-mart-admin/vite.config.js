@@ -30,6 +30,15 @@ export default defineConfig(({ mode }) => {
                         "ngrok-skip-browser-warning": "true",
                     },
                 },
+                // Chat websocket (Flow 23 §2). `ws: true` is what makes Vite forward the
+                // HTTP Upgrade handshake; without it the socket 404s in dev while every
+                // REST call keeps working, which reads as "chat is broken".
+                "/ws": {
+                    target: backendTarget,
+                    changeOrigin: true,
+                    secure: false,
+                    ws: true,
+                },
             },
         },
     };

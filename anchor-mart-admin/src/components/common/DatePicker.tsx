@@ -68,7 +68,14 @@ export function DatePicker({
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto p-0">
-        <Calendar mode="single" selected={selected} onSelect={handleSelect} autoFocus />
+        <Calendar
+          mode="single"
+          selected={selected}
+          // Reopen on the month of the selected date, not on today's month.
+          defaultMonth={selected}
+          onSelect={handleSelect}
+          autoFocus
+        />
       </PopoverContent>
     </Popover>
   );
