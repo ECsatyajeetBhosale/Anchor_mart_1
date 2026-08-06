@@ -254,79 +254,79 @@ export function RewardsPage() {
   // the tab list below reads as a flat set of surfaces.
   const overviewTab = (
     <>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-          {/* Loyalty Program Overview (static — no backend endpoint yet) */}
-          <SectionCard icon={<IconStar size={18} />} title={M.LOYALTY.TITLE}>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="infobox">
-                <div className="info-lbl">{M.LOYALTY.POINTS_ISSUED}</div>
-                <div className="text-[22px] font-extrabold text-[var(--amber-600)] mt-1">
-                  {loyaltyView.pointsIssued}
-                </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+        {/* Loyalty Program Overview (static — no backend endpoint yet) */}
+        <SectionCard icon={<IconStar size={18} />} title={M.LOYALTY.TITLE}>
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="infobox">
+              <div className="info-lbl">{M.LOYALTY.POINTS_ISSUED}</div>
+              <div className="text-[22px] font-extrabold text-[var(--amber-600)] mt-1">
+                {loyaltyView.pointsIssued}
               </div>
-              <div className="infobox">
-                <div className="info-lbl">{M.LOYALTY.TOTAL_VALUE}</div>
-                <div className="text-[22px] font-extrabold text-[var(--teal-600)] mt-1">
-                  {loyaltyView.totalValue}
-                </div>
-              </div>
-              <div className="infobox">
-                <div className="info-lbl">{M.LOYALTY.POINTS_REDEEMED}</div>
-                <div className="text-[17px] font-extrabold text-[var(--t1)] mt-1">
-                  {loyaltyView.pointsRedeemed}
-                </div>
-              </div>
-              <div className="infobox">
-                <div className="info-lbl">{M.LOYALTY.ACTIVE_USERS}</div>
-                <div className="text-[17px] font-extrabold text-[var(--t1)] mt-1">
-                  {loyaltyView.activeUsers}
-                </div>
-              </div>
-            </div>
-
-            <div className="text-[11px] font-extrabold uppercase tracking-[0.8px] text-[var(--t4)] mb-2">
-              {M.LOYALTY.RULES}
             </div>
             <div className="infobox">
-              <div className="flex justify-between text-[13px] pb-2 mb-2 border-b border-dashed border-[var(--border-xs)]">
-                <span className="font-semibold text-[var(--t3)]">{M.LOYALTY.RULE_DELIVERY}</span>
-                <span className="font-extrabold text-[var(--t1)]">{loyaltyView.perDelivery}</span>
-              </div>
-              <div className="flex justify-between text-[13px] pb-2 mb-2 border-b border-dashed border-[var(--border-xs)]">
-                <span className="font-semibold text-[var(--t3)]">{M.LOYALTY.RULE_REFERRAL}</span>
-                <span className="font-extrabold text-[var(--t1)]">{loyaltyView.perReferral}</span>
-              </div>
-              <div className="flex justify-between text-[13px]">
-                <span className="font-semibold text-[var(--t3)]">{M.LOYALTY.RULE_REDEMPTION}</span>
-                <span className="font-extrabold text-[var(--t1)]">{loyaltyView.redemption}</span>
+              <div className="info-lbl">{M.LOYALTY.TOTAL_VALUE}</div>
+              <div className="text-[22px] font-extrabold text-[var(--teal-600)] mt-1">
+                {loyaltyView.totalValue}
               </div>
             </div>
-          </SectionCard>
+            <div className="infobox">
+              <div className="info-lbl">{M.LOYALTY.POINTS_REDEEMED}</div>
+              <div className="text-[17px] font-extrabold text-[var(--t1)] mt-1">
+                {loyaltyView.pointsRedeemed}
+              </div>
+            </div>
+            <div className="infobox">
+              <div className="info-lbl">{M.LOYALTY.ACTIVE_USERS}</div>
+              <div className="text-[17px] font-extrabold text-[var(--t1)] mt-1">
+                {loyaltyView.activeUsers}
+              </div>
+            </div>
+          </div>
 
-          {/* Active Coupons */}
-          <ActiveCouponsCard
-            coupons={coupons}
-            onEdit={(cp) => openDrawer(cp)}
-            onDelete={(cp) => setCouponToDelete(cp)}
-          />
-        </div>
-
-        {/* All coupons (same data as the cards) in a table — click a row to edit. */}
-        <SectionCard icon={<IconTicket size={18} />} title={M.TABLE.TITLE} bodyPadding="none">
-          <DataTable
-            columns={couponColumns}
-            data={coupons}
-            rowKey="id"
-            isLoading={couponsLoading}
-            isError={couponsError}
-            error={couponsError ? MESSAGES.COMMON.ERROR : null}
-            onRetry={refetchCoupons}
-            showPagination={false}
-            emptyMessage={M.TABLE.EMPTY}
-            onRowClick={(cp) => openDrawer(cp)}
-            bare
-          />
+          <div className="text-[11px] font-extrabold uppercase tracking-[0.8px] text-[var(--t4)] mb-2">
+            {M.LOYALTY.RULES}
+          </div>
+          <div className="infobox">
+            <div className="flex justify-between text-[13px] pb-2 mb-2 border-b border-dashed border-[var(--border-xs)]">
+              <span className="font-semibold text-[var(--t3)]">{M.LOYALTY.RULE_DELIVERY}</span>
+              <span className="font-extrabold text-[var(--t1)]">{loyaltyView.perDelivery}</span>
+            </div>
+            <div className="flex justify-between text-[13px] pb-2 mb-2 border-b border-dashed border-[var(--border-xs)]">
+              <span className="font-semibold text-[var(--t3)]">{M.LOYALTY.RULE_REFERRAL}</span>
+              <span className="font-extrabold text-[var(--t1)]">{loyaltyView.perReferral}</span>
+            </div>
+            <div className="flex justify-between text-[13px]">
+              <span className="font-semibold text-[var(--t3)]">{M.LOYALTY.RULE_REDEMPTION}</span>
+              <span className="font-extrabold text-[var(--t1)]">{loyaltyView.redemption}</span>
+            </div>
+          </div>
         </SectionCard>
+
+        {/* Active Coupons */}
+        <ActiveCouponsCard
+          coupons={coupons}
+          onEdit={(cp) => openDrawer(cp)}
+          onDelete={(cp) => setCouponToDelete(cp)}
+        />
+      </div>
+
+      {/* All coupons (same data as the cards) in a table — click a row to edit. */}
+      <SectionCard icon={<IconTicket size={18} />} title={M.TABLE.TITLE} bodyPadding="none">
+        <DataTable
+          columns={couponColumns}
+          data={coupons}
+          rowKey="id"
+          isLoading={couponsLoading}
+          isError={couponsError}
+          error={couponsError ? MESSAGES.COMMON.ERROR : null}
+          onRetry={refetchCoupons}
+          showPagination={false}
+          emptyMessage={M.TABLE.EMPTY}
+          onRowClick={(cp) => openDrawer(cp)}
+          bare
+        />
+      </SectionCard>
     </>
   );
 

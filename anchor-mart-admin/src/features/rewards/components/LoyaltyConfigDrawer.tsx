@@ -16,10 +16,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { MESSAGES } from "@/lib/messages";
-import {
-  type LoyaltyConfigFormData,
-  loyaltyConfigSchema,
-} from "../schemas/loyaltyConfig.schema";
+import { type LoyaltyConfigFormData, loyaltyConfigSchema } from "../schemas/loyaltyConfig.schema";
 import type { LoyaltyConfig } from "../types/reward.types";
 
 const M = MESSAGES.REWARDS;

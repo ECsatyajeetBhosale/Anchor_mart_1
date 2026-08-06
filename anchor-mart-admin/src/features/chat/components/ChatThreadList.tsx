@@ -37,7 +37,11 @@ export interface ChatThreadListProps {
   emptyMessage: string;
   isLoading: boolean;
   isError: boolean;
-  /** User ids currently connected, from the socket's presence frames. */
+  /**
+   * User ids currently connected, from the polled presence roster (§4.7) seeded
+   * by each row's `owner_is_online`. **Not** from the socket — an admin receives
+   * no presence frames.
+   */
   onlineUsers: ReadonlySet<string>;
 }
 

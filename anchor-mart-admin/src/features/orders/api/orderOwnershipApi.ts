@@ -1,10 +1,28 @@
 import { ORDER_ENDPOINTS } from "@/lib/apiEndpoints";
+import { asString, unwrapList } from "@/lib/apiResponse";
 import { baseApi } from "@/lib/fetchUtils";
 import type {
+  AssignableAdmin,
+  AssignableAdminListResult,
   ClaimOrderResponse,
+  GetAssignableAdminsParams,
   ReassignOrderPayload,
   ReassignOrderResponse,
+  ReleaseOrderResponse,
 } from "../types/ownership.types";
+
+/** Maps a picker row, falling back to the email when no name is set. */
+function toAssignableAdmin(row: unknown): AssignableAdmin {
+  const r = (row ?? {}) as Record<string, unknown>;
+  const email = asString(r.email).trim();
+  const combined = `${asString(r.first_name).trim()} ${asString(r.last_name).trim()}`.trim();
+  return {
+    id: asString(r.id),
+    name: asString(r.name).trim() || asString(r.full_name).trim() || combined || email,
+    email,
+    role: asString(r.role).trim() || undefined,
+  };
+}
 
 export const orderOwnershipApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -40,9 +58,8 @@ export const orderOwnershipApi = baseApi.injectEndpoints({
      * current owner to match against. Reassigning to the account that already
      * owns it is a no-op 200.
      *
-     * No UI calls this yet — the panel cannot source `admin_id`, because no
-     * endpoint lists admin accounts (F-03). Wired up so it is ready the moment
-     * one exists.
+     * `admin_id` comes from `getAssignableAdmins` below. Until that endpoint
+     * existed this mutation had no caller — F-03 recorded exactly that.
      */
     reassignOrder: builder.mutation<ReassignOrderResponse, ReassignOrderPayload>({
       query: ({ orderId, admin_id }) => ({
@@ -57,8 +74,54 @@ export const orderOwnershipApi = baseApi.injectEndpoints({
         { type: "Orders", id: "PARTIAL-LIST" },
       ],
     }),
+
+    /**
+     * Return the order to the unassigned pool.
+     *
+     * The counterpart to claim, and the honest answer to "I picked this up by
+     * mistake". Before it existed the only way out was to reassign it onto
+     * someone else, which made another admin accountable for a decision they
+     * had not taken.
+     */
+    releaseOrder: builder.mutation<ReleaseOrderResponse, string>({
+      query: (orderId) => ({ url: ORDER_ENDPOINTS.RELEASE_ORDER(orderId), method: "POST" }),
+      invalidatesTags: (_result, _error, orderId) => [
+        { type: "Intents", id: orderId },
+        { type: "Intents", id: "PARTIAL-LIST" },
+        { type: "Orders", id: orderId },
+        { type: "Orders", id: "PARTIAL-LIST" },
+      ],
+    }),
+
+    /**
+     * The reassign picker — active admin-tier accounts.
+     *
+     * Deliberately not cached against a tag: the list is small, read only while
+     * a picker is open, and a stale entry here would offer an admin who has
+     * since been deactivated (a 404 from reassign, in field-error shape).
+     */
+    getAssignableAdmins: builder.query<AssignableAdminListResult, GetAssignableAdminsParams>({
+      query: (params) => ({
+        url: ORDER_ENDPOINTS.ASSIGNABLE_ADMINS,
+        method: "GET",
+        params: {
+          page: params.page,
+          page_size: params.limit,
+          search: params.search || undefined,
+        },
+      }),
+      transformResponse: (res: unknown): AssignableAdminListResult => {
+        const { count, items } = unwrapList<AssignableAdmin>(res, toAssignableAdmin);
+        return { count, admins: items };
+      },
+    }),
   }),
   overrideExisting: false,
 });
 
-export const { useClaimOrderMutation, useReassignOrderMutation } = orderOwnershipApi;
+export const {
+  useClaimOrderMutation,
+  useReassignOrderMutation,
+  useReleaseOrderMutation,
+  useGetAssignableAdminsQuery,
+} = orderOwnershipApi;

@@ -68,3 +68,29 @@ export interface UpdateVariantPayload {
   images: string[];
   is_active: boolean;
 }
+
+/**
+ * Result of `POST set-admin-sourceable/<variant_id>/` (Flow 29a §5).
+ *
+ * Carries the **product master's** resulting state alongside the variant's, so
+ * the caller can repaint the product row without a re-fetch. Both extra fields
+ * arrived with GA11/GA12 on 2026-07-30; before that the response was only
+ * `{ message, admin_sourceable }`, which is why `productAdminSourceable` is
+ * nullable rather than defaulted to `false`.
+ */
+export interface SetVariantSourceableResult {
+  /** Server copy, e.g. "Variant marked sourceable." */
+  message: string;
+  /** The variant's resulting flag — what was just set. */
+  adminSourceable: boolean;
+  /**
+   * The product master's flag after the write. Null when the response omits it
+   * (an older deployment) — which means "unknown", not "off".
+   */
+  productAdminSourceable: boolean | null;
+  /**
+   * True only when **this call** turned the product master on. The cascade is
+   * up-only, so this is never true for a call that set the variant to `false`.
+   */
+  productCascaded: boolean;
+}

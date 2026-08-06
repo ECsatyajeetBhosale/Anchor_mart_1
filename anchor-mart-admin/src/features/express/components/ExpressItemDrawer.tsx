@@ -11,7 +11,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { useAssignOrderMutation, useGetAssignablePartnersQuery } from "@/features/assignments";
+import {
+  partnerOptionLabel,
+  useAssignOrderMutation,
+  useGetAssignablePartnersQuery,
+} from "@/features/assignments";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { IconBolt, IconTransfer } from "@tabler/icons-react";
@@ -63,7 +67,9 @@ export function ExpressItemDrawer({ isOpen, onClose, item }: ExpressItemDrawerPr
 
   const partnerOptions = partners.map((p) => ({
     value: p.deliveryPartnerId,
-    label: `${p.name}${p.code ? ` · ${p.code}` : ""}${p.port ? ` · ${p.port}` : ""}`,
+    // Includes the capability suffix, so a verify-only partner is visibly
+    // narrower than the "both" default rather than looking identical.
+    label: partnerOptionLabel(p),
   }));
   const placeholder = partnersLoading
     ? A.PARTNER_LOADING

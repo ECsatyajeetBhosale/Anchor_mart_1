@@ -87,7 +87,18 @@ export const emergencyCategoryApi = baseApi.injectEndpoints({
       ],
     }),
 
-    deleteEmergencyCategory: builder.mutation<void, string>({
+    /**
+     * Soft-delete a marine category (Flow 29b §12).
+     *
+     * Shares the base class with the general-catalog delete, so it cascades the
+     * same way: live spares in the category are **deactivated** and stop being
+     * orderable. `deactivated_products` reports how many — always present, `0`
+     * for an empty category.
+     */
+    deleteEmergencyCategory: builder.mutation<
+      { message?: string; deactivated_products?: number },
+      string
+    >({
       query: (id) => ({
         url: EMERGENCY_CATEGORY_ENDPOINTS.DELETE_CATEGORY(id),
         method: "DELETE",
@@ -96,6 +107,9 @@ export const emergencyCategoryApi = baseApi.injectEndpoints({
         { type: "EmergencyCategories", id },
         { type: "EmergencyCategories", id: "PARTIAL-LIST" },
         { type: "EmergencyCategories", id: "STATS" },
+        // The cascade deactivates spares, so their list and counters move too.
+        { type: "Spares", id: "PARTIAL-LIST" },
+        { type: "Spares", id: "STATS" },
       ],
     }),
   }),

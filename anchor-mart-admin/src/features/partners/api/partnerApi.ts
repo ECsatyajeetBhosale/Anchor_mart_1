@@ -1,6 +1,7 @@
 import { PARTNER_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
 import type {
+  CapabilityChange,
   CreatePartnerPayload,
   GetPartnerHistoryParams,
   PartnerApi,
@@ -64,6 +65,21 @@ function deriveStatus(row: PartnerApi): string {
   return "Available";
 }
 
+/**
+ * Reads a capability flag, defaulting to **true** when the key is absent.
+ *
+ * `can_verify` / `can_deliver` shipped 2026-08-03; a row from before that
+ * carries neither. Absent must mean "Both" — the documented default and the
+ * common case — because reading a missing flag as `false` would strip every
+ * pre-existing partner of the work they already do.
+ *
+ * ⚠️ Never write `row.can_verify === true` against this payload: `undefined
+ * === true` is `false`, which is exactly the bug this exists to prevent.
+ */
+function capability(value: unknown): boolean {
+  return typeof value === "boolean" ? value : true;
+}
+
 /** Maps a raw API row into the flat UI row the table columns render. */
 function toPartner(row: PartnerApi): PartnerData {
   return {
@@ -86,6 +102,8 @@ function toPartner(row: PartnerApi): PartnerData {
     email: dash(row.email),
     phone: dash(row.whatsapp_number),
     vehicle: "",
+    canVerify: capability(row.can_verify),
+    canDeliver: capability(row.can_deliver),
   };
 }
 
@@ -152,8 +170,8 @@ function toHistoryHeader(value: unknown): PartnerHistoryHeader | null {
     name: str(getProp(value, "name")),
     email: str(getProp(value, "email")),
     port: str(getProp(value, "port")),
-    can_verify: getProp(value, "can_verify") === true,
-    can_deliver: getProp(value, "can_deliver") === true,
+    can_verify: capability(getProp(value, "can_verify")),
+    can_deliver: capability(getProp(value, "can_deliver")),
     is_available: getProp(value, "is_available") === true,
     // Absent means "not blocked" — only an explicit false marks a blocked account.
     is_active: getProp(value, "is_active") !== false,
@@ -175,6 +193,38 @@ function toHistorySummary(value: unknown): PartnerHistorySummary | null {
     delivery_success_rate: nullableNumber(getProp(value, "delivery_success_rate")),
     on_time_rate: nullableNumber(getProp(value, "on_time_rate")),
     sla_bound_deliveries: num(getProp(value, "sla_bound_deliveries")),
+  };
+}
+
+/**
+ * Reads the `capability_change` block off an update response.
+ *
+ * Present **only** when the request turned a capability off — granting one, or
+ * editing any other field, returns the row unchanged, so `null` here is the
+ * normal case rather than a parse failure.
+ */
+function toCapabilityChange(res: unknown): CapabilityChange | null {
+  const block = getProp(res, "capability_change");
+  if (!block || typeof block !== "object") return null;
+
+  const inFlight = getProp(block, "unaffected_in_flight");
+  const orders = asArray(getProp(inFlight, "orders")) ?? [];
+  const revoked = asArray(getProp(block, "revoked")) ?? [];
+
+  return {
+    revoked: revoked.map(str).filter(Boolean),
+    // `0` is reported deliberately — "nothing was running" is the answer, not
+    // an omission — so it must survive as 0 rather than being treated as absent.
+    inFlightCount: num(getProp(inFlight, "count")),
+    truncated: getProp(inFlight, "truncated") === true,
+    orders: orders.map((row) => ({
+      orderId: str(getProp(row, "order_id")),
+      orderNumber: str(getProp(row, "order_number")),
+      status: str(getProp(row, "status")),
+      statusDisplay: str(getProp(row, "status_display")),
+      assignmentStatus: str(getProp(row, "assignment_status")),
+    })),
+    message: str(getProp(block, "message")),
   };
 }
 
@@ -289,14 +339,25 @@ export const partnerApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // Update partner detail; user id sent as `user_id` query param + in the body.
-    updatePartner: builder.mutation<unknown, { userId: string; body: UpdatePartnerPayload }>({
+    /**
+     * Update partner detail; user id sent as `user_id` query param + in the body.
+     *
+     * Resolves to the `capability_change` block when the request **revoked** a
+     * capability, else null. That block is the only way an admin learns that
+     * revoking is rostering rather than an emergency stop — work already in hand
+     * runs to completion — so the caller is expected to show it.
+     */
+    updatePartner: builder.mutation<
+      CapabilityChange | null,
+      { userId: string; body: UpdatePartnerPayload }
+    >({
       query: ({ userId, body }) => ({
         url: PARTNER_ENDPOINTS.UPDATE,
         method: "PATCH",
         params: { user_id: userId },
         body,
       }),
+      transformResponse: toCapabilityChange,
       invalidatesTags: (_result, _error, { userId }) => [
         { type: "Partners", id: "PARTIAL-LIST" },
         { type: "Partners", id: "STATS" },

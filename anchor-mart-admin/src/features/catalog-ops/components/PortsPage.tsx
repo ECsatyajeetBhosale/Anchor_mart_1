@@ -69,9 +69,14 @@ export function PortsPage() {
   const confirmDelete = async () => {
     if (!portToDelete) return;
     try {
-      await deletePort(portToDelete.id).unwrap();
+      const res = await deletePort(portToDelete.id).unwrap();
       setPortToDelete(null);
-      toast.success(M.TOAST.DELETE_SUCCESS);
+      // The delete cascades: the port's anchorages are deactivated and stop
+      // being selectable. `deactivated_anchorages` is the only report of it.
+      const deactivated = res?.deactivated_anchorages ?? 0;
+      toast.success(
+        deactivated > 0 ? M.TOAST.DELETE_SUCCESS_CASCADE(deactivated) : M.TOAST.DELETE_SUCCESS,
+      );
     } catch (error) {
       // Keep the dialog open so the admin can see the reason and retry.
       toast.error(getApiMessage(error) ?? M.TOAST.DELETE_ERROR);

@@ -22,6 +22,7 @@ import {
   type PartnerHistoryRow,
   type PartnerHistorySummary,
 } from "../types/partner.types";
+import { CapabilityBadges } from "./CapabilityBadges";
 
 const M = MESSAGES.PARTNERS;
 const H = M.HISTORY;
@@ -278,13 +279,9 @@ export function PartnerHistoryDrawer({
             {/* Capability is present-tense and admin-owned: it says what work
                 this partner may be given now, not what they have ever done. */}
             <div className="flex flex-col items-end gap-1.5">
-              <div className="flex gap-1.5">
-                {header?.can_verify && <Badge variant="teal">{H.CAPABILITY.VERIFY}</Badge>}
-                {header?.can_deliver && <Badge variant="navy">{H.CAPABILITY.DELIVER}</Badge>}
-                {header && !header.can_verify && !header.can_deliver && (
-                  <Badge variant="neutral">{H.CAPABILITY.NONE}</Badge>
-                )}
-              </div>
+              {header && (
+                <CapabilityBadges canVerify={header.can_verify} canDeliver={header.can_deliver} />
+              )}
               {header && (
                 <Badge
                   variant={

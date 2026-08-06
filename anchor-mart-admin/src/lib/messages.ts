@@ -539,6 +539,13 @@ export const MESSAGES = {
       // 409 requires_confirmation — the order is held by a different partner.
       CONFIRM_REASSIGN:
         "This order is already assigned to another partner. Click Reassign again to confirm.",
+      /**
+       * 403 — the capability guard on `DeliveryAssignment` itself (Flow 28 GL1).
+       * The partner is not qualified for the kind of work this order needs, so
+       * the fix is a different partner, not a retry.
+       */
+      WRONG_CAPABILITY:
+        "That partner is not qualified for the work this order needs. Pick a partner with the right capability.",
       // Gate / disabled hints
       CLAIM_FIRST: "Claim this order (Manage Order) before assigning a partner.",
       OTHER_ADMIN: "This order is managed by another admin.",
@@ -635,6 +642,45 @@ export const MESSAGES = {
       CLAIM_FIRST: "Claim this order before responding to the intent.",
       OWNED_BY_OTHER: (name: string) => `${name} owns this order — ask them to hand it over.`,
       SUPER_ADMIN_OVERRIDE: "Super admin — you can act on this order without claiming it.",
+      /**
+       * Handover — reassign to another admin, or release back to the pool.
+       *
+       * Both were unbuildable until the API grew `assignable-admins/` and
+       * `release/`: reassign had no way to source an `admin_id`, and there was
+       * no release endpoint at all, so an order claimed by mistake could only
+       * be pushed onto a colleague.
+       */
+      HANDOVER: {
+        TITLE: "Hand Over Order",
+        SUBTITLE: (ref: string) => `Change who is accountable for ${ref}.`,
+        REASSIGN_SECTION: "Reassign to another admin",
+        REASSIGN_HINT:
+          "The new owner can perform every gated write on this order. You lose that access unless you are a super admin.",
+        PICKER_LABEL: "New Owner",
+        PICKER_PLACEHOLDER: "Select an admin…",
+        SEARCH_PLACEHOLDER: "Search admins by name or email…",
+        NO_ADMINS: "No active admins match that search.",
+        LOADING_ADMINS: "Loading admins…",
+        REASSIGN: "Reassign",
+        REASSIGNING: "Reassigning…",
+        REASSIGNED: (name: string) => `Order reassigned to ${name}.`,
+        REASSIGN_FAILED: "Could not reassign this order.",
+        RELEASE_SECTION: "Release to the unassigned pool",
+        RELEASE_HINT:
+          "Nobody is accountable until another admin claims it. Use this when you picked it up by mistake.",
+        RELEASE: "Release Order",
+        RELEASING: "Releasing…",
+        RELEASED: "Order released. It is unassigned again.",
+        RELEASE_FAILED: "Could not release this order.",
+        CONFIRM_RELEASE_TITLE: "Release this order?",
+        CONFIRM_RELEASE_MESSAGE:
+          "It returns to the unassigned pool and nobody is accountable for it until an admin claims it. Any admin can pick it up, including you.",
+        // Reassign is the owner-or-super-admin rule, which is narrower than the
+        // write gate — say which one is missing rather than "not allowed".
+        NOT_OWNER: "Only the current owner or a super admin can hand this order over.",
+        UNASSIGNED_NOTICE:
+          "This order is unassigned — there is nothing to hand over. Claim it first.",
+      },
     },
     // Review modal
     REVIEW: {
@@ -1250,6 +1296,7 @@ export const MESSAGES = {
       ID: "ID",
       PORT_ZONE: "Port Zone",
       JOINED: "Joined",
+      CAPABILITY: "Capability",
       STATUS: "Status",
       ACTIVE_ORDERS: "Active Orders",
       THIS_WEEK: "This Week",
@@ -1284,6 +1331,51 @@ export const MESSAGES = {
       JOINED: "Joined",
       DELIVERIES: "Total Deliveries",
       SAVE: "Save Changes",
+    },
+    /**
+     * Capability (Flow 28 · `can_verify` / `can_deliver`).
+     *
+     * Two independent booleans, not a role: a partner may verify, deliver, or
+     * both — "both" is the default and the common case. Neither is impossible
+     * and the backend refuses it with a 400.
+     */
+    CAPABILITY: {
+      SECTION: "Capability",
+      HELP: "What kind of work this partner may be assigned. At least one is required.",
+      VERIFY: "Stock verification",
+      VERIFY_HELP: "Walk the sailor's list at the store and report what is actually available.",
+      DELIVER: "Delivery",
+      DELIVER_HELP: "Collect the goods, move them to the vessel and hand them over.",
+      // Short labels for a row badge, where there is no room for the long form.
+      BADGE_VERIFY: "Verify",
+      BADGE_DELIVER: "Deliver",
+      BADGE_BOTH: "Verify & Deliver",
+      NONE: "No capability",
+      // Client-side mirror of the server's "at least one must be true" rule.
+      REQUIRED: "Pick at least one — a partner with no capability cannot be assigned any work.",
+      // Capability is long-lived and admin-set; availability is the partner's
+      // own daily on/off-shift toggle. Conflating them is the common mistake.
+      NOT_AVAILABILITY:
+        "Capability is what this partner is qualified for. Whether they are on shift right now is their own availability toggle.",
+    },
+    /**
+     * Copy for the `capability_change` block a revoking update returns
+     * (Flow 28 API 5, added 2026-08-03).
+     *
+     * Revoking is **rostering, not an emergency stop**: work already in hand
+     * runs to completion. This dialog is what stops an admin believing
+     * otherwise, so it is shown rather than folded into a toast.
+     */
+    CAPABILITY_CHANGE: {
+      TITLE: "Capability revoked — work already running is unaffected",
+      REVOKED: "Revoked",
+      IN_FLIGHT: "Assignments still in progress",
+      NONE_IN_FLIGHT: "Nothing was running under that capability.",
+      // The server caps the order list at 20 rows while `count` stays exact.
+      TRUNCATED: (count: number) => `Showing the first 20 of ${count}.`,
+      REASSIGN: "Reassign",
+      HINT: "To stop this partner now, reassign the order(s) or block the account.",
+      CLOSE: "Done",
     },
     // Profile & work-history drawer (Flow 28 API 6b) — the drill-down a row
     // click opens. Editing is one deliberate step further in.
@@ -1391,6 +1483,14 @@ export const MESSAGES = {
       UPDATE_ERROR: "Failed to update partner",
       DELETED: (name: string) => `Partner ${name} deleted`,
       DELETE_ERROR: "Failed to delete partner",
+      /**
+       * The 409 branch. Deleting is blocked while the partner still holds **any**
+       * active assignment — the guard keys on `is_active`, not on whether they
+       * are mid-delivery, because a partner whose verification is finished still
+       * owns the order and deleting them would strand it.
+       */
+      DELETE_BLOCKED:
+        "This partner still holds an order. Reassign or finish it before deleting them.",
       MESSAGE_OPENED: (name: string) => `Chat session opened with ${name}`,
     },
   },
@@ -1435,6 +1535,12 @@ export const MESSAGES = {
       SOURCEABLE_UPDATED: "Sourceable flag updated",
       SOURCEABLE_ERROR: "Failed to update the sourceable flag",
       ANNOUNCED: (name: string) => `Announced “${name}” to customers`,
+      /**
+       * The 120-second dedupe window (29a §4 / GA11). A repeat announce is a
+       * **200 no-op**, not a second broadcast — saying "announced" again would
+       * claim a send that never happened.
+       */
+      ANNOUNCE_DEDUPED: (name: string) => `“${name}” was announced moments ago — not sent again`,
       ANNOUNCE_ERROR: "Failed to announce this product",
     },
   },
@@ -1494,6 +1600,10 @@ export const MESSAGES = {
       DELETE_ERROR: "Failed to delete the variant",
       FLAG_UPDATED: "Variant updated",
       FLAG_ERROR: "Failed to update the variant",
+      // Setting a variant sourceable turns the product's master switch on when
+      // it was off (Flow 29a §5, up-cascade). Say so — the admin changed one
+      // SKU and a second, product-level flag moved with it.
+      SOURCEABLE_CASCADED: "Variant is now sourceable — the product was switched on with it.",
     },
     CONFIRM_DELETE: {
       TITLE: "Delete variant?",
@@ -1757,6 +1867,14 @@ export const MESSAGES = {
     // Toasts
     TOAST: {
       DELETE_SUCCESS: "Category deleted successfully",
+      /**
+       * Deleting a category **deactivates its live products** (Flow 29 §7 /
+       * GA2). The count comes back in `deactivated_products` and is the only
+       * place that cascade is reported — a plain "deleted" toast would hide the
+       * fact that twelve products just left the catalog.
+       */
+      DELETE_SUCCESS_CASCADE: (n: number) =>
+        `Category deleted. ${n.toLocaleString("en-US")} product${n === 1 ? "" : "s"} deactivated.`,
       DELETE_ERROR: "Failed to delete category",
       ADD_SUCCESS: "Category created successfully",
       ADD_ERROR: "Failed to create category. Please try again.",
@@ -1766,7 +1884,10 @@ export const MESSAGES = {
     // Delete confirmation dialog
     DELETE_CONFIRM: {
       TITLE: "Delete Category",
-      MESSAGE: "Are you sure you want to delete this category? This action cannot be undone.",
+      // Names the cascade before it happens — it is reversible from the product
+      // screen, but only if the admin knows it occurred.
+      MESSAGE:
+        "Are you sure you want to delete this category? Any live products in it are deactivated and stop being orderable.",
       CONFIRM: "Delete",
     },
     // Add drawer
@@ -1828,6 +1949,10 @@ export const MESSAGES = {
     // Toasts
     TOAST: {
       DELETE_SUCCESS: "Emergency category deleted successfully",
+      // Same cascade as the general catalog (Flow 29b §12) — live spares in the
+      // category are deactivated, and the count is the only report of it.
+      DELETE_SUCCESS_CASCADE: (n: number) =>
+        `Emergency category deleted. ${n.toLocaleString("en-US")} spare${n === 1 ? "" : "s"} deactivated.`,
       DELETE_ERROR: "Failed to delete emergency category",
       ADD_SUCCESS: "Emergency category created successfully",
       ADD_ERROR: "Failed to create emergency category. Please try again.",
@@ -1838,7 +1963,7 @@ export const MESSAGES = {
     DELETE_CONFIRM: {
       TITLE: "Delete Emergency Category",
       MESSAGE:
-        "Are you sure you want to delete this emergency category? This action cannot be undone.",
+        "Are you sure you want to delete this emergency category? Any live spares in it are deactivated and stop being orderable.",
       CONFIRM: "Delete",
     },
     // Add drawer
@@ -2681,8 +2806,23 @@ export const MESSAGES = {
         ORDER: "Order",
         SHOP: "Shop",
         DELIVER_TO: "Deliver To",
+        JOB: "Job",
         STATUS: "Status",
         ETA: "ETA",
+      },
+      /**
+       * What kind of work the assignment is (Flow 28, 2026-08-03). Verify jobs
+       * are stamped `verifying` and then `verified`; before that every
+       * assignment of either kind read `assigned` and the two were
+       * indistinguishable on this board.
+       */
+      JOB_KIND: {
+        VERIFY: "Verification",
+        DELIVER: "Delivery",
+        // `rejected` / `reassigned` / `cancelled` overwrite the verify statuses,
+        // so a closed row genuinely cannot say which kind of job it was — shown
+        // as unknown rather than guessed.
+        UNKNOWN: "—",
       },
     },
     // Unassigned orders panel
@@ -2926,8 +3066,10 @@ export const MESSAGES = {
     },
     DELETE_CONFIRM: {
       TITLE: "Delete this port?",
+      // The anchorage cascade is the consequential half and was missing: those
+      // moorings stop being offered to sailors the moment this runs.
       MESSAGE:
-        "Orders and vessel profiles already pointing at this port keep their snapshot, but it can no longer be selected.",
+        "Its anchorages are deactivated and stop being selectable for new orders. Orders and vessel profiles already pointing at this port keep their snapshot.",
       CONFIRM: "Delete Port",
     },
     TOAST: {
@@ -2936,6 +3078,13 @@ export const MESSAGES = {
       UPDATE_SUCCESS: "Port updated.",
       UPDATE_ERROR: "Failed to update the port.",
       DELETE_SUCCESS: "Port deleted.",
+      /**
+       * Deleting a port **deactivates its anchorages** (Flow 29c §4 / GA17).
+       * The FK says CASCADE, but a soft delete is an UPDATE so the database
+       * never fires it — the endpoint does it explicitly and returns the count.
+       */
+      DELETE_SUCCESS_CASCADE: (n: number) =>
+        `Port deleted. ${n.toLocaleString("en-US")} anchorage${n === 1 ? "" : "s"} deactivated.`,
       DELETE_ERROR: "Failed to delete the port.",
     },
   },
@@ -3306,6 +3455,111 @@ export const MESSAGES = {
     TABS: {
       DELETIONS: "Deletion Requests",
       PROVISION: "Provision Users",
+      ADMINS: "Admin Users",
+    },
+    /**
+     * Admin-tier user administration.
+     *
+     * Newer than Flow 31, which states admins "cannot be listed or removed at
+     * all" — the API now exposes the full CRUD, so the console does too.
+     */
+    ADMIN_USERS: {
+      TITLE: "Admin Users",
+      SUBTITLE: "The accounts that can sign in to this console.",
+      DASH: "—",
+      SEARCH_PLACEHOLDER: "Search name or email…",
+      ALL_ROLES: "All Tiers",
+      ALL_STATUS: "All Statuses",
+      EMPTY: "No admin users found.",
+      FETCH_ERROR: "Couldn't load admin users.",
+      // Shown to a sub-admin instead of the table: the create side is gated at
+      // SEC-1, and offering management of accounts they cannot create reads as
+      // a permission they do not have.
+      SUPER_ADMIN_ONLY:
+        "Only a super admin can manage admin accounts. Ask one to add, edit or remove an operator.",
+      STATUS: {
+        ACTIVE: "Active",
+        INACTIVE: "Deactivated",
+      },
+      STATUS_FILTER: {
+        ACTIVE: "Active",
+        INACTIVE: "Deactivated",
+      },
+      COLUMNS: {
+        USER: "User",
+        EMAIL: "Email",
+        TIER: "Tier",
+        CONTACT: "Contact",
+        JOINED: "Joined",
+        STATUS: "Status",
+        ACTIONS: "Actions",
+      },
+      DETAIL: {
+        TITLE: "Admin User",
+        IDENTITY: "Identity",
+        FIRST_NAME: "First Name",
+        LAST_NAME: "Last Name",
+        EMAIL: "Email Address",
+        CONTACT: "Contact",
+        COUNTRY_CODE: "Country Code",
+        WHATSAPP: "WhatsApp Number",
+        ACCOUNT: "Account",
+        TIER: "Tier",
+        JOINED: "Joined",
+        LAST_LOGIN: "Last Sign-in",
+        DJANGO_ADMIN: "Django Admin",
+        DJANGO_ADMIN_YES: "Yes",
+        DJANGO_ADMIN_NO: "No",
+        DJANGO_ADMIN_HINT:
+          "Admin-tier accounts created with a real email get a generated password and Django-admin access.",
+        // The tier is fixed at creation, exactly as it is for a sailor.
+        TIER_LOCKED_HINT: "Set when the account was created and cannot be changed here.",
+        SECURITY: "Security",
+        RESET_PASSWORD: "Reset Password",
+        RESET_PASSWORD_HINT:
+          "Generates a new password and emails it to the account. It is never shown here.",
+        DEACTIVATE: "Deactivate",
+        ACTIVATE: "Activate",
+        DEACTIVATE_HINT:
+          "A deactivated account is locked out of password and OTP sign-in immediately. Reversible.",
+        DELETE: "Delete Account",
+        DELETE_HINT: "Soft-delete. The record is kept; the account can no longer sign in.",
+        SAVE: "Save Changes",
+        SAVING: "Saving…",
+        // Guards the one action that would lock the operator out of their own
+        // console — the server may allow it, but there is no good reason to.
+        SELF_NOTICE: "This is your own account. Deactivating or deleting it would sign you out.",
+      },
+      CONFIRM: {
+        DEACTIVATE_TITLE: "Deactivate this admin?",
+        DEACTIVATE_MESSAGE:
+          "They will be locked out of the console immediately, including any OTP already issued. You can reactivate them at any time.",
+        DEACTIVATE_CTA: "Deactivate",
+        DEACTIVATING: "Deactivating…",
+        RESET_TITLE: "Reset this admin's password?",
+        RESET_MESSAGE:
+          "A new password is generated and emailed to them. Their current one stops working. The new password is never shown here.",
+        RESET_CTA: "Send New Password",
+        RESETTING: "Sending…",
+        DELETE_TITLE: "Delete this admin account?",
+        DELETE_MESSAGE:
+          "This soft-deletes the account and revokes console access. Any orders they were managing return to the unassigned pool.",
+        DELETE_CTA: "Delete Account",
+        DELETING: "Deleting…",
+      },
+      TOAST: {
+        UPDATED: "Admin user updated.",
+        UPDATE_ERROR: "Couldn't update this admin user.",
+        ACTIVATED: "Admin user activated.",
+        DEACTIVATED: "Admin user deactivated.",
+        STATUS_ERROR: "Couldn't change the account status.",
+        // Names the address, because that is the only proof the operator gets —
+        // the password itself is never returned.
+        RESET_SENT: (email: string) => `New password emailed to ${email}.`,
+        RESET_ERROR: "Couldn't reset the password.",
+        DELETED: "Admin user deleted.",
+        DELETE_ERROR: "Couldn't delete this admin user.",
+      },
     },
     /** §7 — user provisioning (moved here from Settings → Users). */
     PROVISION: {
@@ -3316,8 +3570,15 @@ export const MESSAGES = {
       SECTION_TITLE: "Roles & where they are managed",
       SECTION_SUBTITLE:
         "One endpoint creates every role — the role decides where the account appears afterwards.",
+      // Was "there is no list-users endpoint" — true of Flow 31, no longer true
+      // of the API. Every role now has a screen, so this points at them instead
+      // of apologising for a table that isn't here.
       NO_LIST_NOTICE:
-        "There is no list-users endpoint, so accounts cannot be shown here. Use the screen listed against each role to manage them after creation.",
+        "This tab creates accounts; it does not list them. Each role is managed on its own screen — open the one named against it to edit, suspend or remove an account.",
+      // Admin-tier creation is super-admin only (SEC-1). Shown in place of the
+      // two locked options so the restriction is explained, not just enforced.
+      ADMIN_TIER_LOCKED:
+        "Only a super admin can create admin accounts. Ask one to add another operator.",
       MANAGED_AT: "Managed at",
       SECTIONS: {
         ROLE: "Role",
@@ -3664,5 +3925,14 @@ export const MESSAGES = {
     RESET_FILTERS: "Reset Filters",
     SEARCH_PLACEHOLDER: "Search…",
     SHOWING_OF: (shown: number, total: number) => `Showing ${shown} of ${total}`,
+  },
+
+  /** Copy for the super-admin-only gates (`lib/roles.ts`). */
+  ROLES: {
+    // Shown on the disabled create button and in place of a delete action, so
+    // the operator learns why the affordance is missing rather than assuming
+    // the screen is broken.
+    CATALOG_CREATE_DENIED: "Only a super admin can create catalog entries.",
+    CATALOG_DELETE_DENIED: "Only a super admin can delete catalog entries.",
   },
 } as const;

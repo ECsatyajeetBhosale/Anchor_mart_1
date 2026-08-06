@@ -21,7 +21,7 @@ export type OwnershipState =
  *
  * Note a super admin still gets a 409 from the *claim* endpoint on someone
  * else's order — they simply never need to call it. Use reassign for a real
- * handover (currently unusable from the panel: no endpoint lists admins).
+ * handover, or release to put the order back in the unassigned pool.
  */
 export function useOrderOwnership() {
   const user = useAppSelector((s) => s.auth.user);

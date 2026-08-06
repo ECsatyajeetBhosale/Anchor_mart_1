@@ -47,15 +47,6 @@ export interface ChatSocketApi {
   /** Sender ids currently typing in the open thread. */
   typingSenders: string[];
   /**
-   * User ids known to be connected right now.
-   *
-   * Every connecting user is announced to the whole admin team (§2.3), so this
-   * is authoritative for the people in these inboxes. It starts empty on each
-   * connect — presence is announced on *transitions*, so someone already online
-   * before this socket opened stays unknown until they next act.
-   */
-  onlineUsers: ReadonlySet<string>;
-  /**
    * This admin's own user id, once known.
    *
    * The auth payload carries only email and role, so the id is **learned**: the
@@ -92,7 +83,6 @@ export function useChatSocket({
   const [status, setStatus] = useState<SocketStatus>("idle");
   const [authError, setAuthError] = useState<string | null>(null);
   const [typing, setTyping] = useState<Record<string, number>>({});
-  const [online, setOnline] = useState<ReadonlySet<string>>(() => new Set());
   const [selfUserId, setSelfUserId] = useState<string | null>(null);
 
   const socketRef = useRef<ChatSocket | null>(null);
@@ -165,23 +155,15 @@ export function useChatSocket({
           refreshList();
           break;
 
-        // Presence frames carry no chat_id — they describe a user, not a
-        // thread — so they are tracked by sender id and matched against each
-        // thread's owner when the sidebar renders its online dots.
+        // Presence frames are **not delivered to admins** (§2.3, corrected
+        // 2026-08-03): they go to delivery partners only, and only when an
+        // *admin* connects or disconnects. The online dots come from polling
+        // `…/chat/presence/` instead — see `useChatPresence`. These cases stay
+        // enumerated so the switch is exhaustive over the frame protocol and a
+        // future reader does not "restore" a listener that never fires here.
         case InboundMsgType.UserWentOnline:
-        case InboundMsgType.UserWentOffline: {
-          if (!frame.sender) break;
-          const sender = frame.sender;
-          const isOnline = frame.msg_type === InboundMsgType.UserWentOnline;
-          setOnline((prev) => {
-            if (prev.has(sender) === isOnline) return prev;
-            const next = new Set(prev);
-            if (isOnline) next.add(sender);
-            else next.delete(sender);
-            return next;
-          });
+        case InboundMsgType.UserWentOffline:
           break;
-        }
 
         default:
           break;
@@ -204,10 +186,6 @@ export function useChatSocket({
       return;
     }
     setAuthError(null);
-    // Presence is announced on transitions, so a stale set from the previous
-    // connection would show people as online who may have left while we were
-    // disconnected. Starting empty under-reports rather than lies.
-    setOnline(new Set());
 
     const socket = new ChatSocket(token, {
       onStatus: setStatus,
@@ -329,7 +307,6 @@ export function useChatSocket({
     status,
     authError,
     typingSenders,
-    onlineUsers: online,
     selfUserId,
     sendMessage,
     notifyTyping,

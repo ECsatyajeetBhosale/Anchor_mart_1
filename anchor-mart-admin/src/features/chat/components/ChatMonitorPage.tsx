@@ -10,6 +10,7 @@ import {
   useGetOrderChatsQuery,
   useGetUserChatsQuery,
 } from "../api/chatApi";
+import { useChatPresence } from "../hooks/useChatPresence";
 import { type ChatListTag, useChatSocket } from "../hooks/useChatSocket";
 import type { ChatSource, OrderChatCategory, SocketChatType } from "../types/chat.types";
 import { ChatMessagePane } from "./ChatMessagePane";
@@ -96,6 +97,11 @@ export function ChatMonitorPage({ source }: ChatMonitorPageProps) {
     senderName: adminEmail,
   });
 
+  // Presence is polled for the rows on screen (§4.7) — an admin socket carries
+  // no presence frames. The roster is the *visible* threads, so narrowing the
+  // search narrows what is asked about rather than paying for the whole page.
+  const presence = useChatPresence(visibleThreads);
+
   return (
     <div className="page-enter">
       <PageHeader
@@ -139,10 +145,10 @@ export function ChatMonitorPage({ source }: ChatMonitorPageProps) {
           emptyMessage={copy.EMPTY}
           isLoading={isLoading}
           isError={isError}
-          onlineUsers={socket.onlineUsers}
+          onlineUsers={presence.onlineUsers}
         />
 
-        <ChatMessagePane thread={activeThread} socket={socket} />
+        <ChatMessagePane thread={activeThread} socket={socket} onlineUsers={presence.onlineUsers} />
       </div>
 
       <CreateGroupChatDrawer isOpen={groupOpen} onClose={() => setGroupOpen(false)} />

@@ -84,34 +84,42 @@ export const categoryApi = baseApi.injectEndpoints({
      * moving a product into `marine_emergency` requires a category that belongs
      * to that catalog, and the general list would offer the wrong ones.
      */
-    getCategoriesByCatalogType: builder.query<
-      Category[],
-      { catalogType: string; search?: string }
-    >({
-      query: ({ catalogType, search }) => ({
-        url: CATEGORY_ENDPOINTS.GET_BY_CATALOG_TYPE,
-        method: "GET",
-        params: { catalog_type: catalogType, search: search || undefined },
-      }),
-      transformResponse: (res: unknown): Category[] => {
-        const prop = (v: unknown, k: string): unknown =>
-          v && typeof v === "object" ? (v as Record<string, unknown>)[k] : undefined;
-        const arr = (v: unknown): unknown[] | null => (Array.isArray(v) ? v : null);
-        const results = prop(res, "results");
-        const rows =
-          arr(prop(results, "data")) ??
-          arr(results) ??
-          arr(prop(res, "data")) ??
-          arr(res) ??
-          [];
-        return rows as Category[];
+    getCategoriesByCatalogType: builder.query<Category[], { catalogType: string; search?: string }>(
+      {
+        query: ({ catalogType, search }) => ({
+          url: CATEGORY_ENDPOINTS.GET_BY_CATALOG_TYPE,
+          method: "GET",
+          params: { catalog_type: catalogType, search: search || undefined },
+        }),
+        transformResponse: (res: unknown): Category[] => {
+          const prop = (v: unknown, k: string): unknown =>
+            v && typeof v === "object" ? (v as Record<string, unknown>)[k] : undefined;
+          const arr = (v: unknown): unknown[] | null => (Array.isArray(v) ? v : null);
+          const results = prop(res, "results");
+          const rows =
+            arr(prop(results, "data")) ?? arr(results) ?? arr(prop(res, "data")) ?? arr(res) ?? [];
+          return rows as Category[];
+        },
+        providesTags: (_r, _e, { catalogType }) => [
+          { type: "Categories", id: `CATALOG-${catalogType}` },
+        ],
       },
-      providesTags: (_r, _e, { catalogType }) => [
-        { type: "Categories", id: `CATALOG-${catalogType}` },
-      ],
-    }),
+    ),
 
-    deleteCategory: builder.mutation<void, string>({
+    /**
+     * Soft-delete a category (Flow 29 §7).
+     *
+     * **This cascades.** Deleting a category deactivates its live products
+     * (`is_active=False`, not a further soft-delete, so it is reversible from
+     * the product screen), and those products stop being orderable immediately
+     * because `is_orderable()` checks `product.is_active`.
+     *
+     * The response reports how many in `deactivated_products` — always present,
+     * `0` for an empty category. It is read rather than discarded: an admin who
+     * tidies a category needs to know they just pulled twelve products off the
+     * catalog, and the count is the only place that is said.
+     */
+    deleteCategory: builder.mutation<{ message?: string; deactivated_products?: number }, string>({
       query: (id) => ({
         url: CATEGORY_ENDPOINTS.DELETE_CATEGORY(id),
         method: "DELETE",
@@ -120,6 +128,9 @@ export const categoryApi = baseApi.injectEndpoints({
         { type: "Categories", id },
         { type: "Categories", id: "PARTIAL-LIST" },
         { type: "Categories", id: "STATS" },
+        // The cascade deactivates products, so their list and counters move too.
+        { type: "Products", id: "PARTIAL-LIST" },
+        { type: "Products", id: "STATS" },
       ],
     }),
   }),

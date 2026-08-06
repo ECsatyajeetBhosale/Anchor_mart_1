@@ -77,6 +77,17 @@ export interface ChatThread {
    * opening it — a sailor and a partner get separate threads on one order.
    */
   counterparty: ChatCounterparty | null;
+  /**
+   * The owner's presence **at fetch time** — a first-render seed, not a live
+   * value (§3.2). It exists so the list paints correctly instead of flashing
+   * presence in a moment later; keeping it fresh is the presence poll's job
+   * (§4.7), since re-fetching this paginated list would be heavier than the
+   * roster call it replaced.
+   *
+   * Null when the payload omits it. Only the **owner's** presence is ever
+   * exposed — an admin's never is.
+   */
+  ownerIsOnline: boolean | null;
 }
 
 /**
@@ -103,6 +114,25 @@ export interface ChatMessage {
    * dimmed so a send that never lands is visible rather than silently lost.
    */
   pending?: boolean;
+}
+
+/**
+ * Response of `GET …/chat/presence/` (§4.7).
+ *
+ * `presence` carries an entry for **every** id asked about, so a missing key
+ * means the request did not cover that user — not that they are offline.
+ * `online` is the convenience subset.
+ */
+export interface ChatPresence {
+  /** Ids currently holding a live chat socket. */
+  online: string[];
+  /** Per-id map, one entry per requested id. */
+  presence: Record<string, boolean>;
+  /**
+   * How long a marker survives without activity. Shown as "as of…" rather than
+   * presented as live truth — a dot can be up to this stale.
+   */
+  ttlSeconds: number;
 }
 
 /** Body of `POST …/create-chat-group/` (§4.6). */

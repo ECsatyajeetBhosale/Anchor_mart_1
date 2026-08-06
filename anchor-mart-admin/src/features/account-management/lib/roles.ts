@@ -31,15 +31,25 @@ export const ROLE_NOTES: Record<UserRole, string> = {
   delivery_partner:
     "Creates the login only. Assignments and partner details are managed on the Delivery Partners screen.",
   seller: "Creates the login only. Approval is handled from the Seller Requests screen.",
-  admin: "Full console access. There is no API to list or remove admins once created.",
-  super_admin: "Highest privilege level. There is no API to list or remove admins once created.",
+  admin: "Full console access. Manage the account afterwards on the Admin Users tab.",
+  super_admin: "Highest privilege level, and the only tier that can create another admin.",
 };
 
-/** Which screen manages each role after creation — null when none exists. */
+/** The Admin Users tab of this same page — where both admin tiers are managed. */
+const ADMIN_USERS_TAB = `${APP_ROUTES.ACCOUNT_MANAGEMENT}?tab=admins`;
+
+/**
+ * Which screen manages each role after creation.
+ *
+ * Admin and super-admin pointed nowhere until the admin-users CRUD existed —
+ * the provisioning tab said as much on screen. Both now resolve to the Admin
+ * Users tab on this page, so every role a form can create has somewhere to be
+ * managed afterwards and the "no management screen" badge is gone.
+ */
 export const ROLE_MANAGED_AT: Record<UserRole, { label: string; path: string } | null> = {
   customer: { label: "Sailors", path: APP_ROUTES.SAILORS },
   delivery_partner: { label: "Delivery Partners", path: APP_ROUTES.PARTNERS },
   seller: { label: "Seller Requests", path: APP_ROUTES.SELLERS },
-  admin: null,
-  super_admin: null,
+  admin: { label: "Admin Users", path: ADMIN_USERS_TAB },
+  super_admin: { label: "Admin Users", path: ADMIN_USERS_TAB },
 };

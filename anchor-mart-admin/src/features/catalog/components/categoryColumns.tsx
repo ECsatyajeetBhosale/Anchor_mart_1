@@ -32,6 +32,8 @@ export interface UseCategoryColumnsOptions {
   onStatusFilter: (value: string) => void;
   onEdit: (e: React.MouseEvent, category: Category) => void;
   onDelete: (e: React.MouseEvent, id: string) => void;
+  /** False for a sub-admin — deletion is super-admin only, so the action is omitted. */
+  canDelete?: boolean;
 }
 
 /**
@@ -43,6 +45,7 @@ export function useCategoryColumns({
   onStatusFilter,
   onEdit,
   onDelete,
+  canDelete = true,
 }: UseCategoryColumnsOptions): Column<Category>[] {
   return [
     {
@@ -94,10 +97,14 @@ export function useCategoryColumns({
           title: MESSAGES.CATEGORIES.ACTION_EDIT,
           onClick: (e, r) => onEdit(e, r),
         },
-        delete: {
-          title: MESSAGES.CATEGORIES.ACTION_REMOVE,
-          onClick: (e, r) => onDelete(e, r.id),
-        },
+        ...(canDelete
+          ? {
+              delete: {
+                title: MESSAGES.CATEGORIES.ACTION_REMOVE,
+                onClick: (e: React.MouseEvent, r: Category) => onDelete(e, r.id),
+              },
+            }
+          : {}),
       }),
     }),
   ];

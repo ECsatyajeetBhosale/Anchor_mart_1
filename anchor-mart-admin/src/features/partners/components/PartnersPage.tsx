@@ -15,7 +15,7 @@ import {
 } from "@/components/common/tableColumns";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
-import { getApiMessage } from "@/lib/apiError";
+import { getApiMessage, getApiStatus } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 import {
@@ -24,6 +24,7 @@ import {
   useGetPartnersQuery,
 } from "../api/partnerApi";
 import type { PartnerData } from "../types/partner.types";
+import { CapabilityBadges } from "./CapabilityBadges";
 import { PartnerDetailDrawer } from "./PartnerDetailDrawer";
 import { PartnerFormDrawer } from "./PartnerFormDrawer";
 import { PartnerHistoryDrawer } from "./PartnerHistoryDrawer";
@@ -114,6 +115,14 @@ export function PartnersPage() {
       toast.success(M.TOAST.DELETED(target.n));
       setPartnerToDelete(null);
     } catch (err) {
+      // 409 is its own answer: the partner still holds an order, so the delete
+      // is refused until it is reassigned or finished. Falling through to the
+      // generic "Failed to delete" would leave the admin retrying a call that
+      // cannot succeed and no wiser about why.
+      if (getApiStatus(err) === 409) {
+        toast.error(getApiMessage(err) ?? M.TOAST.DELETE_BLOCKED);
+        return;
+      }
       toast.error(getApiMessage(err) ?? M.TOAST.DELETE_ERROR);
     }
   };
@@ -138,6 +147,15 @@ export function PartnersPage() {
     idColumn({ id: "id", header: M.COLUMNS.ID, get: (d) => d.id }),
     textColumn({ id: "port", header: M.COLUMNS.PORT_ZONE, get: (d) => d.p, className: "td-m" }),
     textColumn({ id: "joined", header: M.COLUMNS.JOINED, get: (d) => d.j, className: "td-m" }),
+    {
+      // What kind of work this partner may be assigned. Shown on the row because
+      // it decides which orders they can appear against in the assign picker —
+      // an admin hunting for "why isn't this partner offered?" looks here first.
+      id: "capability",
+      header: M.COLUMNS.CAPABILITY,
+      className: "td-m",
+      cell: (d) => <CapabilityBadges canVerify={d.canVerify} canDeliver={d.canDeliver} />,
+    },
     {
       id: "total",
       header: M.COLUMNS.TOTAL_DELIVERIES,

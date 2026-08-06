@@ -6,7 +6,9 @@
 export { AccountManagementPage } from "./components/AccountManagementPage";
 export { DeletionRequestsTab } from "./components/DeletionRequestsTab";
 export { ProvisionUsersTab } from "./components/ProvisionUsersTab";
+export { AdminUsersTab } from "./components/AdminUsersTab";
 export { AccountDeletionDetailDrawer } from "./components/AccountDeletionDetailDrawer";
+export { AdminUserDetailDrawer } from "./components/AdminUserDetailDrawer";
 export { CreateUserDrawer } from "./components/CreateUserDrawer";
 export {
   useGetAccountDeletionRequestsQuery,
@@ -15,9 +17,29 @@ export {
   useSetAccountDeletionStatusMutation,
   accountDeletionStatusVariant,
 } from "./api/accountDeletionApi";
-export { useCreateUserMutation } from "./api/adminUserApi";
+export {
+  useCreateUserMutation,
+  useGetAdminUsersQuery,
+  useGetAdminUserQuery,
+  useUpdateAdminUserMutation,
+  useSetAdminUserStatusMutation,
+  useResetAdminUserPasswordMutation,
+  useDeleteAdminUserMutation,
+  adminUserStatusVariant,
+} from "./api/adminUserApi";
 export { ROLE_OPTIONS, ROLE_LABELS, ROLE_NOTES, ROLE_MANAGED_AT } from "./lib/roles";
 export { createUserSchema, type CreateUserFormData } from "./schemas/createUser.schema";
+export { adminUserSchema, type AdminUserFormData } from "./schemas/adminUser.schema";
+export { ADMIN_TIER_ROLES, isAdminTierRole } from "./types/adminUser.types";
+export type {
+  AdminUser,
+  AdminUserApi,
+  AdminUserListResult,
+  AdminTierRole,
+  GetAdminUsersParams,
+  UpdateAdminUserPayload,
+  SetAdminUserStatusPayload,
+} from "./types/adminUser.types";
 export {
   ACCOUNT_DELETION_STATUS_KEYS,
   ACCOUNT_DELETION_ROLE_KEYS,

@@ -171,15 +171,28 @@ export const productsApi = baseApi.injectEndpoints({
     }),
 
     /**
-     * Flow 17 Build A — broadcast "{product} is now available" to all customers.
-     * No request body. Deliberately manual: flipping sourceable never
+     * Flow 17 Build A / 29a §4 — broadcast "{product} is now available" to all
+     * customers. No request body. Deliberately manual: flipping sourceable never
      * auto-notifies, so a bulk edit can't spam every sailor.
      *
      * 400 when the product isn't actually orderable (inactive, not sourceable,
      * or without a live sourceable variant) — make it sourceable first.
+     *
+     * **Read `announced`, not the status code.** A repeat announce for the same
+     * product inside the dedupe window (120 s by default) is a **200 no-op**
+     * carrying `announced: false` and `retry_after_seconds`, where a real send
+     * is a 201 with `announced: true` and a `broadcast_id`. Both are successes
+     * as far as RTK Query is concerned, so the caller has to branch on the flag
+     * or it will claim every double-click reached every sailor.
      */
     announceProductAvailability: builder.mutation<
-      { message?: string; broadcast_id?: string },
+      {
+        message?: string;
+        /** Absent on older payloads — treat a missing flag as "it sent". */
+        announced?: boolean;
+        broadcast_id?: string;
+        retry_after_seconds?: number;
+      },
       string
     >({
       query: (id) => ({

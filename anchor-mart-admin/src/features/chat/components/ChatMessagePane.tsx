@@ -44,6 +44,11 @@ function formatTime(iso: string): string {
 export interface ChatMessagePaneProps {
   thread: ChatThread | null;
   socket: ChatSocketApi;
+  /**
+   * Online ids from the presence poll (§4.7), not from the socket — an admin
+   * receives no presence frames, so the connection cannot answer this.
+   */
+  onlineUsers: ReadonlySet<string>;
 }
 
 /**
@@ -53,7 +58,7 @@ export interface ChatMessagePaneProps {
  * in navy, the counterparty left in grey. Which side a message lands on is
  * decided against the thread **owner**, not a hardcoded id; see `isFromAdmin`.
  */
-export function ChatMessagePane({ thread, socket }: ChatMessagePaneProps) {
+export function ChatMessagePane({ thread, socket, onlineUsers }: ChatMessagePaneProps) {
   const chatId = thread?.id;
   const { data, isLoading, isError, isFetching, refetch } = useGetChatMessagesQuery(
     { chatId: chatId ?? "", page: 1, limit: MESSAGE_PAGE_SIZE },
@@ -116,7 +121,7 @@ export function ChatMessagePane({ thread, socket }: ChatMessagePaneProps) {
   const isSelf = (msg: ChatMessage) =>
     Boolean(msg.pending || (socket.selfUserId && msg.senderId === socket.selfUserId));
 
-  const isOnline = Boolean(ownerId && socket.onlineUsers.has(ownerId));
+  const isOnline = Boolean(ownerId && onlineUsers.has(ownerId));
   const offlineNotice = socket.authError ?? (socket.status === "open" ? null : M.SOCKET.QUEUED);
   const typingCount = socket.typingSenders.length;
 

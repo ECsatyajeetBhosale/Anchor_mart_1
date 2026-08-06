@@ -5,6 +5,7 @@ import type {
   AddVariantPayload,
   GetVariantsParams,
   ProductVariant,
+  SetVariantSourceableResult,
   UpdateVariantPayload,
   VariantListResult,
 } from "../types/variant.types";
@@ -187,13 +188,27 @@ export const variantApi = baseApi.injectEndpoints({
     }),
 
     /**
-     * Variant-level sourceability. Two routes exist for this — the canonical
-     * `/product-variants/set-admin-sourceable/` and a mirror under
-     * `/products/product-variants/`. The former is used; `useProductsNamespace`
-     * switches to the mirror if a deployment only exposes that one.
+     * Variant-level sourceability. Two routes are documented for this — the
+     * canonical `/product-variants/set-admin-sourceable/` (Flow 29a §5, and the
+     * only one the API collection ships) and a mirror under
+     * `/products/product-variants/` (Flow 17 §3). The canonical one is used;
+     * `useProductsNamespace` switches to the mirror if a deployment only
+     * exposes that one. No caller passes it today — it is an escape hatch, not
+     * a live branch.
+     *
+     * **The response reports the up-cascade** (Flow 29a §5, added GA11/GA12 on
+     * 2026-07-30): setting a variant sourceable also turns the *product's*
+     * master switch on when it was off, since a sourceable variant implies a
+     * sourceable product. Before those fields existed a UI built to this
+     * contract showed a stale product row after a cascade — which is why the
+     * product caches are invalidated below and not only the variant ones.
+     *
+     * The cascade is **up-only**: setting a variant `false` never touches the
+     * product, so `productAdminSourceable` can come back `true` on a call that
+     * turned the variant off.
      */
     setVariantSourceable: builder.mutation<
-      unknown,
+      SetVariantSourceableResult,
       { id: string; adminSourceable: boolean; useProductsNamespace?: boolean }
     >({
       query: ({ id, adminSourceable, useProductsNamespace }) => ({
@@ -203,10 +218,34 @@ export const variantApi = baseApi.injectEndpoints({
         method: "POST",
         body: { admin_sourceable: adminSourceable },
       }),
+      transformResponse: (
+        res: unknown,
+        _meta,
+        { adminSourceable },
+      ): SetVariantSourceableResult => ({
+        message: pick(res, "message"),
+        // Fall back to what was just requested, so a deployment predating
+        // GA11/GA12 still yields a usable result rather than a silent `false`.
+        adminSourceable:
+          typeof getProp(res, "admin_sourceable") === "boolean"
+            ? (getProp(res, "admin_sourceable") as boolean)
+            : adminSourceable,
+        // "Always present, cascade or not" — but null rather than false when a
+        // response omits it, so "the API didn't say" is not read as "off".
+        productAdminSourceable:
+          typeof getProp(res, "product_admin_sourceable") === "boolean"
+            ? (getProp(res, "product_admin_sourceable") as boolean)
+            : null,
+        // True only when *this* call is what turned the product master on.
+        productCascaded: getProp(res, "product_cascaded") === true,
+      }),
       invalidatesTags: (_r, _e, { id }) => [
         { type: "Variants", id },
         { type: "Variants", id: "PARTIAL-LIST" },
         { type: "ExpressItems", id: "CATALOG-LIST" },
+        // The product master may have just flipped underneath us.
+        { type: "Products", id: "PARTIAL-LIST" },
+        { type: "Products", id: "STATS" },
       ],
     }),
   }),

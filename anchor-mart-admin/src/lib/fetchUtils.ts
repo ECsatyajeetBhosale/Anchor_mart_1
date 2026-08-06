@@ -66,6 +66,7 @@ export const baseApi = createApi({
     "Ports",
     "Gifts",
     "AccountDeletions",
+    "AdminUsers",
     "Audit",
     "OutboundMessages",
     "SavedProducts",

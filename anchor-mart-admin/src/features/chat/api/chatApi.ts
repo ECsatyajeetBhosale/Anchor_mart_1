@@ -7,6 +7,7 @@ import type {
   ChatMessage,
   ChatOrderRef,
   ChatOwner,
+  ChatPresence,
   ChatThread,
   CreateChatGroupPayload,
   OrderChatCategory,
@@ -86,6 +87,12 @@ function toChatThread(row: unknown): ChatThread {
     order,
     orderNumber: order?.orderNumber ?? pickOrNull(row, "order_number", "order_no"),
     counterparty: (pickOrNull(row, "counterparty") as ChatCounterparty | null) ?? null,
+    // Only a real boolean seeds the dot. A missing key means "this payload does
+    // not say", which must not render as "offline" — the poll answers instead.
+    ownerIsOnline:
+      typeof getProp(row, "owner_is_online") === "boolean"
+        ? (getProp(row, "owner_is_online") as boolean)
+        : null,
   };
 }
 
@@ -127,6 +134,33 @@ export function messagesCacheKey(chatId: string): GetChatMessagesParams {
 
 /** Kept generous: the pane is a reader, and re-paging mid-conversation is jarring. */
 export const MESSAGE_PAGE_SIZE = 50;
+
+/**
+ * Hard cap the presence endpoint enforces (§4.7). More than this is a **400**,
+ * not a silent truncation, so the caller must chunk rather than hope.
+ */
+export const PRESENCE_MAX_IDS = 100;
+
+/** Suggested poll interval (§4.7: "once per 20–30 s while a chat screen is open"). */
+export const PRESENCE_POLL_MS = 25_000;
+
+/** Maps the presence payload, defaulting every id asked about to offline. */
+function toPresence(res: unknown): ChatPresence {
+  const rawPresence = getProp(res, "presence");
+  const presence: Record<string, boolean> = {};
+  if (rawPresence && typeof rawPresence === "object") {
+    for (const [id, value] of Object.entries(rawPresence as Record<string, unknown>)) {
+      presence[id] = value === true;
+    }
+  }
+  const online = Array.isArray(getProp(res, "online"))
+    ? (getProp(res, "online") as unknown[]).map(asString).filter(Boolean)
+    : Object.keys(presence).filter((id) => presence[id]);
+  // `online` is documented as a subset of `presence`, but a payload carrying
+  // only one of the two still has to produce a usable set.
+  for (const id of online) presence[id] = true;
+  return { online, presence, ttlSeconds: asNumber(getProp(res, "ttl_seconds")) };
+}
 
 export const chatApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -181,8 +215,18 @@ export const chatApi = baseApi.injectEndpoints({
     }),
 
     /**
-     * §4.5 — a thread's messages. **Oldest first** on this admin route, the
-     * opposite of the customer one, so new messages append at the end.
+     * §4.5 — a thread's messages.
+     *
+     * ⚠️ The wire order is **newest first** (changed 2026-08-03; this route used
+     * to return oldest-first while the customer route returned newest-first —
+     * same thread, same serializer, inverted results). Page 1 is the *latest*
+     * messages and you page **backwards** through history.
+     *
+     * The page is reversed here so `items` is always chronological, which is the
+     * order a transcript is read in and the order the socket appends to. Doing
+     * it once, at the boundary, keeps the pane and every cache helper free of
+     * the question — reversing at render time instead would leave
+     * `mergeIncomingMessage` pushing new messages onto the wrong end.
      */
     getChatMessages: builder.query<ListResult<ChatMessage>, GetChatMessagesParams>({
       query: ({ chatId, page, limit }) => ({
@@ -190,8 +234,29 @@ export const chatApi = baseApi.injectEndpoints({
         method: "GET",
         params: { chat_id: chatId, page, page_size: limit },
       }),
-      transformResponse: (res: unknown) => unwrapList(res, toChatMessage),
+      transformResponse: (res: unknown) => {
+        const list = unwrapList(res, toChatMessage);
+        return { ...list, items: [...list.items].reverse() };
+      },
       providesTags: (_r, _e, { chatId }) => [{ type: "Chats", id: `MESSAGES-${chatId}` }],
+    }),
+
+    /**
+     * §4.7 — presence for a specific set of users. **Polled, never pushed**:
+     * admins receive no presence frames on the socket.
+     *
+     * Not cached by tag — presence is time-sensitive rather than invalidated by
+     * a write, so freshness comes from the caller's `pollingInterval`.
+     */
+    getChatPresence: builder.query<ChatPresence, string[]>({
+      query: (userIds) => ({
+        url: CHAT_ENDPOINTS.PRESENCE,
+        method: "GET",
+        // Over 100 ids is a 400. The caller chunks; this is the last guard so a
+        // slipped-through roster degrades to a partial answer, not an error.
+        params: { user_ids: userIds.slice(0, PRESENCE_MAX_IDS).join(",") },
+      }),
+      transformResponse: toPresence,
     }),
 
     /** §4.6 — create a group chat. The caller becomes `group_admin`. */
@@ -209,5 +274,6 @@ export const {
   useGetOrderChatsQuery,
   useGetOrderChatQuery,
   useGetChatMessagesQuery,
+  useGetChatPresenceQuery,
   useCreateChatGroupMutation,
 } = chatApi;

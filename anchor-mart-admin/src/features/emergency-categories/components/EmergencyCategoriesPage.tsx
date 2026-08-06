@@ -4,6 +4,7 @@ import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import { DataTable } from "@/components/ui/data-table";
 import { MESSAGES } from "@/lib/messages";
+import { useAdminAccess } from "@/lib/roles";
 import { IconCategory, IconCircleCheck, IconCircleOff, IconPlus } from "@tabler/icons-react";
 import type React from "react";
 import { useState } from "react";
@@ -26,6 +27,8 @@ export function EmergencyCategoriesPage() {
   const [editingCategory, setEditingCategory] = useState<EmergencyCategory | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
   const [deleteCategory, { isLoading: isDeleting }] = useDeleteEmergencyCategoryMutation();
+  // Creating and deleting a category is super-admin only; editing is not.
+  const { canManageCatalog } = useAdminAccess();
 
   // URL-driven state (shareable, refresh-safe).
   const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
@@ -79,15 +82,31 @@ export function EmergencyCategoriesPage() {
   };
 
   const handleAddCategory = () => {
+    if (!canManageCatalog) {
+      toast.error(MESSAGES.ROLES.CATALOG_CREATE_DENIED);
+      return;
+    }
     setEditingCategory(null);
     setIsModalOpen(true);
   };
 
   const handleConfirmDelete = async () => {
     if (!categoryToDelete) return;
+    if (!canManageCatalog) {
+      toast.error(MESSAGES.ROLES.CATALOG_DELETE_DENIED);
+      setCategoryToDelete(null);
+      return;
+    }
     try {
-      await deleteCategory(categoryToDelete).unwrap();
-      toast.success(MESSAGES.EMERGENCY_CATEGORIES.TOAST.DELETE_SUCCESS);
+      const res = await deleteCategory(categoryToDelete).unwrap();
+      // The delete cascades: live spares in the category are deactivated, and
+      // `deactivated_products` is the only place that is reported.
+      const deactivated = res?.deactivated_products ?? 0;
+      toast.success(
+        deactivated > 0
+          ? MESSAGES.EMERGENCY_CATEGORIES.TOAST.DELETE_SUCCESS_CASCADE(deactivated)
+          : MESSAGES.EMERGENCY_CATEGORIES.TOAST.DELETE_SUCCESS,
+      );
       setCategoryToDelete(null);
     } catch (_error) {
       toast.error(MESSAGES.EMERGENCY_CATEGORIES.TOAST.DELETE_ERROR);
@@ -99,6 +118,7 @@ export function EmergencyCategoriesPage() {
     onStatusFilter: (value) => setFilterParam("status", value),
     onEdit: handleEdit,
     onDelete: handleDeleteClick,
+    canDelete: canManageCatalog,
   });
 
   const statItems = [
@@ -137,10 +157,12 @@ export function EmergencyCategoriesPage() {
             searchDebounceMs={300}
             searchLoading={isLoading}
           >
-            <button type="button" className="btn btn-primary" onClick={handleAddCategory}>
-              <IconPlus size={16} />
-              {MESSAGES.EMERGENCY_CATEGORIES.ADD_CATEGORY}
-            </button>
+            {canManageCatalog && (
+              <button type="button" className="btn btn-primary" onClick={handleAddCategory}>
+                <IconPlus size={16} />
+                {MESSAGES.EMERGENCY_CATEGORIES.ADD_CATEGORY}
+              </button>
+            )}
           </SearchFilters>
         }
       />

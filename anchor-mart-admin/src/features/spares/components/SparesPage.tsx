@@ -24,6 +24,7 @@ import { type Column, DataTable } from "@/components/ui/data-table";
 import { useGetEmergencyCategoriesQuery } from "@/features/emergency-categories";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
+import { useAdminAccess } from "@/lib/roles";
 import { clearParams } from "@/lib/utils";
 import {
   useDeleteSpareProductMutation,
@@ -130,6 +131,8 @@ export function SparesPage() {
   }));
 
   const [deleteSpare, { isLoading: isDeleting }] = useDeleteSpareProductMutation();
+  // Creating and deleting a spare is super-admin only; editing is not.
+  const { canManageCatalog } = useAdminAccess();
 
   const openDetail = (product: SpareProduct) => {
     setSelectedId(product.id);
@@ -138,6 +141,10 @@ export function SparesPage() {
   const closeDetail = () => setIsDetailOpen(false);
 
   const openAdd = () => {
+    if (!canManageCatalog) {
+      toast.error(MESSAGES.ROLES.CATALOG_CREATE_DENIED);
+      return;
+    }
     setEditingId(null);
     setIsFormOpen(true);
   };
@@ -151,6 +158,13 @@ export function SparesPage() {
 
   const handleDelete = async () => {
     if (!pendingDelete) return;
+    // A spare is a Product (catalog_type = marine_emergency), so it sits behind
+    // the same super-admin gate as the general catalog.
+    if (!canManageCatalog) {
+      toast.error(MESSAGES.ROLES.CATALOG_DELETE_DENIED);
+      setPendingDelete(null);
+      return;
+    }
     try {
       await deleteSpare(pendingDelete.id).unwrap();
       setPendingDelete(null);
@@ -246,17 +260,19 @@ export function SparesPage() {
           >
             <IconEdit size={15} />
           </Button>
-          <Button
-            variant="ghost"
-            size="xs"
-            title={M.ACTIONS.DELETE}
-            onClick={(e) => {
-              e.stopPropagation();
-              setPendingDelete(r);
-            }}
-          >
-            <IconTrash size={15} className="text-[var(--danger-text)]" />
-          </Button>
+          {canManageCatalog && (
+            <Button
+              variant="ghost"
+              size="xs"
+              title={M.ACTIONS.DELETE}
+              onClick={(e) => {
+                e.stopPropagation();
+                setPendingDelete(r);
+              }}
+            >
+              <IconTrash size={15} className="text-[var(--danger-text)]" />
+            </Button>
+          )}
         </div>
       ),
     },
@@ -297,10 +313,12 @@ export function SparesPage() {
               setSearchParams(clearParams(searchParams, ["search", "category", "status", "page"]))
             }
           >
-            <Button variant="primary" size="default" onClick={openAdd}>
-              <IconPlus size={15} className="mr-1" />
-              {M.ADD_PRODUCT}
-            </Button>
+            {canManageCatalog && (
+              <Button variant="primary" size="default" onClick={openAdd}>
+                <IconPlus size={15} className="mr-1" />
+                {M.ADD_PRODUCT}
+              </Button>
+            )}
           </SearchFilters>
         }
       />

@@ -70,6 +70,11 @@ function mapActiveAssignment(raw: unknown, index: number): Assignment {
     shop: pick(raw, "shop", "shop_name", "port", "assigned_port") || "-",
     deliverTo: pick(raw, "deliver_to", "vessel", "ship_name", "customer_name") || "-",
     status: pick(raw, "status_display", "status") || "-",
+    // The assignment's own status, kept separate from the order status above:
+    // `assignment_status` is what distinguishes a verify job (`verifying` →
+    // `verified`) from a delivery, and reading `status` for it would conflate
+    // the two whenever the row carries both keys.
+    assignmentStatus: pick(raw, "assignment_status"),
     // `deliver_by` is the SLA deadline — the closest thing to an ETA the API has.
     eta: pick(raw, "eta", "deliver_by", "expected_at") || "-",
   };
@@ -135,6 +140,11 @@ export const assignmentApi = baseApi.injectEndpoints({
           name: pick(r, "name", "full_name", "email") || "-",
           port: pick(r, "port", "assigned_port"),
           isAvailable: getProp(r, "is_available") !== false,
+          // Absent means "Both" — the documented default for a payload predating
+          // 2026-08-03. Reading a missing flag as `false` would show every
+          // pre-existing partner as incapable of the work they already do.
+          canVerify: getProp(r, "can_verify") !== false,
+          canDeliver: getProp(r, "can_deliver") !== false,
         }));
       },
       providesTags: (_r, _e, arg) => [

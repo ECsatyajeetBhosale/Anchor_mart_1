@@ -70,7 +70,21 @@ export const portApi = baseApi.injectEndpoints({
       ],
     }),
 
-    deletePort: builder.mutation<unknown, string>({
+    /**
+     * Soft-delete a port (Flow 29c §4).
+     *
+     * **This cascades to its anchorages.** `Anchorage.port` declares
+     * `on_delete=CASCADE`, which reads as though the database handles it — it
+     * does not, because a soft delete is an `UPDATE`, not a `DELETE`. The
+     * endpoint therefore deactivates them explicitly (`is_active=False`, so it
+     * is reversible) and reports how many in `deactivated_anchorages` — always
+     * present, `0` for a port with none.
+     *
+     * Those anchorages immediately stop being offered to sailors, and order
+     * creation, vessel profiles and location reports all start rejecting them.
+     * That is too much to let a bare "deleted" toast stand in for.
+     */
+    deletePort: builder.mutation<{ message?: string; deactivated_anchorages?: number }, string>({
       query: (id) => ({ url: PORT_ENDPOINTS.DELETE_PORT(id), method: "DELETE" }),
       invalidatesTags: (_r, _e, id) => [
         { type: "Ports", id },

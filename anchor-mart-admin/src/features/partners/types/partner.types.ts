@@ -33,6 +33,17 @@ export interface PartnerData {
   phone: string;
   /** Vehicle type. */
   vehicle: string;
+  /**
+   * Capability (Flow 28). Two **independent** booleans, not a two-value enum —
+   * a partner verifies, delivers, or does both. "Both" is the default and the
+   * common case, and `false`/`false` is impossible (the backend 400s on it).
+   *
+   * Absent on a payload predating 2026-08-03, which is why they default to
+   * `true`: reading a missing flag as "not capable" would strip every existing
+   * partner of the work they already do.
+   */
+  canVerify: boolean;
+  canDeliver: boolean;
 }
 
 /** Badge colour variant for a partner status pill. */
@@ -59,9 +70,17 @@ export interface PartnerApi {
   joined?: string | null;
   total_deliveries?: number | null;
   on_duty?: boolean | null;
+  /** Capability flags. Absent on a payload predating 2026-08-03 — treat as true. */
+  can_verify?: boolean | null;
+  can_deliver?: boolean | null;
 }
 
-/** Request body for `POST /superadmin/partner/create/`. */
+/**
+ * Request body for `POST /superadmin/partner/create/`.
+ *
+ * The capability flags both default to `true` server-side, and **at least one
+ * must be true** — sending both `false` is a 400 ("no capability").
+ */
 export interface CreatePartnerPayload {
   email: string;
   role: string;
@@ -69,11 +88,39 @@ export interface CreatePartnerPayload {
   last_name: string;
   country_code: string;
   whatsapp_number: string;
+  can_verify: boolean;
+  can_deliver: boolean;
 }
 
 /** Request body for `PATCH /superadmin/partner/partner_detail_update/`. */
 export interface UpdatePartnerPayload extends CreatePartnerPayload {
   user_id: string;
+}
+
+/**
+ * The extra `capability_change` key an update response carries **only when the
+ * request revoked a capability** (`true` → `false`), added 2026-08-03. Granting
+ * one, or editing any other field, leaves the response shape untouched.
+ */
+export interface CapabilityChange {
+  /** Which flag(s) this request turned off. */
+  revoked: string[];
+  /** **Exact** count of the partner's active assignments in the revoked phase — `0` is a real answer. */
+  inFlightCount: number;
+  /** True when `orders` was capped at 20 rows; the count stays exact regardless. */
+  truncated: boolean;
+  orders: CapabilityChangeOrder[];
+  /** Ready-to-display copy from the server. Surface it verbatim. */
+  message: string;
+}
+
+/** One order the revoke did **not** stop, so the UI can offer a reassign shortcut. */
+export interface CapabilityChangeOrder {
+  orderId: string;
+  orderNumber: string;
+  status: string;
+  statusDisplay: string;
+  assignmentStatus: string;
 }
 
 /** Transformed list result the page consumes: total count + UI rows. */

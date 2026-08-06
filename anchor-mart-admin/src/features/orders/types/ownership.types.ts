@@ -41,13 +41,52 @@ export interface ClaimConflict {
  * Body of `POST /superadmin/orders/order/<id>/reassign/`.
  *
  * `admin_id` must resolve to an `is_active=True` account with role `admin` or
- * `super_admin`. Note the panel has no way to *obtain* this id — no endpoint
- * lists admin accounts (doc finding F-03) — so this contract is implemented
- * ahead of a backend admin-list endpoint.
+ * `super_admin`. Flow 27's F-03 recorded that the panel had no way to *obtain*
+ * this id, because nothing listed admin accounts; `assignable-admins/` now
+ * does, which is what makes this endpoint usable.
  */
 export interface ReassignOrderPayload {
   orderId: string;
   admin_id: string;
+}
+
+/**
+ * A row from `GET /superadmin/orders/assignable-admins/` — the reassign picker.
+ *
+ * The same `{id, name, email}` descriptor an order's `assigned_admin` carries,
+ * so a picked row can seed the owner cell without a re-read.
+ */
+export interface AssignableAdmin {
+  id: string;
+  name: string;
+  email: string;
+  /** Present on some payloads; used to mark the super-admin tier in the list. */
+  role?: string;
+}
+
+/** Transformed picker result — total plus rows. */
+export interface AssignableAdminListResult {
+  count: number;
+  admins: AssignableAdmin[];
+}
+
+/** Query params for the picker. */
+export interface GetAssignableAdminsParams {
+  page: number;
+  limit: number;
+  search?: string;
+}
+
+/**
+ * Success body of `POST /superadmin/orders/order/<id>/release/`.
+ *
+ * Releasing returns the order to the unassigned pool, so `assigned_admin` comes
+ * back null — unlike claim and reassign, which both return an owner.
+ */
+export interface ReleaseOrderResponse {
+  message: string;
+  order_id: string;
+  assigned_admin: null;
 }
 
 /** Success body of the reassign endpoint — same shape as a claim. */

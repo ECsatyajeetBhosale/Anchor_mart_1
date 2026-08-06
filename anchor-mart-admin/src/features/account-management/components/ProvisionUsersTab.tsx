@@ -1,6 +1,7 @@
 import { SectionCard } from "@/components/common/SectionCard";
 import { Badge } from "@/components/ui/badge";
 import { MESSAGES } from "@/lib/messages";
+import { useAdminAccess } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import {
   IconBuildingStore,
@@ -15,6 +16,7 @@ import {
 import type { ComponentType } from "react";
 import { useNavigate } from "react-router-dom";
 import { ROLE_MANAGED_AT, ROLE_NOTES, ROLE_OPTIONS } from "../lib/roles";
+import { isAdminTierRole } from "../types/adminUser.types";
 import type { UserRole } from "../types/user.types";
 
 const P = MESSAGES.ACCOUNT_MANAGEMENT.PROVISION;
@@ -49,14 +51,22 @@ export interface ProvisionUsersTabProps {
 /**
  * Flow 31 §7 — provisioning.
  *
- * `create-user` is one endpoint for all five roles and there is **no
- * list-users endpoint**, so this cannot be a user table. It is a role directory
- * instead: what each role means, where it is managed afterwards, and a create
- * action scoped to it. The absence of a list is stated plainly rather than left
- * as an empty table an admin would keep waiting to fill.
+ * `create-user` is one endpoint for all five roles, so this is not a user table
+ * — each role has its own screen. It is a role directory instead: what each
+ * role means, where it is managed afterwards, and a create action scoped to it.
+ *
+ * **The two admin-tier rows are hidden below super admin.** Creating an `admin`
+ * or `super_admin` is refused with a 403 (SEC-1), so for a sub-admin those rows
+ * are two buttons that cannot work. Listing them and disabling them would
+ * describe a capability they will never be granted from this screen; the picker
+ * in the create drawer drops them on the same rule.
  */
 export function ProvisionUsersTab({ onCreate }: ProvisionUsersTabProps) {
   const navigate = useNavigate();
+  const { isSuperAdmin } = useAdminAccess();
+
+  const roles = isSuperAdmin ? ROLE_OPTIONS : ROLE_OPTIONS.filter((r) => !isAdminTierRole(r.value));
+
   return (
     <SectionCard
       icon={<IconUserPlus size={18} />}
@@ -82,7 +92,7 @@ export function ProvisionUsersTab({ onCreate }: ProvisionUsersTabProps) {
       </div>
 
       <div className="flex flex-col gap-2">
-        {ROLE_OPTIONS.map((role) => {
+        {roles.map((role) => {
           const managedAt = ROLE_MANAGED_AT[role.value];
           const Icon = ROLE_ICON[role.value];
           return (

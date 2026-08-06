@@ -108,12 +108,33 @@ export const FAQ_ENDPOINTS = {
 };
 
 /**
- * Shared admin user-creation endpoint. The `role` in the body picks the user
- * type, so this same path also backs sailor creation
- * (`SAILOR_ENDPOINTS.CREATE_SAILOR` sends `role: "customer"`).
+ * Admin-tier user administration.
+ *
+ * `CREATE_USER` is shared: the `role` in the body picks the user type, so this
+ * same path also backs sailor creation (`SAILOR_ENDPOINTS.CREATE_SAILOR` sends
+ * `role: "customer"`). **Creating an `admin` or `super_admin` requires a
+ * super-admin caller** — a sub-admin gets a 403 (Flow 31 SEC-1).
+ *
+ * The remaining six are the admin-users CRUD. They are newer than Flow 31,
+ * which documents only `create-user` and states there is no way to list or
+ * remove an admin; that is no longer true. Unlike the sailor endpoints these
+ * are **not** customer-scoped — they operate on the two admin tiers.
  */
 export const ADMIN_USER_ENDPOINTS = {
   CREATE_USER: "/superadmin/admin/create-user/",
+  // Query: `role`, `is_active`, `search`, `page`, `page_size`.
+  GET_USERS: "/superadmin/admin/users/",
+  GET_USER: (id: string) => `/superadmin/admin/users/${id}/`,
+  // PUT and PATCH are both partial, per the project convention.
+  UPDATE_USER: (id: string) => `/superadmin/admin/users/${id}/update/`,
+  // Body: `{ is_active: boolean }` — activate / deactivate.
+  SET_USER_STATUS: (id: string) => `/superadmin/admin/users/${id}/status/`,
+  /**
+   * Generates a fresh password and **emails it**. The new password is never in
+   * the response — do not build UI that expects to display it.
+   */
+  RESET_USER_PASSWORD: (id: string) => `/superadmin/admin/users/${id}/reset-password/`,
+  DELETE_USER: (id: string) => `/superadmin/admin/users/${id}/delete/`,
 };
 
 export const SHIP_AGENT_ENDPOINTS = {
@@ -252,6 +273,19 @@ export const ORDER_ENDPOINTS = {
   // not follow the doubled `orders/orders/` shape used by the list/detail paths.
   CLAIM_ORDER: (id: string) => `/superadmin/orders/order/${id}/claim/`,
   REASSIGN_ORDER: (id: string) => `/superadmin/orders/order/${id}/reassign/`,
+  /**
+   * Give the order back to the unassigned pool. Flow 27 documented no such
+   * endpoint ("ownership returns to NULL only when the owning admin's account
+   * is deleted"); it exists now, so handing an order back no longer requires
+   * finding another admin to take it.
+   */
+  RELEASE_ORDER: (id: string) => `/superadmin/orders/order/${id}/release/`,
+  /**
+   * The reassign picker — active `admin` / `super_admin` accounts.
+   * Query: `search`, `page`, `page_size`. This is what closes Flow 27's F-03,
+   * where `reassign` was unusable because nothing listed admins.
+   */
+  ASSIGNABLE_ADMINS: "/superadmin/orders/assignable-admins/",
   // Flow 05 API 6 — terminal intent rejection. Requires a `reason`; gated by
   // Flow 27 ownership (409 if unclaimed, 403 if owned by another admin).
   REJECT_INTENT: (id: string) => `/superadmin/orders/order/${id}/reject-intent/`,
@@ -465,10 +499,16 @@ export const REWARD_ENDPOINTS = {
   UPDATE_LOYALTY_CONFIG: "/superadmin/promotion/loyalty/config/update/",
   GET_COUPONS: "/superadmin/promotion/coupons/",
   CREATE_COUPON: "/superadmin/promotion/coupons/add/",
-  // Note the namespace split: coupons are created under `promotion/` but
-  // updated and deleted under `orders/`.
-  UPDATE_COUPON: (id: string) => `/superadmin/orders/coupons/update/${id}/`,
-  DELETE_COUPON: (id: string) => `/superadmin/orders/coupons/delete/${id}/`,
+  /**
+   * There is **no namespace split** — that earlier note was wrong. Flow 30
+   * mounts the whole `promotion_urls` module twice, at `promotion/` and again
+   * at `orders/`, so every route answers at both prefixes with identical
+   * behaviour (they are the same view instances, not copies). The doc's
+   * instruction is to pick one prefix and use it consistently; update and
+   * delete were the only two on `orders/`, so they now match their siblings.
+   */
+  UPDATE_COUPON: (id: string) => `/superadmin/promotion/coupons/update/${id}/`,
+  DELETE_COUPON: (id: string) => `/superadmin/promotion/coupons/delete/${id}/`,
   // Redemption/usage report across all coupons. No params.
   COUPON_REPORT: "/superadmin/promotion/coupons/report/",
 
@@ -634,10 +674,30 @@ export const CHAT_ENDPOINTS = {
    * §4.5 — messages in one thread. Query: `chat_id` (an **integer**, not a
    * UUID), `page`, `page_size`.
    *
-   * ⚠️ **Oldest first** on this admin route — the opposite of the customer
-   * route (§3.5), which is newest-first. Do not share paging logic between them.
+   * **Newest first**, identical to the customer route (§3.5). Until 2026-08-03
+   * this route returned them *oldest* first — same thread, same serializer,
+   * inverted results — so one chat component can now serve both. Page 1 is the
+   * latest messages and you page *backwards* through history.
    */
   GET_CHAT_MESSAGES: "/superadmin/chat/chat-messenger-detail/",
+  /**
+   * §4.7 — who is online right now, for the users on the page being rendered.
+   *
+   * **Presence is polled, not pushed.** Admins receive no presence frames on the
+   * websocket at all: broadcasting every connect/disconnect made the cost scale
+   * with connection-event volume, which is exactly what spikes in a reconnect
+   * storm. Polling bounds it by frequency × roster size instead.
+   *
+   * Query: `user_ids` — comma-separated UUIDs, **required**, **max 100** (one
+   * page of threads). A non-UUID or more than 100 is a 400, not a truncation.
+   * There is deliberately no "who is online globally" mode.
+   *
+   * The response's `presence` map has an entry for every id asked about; an
+   * unknown-but-valid UUID is simply `false`. If the presence store is
+   * unreachable everyone reports offline — a visible "nobody online" beats a
+   * confidently wrong "everyone online".
+   */
+  PRESENCE: "/superadmin/chat/presence/",
 };
 
 /**

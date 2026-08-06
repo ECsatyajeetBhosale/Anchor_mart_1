@@ -23,6 +23,13 @@ export interface Assignment {
   deliverTo: string;
   /** Status label, e.g. "Delivering" | "Verifying" | "New". */
   status: string;
+  /**
+   * The **assignment's** own status (`assigned` · `verifying` · `verified` · …),
+   * which is not the order status above. Since 2026-08-03 a verify job is
+   * stamped `verifying` and then `verified`, so this is what tells a verify job
+   * apart from a delivery — previously both were written as `assigned`.
+   */
+  assignmentStatus: string;
   /** ETA label, e.g. "12:02 PM". */
   eta: string;
 }
@@ -87,6 +94,17 @@ export interface AssignablePartner {
   name: string;
   port: string;
   isAvailable: boolean;
+  /**
+   * Capability (Flow 28). Independent booleans, not a role — and distinct from
+   * `isAvailable`, which is the partner's own daily on/off-shift toggle.
+   *
+   * With `?order_id=` the server has already scoped the list to the capability
+   * the order's phase needs, so these are shown to explain *why* a partner is
+   * offered rather than to filter locally: the assignment write is the authority
+   * and refuses a mismatch with a 400 (and a 403 behind it).
+   */
+  canVerify: boolean;
+  canDeliver: boolean;
 }
 
 /**

@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconCheck, IconUsers } from "@tabler/icons-react";
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { FormField } from "@/components/common/FormField";
@@ -15,11 +15,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { getApiMessage } from "@/lib/apiError";
+import { getApiMessage, getFieldErrors } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { useCreatePartnerMutation } from "../api/partnerApi";
 import { type PartnerFormData, partnerFormSchema } from "../schemas/partner.schema";
 import type { CreatePartnerPayload } from "../types/partner.types";
+import { CapabilityFields } from "./CapabilityFields";
 
 const M = MESSAGES.PARTNERS;
 
@@ -29,6 +30,10 @@ const EMPTY: PartnerFormData = {
   email: "",
   country_code: "+91",
   whatsapp_number: "",
+  // "Both" is the server-side default and by far the common shape, so a new
+  // partner starts capable of everything and is narrowed deliberately.
+  can_verify: true,
+  can_deliver: true,
 };
 
 export interface PartnerFormDrawerProps {
@@ -45,8 +50,10 @@ export function PartnerFormDrawer({ isOpen, onClose }: PartnerFormDrawerProps) {
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
+    setError,
     formState: { errors },
   } = useForm<PartnerFormData>({
     resolver: zodResolver(partnerFormSchema),
@@ -66,12 +73,22 @@ export function PartnerFormDrawer({ isOpen, onClose }: PartnerFormDrawerProps) {
       last_name: form.last_name,
       country_code: form.country_code,
       whatsapp_number: form.whatsapp_number,
+      can_verify: form.can_verify,
+      can_deliver: form.can_deliver,
     };
     try {
       await createPartner(payload).unwrap();
       onClose();
       toast.success(M.TOAST.ADDED);
     } catch (err) {
+      // Bare field keys since 2026-07-30 (previously an `{"errors": …}`
+      // envelope) — pin "already exists" / "country_code is required" to the
+      // input it belongs to rather than only raising a toast.
+      for (const [field, message] of Object.entries(getFieldErrors(err))) {
+        if (field in EMPTY) {
+          setError(field as keyof PartnerFormData, { type: "server", message });
+        }
+      }
       toast.error(getApiMessage(err) ?? M.TOAST.ADD_ERROR);
     }
   };
@@ -138,6 +155,31 @@ export function PartnerFormDrawer({ isOpen, onClose }: PartnerFormDrawerProps) {
               />
             </FormField>
           </FormRow>
+
+          {/* One Controller drives both switches: the "at least one" rule spans
+              the pair, so they have to be written together or a toggle could
+              momentarily clear the other's error. */}
+          <Controller
+            control={control}
+            name="can_verify"
+            render={({ field: verifyField }) => (
+              <Controller
+                control={control}
+                name="can_deliver"
+                render={({ field: deliverField }) => (
+                  <CapabilityFields
+                    canVerify={verifyField.value}
+                    canDeliver={deliverField.value}
+                    error={errors.can_verify?.message}
+                    onChange={({ canVerify, canDeliver }) => {
+                      verifyField.onChange(canVerify);
+                      deliverField.onChange(canDeliver);
+                    }}
+                  />
+                )}
+              />
+            )}
+          />
         </div>
 
         <SheetFooter className="p-6 border-t border-[var(--border-md)] bg-[var(--surface)]">

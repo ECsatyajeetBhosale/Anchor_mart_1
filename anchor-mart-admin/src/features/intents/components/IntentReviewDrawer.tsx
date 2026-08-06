@@ -13,6 +13,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  partnerOptionLabel,
   useAssignOrderMutation,
   useGetAssignablePartnersQuery,
   useGetOrderTimelineQuery,
@@ -274,7 +275,9 @@ export function IntentReviewDrawer({
 
   const partnerOptions = assignablePartners.map((p) => ({
     value: p.deliveryPartnerId,
-    label: `${p.name}${p.code ? ` · ${p.code}` : ""}${p.port ? ` · ${p.port}` : ""}`,
+    // Includes the capability suffix, so a verify-only partner is visibly
+    // narrower than the "both" default rather than looking identical.
+    label: partnerOptionLabel(p),
   }));
   const partnerPlaceholder = partnersLoading
     ? R.PARTNER_LOADING
@@ -315,6 +318,13 @@ export function IntentReviewDrawer({
       if (e?.status === 409 && e?.data?.requires_confirmation) {
         setForceReassign(true);
         toast.error(T.REASSIGN_CONFIRM);
+        return;
+      }
+      // 403 from the model-level capability guard (Flow 28 GL1) — the partner
+      // cannot do this kind of work, so retrying the same pick cannot succeed.
+      // A wrong-owner 403 carries its own message, which wins via getApiMessage.
+      if (e?.status === 403) {
+        toast.error(getApiMessage(err) ?? MESSAGES.ORDERS.ASSIGN_PARTNER.WRONG_CAPABILITY);
         return;
       }
       toast.error(getApiMessage(err) ?? T.ASSIGN_FAILED);

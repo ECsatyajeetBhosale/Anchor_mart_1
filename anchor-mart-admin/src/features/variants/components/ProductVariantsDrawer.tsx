@@ -109,8 +109,14 @@ export function ProductVariantsDrawer({
 
   const toggleSourceable = async (variant: ProductVariant, next: boolean) => {
     try {
-      await setSourceable({ id: variant.id, adminSourceable: next }).unwrap();
-      toast.success(M.TOAST.FLAG_UPDATED);
+      const result = await setSourceable({ id: variant.id, adminSourceable: next }).unwrap();
+      // The write may have cascaded up and switched the *product* on too. Report
+      // that, rather than "Variant updated" for a change that moved two flags.
+      toast.success(
+        result.productCascaded
+          ? M.TOAST.SOURCEABLE_CASCADED
+          : result.message || M.TOAST.FLAG_UPDATED,
+      );
     } catch (err) {
       toast.error(getApiMessage(err) ?? M.TOAST.FLAG_ERROR);
     }

@@ -36,6 +36,8 @@ export interface UseEmergencyCategoryColumnsOptions {
   onStatusFilter: (value: string) => void;
   onEdit: (e: React.MouseEvent, category: EmergencyCategory) => void;
   onDelete: (e: React.MouseEvent, id: string) => void;
+  /** False for a sub-admin — deletion is super-admin only, so the action is omitted. */
+  canDelete?: boolean;
 }
 
 /**
@@ -47,6 +49,7 @@ export function useEmergencyCategoryColumns({
   onStatusFilter,
   onEdit,
   onDelete,
+  canDelete = true,
 }: UseEmergencyCategoryColumnsOptions): Column<EmergencyCategory>[] {
   return [
     {
@@ -98,10 +101,14 @@ export function useEmergencyCategoryColumns({
           title: MESSAGES.EMERGENCY_CATEGORIES.ACTION_EDIT,
           onClick: (e, r) => onEdit(e, r),
         },
-        delete: {
-          title: MESSAGES.EMERGENCY_CATEGORIES.ACTION_REMOVE,
-          onClick: (e, r) => onDelete(e, r.id),
-        },
+        ...(canDelete
+          ? {
+              delete: {
+                title: MESSAGES.EMERGENCY_CATEGORIES.ACTION_REMOVE,
+                onClick: (e: React.MouseEvent, r: EmergencyCategory) => onDelete(e, r.id),
+              },
+            }
+          : {}),
       }),
     }),
   ];

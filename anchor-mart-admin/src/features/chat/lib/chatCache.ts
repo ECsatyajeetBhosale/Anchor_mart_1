@@ -18,8 +18,11 @@ export function frameToMessage(frame: InboundFrame): ChatMessage {
 }
 
 /**
- * Appends an incoming message to a thread's cache, oldest-last (the order the
- * admin history route returns).
+ * Appends an incoming message to a thread's cache, oldest-last.
+ *
+ * The admin route returns messages **newest first** on the wire; `getChatMessages`
+ * reverses each page so the cache is chronological. That is what makes a plain
+ * `push` correct here — do not reintroduce an unshift if the transform changes.
  *
  * Two things it must not do: show the same message twice, and strand the
  * optimistic row the sender already sees. The server echoes a send back to its

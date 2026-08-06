@@ -84,10 +84,7 @@ function toBonusPoint(raw: unknown, index: number): BonusPoint {
   return {
     id: pick(raw, "id") || userId || `bonus-${index}`,
     userId,
-    userName:
-      pick(raw, "user_name", "name") ||
-      pick(user, "first_name", "name", "email") ||
-      "-",
+    userName: pick(raw, "user_name", "name") || pick(user, "first_name", "name", "email") || "-",
     userEmail: pick(raw, "user_email", "email") || pick(user, "email") || "-",
     type: pick(raw, "type") || "-",
     points: Number(getProp(raw, "points") ?? 0),

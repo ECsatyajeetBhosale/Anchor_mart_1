@@ -47,6 +47,7 @@ import type { ClaimConflict } from "../types/ownership.types";
 import { CancelOrderDialog } from "./CancelOrderDialog";
 import { OpenCartsCard } from "./OpenCartsCard";
 import { OrderAssignPartnerSection } from "./OrderAssignPartnerSection";
+import { OrderHandoverDialog } from "./OrderHandoverDialog";
 import { OrderLocationDeltaSection } from "./OrderLocationDeltaSection";
 import { OrderShipAgentSection } from "./OrderShipAgentSection";
 import { OwnerCell } from "./OwnerCell";
@@ -336,8 +337,10 @@ export function OrdersPage() {
 
   // Flow 27 — every admin order write is gated on ownership, so the claim
   // action has to live here too, not only on the Intents queue.
-  const { stateOf, canClaim } = useOrderOwnership();
+  const { stateOf, canClaim, canReassign } = useOrderOwnership();
   const [claimOrder] = useClaimOrderMutation();
+  /** The order whose handover dialog is open, or null when closed. */
+  const [orderToHandover, setOrderToHandover] = useState<Order | null>(null);
 
   const [isLegendOpen, setIsLegendOpen] = useState(false);
 
@@ -549,6 +552,12 @@ export function OrdersPage() {
         <OwnerCell
           assignedAdmin={o.raw.assigned_admin ?? null}
           state={stateOf(o.raw.assigned_admin)}
+          // Flow 27 — reassign follows the owner-or-super-admin rule, which is
+          // narrower than the write gate. Offering the control to anyone else
+          // would produce a guaranteed 403.
+          onHandover={
+            canReassign(o.raw.assigned_admin) ? () => setOrderToHandover(o.raw) : undefined
+          }
         />
       ),
     },
@@ -763,6 +772,15 @@ export function OrdersPage() {
         isLoading={isCancelling}
         onClose={() => setOrderToCancel(null)}
         onConfirm={handleCancel}
+      />
+
+      {/* Flow 27 — reassign to another admin, or release back to the pool. */}
+      <OrderHandoverDialog
+        isOpen={!!orderToHandover}
+        orderId={orderToHandover?.id ?? ""}
+        orderRef={orderToHandover?.order_number ?? orderToHandover?.id ?? ""}
+        assignedAdmin={orderToHandover?.assigned_admin ?? null}
+        onClose={() => setOrderToHandover(null)}
       />
     </>
   );

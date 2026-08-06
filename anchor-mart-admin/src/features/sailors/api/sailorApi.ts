@@ -266,7 +266,22 @@ export const sailorApi = baseApi.injectEndpoints({
       ],
     }),
 
-    deleteSailor: builder.mutation<void, string>({
+    /**
+     * Soft-delete a sailor (Flow 31 §6).
+     *
+     * Sets all four soft-delete fields and **hard-deletes the sailor's coupon
+     * assignments**, reporting how many in `coupon_assignments_revoked`. Points,
+     * history and orders are untouched — orders are the accounting record, and
+     * the points ledger has to survive a disputed deletion.
+     *
+     * The revoked count is typed here so whoever wires a delete action can
+     * surface it: private coupons the sailor held are gone, and that is the only
+     * place it is said.
+     */
+    deleteSailor: builder.mutation<
+      { message?: string; coupon_assignments_revoked?: number },
+      string
+    >({
       query: (id) => ({
         url: SAILOR_ENDPOINTS.DELETE_SAILOR(id),
         method: "DELETE",

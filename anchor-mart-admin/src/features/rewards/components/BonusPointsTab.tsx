@@ -140,7 +140,12 @@ export function BonusPointsTab() {
       headerClassName: "text-right",
       cell: (r) => (
         <div className="td-acts">
-          <Button variant="ghost" size="xs" title={M.ACTIONS.HISTORY} onClick={() => setHistoryFor(r)}>
+          <Button
+            variant="ghost"
+            size="xs"
+            title={M.ACTIONS.HISTORY}
+            onClick={() => setHistoryFor(r)}
+          >
             <IconHistory size={15} />
           </Button>
           <Button variant="ghost" size="xs" title={M.ACTIONS.CLEAR} onClick={() => setToClear(r)}>
@@ -268,7 +273,12 @@ export function BonusPointsTab() {
                   className: "td-p",
                   cell: (e) => e.points.toLocaleString(),
                 },
-                { id: "reason", header: H.COLUMNS.REASON, className: "td-m", cell: (e) => e.reason },
+                {
+                  id: "reason",
+                  header: H.COLUMNS.REASON,
+                  className: "td-m",
+                  cell: (e) => e.reason,
+                },
               ]}
               data={history?.entries ?? []}
               rowKey="id"

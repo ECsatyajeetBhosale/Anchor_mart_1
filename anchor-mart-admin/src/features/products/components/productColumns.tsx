@@ -40,6 +40,12 @@ export interface UseProductColumnsOptions {
   onStatusFilter: (value: string) => void;
   onEdit: (e: React.MouseEvent, product: Product) => void;
   onDelete: (e: React.MouseEvent, id: string) => void;
+  /**
+   * Whether to render the delete action at all. False for a sub-admin — the
+   * server refuses the call, so offering the button only produces a failure the
+   * operator cannot act on. Editing stays available to both tiers.
+   */
+  canDelete?: boolean;
   /** Opens the SKU manager for the product. */
   onManageVariants: (e: React.MouseEvent, product: Product) => void;
   /** Opens the catalog-move dialog. */
@@ -66,6 +72,7 @@ export function useProductColumns({
   onAnnounce,
   onToggleTopRated,
   onToggleSourceable,
+  canDelete = true,
 }: UseProductColumnsOptions): Column<Product>[] {
   return [
     {
@@ -157,10 +164,14 @@ export function useProductColumns({
         variants: { onClick: (e, r) => onManageVariants(e, r) },
         catalog: { onClick: (e, r) => onChangeCatalog(e, r) },
         announce: { onClick: (e, r) => onAnnounce(e, r) },
-        delete: {
-          title: MESSAGES.PRODUCTS.ACTION_REMOVE,
-          onClick: (e, r) => onDelete(e, r.id),
-        },
+        ...(canDelete
+          ? {
+              delete: {
+                title: MESSAGES.PRODUCTS.ACTION_REMOVE,
+                onClick: (e: React.MouseEvent, r: Product) => onDelete(e, r.id),
+              },
+            }
+          : {}),
       }),
     }),
   ];

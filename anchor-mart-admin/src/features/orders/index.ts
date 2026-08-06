@@ -60,14 +60,24 @@ export type {
 export type { OrderShipAgentSnapshot } from "./types/order.types";
 
 // Flow 27 — order ownership
-export { useClaimOrderMutation, useReassignOrderMutation } from "./api/orderOwnershipApi";
+export {
+  useClaimOrderMutation,
+  useReassignOrderMutation,
+  useReleaseOrderMutation,
+  useGetAssignableAdminsQuery,
+} from "./api/orderOwnershipApi";
 export { OwnerCell } from "./components/OwnerCell";
+export { OrderHandoverDialog } from "./components/OrderHandoverDialog";
 export { useOrderOwnership, type OwnershipState } from "./hooks/useOrderOwnership";
 export type {
+  AssignableAdmin,
+  AssignableAdminListResult,
   AssignedAdmin,
   ClaimConflict,
   ClaimOrderResponse,
+  GetAssignableAdminsParams,
   ReassignError,
   ReassignOrderPayload,
   ReassignOrderResponse,
+  ReleaseOrderResponse,
 } from "./types/ownership.types";

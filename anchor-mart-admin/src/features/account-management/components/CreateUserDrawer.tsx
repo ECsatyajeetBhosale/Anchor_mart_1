@@ -10,16 +10,18 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { getApiMessage } from "@/lib/apiError";
+import { getApiMessage, getFieldErrors } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
+import { useAdminAccess } from "@/lib/roles";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { IconInfoCircle, IconSend, IconUserPlus } from "@tabler/icons-react";
-import { useEffect } from "react";
+import { IconInfoCircle, IconSend, IconShieldLock, IconUserPlus } from "@tabler/icons-react";
+import { useEffect, useMemo } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useCreateUserMutation } from "../api/adminUserApi";
 import { ROLE_NOTES, ROLE_OPTIONS } from "../lib/roles";
 import { type CreateUserFormData, createUserSchema } from "../schemas/createUser.schema";
+import { isAdminTierRole } from "../types/adminUser.types";
 import type { UserRole } from "../types/user.types";
 
 const DEFAULTS: CreateUserFormData = {
@@ -41,12 +43,26 @@ export interface CreateUserDrawerProps {
 export function CreateUserDrawer({ isOpen, onClose, lockedRole }: CreateUserDrawerProps) {
   const [createUser, { isLoading }] = useCreateUserMutation();
 
+  /**
+   * Flow 31 SEC-1 — creating an `admin` or `super_admin` requires a super-admin
+   * caller; a sub-admin gets a 403. The two options are withheld rather than
+   * offered-and-refused, so the restriction is visible before the round trip.
+   *
+   * A UX gate, never a security one: the server remains the authority.
+   */
+  const { isSuperAdmin } = useAdminAccess();
+  const roleOptions = useMemo(
+    () => (isSuperAdmin ? ROLE_OPTIONS : ROLE_OPTIONS.filter((o) => !isAdminTierRole(o.value))),
+    [isSuperAdmin],
+  );
+
   const {
     register,
     control,
     handleSubmit,
     reset,
     watch,
+    setError,
     formState: { errors },
   } = useForm<CreateUserFormData>({
     resolver: zodResolver(createUserSchema),
@@ -54,11 +70,26 @@ export function CreateUserDrawer({ isOpen, onClose, lockedRole }: CreateUserDraw
   });
 
   useEffect(() => {
-    if (isOpen) reset({ ...DEFAULTS, role: lockedRole ?? DEFAULTS.role });
-  }, [isOpen, lockedRole, reset]);
+    if (!isOpen) return;
+    // A sub-admin reaching an admin-tier entry point (a stale link, or the row
+    // action before this gate existed) would otherwise open on a role the
+    // picker no longer offers, leaving the form stuck on a guaranteed 403.
+    const requested = lockedRole ?? DEFAULTS.role;
+    const allowed = isSuperAdmin || !isAdminTierRole(requested) ? requested : DEFAULTS.role;
+    reset({ ...DEFAULTS, role: allowed });
+  }, [isOpen, lockedRole, isSuperAdmin, reset]);
 
   // Each role lands somewhere different in the app; say so before submitting.
   const note = ROLE_NOTES[watch("role")];
+
+  /** Maps a 400's field errors onto the form, ignoring keys this form has no input for. */
+  const applyFieldErrors = (error: unknown) => {
+    for (const [field, message] of Object.entries(getFieldErrors(error))) {
+      if (field in DEFAULTS) {
+        setError(field as keyof CreateUserFormData, { type: "server", message });
+      }
+    }
+  };
 
   const onSubmit = async (formData: CreateUserFormData) => {
     try {
@@ -75,6 +106,11 @@ export function CreateUserDrawer({ isOpen, onClose, lockedRole }: CreateUserDraw
         getApiMessage(response) ?? MESSAGES.ACCOUNT_MANAGEMENT.PROVISION.TOAST.CREATE_SUCCESS,
       );
     } catch (error) {
+      // Field errors arrive as bare keys (`{"email": ["…"]}`) since 2026-07-30,
+      // having previously been wrapped in `{"errors": {…}}`. Pin each to its
+      // input so "already exists" lands on the field rather than only in a
+      // toast the operator has to translate back to a form.
+      applyFieldErrors(error);
       toast.error(getApiMessage(error) ?? MESSAGES.ACCOUNT_MANAGEMENT.PROVISION.TOAST.CREATE_ERROR);
     }
   };
@@ -116,7 +152,7 @@ export function CreateUserDrawer({ isOpen, onClose, lockedRole }: CreateUserDraw
                 name="role"
                 render={({ field }) => (
                   <DropdownSelect
-                    options={ROLE_OPTIONS}
+                    options={roleOptions}
                     value={field.value}
                     onValueChange={field.onChange}
                     width="100%"
@@ -125,6 +161,16 @@ export function CreateUserDrawer({ isOpen, onClose, lockedRole }: CreateUserDraw
                 )}
               />
             </FormField>
+            {/* Say why two options are missing. Silently shortening the list
+                reads as a bug; naming the rule reads as a policy. */}
+            {!isSuperAdmin && (
+              <div className="mt-2 flex items-start gap-2 rounded-[var(--radius-md)] border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2.5">
+                <IconShieldLock size={16} className="mt-0.5 shrink-0 text-[var(--warning-icon)]" />
+                <p className="text-[12.5px] font-semibold leading-relaxed text-[var(--warning-text)]">
+                  {MESSAGES.ACCOUNT_MANAGEMENT.PROVISION.ADMIN_TIER_LOCKED}
+                </p>
+              </div>
+            )}
             {note && (
               <div className="mt-2 flex items-start gap-2 rounded-[var(--radius-md)] border border-[var(--info-border)] bg-[var(--info-bg)] px-3 py-2.5">
                 <IconInfoCircle size={16} className="mt-0.5 shrink-0 text-[var(--info-icon)]" />

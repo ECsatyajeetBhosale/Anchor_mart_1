@@ -17,7 +17,9 @@ import { avatarColumn, badgeColumn, textColumn } from "@/components/common/table
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import {
+  type AssignedAdmin,
   type ClaimConflict,
+  OrderHandoverDialog,
   OwnerCell,
   useClaimOrderMutation,
   useOrderOwnership,
@@ -141,8 +143,14 @@ export function IntentsPage() {
   /** Which row's claim is in flight — scopes the spinner to that button. */
   const [claimingId, setClaimingId] = useState<string | null>(null);
 
-  const { stateOf, canManage, canClaim, isSuperAdmin } = useOrderOwnership();
+  const { stateOf, canManage, canClaim, canReassign, isSuperAdmin } = useOrderOwnership();
   const [claimOrder] = useClaimOrderMutation();
+  /** The intent whose handover dialog is open, or null when closed. */
+  const [handover, setHandover] = useState<{
+    id: string;
+    ref: string;
+    owner: AssignedAdmin | null;
+  } | null>(null);
   const [rejectIntent, { isLoading: isRejecting }] = useRejectIntentMutation();
   const [releaseSuggestions, { isLoading: isReleasing }] = useReleaseSuggestionsMutation();
   const [createBill, { isLoading: isBilling }] = useCreateBillMutation();
@@ -411,7 +419,19 @@ export function IntentsPage() {
     {
       id: "owner",
       header: M.COLUMNS.OWNER,
-      cell: (i) => <OwnerCell assignedAdmin={i.assignedAdmin} state={stateOf(i.assignedAdmin)} />,
+      cell: (i) => (
+        <OwnerCell
+          assignedAdmin={i.assignedAdmin}
+          state={stateOf(i.assignedAdmin)}
+          // Same rule as the Orders board: reassign/release is owner-or-super
+          // admin, which is narrower than the write gate.
+          onHandover={
+            canReassign(i.assignedAdmin)
+              ? () => setHandover({ id: i.id, ref: i.r || i.id, owner: i.assignedAdmin })
+              : undefined
+          }
+        />
+      ),
     },
     {
       id: "actions",
@@ -551,6 +571,15 @@ export function IntentsPage() {
 
       {/* Status terminology legend (opened from the info icon by the filter) */}
       <StatusLegendDialog isOpen={isLegendOpen} onClose={() => setIsLegendOpen(false)} />
+
+      {/* Flow 27 — reassign to another admin, or release back to the pool. */}
+      <OrderHandoverDialog
+        isOpen={!!handover}
+        orderId={handover?.id ?? ""}
+        orderRef={handover?.ref ?? ""}
+        assignedAdmin={handover?.owner ?? null}
+        onClose={() => setHandover(null)}
+      />
     </>
   );
 }

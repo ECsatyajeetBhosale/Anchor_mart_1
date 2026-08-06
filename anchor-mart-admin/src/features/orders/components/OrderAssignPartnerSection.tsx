@@ -2,6 +2,7 @@ import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  partnerOptionLabel,
   useAssignOrderMutation,
   useGetAssignablePartnersQuery,
   useGetOrderAssignmentsQuery,
@@ -103,7 +104,9 @@ export function OrderAssignPartnerSection({
 
   const options = partners.map((p) => ({
     value: p.deliveryPartnerId,
-    label: `${p.name}${p.code ? ` · ${p.code}` : ""}${p.port ? ` · ${p.port}` : ""}`,
+    // Includes the capability suffix, so a verify-only partner is visibly
+    // narrower than the "both" default rather than looking identical.
+    label: partnerOptionLabel(p),
   }));
   const placeholder = partnersLoading
     ? M.PICK_LOADING
@@ -199,6 +202,14 @@ export function OrderAssignPartnerSection({
       if (e?.status === 409 && e?.data?.requires_confirmation) {
         setForceReassign(true);
         toast.error(M.CONFIRM_REASSIGN);
+        return;
+      }
+      // A 403 here is the model-level capability guard (Flow 28 GL1): the
+      // serializer's friendlier 400 fires first, so reaching this means a write
+      // path skipped it. Retrying is pointless and confirming nothing — say the
+      // partner cannot do this kind of work and let the admin pick another.
+      if (e?.status === 403) {
+        toast.error(reason ?? M.WRONG_CAPABILITY);
         return;
       }
       toast.error(reason ?? M.FAILED);

@@ -21,3 +21,4 @@ export type {
   OrderTimelineStep,
   UnassignedOrder,
 } from "./types/assignment.types";
+export { partnerOptionLabel, capabilitySuffix } from "./lib/partnerLabel";

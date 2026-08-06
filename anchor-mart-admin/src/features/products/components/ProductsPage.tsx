@@ -8,6 +8,7 @@ import { useGetCategoriesQuery } from "@/features/catalog";
 import { ProductVariantsDrawer } from "@/features/variants";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
+import { useAdminAccess } from "@/lib/roles";
 import { IconBoxSeam, IconCategory, IconPlus, IconStar } from "@tabler/icons-react";
 import React, { useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -44,6 +45,9 @@ export function ProductsPage() {
   const [variantsProduct, setVariantsProduct] = useState<Product | null>(null);
   const [catalogProduct, setCatalogProduct] = useState<Product | null>(null);
   const [announceProduct, setAnnounceProduct] = useState<Product | null>(null);
+
+  // Creating and deleting a product is super-admin only; editing is not.
+  const { canManageCatalog } = useAdminAccess();
 
   const [setTopRated] = useSetProductTopRatedMutation();
   const [setSourceable] = useSetProductSourceableMutation();
@@ -143,12 +147,23 @@ export function ProductsPage() {
   };
 
   const handleAddProduct = () => {
+    if (!canManageCatalog) {
+      toast.error(MESSAGES.ROLES.CATALOG_CREATE_DENIED);
+      return;
+    }
     setEditingProduct(null);
     setIsModalOpen(true);
   };
 
   const handleConfirmDelete = async () => {
     if (!productToDelete) return;
+    // Belt and braces: the row action is already hidden for a sub-admin, but a
+    // stale dialog left open across a role change must not fire the call.
+    if (!canManageCatalog) {
+      toast.error(MESSAGES.ROLES.CATALOG_DELETE_DENIED);
+      setProductToDelete(null);
+      return;
+    }
     try {
       await deleteProduct(productToDelete).unwrap();
       toast.success(MESSAGES.PRODUCTS.TOAST.DELETE_SUCCESS);
@@ -179,8 +194,19 @@ export function ProductsPage() {
   const handleConfirmAnnounce = async () => {
     if (!announceProduct) return;
     try {
-      await announceAvailability(announceProduct.id).unwrap();
-      toast.success(MESSAGES.PRODUCT_FLAGS.TOAST.ANNOUNCED(announceProduct.name));
+      const res = await announceAvailability(announceProduct.id).unwrap();
+      // Branch on `announced`, not the status code: a repeat inside the 120s
+      // dedupe window returns 200 with `announced: false` and nothing was sent.
+      // An older payload omits the flag entirely, which means it did send.
+      const sent = res?.announced !== false;
+      if (sent) {
+        toast.success(MESSAGES.PRODUCT_FLAGS.TOAST.ANNOUNCED(announceProduct.name));
+      } else {
+        // Its own copy distinguishes "you" from "another admin" — prefer it.
+        toast.info(
+          getApiMessage(res) ?? MESSAGES.PRODUCT_FLAGS.TOAST.ANNOUNCE_DEDUPED(announceProduct.name),
+        );
+      }
       setAnnounceProduct(null);
     } catch (error) {
       // The API 400s when the product isn't orderable — surface its own message,
@@ -208,6 +234,7 @@ export function ProductsPage() {
     },
     onToggleTopRated: handleToggleTopRated,
     onToggleSourceable: handleToggleSourceable,
+    canDelete: canManageCatalog,
   });
 
   const statItems = [
@@ -258,10 +285,12 @@ export function ProductsPage() {
               },
             ]}
           >
-            <button type="button" className="btn btn-primary" onClick={handleAddProduct}>
-              <IconPlus size={16} />
-              {MESSAGES.PRODUCTS.ADD_PRODUCT}
-            </button>
+            {canManageCatalog && (
+              <button type="button" className="btn btn-primary" onClick={handleAddProduct}>
+                <IconPlus size={16} />
+                {MESSAGES.PRODUCTS.ADD_PRODUCT}
+              </button>
+            )}
           </SearchFilters>
         }
       />
