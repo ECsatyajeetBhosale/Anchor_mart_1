@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import { DataTable } from "@/components/ui/data-table";
+import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
 import { IconCategory, IconCircleCheck, IconCircleOff, IconPlus } from "@tabler/icons-react";
@@ -109,8 +110,11 @@ export function CategoriesPage() {
           : MESSAGES.CATEGORIES.TOAST.DELETE_SUCCESS,
       );
       setCategoryToDelete(null);
-    } catch (_error) {
-      toast.error(MESSAGES.CATEGORIES.TOAST.DELETE_ERROR);
+    } catch (error) {
+      // Prefer the server's own sentence — a 403 from the capability gate and a
+      // 404 for an already-deleted category each say something the fixed string
+      // cannot, and the admin has no other way to learn which one happened.
+      toast.error(getApiMessage(error) ?? MESSAGES.CATEGORIES.TOAST.DELETE_ERROR);
     }
   };
 

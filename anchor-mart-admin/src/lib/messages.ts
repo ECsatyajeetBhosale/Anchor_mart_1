@@ -2399,6 +2399,8 @@ export const MESSAGES = {
         EDIT_TITLE: "Edit Deal",
         PRODUCT: "Product",
         PRODUCT_PLACEHOLDER: "Select a product",
+        // One page of products is 50 server-side; search reaches the rest.
+        PRODUCT_SEARCH_PLACEHOLDER: "Search products by name…",
         VARIANT: "Variant",
         VARIANT_PLACEHOLDER: "Select a variant",
         // A deal prices one SKU, so the variant is not optional.
@@ -2469,6 +2471,9 @@ export const MESSAGES = {
         TITLE: "Grant Bonus Points",
         USER: "Sailor",
         USER_PLACEHOLDER: "Select a sailor",
+        // The picker shows one page; the API caps a page at 50, so search is how
+        // an admin reaches a sailor beyond it.
+        USER_SEARCH_PLACEHOLDER: "Search by name or email…",
         TYPE: "Type",
         POINTS: "Points",
         POINTS_PLACEHOLDER: "e.g. 100",
@@ -2514,6 +2519,7 @@ export const MESSAGES = {
         TITLE: "Assign a Coupon",
         USER: "Sailor",
         USER_PLACEHOLDER: "Select a sailor",
+        USER_SEARCH_PLACEHOLDER: "Search by name or email…",
         COUPON: "Coupon",
         COUPON_PLACEHOLDER: "Select a coupon",
         SAVE: "Assign",

@@ -9,6 +9,13 @@ const M = MESSAGES.REWARDS;
 
 export interface ActiveCouponsCardProps {
   coupons: Coupon[];
+  /**
+   * Whether the session holds `promo.coupon`. False hides the row's edit/delete
+   * buttons and makes the row inert — the coupon stays readable, which is the
+   * point: a sub-admin needs to see what is running without being offered writes
+   * the server will refuse.
+   */
+  canManage: boolean;
   onEdit: (coupon: Coupon) => void;
   onDelete: (coupon: Coupon) => void;
 }
@@ -18,7 +25,12 @@ export interface ActiveCouponsCardProps {
  * Purely presentational: the parent owns coupon state and passes handlers for
  * the add / edit / delete actions.
  */
-export function ActiveCouponsCard({ coupons, onEdit, onDelete }: ActiveCouponsCardProps) {
+export function ActiveCouponsCard({
+  coupons,
+  canManage,
+  onEdit,
+  onDelete,
+}: ActiveCouponsCardProps) {
   return (
     <SectionCard
       icon={<IconTicket size={18} />}
@@ -37,17 +49,24 @@ export function ActiveCouponsCard({ coupons, onEdit, onDelete }: ActiveCouponsCa
           // can't wrap the edit/delete buttons inside it).
           <div
             key={cp.code}
-            // biome-ignore lint/a11y/useSemanticElements: contains nested action buttons, so a native <button> is invalid
-            role="button"
-            tabIndex={0}
-            onClick={() => onEdit(cp)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onEdit(cp);
-              }
-            }}
-            className="cursor-pointer rounded-[var(--radius-md)] border border-[color:var(--border-xs)] border-l-[3px] border-l-[color:var(--teal-500)] bg-[var(--surface-alt)] px-3.5 py-2.5 transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--teal-500)]"
+            role={canManage ? "button" : undefined}
+            tabIndex={canManage ? 0 : undefined}
+            onClick={canManage ? () => onEdit(cp) : undefined}
+            onKeyDown={
+              canManage
+                ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onEdit(cp);
+                    }
+                  }
+                : undefined
+            }
+            className={`rounded-[var(--radius-md)] border border-[color:var(--border-xs)] border-l-[3px] border-l-[color:var(--teal-500)] bg-[var(--surface-alt)] px-3.5 py-2.5 ${
+              canManage
+                ? "cursor-pointer transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--teal-500)]"
+                : ""
+            }`}
           >
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
@@ -63,30 +82,32 @@ export function ActiveCouponsCard({ coupons, onEdit, onDelete }: ActiveCouponsCa
                   {M.COUPONS.USES(cp.u)} · {M.COUPONS.EXPIRES(cp.e)}
                 </div>
               </div>
-              <div className="flex gap-1 shrink-0">
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  title={MESSAGES.COMMON.EDIT}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit(cp);
-                  }}
-                >
-                  <IconEdit size={14} />
-                </Button>
-                <Button
-                  variant="danger"
-                  size="xs"
-                  title={MESSAGES.COMMON.DELETE}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(cp);
-                  }}
-                >
-                  <IconTrash size={14} />
-                </Button>
-              </div>
+              {canManage && (
+                <div className="flex gap-1 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    title={MESSAGES.COMMON.EDIT}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(cp);
+                    }}
+                  >
+                    <IconEdit size={14} />
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="xs"
+                    title={MESSAGES.COMMON.DELETE}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(cp);
+                    }}
+                  >
+                    <IconTrash size={14} />
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         ))}

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { FormField } from "@/components/common/FormField";
+import { Search } from "@/components/common/Search";
 import { SectionCard } from "@/components/common/SectionCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,9 @@ import {
 } from "@/components/ui/dialog";
 import { useGetSailorsQuery } from "@/features/sailors";
 import { getApiMessage } from "@/lib/apiError";
+import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
+import { useAdminAccess } from "@/lib/roles";
 import { useGetActiveCouponsQuery } from "../api/couponApi";
 import {
   useAddCouponAssignmentMutation,
@@ -35,6 +38,7 @@ const V = M.VALIDATION;
 /** Per-user coupon grants — hand a specific coupon to a specific sailor. */
 export function CouponAssignmentsTab() {
   const [formOpen, setFormOpen] = useState(false);
+  const [sailorSearch, setSailorSearch] = useState("");
   const [toRemove, setToRemove] = useState<CouponAssignment | null>(null);
   const [userId, setUserId] = useState("");
   const [couponId, setCouponId] = useState("");
@@ -42,8 +46,17 @@ export function CouponAssignmentsTab() {
 
   const { data, isLoading, isError, refetch } = useGetCouponAssignmentsQuery();
 
-  // Pickers are only populated while the dialog is open.
-  const { data: sailorsData } = useGetSailorsQuery({ page: 1, limit: 100 }, { skip: !formOpen });
+  /**
+   * Pickers are only populated while the dialog is open.
+   *
+   * Sailor search runs server-side: a page is capped at 50 by
+   * `CustomPagination`, so picking from a single fetched page left every sailor
+   * past the 50th unassignable.
+   */
+  const { data: sailorsData, isFetching: sailorsFetching } = useGetSailorsQuery(
+    { page: 1, limit: API_MAX_PAGE_SIZE, search: sailorSearch },
+    { skip: !formOpen },
+  );
   const sailors = sailorsData?.sailors ?? [];
   const { data: couponsData } = useGetActiveCouponsQuery(undefined, { skip: !formOpen });
   const coupons = couponsData?.results ?? [];
@@ -51,10 +64,19 @@ export function CouponAssignmentsTab() {
   const [addAssignment, { isLoading: isSaving }] = useAddCouponAssignmentMutation();
   const [deleteAssignment, { isLoading: isRemoving }] = useDeleteCouponAssignmentMutation();
 
+  /**
+   * Assigning a private coupon to a sailor is a coupon write — the backend gates
+   * both the create and the delete on `promo.coupon`, super-admin only. The
+   * assignment list stays readable for both tiers.
+   */
+  const { can } = useAdminAccess();
+  const canManageAssignments = can("promo.coupon");
+
   const openForm = () => {
     setUserId("");
     setCouponId("");
     setErrors({});
+    setSailorSearch("");
     setFormOpen(true);
   };
 
@@ -109,13 +131,14 @@ export function CouponAssignmentsTab() {
       header: M.COLUMNS.ACTIONS,
       className: "w-16 text-right",
       headerClassName: "text-right",
-      cell: (r) => (
-        <div className="td-acts">
-          <Button variant="ghost" size="xs" onClick={() => setToRemove(r)}>
-            <IconTrash size={15} />
-          </Button>
-        </div>
-      ),
+      cell: (r) =>
+        canManageAssignments ? (
+          <div className="td-acts">
+            <Button variant="ghost" size="xs" onClick={() => setToRemove(r)}>
+              <IconTrash size={15} />
+            </Button>
+          </div>
+        ) : null,
     },
   ];
 
@@ -126,10 +149,12 @@ export function CouponAssignmentsTab() {
         title={M.TITLE}
         bodyPadding="none"
         actions={
-          <Button variant="primary" size="sm" onClick={openForm}>
-            <IconPlus size={15} className="mr-1" />
-            {M.ADD}
-          </Button>
+          canManageAssignments ? (
+            <Button variant="primary" size="sm" onClick={openForm}>
+              <IconPlus size={15} className="mr-1" />
+              {M.ADD}
+            </Button>
+          ) : null
         }
       >
         <DataTable
@@ -155,6 +180,17 @@ export function CouponAssignmentsTab() {
 
           <div className="mt-3">
             <FormField label={F.USER} error={errors.user}>
+              <div className="mb-2">
+                <Search
+                  value={sailorSearch}
+                  onSearch={setSailorSearch}
+                  placeholder={F.USER_SEARCH_PLACEHOLDER}
+                  debounceMs={300}
+                  loading={sailorsFetching}
+                  className="w-full"
+                  style={{ width: "100%" }}
+                />
+              </div>
               <DropdownSelect
                 value={userId}
                 onValueChange={setUserId}

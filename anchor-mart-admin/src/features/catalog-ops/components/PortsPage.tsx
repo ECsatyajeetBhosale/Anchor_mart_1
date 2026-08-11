@@ -11,6 +11,7 @@ import {
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
+import { useAdminAccess } from "@/lib/roles";
 import { IconPlus } from "@tabler/icons-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -38,6 +39,15 @@ export function PortsPage() {
   const [portToDelete, setPortToDelete] = useState<Port | null>(null);
 
   const [deletePort, { isLoading: isDeleting }] = useDeletePortMutation();
+
+  /**
+   * Ports are platform configuration: add/update/delete all require
+   * `platform.port_config`, which `ROLE_FEATURES` grants to `super_admin` only.
+   * The directory itself stays readable — a sub-admin still needs to look a port
+   * up while working an order.
+   */
+  const { can } = useAdminAccess();
+  const canConfigurePorts = can("platform.port_config");
 
   const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
   const search = searchParams.get("search") ?? "";
@@ -115,22 +125,27 @@ export function PortsPage() {
     }),
     actionsColumn({
       header: M.COLUMNS.ACTIONS,
-      actions: () => ({
-        edit: {
-          title: MESSAGES.COMMON.EDIT,
-          onClick: (e, row) => {
-            e.stopPropagation();
-            openDrawer(row);
-          },
-        },
-        delete: {
-          title: MESSAGES.COMMON.DELETE,
-          onClick: (e, row) => {
-            e.stopPropagation();
-            setPortToDelete(row);
-          },
-        },
-      }),
+      // Only the keys present here render, so a sub-admin gets an empty cell
+      // rather than controls the server will refuse.
+      actions: () =>
+        canConfigurePorts
+          ? {
+              edit: {
+                title: MESSAGES.COMMON.EDIT,
+                onClick: (e, row) => {
+                  e.stopPropagation();
+                  openDrawer(row);
+                },
+              },
+              delete: {
+                title: MESSAGES.COMMON.DELETE,
+                onClick: (e, row) => {
+                  e.stopPropagation();
+                  setPortToDelete(row);
+                },
+              },
+            }
+          : {},
     }),
   ];
 
@@ -146,10 +161,12 @@ export function PortsPage() {
             searchDebounceMs={300}
             searchLoading={isLoading}
           >
-            <button type="button" className="btn btn-primary" onClick={() => openDrawer(null)}>
-              <IconPlus size={16} />
-              {M.ADD}
-            </button>
+            {canConfigurePorts && (
+              <button type="button" className="btn btn-primary" onClick={() => openDrawer(null)}>
+                <IconPlus size={16} />
+                {M.ADD}
+              </button>
+            )}
           </SearchFilters>
         }
       />
@@ -171,7 +188,9 @@ export function PortsPage() {
         }}
         showPagination
         emptyMessage={M.EMPTY}
-        onRowClick={(row) => openDrawer(row)}
+        // The row opens the edit drawer, so it is a write entry point like the
+        // action buttons above.
+        onRowClick={canConfigurePorts ? (row) => openDrawer(row) : undefined}
         hasActiveFilters={Boolean(search || isActive)}
         onResetFilters={() => setSearchParams(new URLSearchParams())}
       />

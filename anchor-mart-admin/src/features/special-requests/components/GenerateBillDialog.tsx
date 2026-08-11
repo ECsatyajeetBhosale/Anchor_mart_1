@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useGetCategoriesQuery } from "@/features/catalog";
+import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { type GenerateBillFormData, generateBillSchema } from "../schemas/specialRequest.schema";
 import type { GenerateBillPayload, SpecialRequestDetail } from "../types/specialRequest.types";
@@ -52,12 +53,24 @@ export function GenerateBillDialog({
   onClose,
   onConfirm,
 }: GenerateBillDialogProps) {
-  // Only general-scope, active categories are valid here (the backend rejects
-  // anything else); page size 100 matches how the product drawers load them.
-  const { data: categoriesData } = useGetCategoriesQuery({ limit: 100 }, { skip: !isOpen });
-  const categoryOptions = (categoriesData?.results?.data ?? [])
-    .filter((c) => c.scope === "general" && c.is_active)
-    .map((c) => ({ value: c.id, label: c.name }));
+  /**
+   * Only general-scope, active categories are valid here (the backend rejects
+   * anything else).
+   *
+   * Both conditions are applied **server-side**: this endpoint is already
+   * general-scope-only (`ListGeneralCategoriesView`), and `is_active` is a
+   * documented filter. Narrowing in the browser instead compounded the page cap
+   * — a page holds at most 50 rows (`CustomPagination`), and discarding inactive
+   * ones from that 50 could leave far fewer options than exist.
+   */
+  const { data: categoriesData } = useGetCategoriesQuery(
+    { limit: API_MAX_PAGE_SIZE, isActive: true },
+    { skip: !isOpen },
+  );
+  const categoryOptions = (categoriesData?.results?.data ?? []).map((c) => ({
+    value: c.id,
+    label: c.name,
+  }));
 
   const {
     register,

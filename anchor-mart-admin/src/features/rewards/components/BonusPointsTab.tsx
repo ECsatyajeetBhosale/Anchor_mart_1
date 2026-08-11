@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { FormField } from "@/components/common/FormField";
+import { Search } from "@/components/common/Search";
 import { SectionCard } from "@/components/common/SectionCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,9 @@ import {
 } from "@/components/ui/sheet";
 import { useGetSailorsQuery } from "@/features/sailors";
 import { getApiMessage } from "@/lib/apiError";
+import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
+import { useAdminAccess } from "@/lib/roles";
 import {
   useAddBonusPointsMutation,
   useDeleteBonusPointsMutation,
@@ -56,6 +59,7 @@ const GRANT_TYPE_OPTIONS = [
 export function BonusPointsTab() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [grantOpen, setGrantOpen] = useState(false);
+  const [sailorSearch, setSailorSearch] = useState("");
   const [historyFor, setHistoryFor] = useState<BonusPoint | null>(null);
   const [toClear, setToClear] = useState<BonusPoint | null>(null);
 
@@ -69,12 +73,33 @@ export function BonusPointsTab() {
     type: typeFilter !== "all" ? typeFilter : undefined,
   });
 
-  // Sailors feed the grant picker; only loaded when the dialog is open.
-  const { data: sailorsData } = useGetSailorsQuery({ page: 1, limit: 100 }, { skip: !grantOpen });
+  /**
+   * Sailors feed the grant picker; only loaded when the dialog is open.
+   *
+   * **Search is server-side and the page is one page.** `ListSailorsView` uses
+   * `CustomPagination`, which caps a page at 50 — asking for more returns 50
+   * anyway, silently. Fetching a "generous" page and picking from it therefore
+   * made every sailor past the 50th ungrantable. `search` matches first name,
+   * last name, email and WhatsApp number.
+   */
+  const { data: sailorsData, isFetching: sailorsFetching } = useGetSailorsQuery(
+    { page: 1, limit: API_MAX_PAGE_SIZE, search: sailorSearch },
+    { skip: !grantOpen },
+  );
   const sailors = sailorsData?.sailors ?? [];
 
   const [addPoints, { isLoading: isGranting }] = useAddBonusPointsMutation();
   const [clearPoints, { isLoading: isClearing }] = useDeleteBonusPointsMutation();
+
+  /**
+   * Both point writes are governance capabilities held only by `super_admin`:
+   * granting is `finance.credit`, clearing a balance is
+   * `finance.credit_override` (an unbounded adjustment, hence the stricter of
+   * the two). The balances table itself stays visible to both tiers.
+   */
+  const { can } = useAdminAccess();
+  const canGrantPoints = can("finance.credit");
+  const canClearPoints = can("finance.credit_override");
 
   const { data: history, isLoading: historyLoading } = useGetBonusPointHistoryQuery(
     { userId: historyFor?.userId ?? "", limit: 50 },
@@ -86,6 +111,7 @@ export function BonusPointsTab() {
     setGrantType("loyalty");
     setPoints("");
     setErrors({});
+    setSailorSearch("");
     setGrantOpen(true);
   };
 
@@ -148,9 +174,11 @@ export function BonusPointsTab() {
           >
             <IconHistory size={15} />
           </Button>
-          <Button variant="ghost" size="xs" title={M.ACTIONS.CLEAR} onClick={() => setToClear(r)}>
-            <IconTrash size={15} />
-          </Button>
+          {canClearPoints && (
+            <Button variant="ghost" size="xs" title={M.ACTIONS.CLEAR} onClick={() => setToClear(r)}>
+              <IconTrash size={15} />
+            </Button>
+          )}
         </div>
       ),
     },
@@ -170,10 +198,12 @@ export function BonusPointsTab() {
               options={TYPE_OPTIONS}
               width="150px"
             />
-            <Button variant="primary" size="sm" onClick={openGrant}>
-              <IconPlus size={15} className="mr-1" />
-              {M.ADD}
-            </Button>
+            {canGrantPoints && (
+              <Button variant="primary" size="sm" onClick={openGrant}>
+                <IconPlus size={15} className="mr-1" />
+                {M.ADD}
+              </Button>
+            )}
           </div>
         }
       >
@@ -201,6 +231,17 @@ export function BonusPointsTab() {
 
           <div className="mt-3">
             <FormField label={F.USER} error={errors.user}>
+              <div className="mb-2">
+                <Search
+                  value={sailorSearch}
+                  onSearch={setSailorSearch}
+                  placeholder={F.USER_SEARCH_PLACEHOLDER}
+                  debounceMs={300}
+                  loading={sailorsFetching}
+                  className="w-full"
+                  style={{ width: "100%" }}
+                />
+              </div>
               <DropdownSelect
                 value={userId}
                 onValueChange={setUserId}

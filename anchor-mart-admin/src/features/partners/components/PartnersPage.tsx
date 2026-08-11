@@ -23,7 +23,7 @@ import {
   useGetPartnerStatsQuery,
   useGetPartnersQuery,
 } from "../api/partnerApi";
-import type { PartnerData } from "../types/partner.types";
+import { PARTNER_PAGE_SIZE, type PartnerData } from "../types/partner.types";
 import { CapabilityBadges } from "./CapabilityBadges";
 import { PartnerDetailDrawer } from "./PartnerDetailDrawer";
 import { PartnerFormDrawer } from "./PartnerFormDrawer";
@@ -34,13 +34,25 @@ const M = MESSAGES.PARTNERS;
 export function PartnersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // URL-driven list state (shareable, refresh-safe) — mirrors the other list pages.
+  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const search = searchParams.get("search") ?? "";
+
   // Partners list from the API. Onboard/edit have no write endpoint yet, so they
   // mutate a local copy seeded from the fetched rows; delete uses the real API.
-  const { data, isLoading, isError, refetch } = useGetPartnersQuery();
+  // Search runs server-side: the list is paginated at 50, so filtering the page
+  // in the client would hide every match past the first page.
+  const { data, isLoading, isFetching, isError, refetch } = useGetPartnersQuery({
+    page,
+    limit: PARTNER_PAGE_SIZE,
+    search,
+  });
   const [partners, setPartners] = useState<PartnerData[]>([]);
   useEffect(() => {
     setPartners(data?.partners ?? []);
   }, [data?.partners]);
+
+  const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / PARTNER_PAGE_SIZE));
 
   const [deletePartner, { isLoading: isDeleting }] = useDeletePartnerMutation();
 
@@ -88,16 +100,22 @@ export function PartnersPage() {
     setOpenDrawer("edit");
   };
 
-  // URL-driven search (shareable, refresh-safe) — mirrors other list pages.
-  const search = searchParams.get("search") ?? "";
-
+  // A filter change resets to page 1, otherwise the new result set is read at an
+  // offset that belongs to the old one.
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(searchParams);
+    if (key !== "page") next.set("page", "1");
     if (value && value !== "all") {
       next.set(key, value);
     } else {
       next.delete(key);
     }
+    setSearchParams(next);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("page", String(newPage));
     setSearchParams(next);
   };
 
@@ -126,16 +144,6 @@ export function PartnersPage() {
       toast.error(getApiMessage(err) ?? M.TOAST.DELETE_ERROR);
     }
   };
-
-  const filteredPartners = partners.filter((pt) => {
-    const q = search.toLowerCase();
-    return (
-      !q ||
-      pt.n.toLowerCase().includes(q) ||
-      pt.id.toLowerCase().includes(q) ||
-      pt.p.toLowerCase().includes(q)
-    );
-  });
 
   const columns: Column<PartnerData>[] = [
     avatarColumn({
@@ -207,6 +215,8 @@ export function PartnersPage() {
             searchValue={search}
             onSearchChange={(val) => setParam("search", val)}
             searchPlaceholder={M.SEARCH_PLACEHOLDER}
+            searchDebounceMs={300}
+            searchLoading={isFetching}
           >
             <Button variant="primary" size="sm" onClick={openAdd}>
               <IconPlus size={15} className="mr-1" />
@@ -220,12 +230,16 @@ export function PartnersPage() {
 
       <DataTable
         columns={columns}
-        data={filteredPartners}
+        data={partners}
         rowKey="id"
+        page={page}
+        pages={totalPages}
         isLoading={isLoading}
         isError={isError}
         error={isError ? M.FETCH_ERROR : null}
         onRetry={refetch}
+        onPageChange={handlePageChange}
+        showPagination
         emptyMessage={M.EMPTY}
         onRowClick={openHistory}
       />

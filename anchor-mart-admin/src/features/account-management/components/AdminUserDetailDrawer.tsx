@@ -30,6 +30,7 @@ import { useAppSelector } from "@/hooks/useAppDispatch";
 import { getApiMessage, getFieldErrors } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
+import { useAdminAccess } from "@/lib/roles";
 import {
   useDeleteAdminUserMutation,
   useGetAdminUserQuery,
@@ -77,6 +78,15 @@ export function AdminUserDetailDrawer({ user, isOpen, onClose }: AdminUserDetail
   const [setStatus, { isLoading: isTogglingStatus }] = useSetAdminUserStatusMutation();
   const [resetPassword, { isLoading: isResetting }] = useResetAdminUserPasswordMutation();
   const [deleteUser, { isLoading: isDeleting }] = useDeleteAdminUserMutation();
+
+  /**
+   * All four writes in this drawer — update, status, reset-password, delete —
+   * are gated on `governance.admin_users`, held by `super_admin` alone. For a
+   * sub-admin the drawer is a read-only profile: the fields still render so they
+   * can look a colleague up, but nothing that would 403 is offered.
+   */
+  const { can } = useAdminAccess();
+  const canManageAdmins = can("governance.admin_users");
 
   // The row seeds the drawer so it opens instantly; the detail read fills in
   // anything the list row doesn't carry (last sign-in, `is_staff`).
@@ -287,72 +297,80 @@ export function AdminUserDetailDrawer({ user, isOpen, onClose }: AdminUserDetail
           </FormField>
 
           {/* Security — the three actions that are not "save my edits". */}
-          <div className="sec-label mt-4">{D.SECURITY}</div>
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-4 rounded-[var(--radius-md)] border border-[var(--border-sm)] bg-[var(--surface)] px-4 py-3">
-              <div className="min-w-0 flex-1">
-                <div className="text-[13.5px] font-bold text-[var(--t1)]">{D.RESET_PASSWORD}</div>
-                <p className="text-[12.5px] font-medium leading-relaxed text-[var(--t4)]">
-                  {D.RESET_PASSWORD_HINT}
-                </p>
-              </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={busy}
-                onClick={() => setConfirming("reset")}
-              >
-                <IconKey size={15} className="mr-1" />
-                {D.RESET_PASSWORD}
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-4 rounded-[var(--radius-md)] border border-[var(--border-sm)] bg-[var(--surface)] px-4 py-3">
-              <div className="min-w-0 flex-1">
-                <div className="text-[13.5px] font-bold text-[var(--t1)]">
-                  {isActive ? D.DEACTIVATE : D.ACTIVATE}
+          {canManageAdmins && (
+            <>
+              <div className="sec-label mt-4">{D.SECURITY}</div>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-4 rounded-[var(--radius-md)] border border-[var(--border-sm)] bg-[var(--surface)] px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13.5px] font-bold text-[var(--t1)]">
+                      {D.RESET_PASSWORD}
+                    </div>
+                    <p className="text-[12.5px] font-medium leading-relaxed text-[var(--t4)]">
+                      {D.RESET_PASSWORD_HINT}
+                    </p>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => setConfirming("reset")}
+                  >
+                    <IconKey size={15} className="mr-1" />
+                    {D.RESET_PASSWORD}
+                  </Button>
                 </div>
-                <p className="text-[12.5px] font-medium leading-relaxed text-[var(--t4)]">
-                  {D.DEACTIVATE_HINT}
-                </p>
-              </div>
-              <Button
-                variant={isActive ? "danger" : "primary"}
-                size="sm"
-                loading={isTogglingStatus}
-                // Withheld on your own account: deactivating the session you are
-                // signed in with logs you out with no way back in.
-                disabled={busy || isSelf}
-                onClick={() => (isActive ? setConfirming("status") : handleToggleStatus())}
-              >
-                {isActive ? (
-                  <IconUserOff size={15} className="mr-1" />
-                ) : (
-                  <IconUserCheck size={15} className="mr-1" />
-                )}
-                {isActive ? D.DEACTIVATE : D.ACTIVATE}
-              </Button>
-            </div>
 
-            <div className="flex items-center gap-4 rounded-[var(--radius-md)] border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3">
-              <div className="min-w-0 flex-1">
-                <div className="text-[13.5px] font-bold text-[var(--danger-text)]">{D.DELETE}</div>
-                <p className="text-[12.5px] font-medium leading-relaxed text-[var(--danger-text)] opacity-90">
-                  {D.DELETE_HINT}
-                </p>
+                <div className="flex items-center gap-4 rounded-[var(--radius-md)] border border-[var(--border-sm)] bg-[var(--surface)] px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13.5px] font-bold text-[var(--t1)]">
+                      {isActive ? D.DEACTIVATE : D.ACTIVATE}
+                    </div>
+                    <p className="text-[12.5px] font-medium leading-relaxed text-[var(--t4)]">
+                      {D.DEACTIVATE_HINT}
+                    </p>
+                  </div>
+                  <Button
+                    variant={isActive ? "danger" : "primary"}
+                    size="sm"
+                    loading={isTogglingStatus}
+                    // Withheld on your own account: deactivating the session you are
+                    // signed in with logs you out with no way back in.
+                    disabled={busy || isSelf}
+                    onClick={() => (isActive ? setConfirming("status") : handleToggleStatus())}
+                  >
+                    {isActive ? (
+                      <IconUserOff size={15} className="mr-1" />
+                    ) : (
+                      <IconUserCheck size={15} className="mr-1" />
+                    )}
+                    {isActive ? D.DEACTIVATE : D.ACTIVATE}
+                  </Button>
+                </div>
+
+                <div className="flex items-center gap-4 rounded-[var(--radius-md)] border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13.5px] font-bold text-[var(--danger-text)]">
+                      {D.DELETE}
+                    </div>
+                    <p className="text-[12.5px] font-medium leading-relaxed text-[var(--danger-text)] opacity-90">
+                      {D.DELETE_HINT}
+                    </p>
+                  </div>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    loading={isDeleting}
+                    disabled={busy || isSelf}
+                    onClick={() => setConfirming("delete")}
+                  >
+                    <IconTrash size={15} className="mr-1" />
+                    {D.DELETE}
+                  </Button>
+                </div>
               </div>
-              <Button
-                variant="danger"
-                size="sm"
-                loading={isDeleting}
-                disabled={busy || isSelf}
-                onClick={() => setConfirming("delete")}
-              >
-                <IconTrash size={15} className="mr-1" />
-                {D.DELETE}
-              </Button>
-            </div>
-          </div>
+            </>
+          )}
         </div>
 
         <SheetFooter className="p-6 border-t border-[var(--border-md)] bg-[var(--surface)]">
@@ -363,17 +381,19 @@ export function AdminUserDetailDrawer({ user, isOpen, onClose }: AdminUserDetail
               onClick={onClose}
               disabled={busy}
             >
-              {MESSAGES.COMMON.CANCEL}
+              {canManageAdmins ? MESSAGES.COMMON.CANCEL : MESSAGES.COMMON.CLOSE}
             </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleSubmit(onSubmit)}
-              disabled={busy || !isDirty}
-            >
-              <IconDeviceFloppy size={16} />
-              {isSaving ? D.SAVING : D.SAVE}
-            </button>
+            {canManageAdmins && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSubmit(onSubmit)}
+                disabled={busy || !isDirty}
+              >
+                <IconDeviceFloppy size={16} />
+                {isSaving ? D.SAVING : D.SAVE}
+              </button>
+            )}
           </div>
         </SheetFooter>
       </SheetContent>

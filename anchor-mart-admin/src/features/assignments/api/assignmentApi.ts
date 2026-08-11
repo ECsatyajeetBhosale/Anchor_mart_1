@@ -1,4 +1,5 @@
 import { ASSIGNMENT_ENDPOINTS } from "@/lib/apiEndpoints";
+import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { baseApi } from "@/lib/fetchUtils";
 import type {
   ApiUnassignedOrder,
@@ -99,7 +100,12 @@ export const assignmentApi = baseApi.injectEndpoints({
       query: () => ({
         url: ASSIGNMENT_ENDPOINTS.GET_ACTIVE_ASSIGNMENTS,
         method: "GET",
-        params: { page_size: 100 },
+        // One full page. This used to ask for 100, which DRF quietly served as
+        // 50 — the board then rendered that as if it were every active
+        // assignment. It still shows only the first page; past 50 the rest are
+        // not fetched, but the number asked for is now the number that can
+        // arrive. `search`/`order_status` are supported server-side and unused.
+        params: { page_size: API_MAX_PAGE_SIZE },
       }),
       transformResponse: (res: unknown): Assignment[] => {
         const results = getProp(res, "results");
@@ -123,7 +129,8 @@ export const assignmentApi = baseApi.injectEndpoints({
       query: (arg) => ({
         url: ASSIGNMENT_ENDPOINTS.ASSIGNABLE_PARTNERS,
         method: "GET",
-        params: { order_id: arg?.orderId || undefined, page_size: 100 },
+        // 100 was capped to 50 server-side; ask for what can actually arrive.
+        params: { order_id: arg?.orderId || undefined, page_size: API_MAX_PAGE_SIZE },
       }),
       transformResponse: (res: unknown): AssignablePartner[] => {
         const results = getProp(res, "results");

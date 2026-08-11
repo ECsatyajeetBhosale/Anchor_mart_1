@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
+import { useAdminAccess } from "@/lib/roles";
 import {
   useCreateCouponMutation,
   useDeleteCouponMutation,
@@ -130,6 +131,19 @@ export function RewardsPage() {
   const [couponToDelete, setCouponToDelete] = useState<Coupon | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(TAB_OVERVIEW);
+
+  /**
+   * Coupons and the loyalty config are **governance** capabilities — the backend
+   * grants `promo.coupon` and `finance.config` to `super_admin` only
+   * (`ROLE_FEATURES`), so every coupon write and the points config would 403 for
+   * a sub-admin. Reading stays open: the tables below render for both tiers.
+   *
+   * Hiding the control is a UX gate, not a security one — the server refuses the
+   * call regardless, and the mutation handlers still surface that refusal.
+   */
+  const { can } = useAdminAccess();
+  const canManageCoupons = can("promo.coupon");
+  const canConfigureLoyalty = can("finance.config");
 
   // Active coupons (live API). Seed local state so the existing add/edit UI
   // keeps working optimistically until those mutation endpoints are wired up.
@@ -306,6 +320,7 @@ export function RewardsPage() {
         {/* Active Coupons */}
         <ActiveCouponsCard
           coupons={coupons}
+          canManage={canManageCoupons}
           onEdit={(cp) => openDrawer(cp)}
           onDelete={(cp) => setCouponToDelete(cp)}
         />
@@ -323,7 +338,9 @@ export function RewardsPage() {
           onRetry={refetchCoupons}
           showPagination={false}
           emptyMessage={M.TABLE.EMPTY}
-          onRowClick={(cp) => openDrawer(cp)}
+          // The row opens the edit form, so it is a write entry point too. The
+          // table itself stays readable for both tiers.
+          onRowClick={canManageCoupons ? (cp) => openDrawer(cp) : undefined}
           bare
         />
       </SectionCard>
@@ -336,14 +353,18 @@ export function RewardsPage() {
         title={M.TITLE}
         actions={
           <>
-            <Button variant="secondary" size="sm" onClick={() => openDrawer()}>
-              <IconTicket size={14} className="mr-1" />
-              {M.CREATE_COUPON}
-            </Button>
-            <Button variant="primary" size="sm" onClick={() => setConfigOpen(true)}>
-              <IconSettings size={14} className="mr-1" />
-              {M.CONFIGURE_POINTS}
-            </Button>
+            {canManageCoupons && (
+              <Button variant="secondary" size="sm" onClick={() => openDrawer()}>
+                <IconTicket size={14} className="mr-1" />
+                {M.CREATE_COUPON}
+              </Button>
+            )}
+            {canConfigureLoyalty && (
+              <Button variant="primary" size="sm" onClick={() => setConfigOpen(true)}>
+                <IconSettings size={14} className="mr-1" />
+                {M.CONFIGURE_POINTS}
+              </Button>
+            )}
           </>
         }
       />

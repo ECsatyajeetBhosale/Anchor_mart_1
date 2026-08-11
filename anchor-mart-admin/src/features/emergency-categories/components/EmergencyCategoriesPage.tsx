@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import { DataTable } from "@/components/ui/data-table";
+import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
 import { IconCategory, IconCircleCheck, IconCircleOff, IconPlus } from "@tabler/icons-react";
@@ -108,8 +109,9 @@ export function EmergencyCategoriesPage() {
           : MESSAGES.EMERGENCY_CATEGORIES.TOAST.DELETE_SUCCESS,
       );
       setCategoryToDelete(null);
-    } catch (_error) {
-      toast.error(MESSAGES.EMERGENCY_CATEGORIES.TOAST.DELETE_ERROR);
+    } catch (error) {
+      // The server's reason beats the fixed string — see CategoriesPage.
+      toast.error(getApiMessage(error) ?? MESSAGES.EMERGENCY_CATEGORIES.TOAST.DELETE_ERROR);
     }
   };
 

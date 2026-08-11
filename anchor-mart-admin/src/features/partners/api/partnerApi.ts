@@ -1,9 +1,11 @@
 import { PARTNER_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
+import { PARTNER_PAGE_SIZE } from "../types/partner.types";
 import type {
   CapabilityChange,
   CreatePartnerPayload,
   GetPartnerHistoryParams,
+  GetPartnersParams,
   PartnerApi,
   PartnerData,
   PartnerHistoryHeader,
@@ -247,12 +249,34 @@ function extractList(res: unknown): { count: number; rows: PartnerApi[] } {
 
 export const partnerApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getPartners: builder.query<PartnerListResult, void>({
-      // Filtering/search is applied client-side, so fetch a generous page.
-      query: () => ({
+    /**
+     * Flow 28 API 1 — the partner roster.
+     *
+     * **Search and status filter server-side, not in the client.** `CustomPagination`
+     * caps `page_size` at 50 (`min(ret, cutoff)` in DRF's `_positive_int`), so the
+     * old `page_size: 100` returned a 50-row page with no error and the page then
+     * filtered *that* — on a deployment with more than 50 partners, searching for
+     * the 51st reported "no results" for a partner that exists.
+     *
+     * `AdminPartnerList` matches `search` against `partner_id`, `email`,
+     * `first_name` and `last_name`, and takes `status` as one of
+     * `available | on_duty | inactive`.
+     *
+     * Called with no argument it returns the first page — enough for the picker
+     * and filter-dropdown callers, which do not paginate.
+     */
+    getPartners: builder.query<PartnerListResult, GetPartnersParams | undefined>({
+      query: (params) => ({
         url: PARTNER_ENDPOINTS.GET_LIST,
         method: "GET",
-        params: { page_size: 100 },
+        // Empty filters are omitted so the URL stays clean and the backend
+        // returns the unfiltered list.
+        params: {
+          page: params?.page,
+          page_size: params?.limit ?? PARTNER_PAGE_SIZE,
+          search: params?.search || undefined,
+          status: params?.status || undefined,
+        },
       }),
       transformResponse: (res: unknown): PartnerListResult => {
         const { count, rows } = extractList(res);

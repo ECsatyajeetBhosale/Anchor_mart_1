@@ -1,4 +1,5 @@
 import type { BadgeProps } from "@/components/ui/badge";
+import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 
 /**
  * A delivery partner row. Static mock shape (no partners API yet) mirroring the
@@ -128,6 +129,29 @@ export interface PartnerListResult {
   count: number;
   partners: PartnerData[];
 }
+
+/**
+ * Query for `GET /superadmin/partner/list/`. Every field is server-side —
+ * `AdminPartnerList` reads all three.
+ */
+export interface GetPartnersParams {
+  page?: number;
+  /**
+   * Rows per page. Left unset it uses {@link PARTNER_PAGE_SIZE}; values above
+   * 50 are silently reduced to 50 by `CustomPagination`, never rejected.
+   */
+  limit?: number;
+  /** Matched against `partner_id`, `email`, `first_name`, `last_name`. */
+  search?: string;
+  /** One of `available | on_duty | inactive`. Omit for no status filter. */
+  status?: string;
+}
+
+/**
+ * Rows per page on the partner list. Set to the API's own ceiling so a full page
+ * is one request — see {@link API_MAX_PAGE_SIZE} for why asking for more back-fires.
+ */
+export const PARTNER_PAGE_SIZE = API_MAX_PAGE_SIZE;
 
 /**
  * `GET /superadmin/partner/stats/` (Flow 28 API 3) — exactly two counters, no

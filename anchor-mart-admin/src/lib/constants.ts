@@ -69,3 +69,13 @@ export const API_ROUTES = {
     VERIFY_OTP: "/superadmin/admin/verify-otp/",
   },
 } as const;
+
+/**
+ * The largest page the API will return, from `CustomPagination.max_page_size`.
+ *
+ * Asking for more is **not** an error: DRF's `_positive_int(..., cutoff)` returns
+ * `min(requested, 50)`, so an over-large `page_size` yields a short page that
+ * looks complete. Any list that asks for more than this and then filters or
+ * counts client-side is silently working from a truncated set.
+ */
+export const API_MAX_PAGE_SIZE = 50;

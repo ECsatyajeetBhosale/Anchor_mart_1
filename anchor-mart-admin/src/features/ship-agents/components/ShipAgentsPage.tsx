@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import { DataTable } from "@/components/ui/data-table";
+import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { IconAddressBook, IconPlus, IconUserCircle, IconWorld } from "@tabler/icons-react";
 import type React from "react";
@@ -90,8 +91,9 @@ export function ShipAgentsPage() {
       await deleteShipAgent(agentToDelete).unwrap();
       toast.success(M.TOAST.DELETE_SUCCESS);
       setAgentToDelete(null);
-    } catch (_error) {
-      toast.error(M.TOAST.DELETE_ERROR);
+    } catch (error) {
+      // The server's reason beats the fixed string — see CategoriesPage.
+      toast.error(getApiMessage(error) ?? M.TOAST.DELETE_ERROR);
     }
   };
 

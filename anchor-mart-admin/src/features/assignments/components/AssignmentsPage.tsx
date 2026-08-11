@@ -48,7 +48,8 @@ export function AssignmentsPage() {
   const { data: unassigned = [] } = useGetUnassignedOrdersQuery();
 
   // Delivery partners — same API + mapping the Partners page uses.
-  const { data: partnersData } = useGetPartnersQuery();
+  // First page only — this feeds the assign picker's name lookup, not a list.
+  const { data: partnersData } = useGetPartnersQuery(undefined);
   const partners: PartnerData[] = partnersData?.partners ?? [];
 
   const [assignOrder, { isLoading: isAssigning }] = useAssignOrderMutation();

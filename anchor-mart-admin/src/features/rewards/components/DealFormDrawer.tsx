@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { DatePicker } from "@/components/common/DatePicker";
 import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { FormField } from "@/components/common/FormField";
+import { Search } from "@/components/common/Search";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useGetProductsQuery } from "@/features/products";
 import { useGetVariantsQuery } from "@/features/variants";
 import { getApiMessage } from "@/lib/apiError";
+import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { useCreateDealMutation, useUpdateDealMutation } from "../api/promotionApi";
 import type { Deal } from "../types/reward.types";
@@ -52,19 +54,29 @@ export function DealFormDrawer({ deal, isOpen, onClose }: DealFormDrawerProps) {
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [productSearch, setProductSearch] = useState("");
 
   const [createDeal, { isLoading: isCreating }] = useCreateDealMutation();
   const [updateDeal, { isLoading: isUpdating }] = useUpdateDealMutation();
   const isSaving = isCreating || isUpdating;
 
-  // A generous page so the picker isn't silently truncated to one page.
-  const { data: productsData } = useGetProductsQuery({ page: 1, limit: 100 }, { skip: !isOpen });
+  /**
+   * A "generous page" was the original intent here, but it could not work:
+   * `BaseListProductsView` paginates with `CustomPagination`, which caps a page
+   * at 50 — the extra 50 were never sent, so a deal could not be created for the
+   * 51st product. Search runs server-side instead (`name` icontains).
+   */
+  const { data: productsData, isFetching: productsFetching } = useGetProductsQuery(
+    { page: 1, limit: API_MAX_PAGE_SIZE, search: productSearch },
+    { skip: !isOpen },
+  );
   const products = productsData?.results?.data ?? [];
 
   // Variants are scoped to the chosen product — a deal must price a SKU that
-  // actually belongs to it.
+  // actually belongs to it. One page is ample: a product carries a handful of
+  // SKUs, nowhere near the 50-row cap.
   const { data: variantsData } = useGetVariantsQuery(
-    { productId, limit: 100 },
+    { productId, limit: API_MAX_PAGE_SIZE },
     { skip: !isOpen || !productId },
   );
   const variants = variantsData?.variants ?? [];
@@ -78,6 +90,7 @@ export function DealFormDrawer({ deal, isOpen, onClose }: DealFormDrawerProps) {
     setStart(deal?.startTime ?? "");
     setEnd(deal?.endTime ?? "");
     setErrors({});
+    setProductSearch("");
   }, [isOpen, deal]);
 
   const validate = (): boolean => {
@@ -152,6 +165,17 @@ export function DealFormDrawer({ deal, isOpen, onClose }: DealFormDrawerProps) {
 
         <div className="flex-1 overflow-y-auto p-6">
           <FormField label={F.PRODUCT} error={errors.product}>
+            <div className="mb-2">
+              <Search
+                value={productSearch}
+                onSearch={setProductSearch}
+                placeholder={F.PRODUCT_SEARCH_PLACEHOLDER}
+                debounceMs={300}
+                loading={productsFetching}
+                className="w-full"
+                style={{ width: "100%" }}
+              />
+            </div>
             <DropdownSelect
               value={productId}
               onValueChange={(val) => {
