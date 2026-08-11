@@ -1,5 +1,5 @@
 import { toStoredPath } from "@/features/media";
-import { PRODUCT_ENDPOINTS, VARIANT_ENDPOINTS } from "@/lib/apiEndpoints";
+import { VARIANT_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
 import type {
   AddVariantPayload,
@@ -188,13 +188,11 @@ export const variantApi = baseApi.injectEndpoints({
     }),
 
     /**
-     * Variant-level sourceability. Two routes are documented for this — the
-     * canonical `/product-variants/set-admin-sourceable/` (Flow 29a §5, and the
-     * only one the API collection ships) and a mirror under
-     * `/products/product-variants/` (Flow 17 §3). The canonical one is used;
-     * `useProductsNamespace` switches to the mirror if a deployment only
-     * exposes that one. No caller passes it today — it is an escape hatch, not
-     * a live branch.
+     * Variant-level sourceability, at `/product-variants/set-admin-sourceable/`
+     * (Flow 29a §5). A mirror under `/products/product-variants/` (Flow 17 §3)
+     * was once documented and reachable through a `useProductsNamespace` escape
+     * hatch; no caller ever passed it, and the backend serves no such route —
+     * it 404s while the canonical path 401s — so both are gone.
      *
      * **The response reports the up-cascade** (Flow 29a §5, added GA11/GA12 on
      * 2026-07-30): setting a variant sourceable also turns the *product's*
@@ -209,12 +207,10 @@ export const variantApi = baseApi.injectEndpoints({
      */
     setVariantSourceable: builder.mutation<
       SetVariantSourceableResult,
-      { id: string; adminSourceable: boolean; useProductsNamespace?: boolean }
+      { id: string; adminSourceable: boolean }
     >({
-      query: ({ id, adminSourceable, useProductsNamespace }) => ({
-        url: useProductsNamespace
-          ? PRODUCT_ENDPOINTS.SET_VARIANT_ADMIN_SOURCEABLE(id)
-          : VARIANT_ENDPOINTS.SET_ADMIN_SOURCEABLE(id),
+      query: ({ id, adminSourceable }) => ({
+        url: VARIANT_ENDPOINTS.SET_ADMIN_SOURCEABLE(id),
         method: "POST",
         body: { admin_sourceable: adminSourceable },
       }),

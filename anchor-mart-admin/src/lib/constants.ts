@@ -60,7 +60,9 @@ export const API_ROUTES = {
   AUTH: {
     LOGIN: "/superadmin/admin/login/",
     LOGOUT: "/superadmin/admin/logout/",
-    ME: "/superadmin/auth/me/",
+    // Served under /admin/, not /auth/ — every other endpoint in this block is
+    // /superadmin/admin/*. The old /superadmin/auth/me/ 404s.
+    ME: "/superadmin/admin/me/",
     // OTP login (two-step). /superadmin/ is exempt from the server-secret-key
     // header — do not add it for these two endpoints.
     LOGIN_WITH_OTP: "/superadmin/admin/login-with-otp/",

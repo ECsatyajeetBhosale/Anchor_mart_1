@@ -1,9 +1,15 @@
+import type { AdminFeature } from "@/features/auth/types/auth.types";
 import { useAppSelector } from "@/hooks/useAppDispatch";
 
 /**
  * The two admin tiers this console is issued to. `super_admin` is unrestricted;
- * `admin` (a "sub-admin") is the lower tier the backend gates several endpoints
- * against — see `features/audit/lib/auditAccess.ts` for the flow-34 case.
+ * `admin` (a "sub-admin") runs the business day to day.
+ *
+ * Kept for the places that genuinely need the *tier* rather than a capability —
+ * order ownership, where "a super admin may act on anyone's order" is a rule
+ * about seniority, not a named feature. For anything the backend labels with a
+ * `Feature`, ask `can()` instead: see the note on `AdminAccess.canManageCatalog`
+ * for what goes wrong when a capability is re-derived from the role here.
  */
 export const SUPER_ADMIN_ROLE = "super_admin";
 
@@ -23,14 +29,25 @@ export interface AdminAccess {
   /** True for `super_admin` — the only unrestricted tier. */
   isSuperAdmin: boolean;
   /**
+   * Whether the session holds `feature`, per the backend's own capability list.
+   *
+   * Fails closed: a session persisted by a build that predates `features`
+   * rehydrates without one and holds nothing until the app-load `GET /admin/me/`
+   * refresh lands (see `ProtectedRoute`). Briefly showing too little is
+   * recoverable; briefly showing too much is not.
+   */
+  can: (feature: AdminFeature) => boolean;
+  /**
    * Whether this admin may **create or delete** catalog entities — products,
    * categories, and their marine-emergency counterparts.
    *
-   * Editing is deliberately *not* gated: a sub-admin still corrects a price or a
-   * description. What they may not do is change the shape of the catalog, where
-   * a mistaken delete cascades into orders and a stray create leaks to every
-   * sailor. Creation and deletion are the two irreversible-in-practice verbs, so
-   * they are the two this pins to the top tier.
+   * This used to read `isSuperAdmin`, which was wrong in the restrictive
+   * direction: `catalog.manage` sits in the backend's `OPERATIONAL` set, which
+   * `ROLE_FEATURES` grants to the `admin` tier too. Sub-admins were entitled to
+   * create and delete all along, and the console hid the controls from them.
+   * That is precisely the drift the backend's feature list exists to prevent —
+   * a role→capability map maintained on the client is a second source of truth
+   * that goes stale the moment a capability moves tiers.
    *
    * ⚠️ **A UX gate, never a security one.** It stops the console offering what
    * the operator should not reach; the server remains the authority. Nothing
@@ -42,16 +59,21 @@ export interface AdminAccess {
 /**
  * The session's admin tier and what it unlocks.
  *
- * Reads the role off the auth slice, which is populated from the login /
- * verify-otp response and rehydrated from localStorage — so a hard refresh does
- * not briefly widen the UI while a profile call is in flight.
+ * Capabilities come from the `features` list the backend issues with the
+ * identity — never from the role. Reads off the auth slice, which is populated
+ * from login / verify-otp, refreshed by `GET /admin/me/` on app load, and
+ * rehydrated from localStorage in between, so a hard refresh does not flash a
+ * differently-shaped UI while a request is in flight.
  */
 export function useAdminAccess(): AdminAccess {
   const role = useAppSelector((s) => normaliseRole(s.auth.user?.role));
+  const features = useAppSelector((s) => s.auth.user?.features);
   const isSuperAdmin = role === SUPER_ADMIN_ROLE;
+  const can = (feature: AdminFeature) => !!features?.includes(feature);
   return {
     role,
     isSuperAdmin,
-    canManageCatalog: isSuperAdmin,
+    can,
+    canManageCatalog: can("catalog.manage"),
   };
 }

@@ -26,9 +26,6 @@ export const PRODUCT_ENDPOINTS = {
    * sourceable (Flow 17 · `variant_is_effectively_sourceable`).
    */
   SET_ADMIN_SOURCEABLE: (id: string) => `/superadmin/products/set-admin-sourceable/${id}/`,
-  /** Variant-level sourceability, routed under the products namespace. */
-  SET_VARIANT_ADMIN_SOURCEABLE: (variantId: string) =>
-    `/superadmin/products/product-variants/set-admin-sourceable/${variantId}/`,
   /**
    * Flow 17 Build A — manually broadcast "{product} is now available" to all
    * customers (push + in-app, never email). No request body.
@@ -42,10 +39,10 @@ export const PRODUCT_ENDPOINTS = {
 };
 
 /**
- * Product variants — the sellable SKUs beneath a product. Note the namespace
- * split: CRUD and the express flag live under `/product-variants/`, while
- * variant sourceability is routed under `/products/product-variants/`
- * (see `PRODUCT_ENDPOINTS.SET_VARIANT_ADMIN_SOURCEABLE`).
+ * Product variants — the sellable SKUs beneath a product. Everything variant
+ * lives under `/product-variants/`, sourceability included; the mirror route
+ * under `/products/product-variants/` that this comment once described is not
+ * served by the backend.
  */
 export const VARIANT_ENDPOINTS = {
   GET_VARIANTS: "/superadmin/product-variants/get-product-variants/",

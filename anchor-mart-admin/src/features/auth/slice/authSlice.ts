@@ -45,6 +45,24 @@ const authSlice = createSlice({
         // localStorage unavailable — session-only auth
       }
     },
+    /**
+     * Replace the stored identity without touching the token — what the app-load
+     * `GET /admin/me/` refresh dispatches.
+     *
+     * Admin tokens never expire by design, so a session that is not re-read
+     * would keep the `features` list it was issued at its last sign-in
+     * indefinitely: a demoted admin would go on seeing controls the server now
+     * refuses, and a promoted one would not see their new ones until they
+     * happened to log out.
+     */
+    setUser: (state, action: PayloadAction<AdminUser>) => {
+      state.user = action.payload;
+      try {
+        localStorage.setItem(USER_KEY, JSON.stringify(action.payload));
+      } catch {
+        // localStorage unavailable — session-only auth
+      }
+    },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
     },
@@ -63,5 +81,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { setCredentials, setLoading, logout } = authSlice.actions;
+export const { setCredentials, setUser, setLoading, logout } = authSlice.actions;
 export default authSlice.reducer;
