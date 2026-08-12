@@ -1,16 +1,22 @@
 import {
+  IconAlertTriangle,
+  IconBan,
   IconBolt,
   IconBoxSeam,
   IconChecklist,
   IconClipboardList,
   IconClipboardText,
+  IconClockExclamation,
   IconEngine,
   IconFileInvoice,
   IconFilterOff,
+  IconHourglass,
+  IconMapPin,
   IconMotorbike,
   IconPackage,
   IconReceiptRefund,
   IconStar,
+  IconTruckDelivery,
   IconUsers,
 } from "@tabler/icons-react";
 import { format } from "date-fns";
@@ -30,6 +36,7 @@ import type { TimeRange } from "../types/dashboard.types";
 import { useDashboard } from "../hooks/useDashboard";
 
 const M = MESSAGES.DASHBOARD;
+const H = MESSAGES.DASHBOARD.HERO;
 
 /* ═══════════════════════════════════════════════════════
    DashboardPage
@@ -53,6 +60,23 @@ export function DashboardPage() {
   }, [isError, error]);
 
   const today = format(new Date(), "EEEE, d MMMM yyyy");
+
+  /**
+   * Raw counts for the hero sentence, or null until every one has arrived.
+   *
+   * All-or-nothing on purpose: a half-loaded sentence would state one real
+   * figure beside two zeros, which reads as fact rather than as loading.
+   */
+  const hero =
+    stats.raw.verifications === undefined ||
+    stats.raw.pendingIntents === undefined ||
+    stats.raw.inProgress === undefined
+      ? null
+      : {
+          verifications: stats.raw.verifications,
+          intents: stats.raw.pendingIntents,
+          inFlight: stats.raw.inProgress,
+        };
 
   // Row 1 — primary operations metrics.
   const row1: StatsGridItem[] = [
@@ -110,6 +134,81 @@ export function DashboardPage() {
   ];
 
   // Row 2 — intents, requests & program metrics.
+  /**
+   * Exception work.
+   *
+   * Clickability follows the backend's reconciliation, not appearance:
+   *
+   * - `in_progress` drills to Orders. Dashboard and Orders now agree at 119 —
+   *   the backend resolved this against one canonical lifecycle definition, so
+   *   the link uses its `in_progress` filter rather than a status list rebuilt
+   *   here. Rebuilding it is what made the two disagree before.
+   * - `delivery_failed` and `pending_intents` map to real filters on their own
+   *   screens.
+   * - `delta_expired`, `cancelled` and `refunded` are **deliberately not
+   *   clickable**: no cross-order list exists for expired deltas, and the two
+   *   period metrics count `cancelled_at` / `refunded_at`, which the Orders
+   *   list does not filter on. A link would land on a number that does not
+   *   match the card.
+   * - `location_reports_pending` has no admin screen at all — the reports are
+   *   only reachable inside an individual order — so it stays a counter until
+   *   one exists.
+   */
+  const exceptions: StatsGridItem[] = [
+    {
+      id: "in-progress",
+      label: "In Progress",
+      value: stats.inProgress,
+      icon: <IconTruckDelivery size={19} />,
+      variant: "teal",
+      onClick: () => navigate(`${APP_ROUTES.ORDERS}?status=in_progress`),
+    },
+    {
+      id: "delivery-failed",
+      label: "Delivery Failed",
+      value: stats.deliveryFailed,
+      icon: <IconAlertTriangle size={19} />,
+      variant: "red",
+      onClick: () => navigate(`${APP_ROUTES.ORDERS}?status=delivery_failed`),
+    },
+    {
+      id: "pending-intents",
+      label: "Pending Intents",
+      value: stats.pendingIntents,
+      icon: <IconHourglass size={19} />,
+      variant: "amber",
+      onClick: () => navigate(`${APP_ROUTES.INTENTS}?status=pending_intent`),
+    },
+    {
+      id: "location-reports",
+      label: "Location Reports",
+      value: stats.locationReportsPending,
+      icon: <IconMapPin size={19} />,
+      variant: "purple",
+    },
+    {
+      id: "delta-expired",
+      label: "Expired Deltas",
+      value: stats.deltaExpired,
+      icon: <IconClockExclamation size={19} />,
+      variant: "amber",
+    },
+    {
+      id: "cancelled",
+      label: "Cancelled",
+      value: stats.cancelled,
+      icon: <IconBan size={19} />,
+      variant: "red",
+    },
+    {
+      id: "refunded",
+      label: "Refunded",
+      value: stats.refunded,
+      icon: <IconReceiptRefund size={19} />,
+      variant: "purple",
+    },
+  ];
+
   const row2: StatsGridItem[] = [
     {
       id: "verifications",
@@ -169,16 +268,18 @@ export function DashboardPage() {
       <div className="dash-hero">
         <div className="dash-hero-glow" />
         <div className="dash-hero-inner">
-          <div className="dash-hero-eyebrow">Operations Dashboard · {today}</div>
-          <h1 className="dash-hero-title">Welcome back, Super Admin</h1>
-          {/* "In flight" is `in_progress` (a snapshot of actively-worked
+          <div className="dash-hero-eyebrow">{H.EYEBROW(today)}</div>
+          {/* The outstanding-work sentence is the heading now — it is the only
+              line here that says what to do rather than what exists. The
+              greeting it replaced was a hardcoded "Welcome back, Super Admin",
+              shown to every role including sub-admins.
+
+              "In flight" is `in_progress` (a snapshot of actively-worked
               orders), not `orders_placed` (volume placed in the window) — the
               two answer different questions and were previously swapped. */}
-          <p className="dash-hero-desc">
-            You have <b>{stats.verifications}</b> verifications to review,{" "}
-            <b>{stats.pendingIntents}</b> pending intents, and <b>{stats.inProgress}</b> orders in
-            flight.
-          </p>
+          <h1 className="dash-hero-title">
+            {hero === null ? H.LOADING : H.SUMMARY(hero.verifications, hero.intents, hero.inFlight)}
+          </h1>
         </div>
       </div>
 
@@ -222,6 +323,14 @@ export function DashboardPage() {
       {/* ── Stat cards (2 rows of 6) ──────────────────── */}
       <StatsGrid items={row1} />
       <StatsGrid items={row2} />
+
+      {/* Exception work — items an admin has to act on, as opposed to the
+          inventory counters above. Kept in its own row because that is the
+          distinction that matters when you open this screen. */}
+      <div>
+        <div className="sec-label">{"Needs Attention"}</div>
+        <StatsGrid items={exceptions} className="cols-4" />
+      </div>
     </div>
   );
 }

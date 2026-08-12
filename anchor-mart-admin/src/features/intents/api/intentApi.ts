@@ -3,6 +3,7 @@ import { INTENT_ENDPOINTS, ORDER_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
 import type {
+  AvailabilityState,
   GetIntentStatsParams,
   GetIntentsParams,
   IntentApi,
@@ -14,6 +15,7 @@ import type {
   IntentItem,
   IntentListResult,
   IntentStats,
+  ItemAvailability,
   RejectIntentPayload,
   RejectIntentResponse,
 } from "../types/intent.types";
@@ -90,6 +92,41 @@ function mapAssignedAdmin(value: unknown): AssignedAdmin | null {
   const email = str(getProp(value, "email"));
   if (!id && !email) return null;
   return { id, email, name: str(getProp(value, "name")) || email };
+}
+
+/** Reads the per-item availability object, or null when unverified. */
+function mapAvailability(value: unknown): ItemAvailability | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as Record<string, unknown>;
+  if (typeof v.is_available !== "boolean") return null;
+  return {
+    is_available: v.is_available,
+    available_qty: num(v.available_qty),
+    // NOT `items[].quantity`: an unpaid order can change its quantity after
+    // verification, so the two legitimately differ. Comparing against the
+    // current quantity would report a shortfall nobody measured.
+    requested_qty: num(v.requested_qty),
+    note: str(v.note),
+    reported_at: str(v.reported_at) || null,
+  };
+}
+
+/**
+ * The four presentation states, exactly as the backend defines them:
+ *
+ *   null                                       → unverified
+ *   is_available && available >= requested     → available
+ *   is_available && available <  requested     → short  (by requested - available)
+ *   !is_available                              → unavailable
+ */
+function availabilityState(a: ItemAvailability | null): {
+  state: AvailabilityState;
+  shortBy: number;
+} {
+  if (!a) return { state: "unverified", shortBy: 0 };
+  if (!a.is_available) return { state: "unavailable", shortBy: 0 };
+  const shortBy = a.requested_qty - a.available_qty;
+  return shortBy > 0 ? { state: "short", shortBy } : { state: "available", shortBy: 0 };
 }
 
 /** Maps a raw API item into the drawer item model, including Flow 06 signals. */
@@ -278,56 +315,35 @@ export const intentApi = baseApi.injectEndpoints({
         const anchorage = o.anchorage as Record<string, unknown> | null | undefined;
         const assignment = o.active_assignment as Record<string, unknown> | null | undefined;
 
-        // Availability lines, keyed by order item.
+        // Availability comes from `items[].availability` and nothing else.
         //
-        // The *list* endpoint folds verification results into each item row, but
-        // the detail endpoint does not: `AdminOrderItemSerializer` carries no
-        // `is_available` / `available_qty` at all. There the truth lives in the
-        // separate `availability_reports[].lines[]` collection, which this
-        // mapper used to ignore — so every item read `available: null` and the
-        // drawer showed "Checking…" against items the partner had already
-        // verified, contradicting its own Fulfilment tab.
-        //
-        // Reports are prefetched `-submitted_at`, so index 0 is the live one.
-        const reports = asArray(o.availability_reports as unknown) ?? [];
-        const latestLines = asArray(getProp(reports[0], "lines")) ?? [];
-        const lineByItemId = new Map<string, Record<string, unknown>>();
-        for (const line of latestLines) {
-          const id = str(getProp(line, "order_item_id"));
-          if (id) lineByItemId.set(id, line as Record<string, unknown>);
-        }
-
+        // The backend resolves it per item, newest line first, because
+        // verification is a loop — an item reported missing can later be found.
+        // A previous version merged `availability_reports[0].lines[]` instead,
+        // which is report-level newest, not item-level: an item re-verified in a
+        // later report that did not re-list every line read as unverified.
+        // `availability_reports[]` remains in the payload as history and must
+        // not be used to derive current state.
         const items: IntentDetailItem[] = (asArray(o.items as unknown) ?? []).map(
           (raw: unknown, idx: number) => {
             const r = raw as Record<string, unknown>;
             const variant = r.variant as Record<string, unknown> | null | undefined;
-            const requestedQty = num(r.quantity ?? r.qty ?? r.requested_qty) || 1;
-            const line = lineByItemId.get(str(r.id));
-            // Item-level fields first (the list shape), then the report line.
-            const availableRaw = r.available_qty ?? line?.available_qty;
-            const availableQty = typeof availableRaw === "number" ? availableRaw : null;
-            const isAvailableRaw = r.is_available ?? line?.is_available;
-            const isAvailable = typeof isAvailableRaw === "boolean" ? isAvailableRaw : null;
-            const shortfallRaw = r.shortfall;
-            const shortfall =
-              typeof shortfallRaw === "number"
-                ? shortfallRaw
-                : availableQty !== null
-                  ? Math.max(0, requestedQty - availableQty)
-                  : 0;
+            const availability = mapAvailability(r.availability);
+            const { state, shortBy } = availabilityState(availability);
             return {
               id: str(r.id) || `item-${idx}`,
               orderItemId: str(r.id),
               name: str(r.product_name) || str(variant?.product_name) || "Item",
               sku: str(r.sku) || str(variant?.sku),
-              qty: requestedQty,
+              qty: num(r.quantity) || 1,
               unitPrice: str(r.unit_price),
               subtotal: str(r.subtotal),
-              available: isAvailable,
-              availableQty,
-              shortfall,
-              needsSuggestion:
-                r.needs_suggestion === true || isAvailable === false || shortfall > 0,
+              availability,
+              availabilityState: state,
+              shortBy,
+              // A line needs a replacement when the partner could not fully
+              // supply it — unavailable, or available but short.
+              needsSuggestion: state === "unavailable" || state === "short",
             };
           },
         );
@@ -349,8 +365,12 @@ export const intentApi = baseApi.injectEndpoints({
         const estimatedSubtotal = items.reduce((sum, item) => {
           const unit = Number.parseFloat(item.unitPrice);
           if (!Number.isFinite(unit)) return sum;
-          const billableQty =
-            item.availableQty === null ? item.qty : Math.min(item.availableQty, item.qty);
+          // Unverified lines count at their ordered quantity; verified ones at
+          // what the partner actually found. An unavailable line contributes
+          // nothing, since `available_qty` is what can be supplied.
+          const billableQty = item.availability
+            ? Math.min(item.availability.available_qty, item.qty)
+            : item.qty;
           return sum + unit * billableQty;
         }, 0);
 
@@ -370,7 +390,10 @@ export const intentApi = baseApi.injectEndpoints({
             str(o.customer_email) ||
             "—",
           sailorEmail: str(customer?.email) || str(o.customer_email) || str(o.user_email),
-          sailorPhone: str(customer?.whatsapp_number) || str(shipping?.contact),
+          // `shipping_address.phone` is the field. Reading `contact` — the shape
+          // seeded orders use — meant every app-created order showed "No phone
+          // on file" with the number present in the response.
+          sailorPhone: str(customer?.whatsapp_number) || str(shipping?.phone),
           // Vessel & shipping
           vesselName: str(shipping?.vessel_name),
           imo: str(shipping?.imo) || str(shipping?.imo_number),
@@ -378,6 +401,9 @@ export const intentApi = baseApi.injectEndpoints({
           portCode: str(port?.port_code),
           anchorageName:
             str(anchorage?.anchorage_name) || str(o.anchorage_name) || str(port?.port_name) || "—",
+          // From the anchorage object — `shipping_address.anchorage_code` is
+          // blank on app-created orders.
+          anchorageCode: str(anchorage?.anchorage_code),
           shipArrivalDate: formatDate(str(o.ship_arrival_date)),
           expectedDeparture: formatDate(str(o.expected_departure)),
           // Items
@@ -400,6 +426,9 @@ export const intentApi = baseApi.injectEndpoints({
           // Ownership
           assignedAdmin,
           // Metadata
+          // The business placement event. `created_at` is the record's technical
+          // creation time and is kept separate rather than substituted.
+          placedAt: formatDate(str(o.placed_at)),
           createdAt: formatDate(str(o.created_at)),
           notes: str(o.notes),
           isExpress: o.is_express === true,

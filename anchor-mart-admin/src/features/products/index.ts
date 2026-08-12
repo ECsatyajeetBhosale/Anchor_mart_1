@@ -2,6 +2,7 @@ export { ProductsPage } from "./components/ProductsPage";
 export { SetCatalogTypeDialog } from "./components/SetCatalogTypeDialog";
 export { useProducts } from "./hooks/useProducts";
 export {
+  useGetAllProductsQuery,
   useGetProductsQuery,
   useGetProductQuery,
   useGetProductStatsQuery,

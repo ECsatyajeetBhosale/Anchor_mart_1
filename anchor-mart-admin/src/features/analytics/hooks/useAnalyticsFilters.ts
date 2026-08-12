@@ -23,7 +23,10 @@ const PERIOD_PARAM: Record<AnalyticsPeriod, AnalyticsPeriodParam> = {
  * pill clears any active range — mirroring the dashboard exactly.
  */
 export function useAnalyticsFilters() {
-  const [period, setPeriod] = useState<AnalyticsPeriod>("7 Days");
+  // Year by default. A 7-day window is empty on most of this data, so the
+  // screen opened on blank charts and read as broken rather than as a narrow
+  // period — the operator had to widen it before seeing anything at all.
+  const [period, setPeriod] = useState<AnalyticsPeriod>("Year");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   // A complete custom range takes precedence over the period pills.

@@ -75,6 +75,29 @@ export const productsApi = baseApi.injectEndpoints({
             ]
           : [{ type: "Products", id: "PARTIAL-LIST" }],
     }),
+    /**
+     * Whole-catalog product list for pickers — all three catalog types, with
+     * `catalog_type` on every row. Same filters as the scoped list; here
+     * `catalog_type` additionally accepts `marine_emergency`.
+     */
+    getAllProducts: builder.query<
+      ProductListResponse,
+      GetProductsParams & { catalogType?: string }
+    >({
+      query: (params) => ({
+        url: PRODUCT_ENDPOINTS.GET_ALL_PRODUCTS,
+        method: "GET",
+        params: {
+          page: params.page,
+          page_size: params.limit,
+          search: params.search || undefined,
+          catalog_type: params.catalogType || undefined,
+          is_active: params.isActive === undefined ? undefined : params.isActive ? "True" : "False",
+          category: params.category || undefined,
+        },
+      }),
+      providesTags: [{ type: "Products", id: "ALL-LIST" }],
+    }),
     getProductStats: builder.query<ProductStats, void>({
       query: () => ({ url: PRODUCT_ENDPOINTS.GET_STATS, method: "GET" }),
       providesTags: [{ type: "Products", id: "STATS" }],
@@ -221,6 +244,7 @@ export const productsApi = baseApi.injectEndpoints({
 
 // Export hooks for usage in components
 export const {
+  useGetAllProductsQuery,
   useGetProductsQuery,
   useGetProductQuery,
   useGetProductStatsQuery,

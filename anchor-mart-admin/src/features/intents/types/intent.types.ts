@@ -130,6 +130,33 @@ export interface IntentData {
 /* Intent detail — full order detail fetched on drawer open             */
 /* ------------------------------------------------------------------ */
 
+/**
+ * The partner's current verification answer for one line, or `null` when nobody
+ * has verified it yet.
+ *
+ * Resolved by the backend **per item, newest line first** — verification is a
+ * loop, so an item reported missing can later be found. This is the single
+ * authoritative source; `availability_reports[]` is history and must not be used
+ * to derive the current state.
+ */
+export interface ItemAvailability {
+  is_available: boolean;
+  available_qty: number;
+  /**
+   * What was requested **at the time of that verification** — deliberately not
+   * `items[].quantity`, which an unpaid order can change afterwards. Comparing
+   * against the item's current quantity would report a shortfall that was never
+   * measured.
+   */
+  requested_qty: number;
+  /** `""` when there is no note — not `null`. */
+  note: string;
+  reported_at: string | null;
+}
+
+/** The four states an item can be in, derived only from `availability`. */
+export type AvailabilityState = "unverified" | "available" | "short" | "unavailable";
+
 /** A line item with pricing (from the order detail API). */
 export interface IntentDetailItem {
   id: string;
@@ -138,10 +165,12 @@ export interface IntentDetailItem {
   qty: number;
   unitPrice: string;
   subtotal: string;
-  /** true = available, false = unavailable, null = unknown/checking. */
-  available: boolean | null;
-  availableQty: number | null;
-  shortfall: number;
+  /** Raw availability object, straight from the API. `null` = unverified. */
+  availability: ItemAvailability | null;
+  /** Derived presentation state — the only thing the badge reads. */
+  availabilityState: AvailabilityState;
+  /** `requested_qty - available_qty` when short, else 0. */
+  shortBy: number;
   needsSuggestion: boolean;
   /** The `OrderItem` id — required by the suggest API (Flow 06 API 11). */
   orderItemId: string;
@@ -167,6 +196,9 @@ export interface IntentDetail {
   portName: string;
   portCode: string;
   anchorageName: string;
+  /** From `anchorage.anchorage_code` — `shipping_address.anchorage_code` is
+   *  blank on app-created orders. */
+  anchorageCode: string;
   shipArrivalDate: string;
   expectedDeparture: string;
   /**
@@ -194,6 +226,8 @@ export interface IntentDetail {
   // Ownership
   assignedAdmin: AssignedAdmin | null;
   // Metadata
+  /** The business placement event (`placed_at`), not the record's creation. */
+  placedAt: string;
   createdAt: string;
   notes: string;
   isExpress: boolean;

@@ -93,6 +93,31 @@ export function useDashboard() {
     specialRequestCancellations: formatStat(statsQuery.data?.special_request_cancellations),
     rewards: formatStat(statsQuery.data?.rewards),
 
+    /* ── exception work — unactioned items needing an admin ──────────────── */
+    // Returned by the endpoint since before this screen shipped and never
+    // mapped, so 15 items of outstanding work were invisible on the screen
+    // whose job is to surface them.
+    deliveryFailed: formatStat(statsQuery.data?.delivery_failed),
+    /** Staleness qualifier for `deliveryFailed` — the oldest unattended failure. */
+    oldestFailedAt: statsQuery.data?.oldest_failed_at ?? null,
+    deltaOpen: formatStat(statsQuery.data?.delta_open),
+    deltaExpired: formatStat(statsQuery.data?.delta_expired),
+    /** Customer location reports awaiting an admin decision. The legacy
+     *  `silent_alerts_count` was the same number under a different name. */
+    locationReportsPending: formatStat(statsQuery.data?.location_reports_pending),
+
+    /**
+     * Unformatted counts for the hero sentence.
+     *
+     * The formatted values above are localised strings (and "—" while loading),
+     * which cannot be pluralised — that is why the hero read "1 verifications".
+     */
+    raw: {
+      verifications: statsQuery.data?.verifications,
+      pendingIntents: statsQuery.data?.pending_intents,
+      inProgress: statsQuery.data?.in_progress,
+    },
+
     /* ── period counts — these follow the header filter ──────────────────── */
     ordersPlaced: formatStat(statsQuery.data?.orders_placed),
     cancelled: formatStat(statsQuery.data?.cancelled),

@@ -47,6 +47,31 @@ export const MESSAGES = {
     },
   },
   DASHBOARD: {
+    /**
+     * The hero sentence — the only line on this screen that says what to *do*
+     * rather than what exists, which is why it is now the heading.
+     *
+     * It replaced a hardcoded "Welcome back, Super Admin": that string was not
+     * read from the session at all, so it greeted a sub-admin as a super admin
+     * while the sidebar two inches below correctly showed `admin`. On a console
+     * where role decides what you may do, a heading that misstates it is worse
+     * than no heading.
+     *
+     * Counts are pluralised. The formatted stats are localised strings, so this
+     * takes the raw numbers — reading the formatted ones is what produced
+     * "1 verifications to review".
+     */
+    HERO: {
+      EYEBROW: (date: string) => `Operations Dashboard · ${date}`,
+      LOADING: "Loading today's figures…",
+      SUMMARY: (verifications: number, intents: number, inFlight: number) =>
+        [
+          `${verifications} ${verifications === 1 ? "verification" : "verifications"} to review`,
+          `${intents} pending ${intents === 1 ? "intent" : "intents"}`,
+          `${inFlight.toLocaleString()} ${inFlight === 1 ? "order" : "orders"} in flight`,
+        ].join(", "),
+    },
+
     TITLE: "Operations Dashboard",
     TOTAL_SAILORS: "Total Sailors",
     ACTIVE_PARTNERS: "Active Partners",
@@ -179,6 +204,19 @@ export const MESSAGES = {
     SALES_TREND: "Sales Trend (Daily)",
     ORDERS_BY_CATEGORY: "Orders by Category",
     PRODUCT_SALES: "Product-wise Sales",
+    CATALOG_TYPE_ALL: "All types",
+    /** Picker placeholder — no product has been explicitly chosen. */
+    PRODUCT_PLACEHOLDER: "Select a product",
+    /** Prefixes the auto-picked product's name in the card title. */
+    PRODUCT_TOP_PREFIX: "Top product ·",
+    /** Shown when the charted product has been soft-deleted. Its sales still
+     *  count — the endpoint reports history, and delisting does not undo it. */
+    PRODUCT_DELISTED: "Delisted",
+    CATALOG_TYPE: {
+      regular: "Regular",
+      express: "Express",
+      marine_emergency: "Marine Emergency",
+    } as Record<string, string>,
     PRODUCT_METRICS: {
       REVENUE_7D: "Revenue (7d)",
       UNITS_SOLD: "Units Sold",
@@ -810,6 +848,11 @@ export const MESSAGES = {
       REASSIGN_HINT: "A partner is verifying — reassign to a different partner if needed.",
       QTY: (q: number) => `Qty: ${q}`,
       AVAILABLE: "Available",
+      /** Nobody has verified this line yet — distinct from "unavailable". */
+      UNVERIFIED: "Unverified",
+      /** `requested_qty - available_qty` from the verification, not the item's
+       *  current quantity. */
+      SHORT_BY: (n: number) => `Short by ${n}`,
       UNAVAILABLE: "Unavailable",
       CHECKING: "Checking…",
       PARTNER_LABEL: "Assign to Partner",
@@ -4029,6 +4072,16 @@ export const MESSAGES = {
     EMAIL_INVALID: "Enter a valid email address",
   },
   COMMON: {
+    /** Shared long-list picker: server-side search, paged loading, reset. */
+    SEARCHABLE_SELECT: {
+      PLACEHOLDER: "Select…",
+      SEARCH_PLACEHOLDER: "Search…",
+      NO_RESULTS: "No matches",
+      LOADING: "Loading…",
+      LOAD_MORE: "Load more",
+      CLEAR: "Clear",
+      CLEAR_SEARCH: "Clear search",
+    },
     SAVE_CHANGES: "Save Changes",
     CANCEL: "Cancel",
     // Dismisses a read-only view. "Cancel" implies discarding an edit that a

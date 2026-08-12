@@ -77,12 +77,28 @@ export interface ProductSalesProduct {
   id: string;
   name: string;
   category: string;
+  /** `regular` | `express` | `marine_emergency`. Added 12 Aug 2026. */
+  catalog_type?: string;
+  is_active?: boolean;
+  /**
+   * True when the product has been soft-deleted.
+   *
+   * The endpoint deliberately still reports a delisted product's full history —
+   * it reports on the past, and delisting does not undo sales made inside the
+   * window. Label it; do not treat it as an error.
+   */
+  is_deleted?: boolean;
 }
 
 /** Period-over-period growth percentages. */
 export interface ProductSalesGrowth {
-  units: number;
-  revenue: number;
+  /**
+   * Percentages, and **either may be `null`** — meaning *no baseline* (the
+   * previous period sold nothing), which is not the same as zero growth.
+   * Render a dash, never "0%".
+   */
+  units: number | null;
+  revenue: number | null;
 }
 
 /** A single bucket in the product-sales series. */

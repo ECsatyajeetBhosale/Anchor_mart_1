@@ -849,6 +849,93 @@ one, so it is reference material rather than a filter.
 **Verified.** `tsc --noEmit` clean · `biome lint src/` reports **12 findings, all pre-existing BL-04,
 zero new** · `vite build` exits 0.
 
+### C-12 — Analytics: default period, searchable product picker · 12 Aug 2026 · authorized by user
+
+**Default period → Year.** The screen opened on a 7-day window that is empty on this data, so it
+rendered blank charts and read as broken rather than as a narrow period — the operator had to widen
+it before seeing anything.
+
+**Product picker rebuilt — and this closes a BL-03 site.** `useProductSales` asked for `limit: 100`
+against `BaseListProductsView`, which caps a page at 50 (`CustomPagination`). The extra 50 were never
+sent and no error was raised, so the picker silently listed the first 50 products and **the 51st
+could not be charted at all.** It now searches server-side, pages on demand, and offers a reset.
+
+New shared `SearchableSelect` (`components/common/`): trigger, search field, scrollable options,
+"Load more", and an optional clear row. It exists because `DropdownSelect` renders whatever array it
+is handed, so every long-list caller fetched one page and hoped. **It never filters locally** —
+filtering a truncated page would look like it worked while still hiding everything past the cap.
+
+The reset is worded **"Show top product"**, not "Clear": clearing reverts to the endpoint's own top
+product rather than emptying the chart, so the label states what happens.
+
+**BL-03 now stands at 7 remaining call sites** (was 8). The others are category and emergency-category
+pickers in products/spares plus the substitution candidates panel; `SearchableSelect` is the
+ready-made fix for each.
+
+**Files:** `components/common/SearchableSelect.tsx` *(new)* ·
+`features/analytics/{hooks/useAnalyticsFilters.ts,hooks/useProductSales.ts,components/ProductSalesCard.tsx}` ·
+`lib/messages.ts`
+
+**Verified.** `tsc --noEmit` clean · `biome lint src/` reports **12 findings, all pre-existing BL-04,
+zero new** · `vite build` exits 0.
+
+### C-13 — Analytics picker on the whole catalog · 12 Aug 2026 · authorized by user
+
+Adopted the backend's 12 Aug additions, which closed a defect C-12 had only half-fixed.
+
+**The picker could reach 36 of 50 products.** C-12 fixed the `limit: 100` truncation but kept reading
+`get-products/`, which serves the **general catalog only** — regular + express. The **14
+marine-emergency products were absent from a perfectly ordinary 200**, 13 of them with real sales.
+Two silent failures stacked on one control, and the second was invisible until the backend documented
+the two-endpoint split.
+
+Now on `get-all-products/` — one paginated, searchable list spanning all three types, `catalog_type`
+on every row.
+
+**Also adopted:**
+
+| Change | Effect |
+| ------ | ------ |
+| `product.catalog_type` / `is_active` / `is_deleted` | the card now labels what it charted |
+| Delisted label | a soft-deleted product is **badged, not hidden or errored** — it reports real history, and delisting does not undo sales made inside the window |
+| `growth` typed `number \| null` | `null` means *no baseline*, not zero growth; both render a dash, never "0%" |
+
+**The auto-pick change is a backend behaviour change on a shipped screen.** With no `product_id` the
+default previously resolved to a **soft-deleted** product on live data — and since pickers exclude
+deleted products, an operator who navigated away could never return to it. The default now chooses
+among still-listed products only; an explicit id still resolves anything and reports its full
+history. Two backend regression tests pin both halves. Recorded here so the change in default
+product is not read as frontend drift.
+
+**Not reconcilable, by design:** special-request revenue is variant-less, so it never enters
+`DailyProductMetrics`. Summing every product's revenue will come out **below** sales-trend by exactly
+that volume. The two are kept out of any side-by-side comparison.
+
+**Files:** `lib/apiEndpoints.ts` · `features/products/{api/productApi.ts,index.ts}` ·
+`features/analytics/{hooks/useProductSales.ts,types/analytics.types.ts,components/ProductSalesCard.tsx}` ·
+`lib/messages.ts`
+
+**Verified.** `tsc --noEmit` clean · `biome lint src/` reports **12 findings, all pre-existing BL-04,
+zero new** · `vite build` exits 0.
+
+**Follow-up (C-13a).** The picker now shows each product's **catalog type** on its row and carries
+**type chips** — All types / Regular / Express / Marine Emergency — applied server-side via
+`get-all-products/?catalog_type=`. Requested because an operator had to know the type *before*
+choosing, and a name alone does not say whether a product is a marine-emergency spare.
+
+The reset row is now labelled **"Clear"**, and the picker no longer claims a selection it was not
+given. It previously displayed the endpoint's auto-picked product, so an operator arriving at
+Analytics saw a product name in the control with no way to tell it from one they had chosen — a
+filter that appeared to be applied and could not be removed.
+
+The control now shows **"Select a product"** until one is picked. The chart is not left anonymous:
+when no explicit pick exists the card title names the subject — *"Top product · Fuel Injection Pump
+Assembly"* — so the source of the figure is stated exactly where it changes. Clearing returns to that
+state; the chart cannot be empty, because the endpoint always falls back to its own top product.
+
+**Open — raised with the backend:** `get-all-products/` is not yet in the Postman collection, so the
+drift check that underwrites [§4.3](#43-contract-gates-) no longer covers the full route table.
+
 ---
 
 ## 11. Method

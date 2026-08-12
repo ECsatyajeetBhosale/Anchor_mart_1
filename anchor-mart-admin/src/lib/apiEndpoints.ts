@@ -8,6 +8,17 @@
 export const PRODUCT_ENDPOINTS = {
   GET_STATS: "/superadmin/products/product-stats/",
   GET_PRODUCTS: "/superadmin/products/get-products/",
+  /**
+   * Whole-catalog list — all three catalog types in one paginated, searchable
+   * response, each row carrying `catalog_type`. **Use this for pickers.**
+   *
+   * `GET_PRODUCTS` above serves the general catalog only (regular + express) and
+   * does not say so: it returns 200 with an ordinary page and the
+   * marine-emergency products are simply absent. The partition is deliberate —
+   * catalog type decides which create/update/delete rules apply — so the scoped
+   * endpoints stay as the management surfaces and read-only pickers use this.
+   */
+  GET_ALL_PRODUCTS: "/superadmin/products/get-all-products/",
   GET_PRODUCT: (id: string) => `/superadmin/products/get-product/${id}/`,
   ADD_PRODUCT: "/superadmin/products/add-product/",
   UPDATE_PRODUCT: (id: string) => `/superadmin/products/update-product/${id}/`,
@@ -468,16 +479,13 @@ export const DASHBOARD_ENDPOINTS = {
   GET_TOP_PRODUCTS: "/superadmin/dashboard/top-products/",
   GET_ACTIVE_PARTNERS: "/superadmin/dashboard/active-partners/",
   GET_ACTION_REQUIRED: "/superadmin/dashboard/action-required/",
-  /**
-   * The full operations order list. Distinct from `live-orders/`, which is a
-   * capped real-time preview: this one is searchable and filterable by
-   * `order_status` and `filter_by_port`, and paginated.
-   *
-   * `filter_by_port` takes the port **name** (not its id) — the values come from
-   * `GET_PORTS` below.
+  /*
+   * `GET_ORDERS` (legacy `dashboard/orders/`) removed — no consumer, and the
+   * Orders screen's own list is the authoritative paid-order population.
    */
-  GET_ORDERS: "/superadmin/dashboard/orders/",
   // Order detail keyed by the `order_id` query param (not a path segment).
+  // KEPT despite having no consumer: it exposes fields the presentational
+  // live-order detail does not, so it is not a duplicate of it.
   GET_ORDER_DETAIL: "/superadmin/dashboard/orders/detail/",
   // Ports available as `filter_by_port` values on the orders list.
   GET_PORTS: "/superadmin/dashboard/ports/",

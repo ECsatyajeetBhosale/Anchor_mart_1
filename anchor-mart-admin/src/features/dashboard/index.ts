@@ -9,7 +9,6 @@ export {
   useGetLiveOrdersQuery,
   useGetRevenueQuery,
   useGetTopProductsQuery,
-  useGetDashboardOrdersQuery,
   useGetDashboardOrderDetailQuery,
   useGetDashboardPortsQuery,
 } from "./api/dashboardApi";

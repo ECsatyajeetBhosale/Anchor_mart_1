@@ -1,13 +1,9 @@
 // src/features/dashboard/api/dashboardApi.ts
 import { DASHBOARD_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
-import { MESSAGES } from "@/lib/messages";
 import type {
   ActionRequiredResponse,
   ActivePartnersResponse,
-  DashboardOrderRow,
-  DashboardOrdersParams,
-  DashboardOrdersResponse,
   DashboardPort,
   DashboardStatsParams,
   DashboardStatsResponse,
@@ -97,75 +93,23 @@ export const dashboardApi = baseApi.injectEndpoints({
       providesTags: [{ type: "Dashboard", id: "ACTION-REQUIRED" }],
     }),
 
-    /**
-     * The filterable operations order list. Unlike `live-orders/` this one is
-     * paginated and takes `search` / `order_status` / `filter_by_port`. Blank
-     * filters are dropped so the backend never receives an empty status.
+    /*
+     * `getDashboardOrders` (legacy `dashboard/orders/`) was removed here.
+     *
+     * It had no consumer, and the backend classified it as a safe removal
+     * candidate: the Orders screen's own list is the authoritative paid-order
+     * population, and this one returned a raw model dump — ~45 fields per row
+     * including soft-delete bookkeeping and a nested copy of the shipping
+     * address — over a different population again (875 vs 715).
+     *
+     * The three legacy definitions below it are deliberately KEPT despite also
+     * having no current consumer:
+     *   · `orders/detail/` exposes fields the presentational live-order detail
+     *     does not, and is not equivalent to it;
+     *   · `ports/` has no replacement;
+     * and `products/suggestion/` (in the intents feature) is live — it backs
+     * the substitution picker.
      */
-    getDashboardOrders: builder.query<DashboardOrdersResponse, DashboardOrdersParams>({
-      query: (params) => ({
-        url: DASHBOARD_ENDPOINTS.GET_ORDERS,
-        method: "GET",
-        params: {
-          page: params.page,
-          page_size: params.limit,
-          search: params.search || undefined,
-          order_status: params.order_status || undefined,
-          filter_by_port: params.filter_by_port || undefined,
-          from_date: params.from_date || undefined,
-          to_date: params.to_date || undefined,
-        },
-      }),
-      transformResponse: (res: unknown): DashboardOrdersResponse => {
-        const prop = (v: unknown, k: string): unknown =>
-          v && typeof v === "object" ? (v as Record<string, unknown>)[k] : undefined;
-        const arr = (v: unknown): unknown[] | null => (Array.isArray(v) ? v : null);
-        const pick = (o: unknown, ...keys: string[]): string => {
-          for (const k of keys) {
-            const v = prop(o, k);
-            if (typeof v === "string" && v.trim()) return v.trim();
-            if (typeof v === "number") return String(v);
-          }
-          return "";
-        };
-
-        const results = prop(res, "results");
-        const rawRows =
-          arr(prop(results, "data")) ?? arr(results) ?? arr(prop(res, "data")) ?? arr(res) ?? [];
-        const countRaw = prop(res, "count") ?? prop(results, "count");
-
-        const rows: DashboardOrderRow[] = rawRows.map((row, index) => {
-          // `sailor` / `port` / `partner` may each be a nested object or a bare
-          // string, and this endpoint does not always send `status_display`.
-          const sailor = prop(row, "sailor");
-          const port = prop(row, "port");
-          const partner = prop(row, "partner");
-          const ship = pick(row, "ship") || pick(prop(row, "ship"), "vessel_name", "name");
-          const portName = typeof port === "string" ? port : pick(port, "name", "port_name");
-          const amount = Number(prop(row, "total_amount") ?? prop(row, "total"));
-
-          return {
-            id: pick(row, "id", "order_id") || `order-${index}`,
-            orderNumber: pick(row, "order_number", "order_no") || "—",
-            sailorName:
-              (typeof sailor === "string" ? sailor : pick(sailor, "name", "full_name", "email")) ||
-              pick(row, "customer_name") ||
-              "—",
-            shipPort: [ship, portName].filter(Boolean).join(" · ") || "—",
-            partnerName:
-              (typeof partner === "string" ? partner : pick(partner, "name", "full_name")) ||
-              MESSAGES.DASHBOARD.UNASSIGNED,
-            status: pick(row, "status_display", "status") || "—",
-            total: Number.isFinite(amount) ? `$${amount.toFixed(2)}` : "—",
-          };
-        });
-
-        return { count: typeof countRaw === "number" ? countRaw : rows.length, rows };
-      },
-      providesTags: [{ type: "Orders", id: "DASHBOARD-ORDERS" }],
-    }),
-
-    /** Order detail for the dashboard list — keyed by `order_id` as a query param. */
     getDashboardOrderDetail: builder.query<LiveOrderDetailsResponse, string>({
       query: (orderId) => ({
         url: DASHBOARD_ENDPOINTS.GET_ORDER_DETAIL,
@@ -212,7 +156,6 @@ export const {
   useGetTopProductsQuery,
   useGetActivePartnersQuery,
   useGetActionRequiredQuery,
-  useGetDashboardOrdersQuery,
   useGetDashboardOrderDetailQuery,
   useGetDashboardPortsQuery,
 } = dashboardApi;

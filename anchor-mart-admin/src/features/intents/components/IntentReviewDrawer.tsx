@@ -38,7 +38,7 @@ import {
   IconUserCheck,
   IconX,
 } from "@tabler/icons-react";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useGetIntentDetailQuery } from "../api/intentApi";
 import { useGetSuggestedItemsQuery } from "../api/substitutionApi";
@@ -114,12 +114,43 @@ function money(value: string): string {
   return value;
 }
 
-/** Availability pill for one order line (short ≠ unavailable). */
+/**
+ * Availability pill for one order line — the four states the backend defines.
+ *
+ * **Short is not unavailable.** A partially-supplied line still delivers what
+ * was found, and the two lead an admin to different actions, so they get
+ * different badges. Likewise **unverified is not unavailable**: nobody has
+ * looked yet, which means chase the partner, not source a replacement.
+ *
+ * The count comes from `availability` (`requested_qty - available_qty`), never
+ * from `items[].quantity` — an unpaid order can change its quantity after
+ * verification, so comparing against the current one would report a shortfall
+ * that was never measured.
+ */
 function availabilityBadge(item: IntentDetailItem) {
-  if (item.available === false) return <Badge variant="danger">{R.UNAVAILABLE}</Badge>;
-  if (item.shortfall > 0) return <Badge variant="warning">{S.LINE_SHORT}</Badge>;
-  if (item.available === true) return <Badge variant="success">{R.AVAILABLE}</Badge>;
-  return <Badge variant="neutral">{R.CHECKING}</Badge>;
+  // The partner's note, surfaced on the two states where it explains something
+  // the admin has to act on — why a line is missing, or short. Presentation
+  // only: it never feeds the state above it. Empty string when absent, not null.
+  const note = item.availability?.note?.trim();
+  const explained = (badge: ReactNode) =>
+    note ? (
+      <span title={note} className="cursor-help">
+        {badge}
+      </span>
+    ) : (
+      badge
+    );
+
+  switch (item.availabilityState) {
+    case "unavailable":
+      return explained(<Badge variant="danger">{R.UNAVAILABLE}</Badge>);
+    case "short":
+      return explained(<Badge variant="warning">{R.SHORT_BY(item.shortBy)}</Badge>);
+    case "available":
+      return <Badge variant="success">{R.AVAILABLE}</Badge>;
+    default:
+      return <Badge variant="neutral">{R.UNVERIFIED}</Badge>;
+  }
 }
 
 /**
@@ -291,7 +322,10 @@ export function IntentReviewDrawer({
     itemCount: detail?.itemCount ?? intent.itemCount,
     port: detail?.portName || intent.port,
     arrival: detail?.shipArrivalDate || intent.ar,
-    submitted: detail?.createdAt || intent.sb,
+    // The business placement event (`placed_at`), not the record's technical
+    // creation time. `createdAt` remains available and is the fallback only
+    // while the detail request is in flight.
+    submitted: detail?.placedAt || detail?.createdAt || intent.sb,
     isExpress: detail?.isExpress ?? false,
     isEmergency: detail?.isEmergency ?? false,
     isUnbilled: UNBILLED_STATUSES.has(status),
