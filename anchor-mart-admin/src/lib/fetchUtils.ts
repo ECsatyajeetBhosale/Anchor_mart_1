@@ -12,6 +12,29 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
  */
 export const baseApi = createApi({
   reducerPath: "api",
+  /**
+   * Refetch every subscribed query when its component mounts.
+   *
+   * Without this the RTK Query defaults apply — `keepUnusedDataFor: 60` keeps a
+   * cache entry alive for 60s after the last subscriber unmounts, and
+   * `refetchOnMountOrArgChange` is `false` — so navigating Orders → Intents →
+   * Orders inside a minute served the cached rows and issued **no request at
+   * all**. Mutations invalidate their own tags correctly, so the operator's own
+   * edits always showed; what went stale was everything they did not cause —
+   * another admin claiming an order, a payment landing, a partner submitting
+   * verification, a Celery timer firing. On a console that drives live order
+   * queues, that is exactly the data that must not be stale.
+   *
+   * Cached data still renders immediately while the refetch is in flight
+   * (`isLoading` stays false when a cache entry exists; only `isFetching` goes
+   * true), so screens show their rows instantly and swap in fresh ones — no
+   * skeleton flash. Endpoints that must never serve a cached answer keep their
+   * own `keepUnusedDataFor: 0`.
+   *
+   * ⚠️ This makes data fresh *per navigation*, not real-time. A screen left open
+   * does not update on its own — that needs `pollingInterval` or a socket.
+   */
+  refetchOnMountOrArgChange: true,
   baseQuery: fetchBaseQuery({
     // Dev: empty baseUrl → relative URLs hit Vite proxy (no CORS)
     // Prod: full URL → requests go directly to backend

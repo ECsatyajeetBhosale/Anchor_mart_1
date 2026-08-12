@@ -1,4 +1,4 @@
-import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
+import { resolveTimelineStates } from "@/lib/timeline";
 import { cn } from "@/lib/utils";
 import {
   IconAlertTriangle,
@@ -81,15 +81,18 @@ export function Timeline({
   emptyLabel = "No timeline available",
   className,
 }: TimelineProps) {
-  // The first incomplete step is the current ("active") one.
-  const firstPendingIdx = items ? items.findIndex((t) => !t.is_done) : -1;
+  // States come from the producer, not from this view: the order-timeline
+  // endpoint declares them outright, and the dashboard ladder's `is_done` is
+  // converted in one shared place. See `lib/timeline.ts`.
+  const states = resolveTimelineStates(items ?? []);
   const rows = (items ?? []).map((item, i) => ({
     id: item.key,
-    state: item.is_done ? "done" : i === firstPendingIdx ? "active" : "pend",
+    state: states[i] === "pending" ? "pend" : states[i],
     icon: TIMELINE_ICONS[item.key] ?? <IconFileInvoice size={14} />,
-    // Prefer the canonical label over whatever the API sent, so a step reads
-    // identically here, in the status column, and in the legend.
-    title: ORDER_STATUS_BY_KEY[item.key]?.label ?? item.label,
+    // The step's own label wins. `ORDER_STATUS_BY_KEY` is keyed by order status
+    // and these steps are keyed by milestone, so it only ever resolved some of
+    // them — leaving one ladder worded in two vocabularies.
+    title: item.label,
     // Empty date/detail is fine — the sub line reserves its height via min-h.
     sub: [item.at, item.detail].filter(Boolean).join(" · "),
   }));

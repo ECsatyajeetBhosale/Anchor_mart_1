@@ -14,7 +14,7 @@ import {
 import {
   partnerOptionLabel,
   useAssignOrderMutation,
-  useGetAssignablePartnersQuery,
+  useGetPartnersByCapabilityQuery,
 } from "@/features/assignments";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
@@ -59,8 +59,10 @@ export function ExpressItemDrawer({ isOpen, onClose, item }: ExpressItemDrawerPr
   // to the order's port and required capability, which returns an empty picker
   // while partner port/capability data is incomplete. API 12 enforces the rule
   // regardless, so a mismatched pick is rejected server-side.
-  const { data: partners = [], isLoading: partnersLoading } = useGetAssignablePartnersQuery(
-    {},
+  // Express orders skip the intent funnel and are billed up front, so this is
+  // always a fulfilment assignment: only partners who can DELIVER.
+  const { data: partners = [], isLoading: partnersLoading } = useGetPartnersByCapabilityQuery(
+    { capability: "deliver" },
     { skip: !isOpen },
   );
   const [assignOrder, { isLoading: assigning }] = useAssignOrderMutation();

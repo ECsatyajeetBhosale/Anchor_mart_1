@@ -40,6 +40,12 @@ export interface NavItem {
   label: string;
   icon: ComponentType<{ size?: number; className?: string }>;
   path: string;
+  /**
+   * Count pill beside the label. **Only set this from real data.** Orders,
+   * Intents and Special Requests carried hardcoded "12" / "8" / "5" from the
+   * static template — numbers that never matched anything and never moved, so
+   * they read as unactioned work that did not exist.
+   */
   badge?: string | null;
   badgeVariant?: "warning" | "success" | "info" | "danger" | null;
 }
@@ -92,23 +98,18 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "Orders",
         icon: IconPackage,
         path: APP_ROUTES.ORDERS,
-        badge: "12",
       },
       {
         key: "intents",
         label: "Intents",
         icon: IconFileInvoice,
         path: APP_ROUTES.INTENTS,
-        badge: "8",
-        badgeVariant: "warning",
       },
       {
         key: "requests",
         label: "Special Requests",
         icon: IconClipboardText,
         path: APP_ROUTES.REQUESTS,
-        badge: "5",
-        badgeVariant: "warning",
       },
       {
         key: "sailors",

@@ -1,17 +1,31 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { type Column, DataTable } from "@/components/ui/data-table";
+import { Sheet, SheetContent, SheetFooter } from "@/components/ui/sheet";
 import { MESSAGES } from "@/lib/messages";
-import { IconCoin, IconFileDownload, IconPackage, IconTransfer, IconX } from "@tabler/icons-react";
+import {
+  IconAlertTriangle,
+  IconAnchor,
+  IconBolt,
+  IconCalendar,
+  IconCoin,
+  IconFileDownload,
+  IconPackage,
+  IconShip,
+  IconTransfer,
+  IconX,
+} from "@tabler/icons-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { DynamicTabs } from "./DynamicTabs";
+import { LifecycleRail } from "./LifecycleRail";
+import {
+  KV,
+  ReviewCustomerCard,
+  ReviewHeader,
+  ReviewSummaryStrip,
+  ReviewTiles,
+  Section,
+} from "./ReviewLayout";
 import { Timeline } from "./Timeline";
 
 const M = MESSAGES.ORDERS;
@@ -81,6 +95,31 @@ export interface OrderDetail {
   anchorageChange?: string;
   /** Full money breakdown. Omitted by callers that only have a list row. */
   pricing?: OrderPricing;
+
+  /* --- Review-layout fields (Flow 14) ---------------------------------
+   * The drawer used to render a flat key-value list, so it only asked for the
+   * handful of strings that list needed. Everything below already arrives on
+   * the same `GET /superadmin/orders/orders/{id}/` response the intents review
+   * drawer reads — it was simply being discarded in the mapping. All optional,
+   * so a caller holding just a list row (the parked Assignments board) still
+   * compiles and degrades to "—".
+   */
+  /** Raw status key, e.g. "order_confirmed" — drives the lifecycle rail. */
+  statusKey?: string;
+  sailorEmail?: string;
+  sailorPhone?: string;
+  vesselName?: string;
+  imo?: string;
+  portName?: string;
+  portCode?: string;
+  anchorageName?: string;
+  shipArrivalDate?: string;
+  expectedDeparture?: string;
+  orderDate?: string;
+  notes?: string;
+  itemCount?: number;
+  isExpress?: boolean;
+  isEmergency?: boolean;
 }
 
 /** A step in the order progress timeline (from the live-order details API). */
@@ -211,6 +250,48 @@ export function OrderDetailDrawer({
     if (order?.id) setTab(TAB_OVERVIEW);
   }, [order?.id]);
 
+  /**
+   * Item columns, mirroring the intents review drawer so the same order reads
+   * identically on both screens. No availability column here: that is a
+   * pre-payment verification signal, and by the time an order reaches this
+   * drawer the stock question is settled.
+   */
+  const itemColumns: Column<OrderItem>[] = [
+    {
+      id: "item",
+      header: D.ITEM_COLUMNS.ITEM,
+      cell: (row) => (
+        <div className="min-w-0 max-w-[230px]">
+          <div className="td-p trunc" title={row.name}>
+            {row.name}
+          </div>
+          {row.sku && <div className="td-id trunc">{row.sku}</div>}
+        </div>
+      ),
+    },
+    {
+      id: "qty",
+      header: D.ITEM_COLUMNS.QTY,
+      headerClassName: "w-14 text-center",
+      className: "w-14 text-center",
+      cell: (row) => <span className="td-p tabular-nums">{row.qty}</span>,
+    },
+    {
+      id: "unit",
+      header: D.ITEM_COLUMNS.UNIT,
+      headerClassName: "w-24 text-right",
+      className: "w-24 text-right",
+      cell: (row) => <span className="td-m tabular-nums">{row.price}</span>,
+    },
+    {
+      id: "subtotal",
+      header: D.ITEM_COLUMNS.SUBTOTAL,
+      headerClassName: "w-24 text-right",
+      className: "w-24 text-right",
+      cell: (row) => <span className="td-p tabular-nums">{row.lineTotal ?? row.price}</span>,
+    },
+  ];
+
   return (
     <Sheet open={!!order} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
@@ -221,33 +302,62 @@ export function OrderDetailDrawer({
       >
         {order && (
           <>
-            {/* Header — identity, plus the status/total an admin scans for.
-                No bottom border: the tab bar directly beneath supplies the rule,
-                so the two read as one block. */}
-            <SheetHeader className="p-6 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--teal-50)] text-[var(--teal-600)]">
-                  <IconPackage size={22} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <SheetTitle className="text-[15px] font-extrabold">
-                    {D.TITLE(order.id)}
-                  </SheetTitle>
-                  <SheetDescription>{order.terminal}</SheetDescription>
-                </div>
-                <span className="shrink-0 text-[17px] font-extrabold tabular-nums text-[var(--t1)]">
+            <ReviewHeader
+              icon={<IconPackage size={22} />}
+              title={D.TITLE(order.id)}
+              reference={order.id}
+              copyLabel={D.COPY_REF}
+              onCopy={() => {
+                navigator.clipboard?.writeText(order.id).catch(() => undefined);
+              }}
+            />
+
+            <ReviewSummaryStrip
+              badges={
+                <>
+                  <Badge
+                    variant={getStatusVariant(order.status)}
+                    showDot
+                    className="h-auto text-[12px] px-3 py-[5px]"
+                  >
+                    {order.status}
+                  </Badge>
+                  {order.isExpress && (
+                    <Badge variant="teal" className="h-auto text-[12px] px-3 py-[5px]">
+                      <IconBolt size={13} />
+                      {D.EXPRESS}
+                    </Badge>
+                  )}
+                  {order.isEmergency && (
+                    <Badge variant="danger" className="h-auto text-[12px] px-3 py-[5px]">
+                      <IconAlertTriangle size={13} />
+                      {D.EMERGENCY}
+                    </Badge>
+                  )}
+                </>
+              }
+              valueLabel={D.SUMMARY.TOTAL}
+              value={
+                <div className="text-[21px] font-extrabold leading-tight tracking-[-0.5px] text-[var(--t1)] tabular-nums">
                   {order.total}
-                </span>
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Badge
-                  variant={getStatusVariant(order.status)}
-                  className="h-auto text-[12px] px-3 py-[5px]"
-                >
-                  {order.status}
-                </Badge>
-              </div>
-            </SheetHeader>
+                </div>
+              }
+              rail={<LifecycleRail status={order.statusKey ?? ""} steps={timeline} />}
+              facts={[
+                { label: D.SUMMARY.ITEMS, value: String(order.itemCount ?? order.items.length) },
+                { label: D.SUMMARY.ORDER_DATE, value: order.orderDate ?? "" },
+                {
+                  label: D.SUMMARY.PORT,
+                  value: order.portName || order.terminal,
+                  icon: <IconAnchor size={14} className="shrink-0 text-[var(--navy-500)]" />,
+                },
+                {
+                  label: D.SUMMARY.ARRIVAL,
+                  value: order.shipArrivalDate ?? "",
+                  icon: <IconCalendar size={14} className="shrink-0 text-[var(--t4)]" />,
+                },
+              ]}
+            />
 
             {/* Tab bar sits outside the scroll container, flush against the
                 header, so it never drifts away from the order id. The bar's own
@@ -270,86 +380,81 @@ export function OrderDetailDrawer({
               {/* ── Overview: who, where and how it was paid ─────── */}
               {tab === TAB_OVERVIEW && (
                 <>
-                  <div className="sec-label">{D.ORDER_INFO}</div>
-                  <div className="detail-kv">
-                    <div className="detail-k">{D.SAILOR}</div>
-                    <div className="detail-v">{order.sailor}</div>
-                  </div>
-                  <div className="detail-kv">
-                    <div className="detail-k">{D.SOURCE}</div>
-                    <div className="detail-v">{order.source || "—"}</div>
-                  </div>
-                  <div className="detail-kv">
-                    <div className="detail-k">{D.INTENT_REF}</div>
-                    <div className="detail-v mono">{order.intent || "—"}</div>
-                  </div>
-                  <div className="detail-kv">
-                    <div className="detail-k">{D.SHIP_IMO}</div>
-                    <div className="detail-v mono cteal">{order.ship}</div>
-                  </div>
-                  <div className="detail-kv">
-                    <div className="detail-k">{D.TERMINAL}</div>
-                    <div className="detail-v">{order.terminal}</div>
-                  </div>
-                  <div className="detail-kv">
-                    <div className="detail-k">{D.ANCHORAGE_CHANGE}</div>
-                    <div className="detail-v">{order.anchorageChange || "—"}</div>
-                  </div>
-                  <div className="detail-kv">
-                    <div className="detail-k">{D.PARTNER}</div>
-                    <div className="detail-v">{order.partner}</div>
-                  </div>
-                  <div className="detail-kv">
-                    <div className="detail-k">{D.PAYMENT}</div>
-                    <div className="detail-v csuccess">{order.payment}</div>
-                  </div>
-                  <div className="detail-kv">
-                    <div className="detail-k">{D.COUPON}</div>
-                    <div className="detail-v">{order.coupon || D.COUPON_NONE}</div>
-                  </div>
+                  <Section title={D.CUSTOMER_INFO}>
+                    <ReviewCustomerCard
+                      name={order.sailor}
+                      roleLabel={D.SAILOR}
+                      email={order.sailorEmail ?? ""}
+                      phone={order.sailorPhone ?? ""}
+                      noEmailLabel={D.NO_EMAIL}
+                      noPhoneLabel={D.NO_PHONE}
+                    />
+                  </Section>
+
+                  <Section title={D.VESSEL_SHIPPING}>
+                    <ReviewTiles
+                      tiles={[
+                        {
+                          label: D.VESSEL,
+                          value: order.vesselName || order.ship,
+                          icon: <IconShip size={15} className="shrink-0 text-[var(--teal-600)]" />,
+                        },
+                        { label: D.IMO, value: order.imo ?? "", mono: true },
+                        {
+                          label: D.PORT,
+                          value: order.portName ?? "",
+                          icon: (
+                            <IconAnchor size={15} className="shrink-0 text-[var(--navy-500)]" />
+                          ),
+                        },
+                        { label: D.ANCHORAGE, value: order.anchorageName || order.terminal },
+                        {
+                          label: D.ARRIVAL,
+                          value: order.shipArrivalDate ?? "",
+                          icon: <IconCalendar size={14} className="shrink-0" />,
+                        },
+                        { label: D.EXPECTED_DEPARTURE, value: order.expectedDeparture ?? "" },
+                      ]}
+                    />
+                  </Section>
+
+                  <Section title={D.ORDER_SUMMARY}>
+                    <KV label={D.ORDER_DATE} value={order.orderDate ?? ""} />
+                    <KV label={D.PORT} value={order.portCode || order.portName || ""} />
+                    <KV label={D.SOURCE} value={order.source ?? ""} />
+                    <KV label={D.INTENT_REF} value={order.intent ?? ""} className="mono" />
+                    <KV label={D.ANCHORAGE_CHANGE} value={order.anchorageChange ?? ""} />
+                    <KV label={D.PARTNER} value={order.partner} />
+                    <KV label={D.PAYMENT} value={order.payment} className="csuccess" />
+                    <KV label={D.COUPON} value={order.coupon || D.COUPON_NONE} />
+                  </Section>
+
+                  <Section title={D.NOTES}>
+                    <div className="rounded-[var(--radius-md)] border border-[var(--border-sm)] bg-[var(--navy-25)] px-4 py-3 text-[12.5px] font-medium text-[var(--t3)]">
+                      {order.notes || D.NO_NOTES}
+                    </div>
+                  </Section>
                 </>
               )}
 
               {/* ── Items & pricing ──────────────────────────────── */}
               {tab === TAB_ITEMS && (
                 <>
-                  <div className="sec-label">{D.ITEMS}</div>
-                  {order.items.length === 0 ? (
-                    <div className="detail-kv">
-                      <div className="detail-v c4 w5">{D.NO_ITEMS}</div>
-                    </div>
-                  ) : (
-                    order.items.map((item) => (
-                      <div
-                        key={`${item.sku ?? item.name}-${item.qty}-${item.price}`}
-                        className="flex items-start justify-between gap-3 border-b border-[var(--border-xs)] py-2.5 last:border-b-0"
-                      >
-                        <div className="min-w-0">
-                          <div className="text-[13px] font-semibold text-[var(--t1)]">
-                            {item.name}
-                          </div>
-                          {item.sku && (
-                            <div className="mono text-[11px] text-[var(--t4)]">{item.sku}</div>
-                          )}
-                          {/* Spell the arithmetic out: a bare "$100.00" next to
-                              "×3" reads as the line total when it's the unit price. */}
-                          <div className="text-[11.5px] text-[var(--t4)] tabular-nums">
-                            {D.LINE_MATH(item.qty, item.price)}
-                          </div>
-                        </div>
-                        <div className="shrink-0 text-[13px] font-bold tabular-nums text-[var(--t1)]">
-                          {item.lineTotal ?? item.price}
-                        </div>
-                      </div>
-                    ))
-                  )}
+                  <Section title={D.ITEMS}>
+                    <DataTable
+                      columns={itemColumns}
+                      data={order.items}
+                      rowKey={(row) => `${row.sku ?? row.name}-${row.qty}-${row.price}`}
+                      emptyMessage={D.NO_ITEMS}
+                    />
+                  </Section>
 
                   {/* Full breakdown, every row always shown — a zero fee is
                       itself information, and hiding rows makes the arithmetic
                       harder to follow rather than easier. */}
                   {order.pricing && (
                     <>
-                      <div className="sec-label mt16">{D.PRICING}</div>
+                      <div className="sec-label">{D.PRICING}</div>
                       <PriceRow label={D.SUBTOTAL} value={order.pricing.subtotal} />
                       <PriceRow label={D.SHIPPING_FEE} value={order.pricing.shippingFee} />
                       <PriceRow label={D.TAX} value={order.pricing.tax} />

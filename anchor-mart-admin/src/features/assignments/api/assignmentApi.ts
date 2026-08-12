@@ -1,6 +1,8 @@
-import { ASSIGNMENT_ENDPOINTS } from "@/lib/apiEndpoints";
+import { ASSIGNMENT_ENDPOINTS, PARTNER_ENDPOINTS } from "@/lib/apiEndpoints";
 import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { baseApi } from "@/lib/fetchUtils";
+import type { PartnerCapability } from "@/lib/partnerCapability";
+import { isTimelineState } from "@/lib/timeline";
 import type {
   ApiUnassignedOrder,
   ApiUnassignedOrdersResponse,
@@ -81,6 +83,35 @@ function mapActiveAssignment(raw: unknown, index: number): Assignment {
   };
 }
 
+/**
+ * Rows → `AssignablePartner[]`. Shared by both partner queries: `partner/list/`
+ * and `assignable-partners/` render through the same `AdminPartnerSerializer`,
+ * so one mapper serves both and they cannot drift apart.
+ */
+function toPartnerRows(res: unknown): AssignablePartner[] {
+  const results = getProp(res, "results");
+  const rows =
+    asArray(getProp(results, "data")) ??
+    asArray(results) ??
+    asArray(getProp(res, "data")) ??
+    asArray(res) ??
+    [];
+  return rows.map((r) => ({
+    // assign-order keys on the user id, like every other partner endpoint.
+    deliveryPartnerId: pick(r, "user_id", "delivery_partner_id", "id"),
+    code: pick(r, "partner_id", "code"),
+    name: pick(r, "name", "full_name", "email") || "-",
+    email: pick(r, "email"),
+    port: pick(r, "port", "assigned_port"),
+    isAvailable: getProp(r, "is_available") !== false,
+    // Absent means "Both" — the documented default for a payload predating
+    // 2026-08-03. Reading a missing flag as `false` would show every
+    // pre-existing partner as incapable of the work they already do.
+    canVerify: getProp(r, "can_verify") !== false,
+    canDeliver: getProp(r, "can_deliver") !== false,
+  }));
+}
+
 export const assignmentApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     // Orders awaiting partner assignment. Returns the mapped UI rows directly.
@@ -132,38 +163,69 @@ export const assignmentApi = baseApi.injectEndpoints({
         // 100 was capped to 50 server-side; ask for what can actually arrive.
         params: { order_id: arg?.orderId || undefined, page_size: API_MAX_PAGE_SIZE },
       }),
-      transformResponse: (res: unknown): AssignablePartner[] => {
-        const results = getProp(res, "results");
-        const rows =
-          asArray(getProp(results, "data")) ??
-          asArray(results) ??
-          asArray(getProp(res, "data")) ??
-          asArray(res) ??
-          [];
-        return rows.map((r) => ({
-          // assign-order keys on the user id, like every other partner endpoint.
-          deliveryPartnerId: pick(r, "user_id", "delivery_partner_id", "id"),
-          code: pick(r, "partner_id", "code"),
-          name: pick(r, "name", "full_name", "email") || "-",
-          port: pick(r, "port", "assigned_port"),
-          isAvailable: getProp(r, "is_available") !== false,
-          // Absent means "Both" — the documented default for a payload predating
-          // 2026-08-03. Reading a missing flag as `false` would show every
-          // pre-existing partner as incapable of the work they already do.
-          canVerify: getProp(r, "can_verify") !== false,
-          canDeliver: getProp(r, "can_deliver") !== false,
-        }));
-      },
+      transformResponse: toPartnerRows,
       providesTags: (_r, _e, arg) => [
         { type: "Assignments", id: `ASSIGNABLE-${arg?.orderId ?? "ALL"}` },
       ],
     }),
 
     /**
+     * Partners who hold a given capability — the picker source for every assign
+     * surface.
+     *
+     * Uses `partner/list/`, whose `?can_verify=` / `?can_deliver=` filters exist
+     * for exactly this ("the filter an admin needs *before* assigning:
+     * `assign-order` refuses a partner who lacks the capability for that job, so
+     * without it the list offers people the next screen will reject"). They are
+     * independent booleans that AND together, and blank means *no filter* — so
+     * `can_verify=true` is everyone who can verify, both-capable partners
+     * included, which is what a verification picker wants.
+     *
+     * **Why not `assignable-partners/?order_id=`,** which derives the same
+     * capability from the order's status: it *also* scopes to the order's port,
+     * and partner port data is incomplete (most have no `assigned_port`, and
+     * none is assigned to the ports orders are raised against), so that list
+     * comes back empty. This endpoint gives the capability rule without the port
+     * rule. Switch back when partner ports are populated — the port scope is a
+     * real requirement, not one to design away.
+     *
+     * Availability is matched to `assignable-partners`' own base filter:
+     * `is_active=true` server-side, then unavailable partners dropped here —
+     * `partner/list/` has no `is_available` parameter of its own, and
+     * `?status=available` would additionally exclude on-duty partners, which
+     * would be a behaviour change rather than a like-for-like swap.
+     *
+     * Still a UX gate. `AdminAssignOrderSerializer` validates the capability on
+     * the write and the `DeliveryAssignment` guard raises 403 behind it.
+     */
+    getPartnersByCapability: builder.query<AssignablePartner[], { capability: PartnerCapability }>({
+      query: ({ capability }) => ({
+        url: PARTNER_ENDPOINTS.GET_LIST,
+        method: "GET",
+        params: {
+          is_active: "true",
+          // Strictly parsed server-side — `?can_verify=maybe` is a 400, so only
+          // ever send the literal "true".
+          ...(capability === "verify" ? { can_verify: "true" } : { can_deliver: "true" }),
+          page_size: API_MAX_PAGE_SIZE,
+        },
+      }),
+      transformResponse: (res: unknown): AssignablePartner[] =>
+        toPartnerRows(res).filter((p) => p.isAvailable),
+      providesTags: (_r, _e, arg) => [{ type: "Assignments", id: `CAPABLE-${arg.capability}` }],
+    }),
+
+    /**
      * Flow 28 API 16 — the milestone ladder for one order. Replaces guessing a
      * position from the current status: these steps carry real timestamps and
-     * `is_done` flags. Field names are read defensively because the response
-     * shape isn't pinned by an example in the collection.
+     * the backend's own per-step verdict.
+     *
+     * That verdict arrives as `status` (`done` / `active` / `pending`) — see
+     * `build_delivery_steps` in `orders/timeline.py`. It is passed through
+     * untouched. This transform previously read `is_done`, which **this
+     * endpoint never sends** (that field belongs to the dashboard's ladder), so
+     * the `!!at` fallback silently took over and mis-stated the stage; see
+     * `lib/timeline.ts` for the full account.
      */
     getOrderTimeline: builder.query<OrderTimeline, string>({
       query: (orderId) => ({
@@ -177,14 +239,23 @@ export const assignmentApi = baseApi.injectEndpoints({
         const rows = asArray(getProp(body, "steps")) ?? asArray(getProp(body, "history")) ?? [];
         const steps = rows.map((raw, idx): OrderTimelineStep => {
           const at = pick(raw, "at", "timestamp", "changed_at", "created_at");
+          // Guarded: the `history` fallback rows carry a `status` too, but
+          // theirs is an order status, not a ladder verdict.
+          const rawState = pick(raw, "status", "state");
+          const state = isTimelineState(rawState) ? rawState : null;
           const done = getProp(raw, "is_done") ?? getProp(raw, "done") ?? getProp(raw, "completed");
           return {
-            key: pick(raw, "key", "code", "status") || `step-${idx}`,
-            label: pick(raw, "label", "title", "status_display", "status") || "—",
+            // `status` is this endpoint's completion verdict, not an identifier,
+            // so it must NOT be used as the key — a raw history row keys off
+            // its status instead, hence the ordering here.
+            key: pick(raw, "key", "code") || pick(raw, "status") || `step-${idx}`,
+            label: pick(raw, "label", "title", "status_display") || "—",
             at: at || null,
-            // A missing flag means "done if it has a timestamp" — history rows
-            // are records of things that already happened.
-            is_done: typeof done === "boolean" ? done : !!at,
+            status: state,
+            // Kept as a mirror for any consumer still reading the flag. A
+            // missing verdict means "done if it has a timestamp" — raw history
+            // rows are records of things that already happened.
+            is_done: state ? state === "done" : typeof done === "boolean" ? done : !!at,
             detail: pick(raw, "detail", "note", "description") || null,
           };
         });
@@ -258,6 +329,7 @@ export const {
   useGetUnassignedOrdersQuery,
   useGetActiveAssignmentsQuery,
   useGetAssignablePartnersQuery,
+  useGetPartnersByCapabilityQuery,
   useGetOrderTimelineQuery,
   useGetOrderAssignmentsQuery,
   useAssignOrderMutation,

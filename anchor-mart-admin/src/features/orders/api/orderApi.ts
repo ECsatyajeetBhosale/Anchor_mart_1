@@ -25,6 +25,35 @@ export interface GetOrdersParams {
   dateTo?: string;
   /** Filter to one delivery partner's orders. */
   partnerId?: string;
+  /**
+   * Order-type filters. Independent booleans that AND together, and **not**
+   * mutually exclusive — an order may be both express and emergency (9 are, in
+   * the current dataset), so these are queries rather than slices of a
+   * partition. "Regular" is expressed as `false` on both, not as a value of its
+   * own. `undefined` means no filter; `false` is a real filter and must survive
+   * the usual `|| undefined` idiom.
+   */
+  isExpress?: boolean;
+  isEmergency?: boolean;
+}
+
+/**
+ * Scope filters for the stats cards. Deliberately excludes `status`: that picks
+ * one bucket, and the cards exist to break the population down *by* bucket, so
+ * the endpoint ignores it by design.
+ */
+export interface GetOrderStatsParams {
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  partnerId?: string;
+  isExpress?: boolean;
+  isEmergency?: boolean;
+}
+
+/** `?flag=` for a tri-state boolean: true / false / absent. */
+function boolParam(value: boolean | undefined): string | undefined {
+  return value === undefined ? undefined : String(value);
 }
 
 /**
@@ -33,16 +62,46 @@ export interface GetOrdersParams {
  * a missing counter degrades to "0" rather than breaking the card.
  */
 export interface OrderStats {
-  total_orders?: number;
-  total?: number;
-  in_transit?: number;
+  /** Every order in the filtered population — the figure the buckets sum to. */
+  all_orders?: number;
+  // Lifecycle buckets. Mutually exclusive, and per the endpoint's own contract
+  // `new + in_progress + delivered + delivery_failed + cancelled + refunded ==
+  // all_orders`, less only the sub-second `payment_received` transient.
+  /** `order_confirmed` — paid and confirmed, not yet assigned. */
+  new?: number;
+  /** Assigned → collected → at port → at berth → partially delivered. */
   in_progress?: number;
-  delivering?: number;
   delivered?: number;
-  cancelled?: number;
-  refunded?: number;
   delivery_failed?: number;
-  [key: string]: number | undefined;
+  cancelled?: number;
+  /** Terminal `refunded`, not "has a refund against it" — a partially refunded
+   *  order keeps its delivery status and counts under `delivered`. */
+  refunded?: number;
+  // Dimensions, not buckets: these cross-cut every status above and are not
+  // mutually exclusive with each other. Never add them into a lifecycle total.
+  express?: number;
+  emergency?: number;
+  /**
+   * Counts for the order-type filter, computed over a population the type
+   * filter has **not** touched — so selecting Express does not zero the other
+   * options. The other scope filters (search, date, partner) still apply.
+   *
+   * `both` is returned precisely so a client never has to guess the overlap:
+   * `regular + express + emergency - both == all`. `regular` is given outright
+   * because deriving it requires `both`, which nothing else exposes.
+   */
+  type_counts?: OrderTypeCounts;
+  [key: string]: number | OrderTypeCounts | undefined;
+}
+
+/** The order-type chip counts. `express` and `emergency` are NOT disjoint. */
+export interface OrderTypeCounts {
+  all?: number;
+  express?: number;
+  emergency?: number;
+  /** Orders that are express AND emergency — the reason the four do not sum. */
+  both?: number;
+  regular?: number;
 }
 
 /**
@@ -78,6 +137,8 @@ export const ordersApi = baseApi.injectEndpoints({
           date_from: params.dateFrom || undefined,
           date_to: params.dateTo || undefined,
           partner_id: params.partnerId || undefined,
+          is_express: boolParam(params.isExpress),
+          is_emergency: boolParam(params.isEmergency),
         },
       }),
       providesTags: (result) =>
@@ -174,8 +235,25 @@ export const ordersApi = baseApi.injectEndpoints({
     }),
 
     /** Flow 11 §16 — post-payment KPI counters. Takes no query params. */
-    getOrderStats: builder.query<OrderStats, void>({
-      query: () => ({ url: ORDER_ENDPOINTS.GET_ORDER_STATS, method: "GET" }),
+    /**
+     * Card counters. Takes the screen's scope filters — the endpoint honours
+     * `date_from` / `date_to` / `partner_id` / `is_express` / `is_emergency` /
+     * `search`, and used to be called with none of them, so a filtered table sat
+     * under totals for the whole population.
+     */
+    getOrderStats: builder.query<OrderStats, GetOrderStatsParams>({
+      query: (params) => ({
+        url: ORDER_ENDPOINTS.GET_ORDER_STATS,
+        method: "GET",
+        params: {
+          search: params.search || undefined,
+          date_from: params.dateFrom || undefined,
+          date_to: params.dateTo || undefined,
+          partner_id: params.partnerId || undefined,
+          is_express: boolParam(params.isExpress),
+          is_emergency: boolParam(params.isEmergency),
+        },
+      }),
       // Some stats endpoints on this backend wrap in `{ data }`; unwrap if so.
       transformResponse: (res: unknown): OrderStats => {
         if (res && typeof res === "object" && "data" in res) {

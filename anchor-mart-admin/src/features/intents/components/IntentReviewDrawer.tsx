@@ -1,49 +1,44 @@
 import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { DynamicTabs } from "@/components/common/DynamicTabs";
 import { FormField } from "@/components/common/FormField";
+import {
+  KV,
+  ReviewCustomerCard,
+  ReviewGateBanner,
+  ReviewHeader,
+  ReviewSummaryStrip,
+  ReviewTiles,
+  Section,
+} from "@/components/common/ReviewLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetFooter } from "@/components/ui/sheet";
 import {
   partnerOptionLabel,
   useAssignOrderMutation,
-  useGetAssignablePartnersQuery,
   useGetOrderTimelineQuery,
+  useGetPartnersByCapabilityQuery,
 } from "@/features/assignments";
 import { OwnerCell, type OwnershipState } from "@/features/orders";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
-import { cn } from "@/lib/utils";
 import {
   IconAlertTriangle,
   IconAnchor,
   IconBolt,
   IconCalendar,
-  IconCopy,
   IconFileInvoice,
-  IconInfoCircle,
   IconLoader2,
-  IconLock,
-  IconMail,
-  IconPhone,
   IconRefresh,
   IconSend,
   IconShip,
   IconTruckDelivery,
-  IconUser,
   IconUserCheck,
   IconX,
 } from "@tabler/icons-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useGetIntentDetailQuery } from "../api/intentApi";
 import { useGetSuggestedItemsQuery } from "../api/substitutionApi";
@@ -66,6 +61,25 @@ const R = MESSAGES.INTENTS.REVIEW;
 const TAB_OVERVIEW = "overview";
 const TAB_ITEMS = "items";
 const TAB_FULFILMENT = "fulfilment";
+
+/**
+ * Statuses an order holds *before* a bill exists (Flow 07 — the bill is written
+ * by Create Bill, which moves the order to `payment_pending`).
+ *
+ * `total_amount` is a real `0.00` at these stages because nothing has been
+ * priced, so rendering the usual "$0.00" reads as *"this order is free"* on the
+ * very screen whose primary action is **Create Bill**. Gating on status rather
+ * than on `total === 0` matters: a fully discounted order at `payment_pending`
+ * is genuinely $0.00 and must still show as such.
+ */
+const UNBILLED_STATUSES = new Set([
+  "intent_received",
+  "pending_intent",
+  "sourcing",
+  "partner_verifying",
+  "verification_submitted",
+  "pending_customer_response",
+]);
 
 export interface IntentReviewDrawerProps {
   intent: IntentData | null;
@@ -106,78 +120,6 @@ function availabilityBadge(item: IntentDetailItem) {
   if (item.shortfall > 0) return <Badge variant="warning">{S.LINE_SHORT}</Badge>;
   if (item.available === true) return <Badge variant="success">{R.AVAILABLE}</Badge>;
   return <Badge variant="neutral">{R.CHECKING}</Badge>;
-}
-
-/** One label/value pair in the summary strip. */
-function Fact({ label, value, icon }: { label: string; value: string; icon?: ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <div className="text-[10px] font-extrabold uppercase tracking-[1px] text-[var(--t4)]">
-        {label}
-      </div>
-      <div
-        className="trunc mt-0.5 flex items-center gap-1.5 text-[13px] font-bold text-[var(--t1)]"
-        title={value}
-      >
-        {icon}
-        {value || "—"}
-      </div>
-    </div>
-  );
-}
-
-/** Key-value row used in the detail sections. */
-function KV({ label, value, className }: { label: string; value: string; className?: string }) {
-  return (
-    <div className="detail-kv">
-      <div className="detail-k">{label}</div>
-      <div className={`detail-v ${className ?? ""}`}>{value || "—"}</div>
-    </div>
-  );
-}
-
-/** Section wrapper — `.sec-label` heading plus its content block. */
-function Section({
-  title,
-  className,
-  children,
-}: {
-  title: string;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className={cn("mb-6 last:mb-0", className)}>
-      <div className="sec-label">{title}</div>
-      {children}
-    </section>
-  );
-}
-
-/** Contact line (mail/phone) with a graceful "nothing on file" fallback. */
-function Contact({
-  icon,
-  value,
-  href,
-  fallback,
-}: {
-  icon: ReactNode;
-  value: string;
-  href: string;
-  fallback: string;
-}) {
-  return (
-    <div className="flex min-w-0 items-center gap-1.5 text-[12.5px] font-semibold text-[var(--t2)]">
-      <span className="shrink-0 text-[var(--t4)]">{icon}</span>
-      {value ? (
-        <a href={href} className="trunc hover:text-[var(--teal-700)]" title={value}>
-          {value}
-        </a>
-      ) : (
-        <span className="text-[var(--t4)] font-medium">{fallback}</span>
-      )}
-    </div>
-  );
 }
 
 /**
@@ -260,8 +202,13 @@ export function IntentReviewDrawer({
   // returns an empty picker while partner port/capability data is incomplete.
   // API 12 still enforces the capability rule, so a mismatched pick is rejected
   // server-side and the backend's message is surfaced on the toast.
+  // Verification phase: only partners who can VERIFY stock. Filtered server-side
+  // by `partner/list/?can_verify=true`, which includes both-capable partners.
   const { data: assignablePartners = [], isLoading: partnersLoading } =
-    useGetAssignablePartnersQuery({}, { skip: !isOpen || !showPartnerPicker });
+    useGetPartnersByCapabilityQuery(
+      { capability: "verify" },
+      { skip: !isOpen || !showPartnerPicker },
+    );
   const [assignOrder, { isLoading: assigning }] = useAssignOrderMutation();
 
   // Flow 28 API 16 — the real milestone ladder (timestamps + done flags),
@@ -347,6 +294,7 @@ export function IntentReviewDrawer({
     submitted: detail?.createdAt || intent.sb,
     isExpress: detail?.isExpress ?? false,
     isEmergency: detail?.isEmergency ?? false,
+    isUnbilled: UNBILLED_STATUSES.has(status),
   };
 
   // One line explaining what happens next. A super admin writes regardless of
@@ -450,39 +398,18 @@ export function IntentReviewDrawer({
             is pinned. */}
         <div className="flex-1 overflow-y-auto">
           {/* ── Identity header ───────────────────────────────────────── */}
-          <SheetHeader className="p-6 pb-4 border-b border-[var(--border-md)]">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--navy-50)] text-[var(--navy-600)]">
-                <IconFileInvoice size={22} />
-              </div>
-              <div className="min-w-0">
-                <SheetTitle className="text-[17px] font-extrabold text-[var(--t1)]">
-                  {R.TITLE}
-                </SheetTitle>
-                <SheetDescription className="flex items-center gap-1.5 text-[12.5px] text-[var(--t3)]">
-                  <span className="mono">{view.ref}</span>
-                  <button
-                    type="button"
-                    onClick={copyRef}
-                    title={R.COPY_REF}
-                    aria-label={R.COPY_REF}
-                    className="text-[var(--t4)] transition-colors hover:text-[var(--teal-600)]"
-                  >
-                    <IconCopy size={13} />
-                  </button>
-                </SheetDescription>
-              </div>
-              {/* Ownership at a glance — who, if anyone, is accountable for this order. */}
-              <div className="ml-auto shrink-0">
-                <OwnerCell assignedAdmin={owner} state={ownership} />
-              </div>
-            </div>
-          </SheetHeader>
+          <ReviewHeader
+            icon={<IconFileInvoice size={22} />}
+            title={R.TITLE}
+            reference={view.ref}
+            copyLabel={R.COPY_REF}
+            onCopy={copyRef}
+            right={<OwnerCell assignedAdmin={owner} state={ownership} />}
+          />
 
-          {/* ── Summary strip — status, progress, money, key facts ────── */}
-          <div className="border-b border-[var(--border-md)] bg-[var(--surface-alt)] px-6 py-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2">
+          <ReviewSummaryStrip
+            badges={
+              <>
                 <Badge
                   variant={statusVariant(status)}
                   showDot
@@ -502,68 +429,43 @@ export function IntentReviewDrawer({
                     {R.EMERGENCY}
                   </Badge>
                 )}
-              </div>
-              <div className="text-right">
-                <div className="text-[10px] font-extrabold uppercase tracking-[1px] text-[var(--t4)]">
-                  {R.SUMMARY.TOTAL}
+              </>
+            }
+            valueLabel={R.SUMMARY.TOTAL}
+            value={
+              view.isUnbilled ? (
+                <div className="text-[13px] font-bold leading-tight text-[var(--t4)]">
+                  {R.SUMMARY.NOT_PRICED}
                 </div>
+              ) : (
                 <div className="text-[21px] font-extrabold leading-tight tracking-[-0.5px] text-[var(--t1)] tabular-nums">
                   {money(view.total)}
                 </div>
-              </div>
-            </div>
+              )
+            }
+            rail={<IntentLifecycleRail status={status} steps={timeline?.steps} />}
+            facts={[
+              { label: R.SUMMARY.ITEMS, value: String(view.itemCount ?? 0) },
+              { label: R.SUMMARY.SUBMITTED, value: view.submitted },
+              {
+                label: R.SUMMARY.PORT,
+                value: view.port,
+                icon: <IconAnchor size={14} className="shrink-0 text-[var(--navy-500)]" />,
+              },
+              {
+                label: R.SUMMARY.ARRIVAL,
+                value: view.arrival,
+                icon: <IconCalendar size={14} className="shrink-0 text-[var(--t4)]" />,
+              },
+            ]}
+          />
 
-            <IntentLifecycleRail status={status} steps={timeline?.steps} className="mt-4" />
-
-            <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
-              <Fact label={R.SUMMARY.ITEMS} value={String(view.itemCount ?? 0)} />
-              <Fact label={R.SUMMARY.SUBMITTED} value={view.submitted} />
-              <Fact
-                label={R.SUMMARY.PORT}
-                value={view.port}
-                icon={<IconAnchor size={14} className="shrink-0 text-[var(--navy-500)]" />}
-              />
-              <Fact
-                label={R.SUMMARY.ARRIVAL}
-                value={view.arrival}
-                icon={<IconCalendar size={14} className="shrink-0 text-[var(--t4)]" />}
-              />
-            </div>
-          </div>
-
-          {/* ── What to do next / why you can't ───────────────────────── */}
           {gateHint && (
-            <div
-              className={cn(
-                "flex items-center gap-2 border-b px-6 py-2.5",
-                canManage
-                  ? "border-[var(--info-border)] bg-[var(--info-bg)]"
-                  : "border-[var(--warning-border)] bg-[var(--warning-bg)]",
-              )}
-            >
-              {canManage ? (
-                <IconInfoCircle size={15} className="shrink-0 text-[var(--info-icon)]" />
-              ) : (
-                <IconLock size={15} className="shrink-0 text-[var(--warning-icon)]" />
-              )}
-              <span
-                className={cn(
-                  "text-[10px] font-extrabold uppercase tracking-[1.2px]",
-                  canManage ? "text-[var(--info-text)]" : "text-[var(--warning-text)]",
-                )}
-              >
-                {canManage ? R.NEXT_STEP : R.BLOCKED}
-              </span>
-              <span
-                className={cn(
-                  "trunc text-[12.5px] font-semibold",
-                  canManage ? "text-[var(--info-text)]" : "text-[var(--warning-text)]",
-                )}
-                title={gateHint}
-              >
-                {gateHint}
-              </span>
-            </div>
+            <ReviewGateBanner
+              tone={canManage ? "info" : "blocked"}
+              label={canManage ? R.NEXT_STEP : R.BLOCKED}
+              message={gateHint}
+            />
           )}
 
           {/* ── Body ──────────────────────────────────────────────────── */}
@@ -607,79 +509,43 @@ export function IntentReviewDrawer({
                 {tab === TAB_OVERVIEW && (
                   <>
                     <Section title={R.CUSTOMER_INFO}>
-                      <div className="rounded-[var(--radius-md)] border border-[var(--border-sm)] bg-[var(--navy-25)] p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--navy-100)] text-[var(--navy-600)]">
-                            <IconUser size={18} />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="trunc text-[14px] font-bold text-[var(--t1)]">
-                              {detail.sailorName || "—"}
-                            </div>
-                            <div className="text-[11px] font-bold uppercase tracking-[0.6px] text-[var(--t4)]">
-                              {R.SAILOR}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mt-3 grid gap-2 border-t border-[var(--border-xs)] pt-3 sm:grid-cols-2">
-                          <Contact
-                            icon={<IconMail size={13} />}
-                            value={detail.sailorEmail}
-                            href={`mailto:${detail.sailorEmail}`}
-                            fallback={R.NO_EMAIL}
-                          />
-                          <Contact
-                            icon={<IconPhone size={13} />}
-                            value={detail.sailorPhone}
-                            href={`tel:${detail.sailorPhone}`}
-                            fallback={R.NO_PHONE}
-                          />
-                        </div>
-                      </div>
+                      <ReviewCustomerCard
+                        name={detail.sailorName}
+                        roleLabel={R.SAILOR}
+                        email={detail.sailorEmail}
+                        phone={detail.sailorPhone}
+                        noEmailLabel={R.NO_EMAIL}
+                        noPhoneLabel={R.NO_PHONE}
+                      />
                     </Section>
 
                     <Section title={R.VESSEL_SHIPPING}>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        <div className="mini-stat">
-                          <div className="mini-stat-val !text-[14px] trunc flex items-center gap-1.5">
-                            <IconShip size={15} className="shrink-0 text-[var(--teal-600)]" />
-                            {detail.vesselName || "—"}
-                          </div>
-                          <div className="mini-stat-lbl">{R.VESSEL}</div>
-                        </div>
-                        <div className="mini-stat">
-                          <div className="mini-stat-val mono cteal !text-[14px] trunc">
-                            {detail.imo || "—"}
-                          </div>
-                          <div className="mini-stat-lbl">{R.IMO}</div>
-                        </div>
-                        <div className="mini-stat">
-                          <div className="mini-stat-val !text-[14px] trunc flex items-center gap-1.5">
-                            <IconAnchor size={15} className="shrink-0 text-[var(--navy-500)]" />
-                            {detail.portName || "—"}
-                          </div>
-                          <div className="mini-stat-lbl">{R.PORT}</div>
-                        </div>
-                        <div className="mini-stat">
-                          <div className="mini-stat-val !text-[14px] trunc">
-                            {detail.anchorageName || "—"}
-                          </div>
-                          <div className="mini-stat-lbl">{R.ANCHORAGE}</div>
-                        </div>
-                        <div className="mini-stat">
-                          <div className="mini-stat-val !text-[14px] trunc flex items-center gap-1.5">
-                            <IconCalendar size={14} className="shrink-0" />
-                            {detail.shipArrivalDate || "—"}
-                          </div>
-                          <div className="mini-stat-lbl">{R.ARRIVAL}</div>
-                        </div>
-                        <div className="mini-stat">
-                          <div className="mini-stat-val !text-[14px] trunc">
-                            {detail.expectedStay || "—"}
-                          </div>
-                          <div className="mini-stat-lbl">{R.EXPECTED_STAY}</div>
-                        </div>
-                      </div>
+                      <ReviewTiles
+                        tiles={[
+                          {
+                            label: R.VESSEL,
+                            value: detail.vesselName,
+                            icon: (
+                              <IconShip size={15} className="shrink-0 text-[var(--teal-600)]" />
+                            ),
+                          },
+                          { label: R.IMO, value: detail.imo, mono: true },
+                          {
+                            label: R.PORT,
+                            value: detail.portName,
+                            icon: (
+                              <IconAnchor size={15} className="shrink-0 text-[var(--navy-500)]" />
+                            ),
+                          },
+                          { label: R.ANCHORAGE, value: detail.anchorageName },
+                          {
+                            label: R.ARRIVAL,
+                            value: detail.shipArrivalDate,
+                            icon: <IconCalendar size={14} className="shrink-0" />,
+                          },
+                          { label: R.EXPECTED_DEPARTURE, value: detail.expectedDeparture },
+                        ]}
+                      />
                     </Section>
 
                     <Section title={R.ORDER_SUMMARY}>
@@ -714,46 +580,71 @@ export function IntentReviewDrawer({
                     </Section>
 
                     <Section title={R.PRICING}>
-                      <div className="rounded-[var(--radius-md)] border border-[var(--border-sm)] bg-[var(--navy-25)] px-4 py-3">
-                        {detail.subtotal && (
-                          <div className="flex items-center justify-between py-1">
-                            <span className="text-[12.5px] text-[var(--t3)]">{R.SUBTOTAL}</span>
-                            <span className="text-[13px] font-semibold text-[var(--t2)] tabular-nums">
-                              {money(detail.subtotal)}
+                      {/* Before Create Bill the backend's subtotal/tax/discount
+                          /total are all a real 0, so the old breakdown printed
+                          five "$0.00" facts directly beneath priced line items.
+                          Pre-bill we show one clearly-labelled estimate instead
+                          — the figures that do not exist yet are not invented. */}
+                      {view.isUnbilled ? (
+                        <div className="rounded-[var(--radius-md)] border border-[var(--info-border)] bg-[var(--info-bg)] px-4 py-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[13px] font-bold text-[var(--info-text)]">
+                              {R.ESTIMATED_TOTAL}
+                            </span>
+                            <span className="text-[15px] font-extrabold text-[var(--info-text)] tabular-nums">
+                              {detail.estimatedSubtotal ? money(detail.estimatedSubtotal) : "—"}
                             </span>
                           </div>
-                        )}
-                        {detail.shippingFee && (
-                          <div className="flex items-center justify-between py-1">
-                            <span className="text-[12.5px] text-[var(--t3)]">{R.SHIPPING_FEE}</span>
-                            <span className="text-[13px] font-semibold text-[var(--t2)] tabular-nums">
-                              {money(detail.shippingFee)}
-                            </span>
+                          <div className="mt-1.5 text-[11.5px] font-medium leading-[1.45] text-[var(--info-text)] opacity-80">
+                            {R.ESTIMATED_HINT}
                           </div>
-                        )}
-                        {detail.tax && (
-                          <div className="flex items-center justify-between py-1">
-                            <span className="text-[12.5px] text-[var(--t3)]">{R.TAX}</span>
-                            <span className="text-[13px] font-semibold text-[var(--t2)] tabular-nums">
-                              {money(detail.tax)}
-                            </span>
-                          </div>
-                        )}
-                        {detail.discount && (
-                          <div className="flex items-center justify-between py-1">
-                            <span className="text-[12.5px] text-[var(--t3)]">{R.DISCOUNT}</span>
-                            <span className="text-[13px] font-semibold text-[var(--success-text)] tabular-nums">
-                              -{money(detail.discount)}
-                            </span>
-                          </div>
-                        )}
-                        <div className="mt-1 flex items-center justify-between border-t border-[var(--border-sm)] pt-2">
-                          <span className="text-[13px] font-bold text-[var(--t1)]">{R.TOTAL}</span>
-                          <span className="text-[15px] font-extrabold text-[var(--t1)] tabular-nums">
-                            {money(detail.total)}
-                          </span>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="rounded-[var(--radius-md)] border border-[var(--border-sm)] bg-[var(--navy-25)] px-4 py-3">
+                          {detail.subtotal && (
+                            <div className="flex items-center justify-between py-1">
+                              <span className="text-[12.5px] text-[var(--t3)]">{R.SUBTOTAL}</span>
+                              <span className="text-[13px] font-semibold text-[var(--t2)] tabular-nums">
+                                {money(detail.subtotal)}
+                              </span>
+                            </div>
+                          )}
+                          {detail.shippingFee && (
+                            <div className="flex items-center justify-between py-1">
+                              <span className="text-[12.5px] text-[var(--t3)]">
+                                {R.SHIPPING_FEE}
+                              </span>
+                              <span className="text-[13px] font-semibold text-[var(--t2)] tabular-nums">
+                                {money(detail.shippingFee)}
+                              </span>
+                            </div>
+                          )}
+                          {detail.tax && (
+                            <div className="flex items-center justify-between py-1">
+                              <span className="text-[12.5px] text-[var(--t3)]">{R.TAX}</span>
+                              <span className="text-[13px] font-semibold text-[var(--t2)] tabular-nums">
+                                {money(detail.tax)}
+                              </span>
+                            </div>
+                          )}
+                          {detail.discount && (
+                            <div className="flex items-center justify-between py-1">
+                              <span className="text-[12.5px] text-[var(--t3)]">{R.DISCOUNT}</span>
+                              <span className="text-[13px] font-semibold text-[var(--success-text)] tabular-nums">
+                                -{money(detail.discount)}
+                              </span>
+                            </div>
+                          )}
+                          <div className="mt-1 flex items-center justify-between border-t border-[var(--border-sm)] pt-2">
+                            <span className="text-[13px] font-bold text-[var(--t1)]">
+                              {R.TOTAL}
+                            </span>
+                            <span className="text-[15px] font-extrabold text-[var(--t1)] tabular-nums">
+                              {money(detail.total)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </Section>
 
                     <Section title={R.PAYMENT_INFO}>

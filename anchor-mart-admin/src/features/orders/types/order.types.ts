@@ -147,7 +147,7 @@ export interface Order {
   is_express?: boolean;
   is_fastest_delivery?: boolean;
   ship_arrival_date?: string | null;
-  expected_stay?: string | null;
+  expected_departure?: string | null;
   notes?: string;
   items?: OrderItem[];
   items_count?: number;

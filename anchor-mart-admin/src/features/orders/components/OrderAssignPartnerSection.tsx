@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import {
   partnerOptionLabel,
   useAssignOrderMutation,
-  useGetAssignablePartnersQuery,
   useGetOrderAssignmentsQuery,
+  useGetPartnersByCapabilityQuery,
 } from "@/features/assignments";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
@@ -88,8 +88,12 @@ export function OrderAssignPartnerSection({
   // `order_id` is deliberately omitted: scoping the picker to the order filters
   // by port + required capability, which returns an empty list while partner
   // capability data is incomplete. API 12 enforces the rule regardless.
-  const { data: partners = [], isLoading: partnersLoading } = useGetAssignablePartnersQuery(
-    {},
+  // Fulfilment phase: only partners who can DELIVER. Filtered server-side by
+  // `partner/list/?can_deliver=true`, which includes both-capable partners.
+  // `stageBlocked` already covers the statuses that take no partner at all
+  // (closed, and `payment_pending` — verification is done but the order is unpaid).
+  const { data: partners = [], isLoading: partnersLoading } = useGetPartnersByCapabilityQuery(
+    { capability: "deliver" },
     { skip: stageBlocked },
   );
 

@@ -3,6 +3,7 @@ import { INTENT_ENDPOINTS, ORDER_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
 import type {
+  GetIntentStatsParams,
   GetIntentsParams,
   IntentApi,
   IntentApiItem,
@@ -22,6 +23,11 @@ function str(value: unknown): string {
   if (typeof value === "string") return value.trim();
   if (typeof value === "number") return String(value);
   return "";
+}
+
+/** `?flag=` for a tri-state boolean: true / false / absent. */
+function boolParam(value: boolean | undefined): string | undefined {
+  return value === undefined ? undefined : String(value);
 }
 
 /** Coerces an unknown to a number; non-numbers → 0. */
@@ -141,7 +147,7 @@ export function toIntentData(intent: IntentApi): IntentData {
     vessel,
     port: str(intent.port) || str(sa.port_name),
     ar: formatDate(intent.ship_arrival_date),
-    sy: str(intent.expected_stay) || "—",
+    sy: formatDate(intent.expected_departure),
     // created_at is already a display-formatted string from the backend;
     // fall back to formatting the ISO intent_received_at when it's absent.
     sb: str(intent.created_at) || formatDate(intent.intent_received_at),
@@ -161,6 +167,8 @@ export function toIntentData(intent: IntentApi): IntentData {
     portId: str(intent.port_id) || str(sa.port_id),
     substitutionNeeded:
       intent.substitution_needed === true || reqItems.some((i) => i.needsSuggestion),
+    isExpress: intent.is_express === true,
+    isEmergency: intent.is_emergency === true,
   };
 }
 
@@ -195,6 +203,8 @@ export const intentApi = baseApi.injectEndpoints({
           page_size: params.limit,
           search: params.search || undefined,
           status: params.status || undefined,
+          is_express: boolParam(params.isExpress),
+          is_emergency: boolParam(params.isEmergency),
         },
       }),
       transformResponse: (res: unknown): IntentListResult => {
@@ -210,9 +220,21 @@ export const intentApi = baseApi.injectEndpoints({
           : [{ type: "Intents", id: "PARTIAL-LIST" }],
     }),
 
-    getIntentStats: builder.query<IntentStats, void>({
-      // Stats is a plain GET — no query params are sent with it.
-      query: () => ({ url: INTENT_ENDPOINTS.GET_STATS, method: "GET" }),
+    /**
+     * Card counters. Takes the screen's scope filters: the endpoint honours
+     * `?search`, `?is_express` and `?is_emergency`, and was previously called
+     * with none of them — so filtering the list left every card unchanged.
+     */
+    getIntentStats: builder.query<IntentStats, GetIntentStatsParams>({
+      query: (params) => ({
+        url: INTENT_ENDPOINTS.GET_STATS,
+        method: "GET",
+        params: {
+          search: params.search || undefined,
+          is_express: boolParam(params.isExpress),
+          is_emergency: boolParam(params.isEmergency),
+        },
+      }),
       transformResponse: (res: unknown): IntentStats => unwrap<IntentStats>(res) ?? {},
       providesTags: [{ type: "Intents", id: "STATS" }],
     }),
@@ -256,14 +278,35 @@ export const intentApi = baseApi.injectEndpoints({
         const anchorage = o.anchorage as Record<string, unknown> | null | undefined;
         const assignment = o.active_assignment as Record<string, unknown> | null | undefined;
 
+        // Availability lines, keyed by order item.
+        //
+        // The *list* endpoint folds verification results into each item row, but
+        // the detail endpoint does not: `AdminOrderItemSerializer` carries no
+        // `is_available` / `available_qty` at all. There the truth lives in the
+        // separate `availability_reports[].lines[]` collection, which this
+        // mapper used to ignore — so every item read `available: null` and the
+        // drawer showed "Checking…" against items the partner had already
+        // verified, contradicting its own Fulfilment tab.
+        //
+        // Reports are prefetched `-submitted_at`, so index 0 is the live one.
+        const reports = asArray(o.availability_reports as unknown) ?? [];
+        const latestLines = asArray(getProp(reports[0], "lines")) ?? [];
+        const lineByItemId = new Map<string, Record<string, unknown>>();
+        for (const line of latestLines) {
+          const id = str(getProp(line, "order_item_id"));
+          if (id) lineByItemId.set(id, line as Record<string, unknown>);
+        }
+
         const items: IntentDetailItem[] = (asArray(o.items as unknown) ?? []).map(
           (raw: unknown, idx: number) => {
             const r = raw as Record<string, unknown>;
             const variant = r.variant as Record<string, unknown> | null | undefined;
             const requestedQty = num(r.quantity ?? r.qty ?? r.requested_qty) || 1;
-            const availableRaw = r.available_qty;
+            const line = lineByItemId.get(str(r.id));
+            // Item-level fields first (the list shape), then the report line.
+            const availableRaw = r.available_qty ?? line?.available_qty;
             const availableQty = typeof availableRaw === "number" ? availableRaw : null;
-            const isAvailableRaw = r.is_available;
+            const isAvailableRaw = r.is_available ?? line?.is_available;
             const isAvailable = typeof isAvailableRaw === "boolean" ? isAvailableRaw : null;
             const shortfallRaw = r.shortfall;
             const shortfall =
@@ -292,6 +335,25 @@ export const intentApi = baseApi.injectEndpoints({
         const adminRaw = o.assigned_admin;
         const assignedAdmin = mapAssignedAdmin(adminRaw);
 
+        // Indicative order value before a bill exists.
+        //
+        // `create_order` writes `subtotal = 0` and `total_amount = 0`; the real
+        // figures are only computed by `sync_order_subtotal` when the admin
+        // creates the bill. So a pre-bill order shows priced line items above a
+        // $0.00 breakdown — every row honest, the screen self-contradictory.
+        //
+        // Mirrors the backend's `compute_subtotal`: Σ (available qty × unit
+        // price), capped at the requested quantity. **Accepted substitutions
+        // are not included** — they live in a separate collection — so this is
+        // an estimate of the original basket, not a prediction of the bill.
+        const estimatedSubtotal = items.reduce((sum, item) => {
+          const unit = Number.parseFloat(item.unitPrice);
+          if (!Number.isFinite(unit)) return sum;
+          const billableQty =
+            item.availableQty === null ? item.qty : Math.min(item.availableQty, item.qty);
+          return sum + unit * billableQty;
+        }, 0);
+
         const statusRaw = str(o.status);
         const needsSub = o.substitution_needed === true || items.some((i) => i.needsSuggestion);
 
@@ -317,11 +379,12 @@ export const intentApi = baseApi.injectEndpoints({
           anchorageName:
             str(anchorage?.anchorage_name) || str(o.anchorage_name) || str(port?.port_name) || "—",
           shipArrivalDate: formatDate(str(o.ship_arrival_date)),
-          expectedStay: str(o.expected_stay) || "—",
+          expectedDeparture: formatDate(str(o.expected_departure)),
           // Items
           items,
           itemCount: num(o.item_count) || num(o.items_count) || items.length,
           // Pricing
+          estimatedSubtotal: estimatedSubtotal > 0 ? estimatedSubtotal.toFixed(2) : "",
           subtotal: str(o.subtotal),
           shippingFee: str(o.shipping_fee),
           tax: str(o.tax_amount),

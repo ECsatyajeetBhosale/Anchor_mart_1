@@ -7,6 +7,7 @@ export {
   useGetUnassignedOrdersQuery,
   useGetActiveAssignmentsQuery,
   useGetAssignablePartnersQuery,
+  useGetPartnersByCapabilityQuery,
   useGetOrderTimelineQuery,
   useGetOrderAssignmentsQuery,
   useAssignOrderMutation,
@@ -21,4 +22,4 @@ export type {
   OrderTimelineStep,
   UnassignedOrder,
 } from "./types/assignment.types";
-export { partnerOptionLabel, capabilitySuffix } from "./lib/partnerLabel";
+export { partnerOptionLabel, capabilityLabel } from "./lib/partnerLabel";

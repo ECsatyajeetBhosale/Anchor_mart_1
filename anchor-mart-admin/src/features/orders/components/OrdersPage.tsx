@@ -1,7 +1,9 @@
 import { DateRangePicker } from "@/components/common/DateRangePicker";
 import { DynamicTabs } from "@/components/common/DynamicTabs";
 import { type OrderDetail, OrderDetailDrawer } from "@/components/common/OrderDetailDrawer";
+import { OrderTypeBadges } from "@/components/common/OrderTypeBadges";
 import { PageHeader } from "@/components/common/PageHeader";
+import { PillToggle } from "@/components/common/PillToggle";
 import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import { StatusBadge } from "@/components/common/StatusBadge";
@@ -22,10 +24,11 @@ import { MESSAGES } from "@/lib/messages";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
 import { clearParams } from "@/lib/utils";
 import {
+  IconAlertTriangle,
   IconBan,
   IconCircleCheck,
   IconInfoCircle,
-  IconPackage,
+  IconReceiptRefund,
   IconTruckDelivery,
 } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
@@ -75,6 +78,9 @@ interface OrderRow {
   st: string;
   shipName: string;
   terminalName: string;
+  /** Order type. Independent flags — an order may be both. */
+  isExpress: boolean;
+  isEmergency: boolean;
   raw: Order; // full API record for the detail drawer
 }
 
@@ -95,10 +101,19 @@ const ORDER_FILTER_KEYS = [
   "refunded",
 ];
 
+/**
+ * Derived views the list resolves alongside the raw statuses
+ * (`ORDER_DERIVED_FILTERS`). Listed here so the dropdown can *display* what the
+ * In Transit card selects, not only offer it — a value with no matching option
+ * would leave the control showing its placeholder while a filter was active.
+ */
+const ORDER_DERIVED_FILTER_OPTIONS = [{ value: "in_progress", label: M.STATS.IN_TRANSIT }];
+
 // Listed in canonical lifecycle order, labelled from the single source of truth.
 const STATUS_OPTIONS = [
   { value: "all", label: M.STATUS_FILTER.ALL },
   ...ORDER_FILTER_KEYS.map((key) => ({ value: key, label: ORDER_STATUS_BY_KEY[key].label })),
+  ...ORDER_DERIVED_FILTER_OPTIONS,
 ];
 
 type StatVariant = "navy" | "teal" | "amber" | "red" | "green" | "purple" | "blue";
@@ -113,20 +128,37 @@ const STAT_CONFIG: {
   keys: string[];
   icon: ReactNode;
   variant: StatVariant;
+  /**
+   * The `?status=` value this card selects.
+   *
+   * These six are mutually exclusive and sum to `all_orders`, which is the page
+   * heading rather than a seventh card — as a card it read as another bucket
+   * beside the six it is the sum of.
+   *
+   * Every card maps to something: the aggregate ones use the derived filters
+   * the list resolves alongside raw statuses (`ORDER_DERIVED_FILTERS`).
+   */
+  filter: string | null;
 }[] = [
   {
-    id: "total",
-    label: M.STATS.TOTAL,
-    keys: ["total_orders", "total", "orders"],
-    icon: <IconPackage size={20} />,
-    variant: "navy",
+    id: "confirmed",
+    label: M.STATS.CONFIRMED,
+    keys: ["new"],
+    icon: <IconCircleCheck size={20} />,
+    variant: "blue",
+    filter: "order_confirmed",
   },
   {
     id: "in-transit",
     label: M.STATS.IN_TRANSIT,
-    keys: ["in_transit", "in_progress", "delivering"],
+    keys: ["in_progress"],
     icon: <IconTruckDelivery size={20} />,
     variant: "teal",
+    // `in_progress` is a derived filter (`ORDER_DERIVED_FILTERS`) resolving to
+    // the same `ORDER_IN_PROGRESS_STATUSES` constant this card counts — the
+    // backend references the constant rather than re-listing it, so the card
+    // and its drill-in cannot drift apart.
+    filter: "in_progress",
   },
   {
     id: "delivered",
@@ -134,14 +166,67 @@ const STAT_CONFIG: {
     keys: ["delivered"],
     icon: <IconCircleCheck size={20} />,
     variant: "green",
+    filter: "delivered",
+  },
+  {
+    id: "delivery-failed",
+    label: M.STATS.FAILED,
+    keys: ["delivery_failed"],
+    icon: <IconAlertTriangle size={20} />,
+    variant: "amber",
+    filter: "delivery_failed",
   },
   {
     id: "cancelled",
     label: M.STATS.CANCELLED,
-    keys: ["cancelled", "cancelled_orders"],
+    keys: ["cancelled"],
     icon: <IconBan size={20} />,
     variant: "red",
+    filter: "cancelled",
   },
+  {
+    id: "refunded",
+    label: M.STATS.REFUNDED,
+    keys: ["refunded"],
+    icon: <IconReceiptRefund size={20} />,
+    variant: "purple",
+    filter: "refunded",
+  },
+];
+
+/**
+ * Order-type filter. Each option is a query, **not** a slice of a partition:
+ * `is_express` and `is_emergency` are independent booleans and an order may be
+ * both, so the four counts deliberately do not sum to the total (129 + 49 + 546
+ * = 724 against 715, the difference being the 9 orders that are both).
+ *
+ * "Regular" is the complement — neither flag — expressed as `false` on both
+ * rather than as a value the API knows about.
+ */
+const ORDER_TYPE_QUERY = {
+  all: {},
+  express: { isExpress: true },
+  emergency: { isEmergency: true },
+  regular: { isExpress: false, isEmergency: false },
+} as const;
+
+type OrderTypeFilter = keyof typeof ORDER_TYPE_QUERY;
+
+/** Narrows the URL's `?type=` to a known option; anything else falls back to All. */
+function asOrderType(value: string | null): OrderTypeFilter {
+  return value && value in ORDER_TYPE_QUERY ? (value as OrderTypeFilter) : "all";
+}
+
+const ORDER_TYPE_CONFIG: {
+  value: OrderTypeFilter;
+  label: string;
+  /** Which `type_counts` field carries this option's count. */
+  countKey: "all" | "express" | "emergency" | "regular";
+}[] = [
+  { value: "all", label: M.TYPE_FILTER.ALL, countKey: "all" },
+  { value: "express", label: M.TYPE_FILTER.EXPRESS, countKey: "express" },
+  { value: "emergency", label: M.TYPE_FILTER.EMERGENCY, countKey: "emergency" },
+  { value: "regular", label: M.TYPE_FILTER.REGULAR, countKey: "regular" },
 ];
 
 /** First present counter among the candidate keys; 0 when none are returned. */
@@ -155,6 +240,17 @@ function pickStat(stats: OrderStats | undefined, keys: string[]): number {
 }
 
 /** `Date` → the `YYYY-MM-DD` the list endpoint expects. */
+/**
+ * ISO timestamp → "Aug 16, 2026", matching the intents review drawer so the two
+ * screens format the same field identically. Blank/invalid → "—".
+ */
+function formatDate(value?: string | null): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
 function toApiDate(date?: Date): string | undefined {
   if (!date) return undefined;
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
@@ -249,6 +345,8 @@ function toOrderRow(order: Order): OrderRow {
     st: order.status_display,
     shipName: shipLabel(order),
     terminalName: terminalLabel(order),
+    isExpress: order.is_express === true,
+    isEmergency: order.is_emergency === true,
     raw: order,
   };
 }
@@ -318,6 +416,26 @@ function toOrderDetail(order: Order): OrderDetail {
       couponUsed: order.coupon_used === true,
       appliedCoupon: couponLabel(order.applied_coupon),
     },
+
+    // Review-layout fields. Every one of these was already on the detail
+    // response and thrown away — the drawer rendered a flat key-value list, so
+    // the mapping only carried what that list showed. Present only on the
+    // detail read; a list row leaves them undefined and the drawer shows "—".
+    statusKey: order.status,
+    sailorEmail: order.customer?.email || order.customer_email || order.user_email || "",
+    sailorPhone: order.customer?.whatsapp_number || order.shipping_address?.contact || "",
+    vesselName: order.shipping_address?.vessel_name || "",
+    imo: order.shipping_address?.imo || "",
+    portName: order.port?.port_name || order.port_name || "",
+    portCode: order.port?.port_code || order.shipping_address?.port_code || "",
+    anchorageName: order.anchorage?.anchorage_name || order.anchorage_name || "",
+    shipArrivalDate: formatDate(order.ship_arrival_date),
+    expectedDeparture: formatDate(order.expected_departure),
+    orderDate: order.created_at || "",
+    notes: order.notes || "",
+    itemCount: order.items_count ?? order.item_count ?? items.length,
+    isExpress: order.is_express === true,
+    isEmergency: order.is_emergency === true,
   };
 }
 
@@ -351,25 +469,75 @@ export function OrdersPage() {
   // Tab lives in the URL alongside the filters so a shared link reopens the
   // same surface, not just the same query.
   const activeTab = searchParams.get("tab") === TAB_CARTS ? TAB_CARTS : TAB_ORDERS;
+  const typeFilter = asOrderType(searchParams.get("type"));
+
+  /** The scope every counter and the table share — everything except `status`. */
+  const scope = {
+    search,
+    dateFrom: toApiDate(dateRange?.from),
+    dateTo: toApiDate(dateRange?.to),
+  };
 
   // Every filter is applied server-side, so pagination stays truthful.
   const { data, isLoading, isFetching, isError, refetch } = useGetOrdersQuery({
     page,
     limit: LIMIT,
-    search,
+    ...scope,
     status: statusFilter !== "all" ? statusFilter : undefined,
-    dateFrom: toApiDate(dateRange?.from),
-    dateTo: toApiDate(dateRange?.to),
+    ...ORDER_TYPE_QUERY[typeFilter],
   });
 
-  // Live KPI stats; cards show "—" while loading and 0 when a field is absent.
-  const { data: stats, isLoading: statsLoading } = useGetOrderStatsQuery();
+  // Cards follow the whole screen, order type included: filter to Express and
+  // the lifecycle breakdown is Express's breakdown.
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    refetch: refetchStats,
+  } = useGetOrderStatsQuery({
+    ...scope,
+    ...ORDER_TYPE_QUERY[typeFilter],
+  });
+
+  /**
+   * Retry after a failed load — reloads the cards as well as the table.
+   *
+   * `refetch` alone only re-ran the list, so a screen that errored came back
+   * with fresh rows under whatever the counters happened to be holding. The two
+   * are meant to describe the same population; a retry that refreshes one of
+   * them breaks that for as long as the page stays open.
+   */
+  const retryAll = () => {
+    refetch();
+    refetchStats();
+  };
+
+  // Counts for the filter itself come from `type_counts`, which the endpoint
+  // computes over a population the type filter has not touched — so selecting
+  // Express does not zero the other options, while search and date still apply.
+  // It also returns `regular` outright: deriving it needs the express/emergency
+  // overlap (9 orders are both), which nothing else in the response exposes.
+  const typeCounts = stats?.type_counts;
+
+  const typeOptions = ORDER_TYPE_CONFIG.map((t) => ({
+    value: t.value,
+    label: M.TYPE_FILTER.OPTION(t.label, typeCounts?.[t.countKey]),
+  }));
+
+  // The cards ARE the status breakdown, which is why the stats endpoint ignores
+  // `?status=` — applying it would zero every card but the selected one. Making
+  // them the control instead of a passive readout is what makes that legible:
+  // click a card to filter the table to it, click again to clear.
   const statItems = STAT_CONFIG.map((c) => ({
     id: c.id,
     label: c.label,
     value: statsLoading ? "—" : pickStat(stats, c.keys).toLocaleString(),
     icon: c.icon,
     variant: c.variant,
+    active: c.filter !== null && c.filter !== "" && statusFilter === c.filter,
+    onClick:
+      c.filter === null
+        ? undefined
+        : () => setParam("status", statusFilter === c.filter ? "" : (c.filter as string)),
   }));
 
   // Flow 11 §14 — the full record for the open order. The list row only carries
@@ -499,6 +667,11 @@ export function OrdersPage() {
       image: (o) => getFallbackAvatar(o.s),
     }),
     truncatedColumn({ id: "items", header: M.COLUMNS.ITEMS, get: (o) => o.it }),
+    {
+      id: "type",
+      header: M.COLUMNS.TYPE,
+      cell: (o) => <OrderTypeBadges isExpress={o.isExpress} isEmergency={o.isEmergency} />,
+    },
     textColumn({
       id: "ship",
       header: M.COLUMNS.SHIP_TERMINAL,
@@ -532,6 +705,18 @@ export function OrdersPage() {
     {
       id: "status",
       header: M.COLUMNS.STATUS,
+      // `DataTable` turns a column with `filter` into a dropdown header. The
+      // control belongs here rather than in the page toolbar: it narrows the
+      // table only — the cards are the status breakdown and ignore it — so
+      // sitting beside search and date, which rescope the whole screen, implied
+      // a reach it does not have.
+      filter: {
+        // The URL uses "" for unfiltered; the local sentinel is "all".
+        value: statusFilter === "all" ? "" : statusFilter,
+        options: STATUS_OPTIONS.filter((o) => o.value !== "all"),
+        onChange: (val: string) => setParam("status", val),
+        allLabel: M.STATUS_FILTER.ALL,
+      },
       cell: (o) => (
         <div className="flex flex-wrap items-center gap-1.5">
           <StatusBadge status={o.st} />
@@ -601,6 +786,7 @@ export function OrdersPage() {
     <>
       <PageHeader
         title={M.TITLE}
+        subtitle={statsLoading ? undefined : M.STATS.TOTAL_SUMMARY(pickStat(stats, ["all_orders"]))}
         actions={
           // Search, status and date range all scope the orders query, so they
           // only make sense while that tab is showing.
@@ -611,17 +797,11 @@ export function OrdersPage() {
               searchPlaceholder={M.SEARCH_PLACEHOLDER}
               searchDebounceMs={180}
               searchLoading={isFetching}
-              filters={[
-                {
-                  id: "status",
-                  value: statusFilter,
-                  placeholder: M.STATUS_FILTER.ALL,
-                  options: STATUS_OPTIONS,
-                  width: "150px",
-                  onValueChange: (val) => setParam("status", val),
-                  emptyValue: "all",
-                },
-              ]}
+              // Status lives on the STATUS column header, not here. It narrows
+              // the table only — the cards are the status breakdown and ignore
+              // it — so a toolbar slot beside search and date, which DO rescope
+              // the whole screen, implied a reach it does not have.
+              filters={[]}
               // The date range is local state, not a URL param, so the toolbar
               // can't see it — report it so Reset offers itself for a range too.
               isFiltered={!!dateRange?.from}
@@ -653,7 +833,20 @@ export function OrdersPage() {
         }
       />
 
-      <StatsGrid items={statItems} />
+      <StatsGrid items={statItems} className="cols-4" />
+
+      {/* Order-type filter. Replaces the Express/Emergency cards that sat here:
+          the same two numbers, but actionable, and with the complement
+          ("Regular") that the cards could not express. Counts come from a
+          type-free scope so they stay put when an option is selected. */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="sec-label !mb-0">{M.TYPE_FILTER.LABEL}</span>
+        <PillToggle
+          options={typeOptions}
+          value={typeFilter}
+          onChange={(value) => setParam("type", value === "all" ? "" : value)}
+        />
+      </div>
 
       <DynamicTabs
         value={activeTab}
@@ -672,7 +865,7 @@ export function OrdersPage() {
                 isLoading={isLoading}
                 isError={isError}
                 error={isError ? M.FETCH_ERROR : null}
-                onRetry={refetch}
+                onRetry={retryAll}
                 onPageChange={handlePageChange}
                 showPagination
                 emptyMessage={search || statusFilter !== "all" ? M.EMPTY_FILTERED : M.EMPTY}

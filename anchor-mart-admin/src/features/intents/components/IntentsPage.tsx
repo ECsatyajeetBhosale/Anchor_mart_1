@@ -1,16 +1,23 @@
 import {
+  IconBan,
   IconCheck,
+  IconClipboardCheck,
   IconClock,
-  IconFileInvoice,
+  IconHourglass,
+  IconInbox,
   IconInfoCircle,
   IconPackage,
   IconRefresh,
+  IconSearch,
+  IconX,
 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import { OrderTypeBadges } from "@/components/common/OrderTypeBadges";
 import { PageHeader } from "@/components/common/PageHeader";
+import { PillToggle } from "@/components/common/PillToggle";
 import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import { avatarColumn, badgeColumn, textColumn } from "@/components/common/tableColumns";
@@ -58,20 +65,64 @@ const LIMIT = 10;
 
 type StatVariant = "navy" | "teal" | "amber" | "red" | "green" | "purple" | "blue";
 
-// KPI cards — each maps 1:1 to a field on the intents stats API response.
-const STAT_CONFIG: {
+/**
+ * The open funnel. These six are mutually exclusive and sum to `total_intents`,
+ * which is why the total is the page heading and not a seventh card: as a card
+ * it reads as another bucket beside the six it is the sum of, and invites being
+ * added in.
+ *
+ * `substitution_needed` keeps its card and carries its two sub-buckets *inside*
+ * it — `awaiting_customer + ready_to_bill == substitution_needed`, so showing
+ * all three as peers counts the same orders twice.
+ */
+const FUNNEL_STAT_CONFIG: {
   id: string;
   label: string;
   key: keyof IntentStats;
   icon: ReactNode;
   variant: StatVariant;
+  filter: string;
 }[] = [
   {
-    id: "total",
-    label: M.STATS.TOTAL,
-    key: "total_intents",
-    icon: <IconFileInvoice size={20} />,
-    variant: "navy",
+    id: "new",
+    label: M.STATS.NEW,
+    key: "new_intents",
+    icon: <IconInbox size={20} />,
+    variant: "blue",
+    filter: "intent_received",
+  },
+  {
+    id: "pending",
+    label: M.STATS.PENDING,
+    key: "pending_intent",
+    icon: <IconHourglass size={20} />,
+    variant: "purple",
+    filter: "pending_intent",
+  },
+  {
+    id: "sourcing",
+    label: M.STATS.SOURCING,
+    key: "in_sourcing",
+    icon: <IconSearch size={20} />,
+    variant: "teal",
+    filter: "sourcing",
+  },
+  {
+    id: "verification",
+    label: M.STATS.VERIFICATION,
+    key: "in_verification",
+    icon: <IconClipboardCheck size={20} />,
+    variant: "blue",
+    // Derived filter resolving to the same two statuses this card counts.
+    filter: "in_verification",
+  },
+  {
+    id: "substitutions",
+    label: M.STATS.SUBSTITUTIONS,
+    key: "substitution_needed",
+    icon: <IconRefresh size={20} />,
+    variant: "red",
+    filter: "pending_customer_response",
   },
   {
     id: "awaiting-payment",
@@ -79,21 +130,66 @@ const STAT_CONFIG: {
     key: "awaiting_payment",
     icon: <IconClock size={20} />,
     variant: "amber",
+    filter: "payment_pending",
   },
+];
+
+/**
+ * Closed intents — terminal, and outside `total_intents`. Rendered under their
+ * own heading so they are not read as open work.
+ *
+ * Rejected and cancelled are different events: **rejected** is the admin's
+ * supply-side verdict ("we cannot source this"); **cancelled** is the order
+ * being withdrawn before any payment, by the sailor or an admin.
+ */
+const CLOSED_STAT_CONFIG: typeof FUNNEL_STAT_CONFIG = [
   {
-    id: "subs",
-    label: M.STATS.SUBSTITUTIONS,
-    key: "substitution_needed",
-    icon: <IconRefresh size={20} />,
+    id: "rejected",
+    label: M.STATS.REJECTED,
+    key: "rejected",
+    icon: <IconBan size={20} />,
     variant: "red",
+    filter: "intent_rejected",
   },
   {
-    id: "confirmed",
-    label: M.STATS.CONFIRMED_TODAY,
-    key: "confirmed_today",
-    icon: <IconCheck size={20} />,
-    variant: "green",
+    id: "cancelled",
+    label: M.STATS.CANCELLED,
+    key: "cancelled",
+    icon: <IconX size={20} />,
+    variant: "red",
+    filter: "cancelled",
   },
+];
+
+/**
+ * Order-type filter, identical in behaviour to the orders screen. Each option is
+ * a query, not a slice of a partition: `is_express` and `is_emergency` are
+ * independent and an order may be both, so the counts do not sum to the total.
+ * "Regular" is the complement — `false` on both.
+ */
+const INTENT_TYPE_QUERY = {
+  all: {},
+  express: { isExpress: true },
+  emergency: { isEmergency: true },
+  regular: { isExpress: false, isEmergency: false },
+} as const;
+
+type IntentTypeFilter = keyof typeof INTENT_TYPE_QUERY;
+
+/** Narrows the URL's `?type=` to a known option; anything else falls back to All. */
+function asIntentType(value: string | null): IntentTypeFilter {
+  return value && value in INTENT_TYPE_QUERY ? (value as IntentTypeFilter) : "all";
+}
+
+const INTENT_TYPE_CONFIG: {
+  value: IntentTypeFilter;
+  label: string;
+  countKey: "all" | "express" | "emergency" | "regular";
+}[] = [
+  { value: "all", label: M.TYPE_FILTER.ALL, countKey: "all" },
+  { value: "express", label: M.TYPE_FILTER.EXPRESS, countKey: "express" },
+  { value: "emergency", label: M.TYPE_FILTER.EMERGENCY, countKey: "emergency" },
+  { value: "regular", label: M.TYPE_FILTER.REGULAR, countKey: "regular" },
 ];
 
 // Status filter values the intents endpoint accepts (backend-enforced). Only
@@ -110,13 +206,27 @@ const INTENT_FILTER_KEYS = [
   "intent_rejected",
 ];
 
-// The eight values above are exactly the enum the API collection documents for
-// `?status=`. The flow doc also mentions two derived views (`ready_to_bill`,
-// `awaiting_customer`) but the collection doesn't list them, so they are kept
-// out of the dropdown rather than risking a 400 on an unsupported value.
+/**
+ * Derived views the endpoint accepts alongside the raw statuses, via
+ * `INTENT_DERIVED_FILTERS`. They were previously kept out of the dropdown on the
+ * grounds that the API collection did not document them and an unsupported value
+ * would 400 — but the view resolves them explicitly (`if status_filter in
+ * INTENT_DERIVED_FILTERS`), and the stat cards now select two of them, so the
+ * dropdown has to be able to show what is active.
+ *
+ * They are not raw statuses, so their labels are not in `ORDER_STATUS_BY_KEY`.
+ */
+const INTENT_DERIVED_FILTER_OPTIONS = [
+  { value: "in_verification", label: M.STATS.VERIFICATION },
+  { value: "awaiting_customer", label: M.STATS.AWAITING_CUSTOMER },
+  { value: "ready_to_bill", label: M.STATS.READY_TO_BILL },
+  { value: "cancelled", label: M.STATS.CANCELLED },
+];
+
 const STATUS_OPTIONS = [
   { value: "all", label: M.ALL_STATUS },
   ...INTENT_FILTER_KEYS.map((key) => ({ value: key, label: ORDER_STATUS_BY_KEY[key].label })),
+  ...INTENT_DERIVED_FILTER_OPTIONS,
 ];
 
 export function IntentsPage() {
@@ -159,22 +269,89 @@ export function IntentsPage() {
 
   // Intents list — search + status filter server-side; paginated by DRF.
   const statusParam = statusFilter !== "all" ? statusFilter : undefined;
+  const typeFilter = asIntentType(searchParams.get("type"));
+  const typeQuery = INTENT_TYPE_QUERY[typeFilter];
+
   const { data, isLoading, isFetching, isError, refetch } = useGetIntentsQuery({
     page,
     limit: LIMIT,
     search: searchTerm,
     status: statusParam,
+    ...typeQuery,
   });
 
   // Live KPI stats from the API; cards show "—" while loading and 0 when absent.
-  const { data: stats, isLoading: statsLoading } = useGetIntentStatsQuery();
-  const statItems = STAT_CONFIG.map((c) => ({
+  // Scoped to the same search and order type as the table beneath them — the
+  // endpoint honours both, and was previously called with neither.
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    refetch: refetchStats,
+  } = useGetIntentStatsQuery({
+    search: searchTerm,
+    ...typeQuery,
+  });
+
+  /** Retry after a failed load — reloads the cards as well as the table, so the
+   *  two keep describing the same population. See the orders screen for why. */
+  const retryAll = () => {
+    refetch();
+    refetchStats();
+  };
+
+  // Chip counts come from `type_counts`, computed over the open funnel with the
+  // type filter removed, so selecting one option does not zero the others.
+  const typeOptions = INTENT_TYPE_CONFIG.map((t) => ({
+    value: t.value,
+    label: M.TYPE_FILTER.OPTION(t.label, stats?.type_counts?.[t.countKey]),
+  }));
+  // Clicking a card filters the table to that bucket — the same reason the stats
+  // endpoint ignores `?status=`: the cards ARE the breakdown, so they must not
+  // filter themselves. Click an active card again to clear.
+  const cardItem = (c: (typeof FUNNEL_STAT_CONFIG)[number]) => ({
     id: c.id,
     label: c.label,
     value: statsLoading ? "—" : (stats?.[c.key] ?? 0).toLocaleString(),
     icon: c.icon,
     variant: c.variant,
-  }));
+    active: statusFilter === c.filter,
+    onClick: () => setParam("status", statusFilter === c.filter ? "" : c.filter),
+  });
+
+  const num = (key: keyof IntentStats) =>
+    statsLoading ? "—" : (stats?.[key] ?? 0).toLocaleString();
+
+  const statItems = FUNNEL_STAT_CONFIG.map((c) =>
+    c.id === "substitutions"
+      ? {
+          ...cardItem(c),
+          // Sub-buckets, shown inside their parent because they are already
+          // counted in it. `ready_to_bill` is the actionable half — the sailor
+          // has confirmed and an admin can raise the bill.
+          breakdown: [
+            {
+              label: M.STATS.AWAITING_CUSTOMER,
+              value: num("awaiting_customer"),
+              onClick: () =>
+                setParam("status", statusFilter === "awaiting_customer" ? "" : "awaiting_customer"),
+            },
+            {
+              label: M.STATS.READY_TO_BILL,
+              value: num("ready_to_bill"),
+              onClick: () =>
+                setParam("status", statusFilter === "ready_to_bill" ? "" : "ready_to_bill"),
+            },
+          ],
+        }
+      : cardItem(c),
+  );
+
+  // One 4-across grid: the six funnel buckets, then the two terminal ones, in
+  // that order. They keep separate configs because they mean different things —
+  // only the first six sum to `total_intents` — but they render as a single
+  // block, with position and the red treatment carrying the distinction instead
+  // of a heading.
+  const allStatItems = [...statItems, ...CLOSED_STAT_CONFIG.map(cardItem)];
 
   const intents = data?.intents ?? [];
   const totalCount = data?.count ?? 0;
@@ -406,16 +583,40 @@ export function IntentsPage() {
         </div>
       ),
     },
+    {
+      id: "type",
+      header: M.COLUMNS.TYPE,
+      cell: (i: IntentData) => (
+        <OrderTypeBadges isExpress={i.isExpress} isEmergency={i.isEmergency} />
+      ),
+    },
     textColumn({ id: "ship", header: M.COLUMNS.SHIP, get: (i) => i.sh, className: "td-m" }),
     textColumn({ id: "arrival", header: M.COLUMNS.ARRIVAL, get: (i) => i.ar, className: "td-m" }),
-    textColumn({ id: "stay", header: M.COLUMNS.STAY, get: (i) => i.sy, className: "td-m" }),
+    textColumn({
+      id: "departure",
+      header: M.COLUMNS.DEPARTURE,
+      get: (i) => i.sy,
+      className: "td-m",
+    }),
     textColumn({
       id: "submitted",
       header: M.COLUMNS.SUBMITTED,
       get: (i) => i.sb,
       className: "td-m",
     }),
-    badgeColumn({ id: "status", header: M.COLUMNS.STATUS, get: (i) => i.st, variant: (i) => i.sc }),
+    badgeColumn({
+      id: "status",
+      header: M.COLUMNS.STATUS,
+      get: (i) => i.st,
+      variant: (i) => i.sc,
+      filter: {
+        // The URL uses "" for unfiltered; the local sentinel is "all".
+        value: statusFilter === "all" ? "" : statusFilter,
+        options: STATUS_OPTIONS.filter((o) => o.value !== "all"),
+        onChange: (val: string) => setParam("status", val),
+        allLabel: M.ALL_STATUS,
+      },
+    }),
     {
       id: "owner",
       header: M.COLUMNS.OWNER,
@@ -477,6 +678,7 @@ export function IntentsPage() {
       {/* Page Header */}
       <PageHeader
         title={M.TITLE}
+        subtitle={statsLoading ? undefined : M.STATS.OPEN_SUMMARY(stats?.total_intents ?? 0)}
         actions={
           <SearchFilters
             searchValue={searchTerm}
@@ -484,18 +686,15 @@ export function IntentsPage() {
             searchPlaceholder={M.SEARCH_PLACEHOLDER}
             searchDebounceMs={300}
             searchLoading={isFetching}
-            filters={[
-              {
-                id: "status",
-                value: statusFilter,
-                placeholder: M.ALL_STATUS,
-                options: STATUS_OPTIONS,
-                width: "180px",
-                onValueChange: (val) => setParam("status", val),
-              },
-            ]}
+            // Status lives on the STATUS column header, not here. It narrows
+            // the table only — the cards are the status breakdown and ignore it
+            // — so a toolbar slot beside search, which rescopes the whole
+            // screen, implied a reach it does not have.
+            filters={[]}
           >
-            {/* Info icon beside the status filter → opens the status-meaning legend. */}
+            {/* Opens the status-meaning legend. Kept in the toolbar now that the
+                status filter itself has moved to the column header — it explains all
+                18 statuses, not just the one selected. */}
             <button
               type="button"
               className="btn btn-ghost btn-icon"
@@ -509,7 +708,27 @@ export function IntentsPage() {
         }
       />
 
-      <StatsGrid items={statItems} />
+      <StatsGrid items={allStatItems} className="cols-4" />
+
+      {/* Throughput, not a funnel state: intents that LEFT this screen today by
+          being paid. It belongs to no total, so it sits outside both grids. */}
+      <div className="mb-5 flex items-center gap-2 text-[13px]">
+        <IconCheck size={15} className="shrink-0 text-[var(--success-icon)]" />
+        <span className="font-semibold text-[var(--t3)]">{M.STATS.CONFIRMED_TODAY}</span>
+        <span className="font-extrabold tabular-nums text-[var(--t1)]">
+          {num("confirmed_today")}
+        </span>
+      </div>
+
+      {/* Order-type filter — same control and semantics as the orders screen. */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="sec-label !mb-0">{M.TYPE_FILTER.LABEL}</span>
+        <PillToggle
+          options={typeOptions}
+          value={typeFilter}
+          onChange={(value) => setParam("type", value === "all" ? "" : value)}
+        />
+      </div>
 
       <DataTable
         columns={columns}
@@ -520,7 +739,7 @@ export function IntentsPage() {
         isLoading={isLoading}
         isError={isError}
         error={isError ? M.FETCH_ERROR : null}
-        onRetry={refetch}
+        onRetry={retryAll}
         onPageChange={handlePageChange}
         showPagination
         emptyMessage={M.EMPTY}

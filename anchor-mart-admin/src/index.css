@@ -804,6 +804,14 @@ body {
 @media (max-width: 1024px) { .stats-row.cols-7 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 768px)  { .stats-row.cols-7 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 480px)  { .stats-row.cols-7 { grid-template-columns: 1fr; } }
+/* Fixed 4-across. `auto-fit` packs as many cards as will fit, which on a wide
+   screen put 6 of the 7 order buckets on one line and stranded the 7th alone —
+   and made a 2-card group stretch to full width. A fixed count keeps every card
+   the same size and lets a group wrap predictably: 7 cards read 4 + 3, 2 cards
+   read 2 and a gap, all at one width. */
+.stats-row.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1024px) { .stats-row.cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px)  { .stats-row.cols-4 { grid-template-columns: 1fr; } }
 /* Padding tightened with the footer's removal — the card is label + number
    only now, so the old bottom allowance reserved space for a row that no
    longer renders. */

@@ -92,6 +92,8 @@ export interface AssignablePartner {
   /** Business partner code, e.g. "DP-00056". */
   code: string;
   name: string;
+  /** The partner's login email — the only unambiguous identifier in this data. */
+  email: string;
   port: string;
   isAvailable: boolean;
   /**
@@ -117,6 +119,13 @@ export interface OrderTimelineStep {
   label: string;
   /** Display timestamp, or null when the step hasn't happened yet. */
   at: string | null;
+  /**
+   * The backend's own verdict on this milestone — `done` / `active` /
+   * `pending`, rolled forward by the order's progress rank. Authoritative;
+   * never recompute it. See `lib/timeline.ts` for why this replaced `is_done`.
+   */
+  status: string | null;
+  /** Derived convenience mirror of `status === "done"`. Prefer `status`. */
   is_done: boolean;
   detail?: string | null;
 }

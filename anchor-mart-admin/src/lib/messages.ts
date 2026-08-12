@@ -344,6 +344,33 @@ export const MESSAGES = {
       },
       ORDER_INFO: "Order Information",
       TIMELINE: "Delivery Timeline",
+      // Review layout (Flow 14) — mirrors the intent review drawer so the two
+      // screens read as the same product. Worded for a placed order: the
+      // intents drawer says "Created Intent on", this one says "Order Date".
+      COPY_REF: "Copy order number",
+      SUMMARY: {
+        TOTAL: "Order Total",
+        ITEMS: "Items",
+        ORDER_DATE: "Order Date",
+        PORT: "Port",
+        ARRIVAL: "Ship Arrival",
+      },
+      CUSTOMER_INFO: "Customer Information",
+      VESSEL_SHIPPING: "Vessel & Shipping",
+      ORDER_SUMMARY: "Order Summary",
+      NOTES: "Notes",
+      NO_NOTES: "No notes.",
+      NO_EMAIL: "No email on file",
+      NO_PHONE: "No phone on file",
+      VESSEL: "Vessel",
+      IMO: "IMO Number",
+      PORT: "Port",
+      ANCHORAGE: "Anchorage / Terminal",
+      ARRIVAL: "Arrival Date",
+      EXPECTED_DEPARTURE: "Expected Departure",
+      ORDER_DATE: "Order Date",
+      EXPRESS: "Express",
+      EMERGENCY: "Emergency",
       SAILOR: "Sailor",
       SOURCE: "Order Source",
       INTENT_REF: "Intent Ref",
@@ -356,6 +383,15 @@ export const MESSAGES = {
       COUPON_NONE: "None",
       ITEMS: "Items",
       NO_ITEMS: "No items",
+      // Same column set as the intents review table, minus Availability —
+      // that is a pre-payment verification signal and is settled by the time an
+      // order reaches this drawer.
+      ITEM_COLUMNS: {
+        ITEM: "Item",
+        QTY: "Qty",
+        UNIT: "Unit Price",
+        SUBTOTAL: "Subtotal",
+      },
       ORDER_TOTAL: "Order Total",
       // Written out so a multi-quantity row can't be misread — the figure beside
       // the quantity is the unit price, not the line total.
@@ -381,10 +417,35 @@ export const MESSAGES = {
     // KPI cards. The stats endpoint's field names aren't pinned by an example
     // in the API collection, so each card reads a list of candidate keys.
     STATS: {
+      // Lifecycle buckets — mutually exclusive, and they reconcile:
+      // confirmed + in_transit + delivered + failed + cancelled + refunded == total
+      // (less the sub-second `payment_received` transient, which belongs to no bucket).
+      /** The population, rendered as the page heading rather than a card. */
       TOTAL: "Total Orders",
+      TOTAL_SUMMARY: (n: number) => `${n.toLocaleString()} ${n === 1 ? "order" : "orders"}`,
+      CONFIRMED: "Confirmed",
       IN_TRANSIT: "In Transit",
       DELIVERED: "Delivered",
+      FAILED: "Delivery Failed",
       CANCELLED: "Cancelled",
+      REFUNDED: "Refunded",
+      // Dimensions, NOT buckets: these cross-cut every status above and an order
+      // may be both, so they are shown apart and must never be added to the total.
+    },
+    /**
+     * Order-type filter. These are queries, not a partition — `is_express` and
+     * `is_emergency` are independent, an order may be both, and the counts
+     * therefore do not sum to the total. "Regular" is the complement of both.
+     */
+    TYPE_FILTER: {
+      LABEL: "Order Type",
+      ALL: "All",
+      EXPRESS: "Express",
+      EMERGENCY: "Marine Emergency",
+      REGULAR: "Regular",
+      /** Count is omitted while the figure is still loading. */
+      OPTION: (label: string, count?: number) =>
+        count === undefined ? label : `${label} · ${count.toLocaleString()}`,
     },
     ACTION_VIEW: "View",
     // Table
@@ -392,6 +453,7 @@ export const MESSAGES = {
       ORDER_ID: "Order ID",
       SAILOR: "Sailor",
       ITEMS: "Items",
+      TYPE: "Type",
       SHIP_TERMINAL: "Ship / Terminal",
       CHANGED_ANCHORAGE: "Changed Anchorage",
       PARTNER: "Partner",
@@ -609,18 +671,63 @@ export const MESSAGES = {
     },
     // KPI cards (mapped to the intents stats API fields)
     STATS: {
+      // The six funnel buckets are mutually exclusive and sum to TOTAL:
+      // new + pending + sourcing + verification + (awaiting_customer +
+      // ready_to_bill) + awaiting_payment == total_intents.
+      /** The population, rendered as the page heading rather than a card. */
       TOTAL: "Total Intents",
+      OPEN_SUMMARY: (n: number) => `${n.toLocaleString()} open ${n === 1 ? "intent" : "intents"}`,
+      /** Parent bucket; `awaiting_customer` + `ready_to_bill` are inside it. */
+      SUBSTITUTIONS: "Substitutions",
+      NEW: "New Intents",
+      PENDING: "Pending Intent",
+      SOURCING: "In Sourcing",
+      VERIFICATION: "In Verification",
+      // `substitution_needed` counts the whole `pending_customer_response`
+      // bucket, of which these two are the halves — released-and-waiting versus
+      // customer-confirmed. The parent card is not shown: it was labelled
+      // "Substitutions Needed", which is not what it counted, and it could never
+      // agree with the per-row substitution flag (that fires a stage earlier, at
+      // `verification_submitted`).
+      AWAITING_CUSTOMER: "Awaiting Customer",
+      READY_TO_BILL: "Ready to Bill",
       AWAITING_PAYMENT: "Awaiting Payment",
-      SUBSTITUTIONS: "Substitutions Needed",
+      // Outside the funnel total: `rejected` is a terminal off-ramp, and
+      // `confirmed_today` is a time-scoped count of orders that have left it.
       CONFIRMED_TODAY: "Confirmed Today",
+      REJECTED: "Rejected",
+      /**
+       * Qualified deliberately. "Cancelled" means different things on the two
+       * screens and both are correct: here it is the derived filter for UNPAID
+       * cancellations, while the orders screen's is the raw `cancelled` status
+       * over a paid-only population. The counts differ by two orders of
+       * magnitude (67 vs 1), so someone comparing the screens will notice —
+       * better that the label answers the question than invites it.
+       */
+      CANCELLED: "Cancelled (Unpaid)",
+    },
+    /**
+     * Order-type filter — same control and semantics as the orders screen.
+     * Counts come from `type_counts`, computed over the open funnel without the
+     * type filter, so `type_counts.all == total_intents`.
+     */
+    TYPE_FILTER: {
+      LABEL: "Order Type",
+      ALL: "All",
+      EXPRESS: "Express",
+      EMERGENCY: "Marine Emergency",
+      REGULAR: "Regular",
+      OPTION: (label: string, count?: number) =>
+        count === undefined ? label : `${label} · ${count.toLocaleString()}`,
     },
     // Table columns
     COLUMNS: {
       SAILOR: "Sailor",
       ITEMS: "Items Requested",
+      TYPE: "Type",
       SHIP: "Ship",
       ARRIVAL: "Arrival",
-      STAY: "Stay",
+      DEPARTURE: "Departure",
       SUBMITTED: "Submitted",
       STATUS: "Status",
       OWNER: "Owner",
@@ -721,6 +828,12 @@ export const MESSAGES = {
       CUSTOMER_INFO: "Customer Information",
       VESSEL_SHIPPING: "Vessel & Shipping",
       PRICING: "Pricing Breakdown",
+      // Pre-bill substitute for the breakdown. The backend's subtotal/tax/
+      // discount/total are a real 0 until Create Bill runs, so showing them
+      // as facts contradicts the priced line items directly above.
+      ESTIMATED_TOTAL: "Estimated Total",
+      ESTIMATED_HINT:
+        "Indicative value of the available items. Shipping, tax and discounts are set when you create the bill.",
       PAYMENT_INFO: "Payment Information",
       DELIVERY_PARTNER: "Delivery Partner",
       NOTES_SECTION: "Notes",
@@ -730,7 +843,7 @@ export const MESSAGES = {
       VESSEL: "Vessel",
       PORT: "Port",
       ANCHORAGE: "Anchorage / Terminal",
-      EXPECTED_STAY: "Expected Stay",
+      EXPECTED_DEPARTURE: "Expected Departure",
       ORDER_DATE: "Order Date",
       SUBTOTAL: "Subtotal",
       SHIPPING_FEE: "Shipping Fee",
@@ -759,6 +872,8 @@ export const MESSAGES = {
       // Summary strip — the at-a-glance facts above the tabs
       SUMMARY: {
         TOTAL: "Order Total",
+        // Shown instead of "$0.00" before a bill exists — see UNBILLED_STATUSES.
+        NOT_PRICED: "Not priced yet",
         ITEMS: "Items",
         SUBMITTED: "Created Intent on",
         PORT: "Port",

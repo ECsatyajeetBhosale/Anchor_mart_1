@@ -78,10 +78,19 @@ export interface IntentApi {
   port_id?: string;
   anchorage?: string;
   ship_arrival_date?: string;
-  expected_stay?: string;
+  /**
+   * Absolute UTC datetime the vessel is expected to DEPART. The backend's
+   * `expected_stay` free-text duration was dropped in migrations 0053/0054 and
+   * replaced by this; reading the old name yielded `undefined` on every row, so
+   * the Stay column rendered its em-dash fallback for every order ever shown.
+   */
+  expected_departure?: string;
   intent_received_at?: string;
   total_amount?: string;
   created_at?: string;
+  /** Order type. Independent flags — an intent may be both. */
+  is_express?: boolean;
+  is_emergency?: boolean;
 }
 
 /** UI row model consumed by the list table + review drawer. */
@@ -97,7 +106,7 @@ export interface IntentData {
   vessel: string;
   port: string;
   ar: string; // formatted ship arrival date
-  sy: string; // expected_stay
+  sy: string; // formatted expected_departure
   sb: string; // submitted (created_at)
   st: string; // status_display (badge label)
   status: string; // raw status (filtering / logic)
@@ -112,6 +121,9 @@ export interface IntentData {
   portId: string;
   /** Row-level Flow 06 signal: at `verification_submitted` with a short/unavailable line. */
   substitutionNeeded: boolean;
+  /** Order type. Independent flags — an intent may be both. */
+  isExpress: boolean;
+  isEmergency: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -156,7 +168,13 @@ export interface IntentDetail {
   portCode: string;
   anchorageName: string;
   shipArrivalDate: string;
-  expectedStay: string;
+  expectedDeparture: string;
+  /**
+   * Indicative basket value derived from the line items, for orders that have
+   * no bill yet (the backend's own `subtotal`/`total_amount` are a real 0 until
+   * Create Bill runs). Empty string when nothing could be computed.
+   */
+  estimatedSubtotal: string;
   // Items (full detail with pricing)
   items: IntentDetailItem[];
   itemCount: number;
@@ -224,6 +242,26 @@ export interface GetIntentsParams {
   search?: string;
   /** Raw API status value (e.g. "intent_received"); omit for "all". */
   status?: string;
+  /**
+   * Order-type filters. Independent booleans that are **not** mutually
+   * exclusive — an order may be both — so these are queries, not slices of a
+   * partition. "Regular" is `false` on both. `undefined` means no filter, and
+   * `false` is a real filter that must survive the usual `|| undefined` idiom.
+   */
+  isExpress?: boolean;
+  isEmergency?: boolean;
+}
+
+/**
+ * Scope filters for the stat cards. No `status` (the cards break the population
+ * down *by* status) and deliberately no date window — the orders screen filters
+ * on `payment_completed_at`, which by definition has not happened yet for an
+ * intent, so the same parameter would mean two different things.
+ */
+export interface GetIntentStatsParams {
+  search?: string;
+  isExpress?: boolean;
+  isEmergency?: boolean;
 }
 
 /** Transformed list result the page consumes: total count + UI rows. */
@@ -248,6 +286,24 @@ export interface IntentStats {
   awaiting_payment?: number;
   confirmed_today?: number;
   rejected?: number;
+  /** Intents stopped before payment — a paid cancellation is a refund and
+   *  belongs to the orders screen. Together the two cover every one exactly once. */
+  cancelled?: number;
+  /**
+   * Counts for the order-type chips, over the open funnel with the type filter
+   * removed — so selecting a type does not zero the other options. `search`
+   * still applies. `type_counts.all == total_intents`.
+   */
+  type_counts?: IntentTypeCounts;
+}
+
+/** Chip counts. `express` and `emergency` overlap; `both` is that overlap. */
+export interface IntentTypeCounts {
+  all?: number;
+  express?: number;
+  emergency?: number;
+  both?: number;
+  regular?: number;
 }
 
 /* ------------------------------------------------------------------ */
