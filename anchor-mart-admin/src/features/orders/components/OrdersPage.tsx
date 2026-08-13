@@ -4,16 +4,16 @@ import { type OrderDetail, OrderDetailDrawer } from "@/components/common/OrderDe
 import { OrderTypeBadges } from "@/components/common/OrderTypeBadges";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PillToggle } from "@/components/common/PillToggle";
+import { RowReason } from "@/components/common/RowReason";
 import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
-import { StatusBadge } from "@/components/common/StatusBadge";
 import {
   avatarColumn,
   idColumn,
   textColumn,
   truncatedColumn,
 } from "@/components/common/tableColumns";
-import { Badge } from "@/components/ui/badge";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { useGetOrderTimelineQuery } from "@/features/assignments";
@@ -22,6 +22,7 @@ import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
+import { terminalReason } from "@/lib/terminalReason";
 import { clearParams } from "@/lib/utils";
 import {
   IconAlertTriangle,
@@ -45,7 +46,7 @@ import {
 } from "../api/orderApi";
 import { useClaimOrderMutation } from "../api/orderOwnershipApi";
 import { useOrderOwnership } from "../hooks/useOrderOwnership";
-import type { Order } from "../types/order.types";
+import type { Order, OrderAssignment } from "../types/order.types";
 import type { ClaimConflict } from "../types/ownership.types";
 import { CancelOrderDialog } from "./CancelOrderDialog";
 import { OpenCartsCard } from "./OpenCartsCard";
@@ -81,6 +82,13 @@ interface OrderRow {
   /** Order type. Independent flags — an order may be both. */
   isExpress: boolean;
   isEmergency: boolean;
+  /**
+   * The backend's explanation for a terminated row and when it was recorded
+   * (`lib/terminalReason`). `""` on every row that did not end on an off-ramp,
+   * and on the ones the backend recorded no reason for.
+   */
+  reason: string;
+  reasonAt: string;
   raw: Order; // full API record for the detail drawer
 }
 
@@ -330,8 +338,40 @@ function customerName(order: Order): string {
   );
 }
 
+/**
+ * The assignment that answers for a failed delivery.
+ *
+ * The list serializer sends `failure_reason` at the top level; the detail one
+ * does not, so the drawer has to find it among the assignments. It is not
+ * always the active one: a failure is retried by REASSIGNING, and the backend's
+ * own `timeline.delivery_failure` therefore picks the latest assignment with a
+ * `failed_at` rather than the live one. `assignments[]` arrives newest-first
+ * (`Meta.ordering = ["-assigned_at"]`), so the first failed entry is that one.
+ *
+ * Timestamps here are display-formatted strings, so they are never compared —
+ * the backend's ordering is the ordering.
+ */
+function failedAssignment(order: Order): OrderAssignment | null {
+  if (order.active_assignment?.failed_at) return order.active_assignment;
+  return (order.assignments ?? []).find((a) => !!a.failed_at) ?? null;
+}
+
+/** The reason columns that apply to this order, whichever read produced it. */
+function orderTerminalReason(order: Order) {
+  const failed = failedAssignment(order);
+  return terminalReason({
+    status: order.status,
+    cancellation_reason: order.cancellation_reason,
+    cancelled_at: order.cancelled_at,
+    rejection_reason: order.rejection_reason,
+    failure_reason: order.failure_reason || failed?.failure_reason,
+    failed_at: failed?.failed_at,
+  });
+}
+
 /** Map an API order into the flat shape the table columns render. */
 function toOrderRow(order: Order): OrderRow {
+  const reason = orderTerminalReason(order);
   return {
     id: order.id,
     orderNumber: order.order_number,
@@ -347,8 +387,25 @@ function toOrderRow(order: Order): OrderRow {
     terminalName: terminalLabel(order),
     isExpress: order.is_express === true,
     isEmergency: order.is_emergency === true,
+    reason: reason.text,
+    reasonAt: reason.at,
     raw: order,
   };
+}
+
+/**
+ * Badge colour for an order status, from the canonical map (`lib/orderStatuses`)
+ * that the status-legend popup renders its swatches from — so the legend and the
+ * table cannot disagree about what a status means.
+ *
+ * `StatusBadge` matched on the *display label* against a list written for generic
+ * active/inactive rows. "Cancelled" happened to be in that list and "Delivery
+ * Failed" did not, so a failed delivery rendered neutral next to a red
+ * cancellation while the legend called both `danger` — along with every other
+ * post-payment status, none of which were in the list either.
+ */
+function orderStatusVariant(status: string): BadgeProps["variant"] {
+  return ORDER_STATUS_BY_KEY[status]?.variant ?? "neutral";
 }
 
 /** Colour for the payment cell, matching the design reference. */
@@ -383,6 +440,15 @@ function couponLabel(coupon: unknown): string {
 function toOrderDetail(order: Order): OrderDetail {
   // Only the detail read returns `items`; a list row has just `item_count`.
   const items = order.items ?? [];
+  const closedReason = orderTerminalReason(order);
+  // Every declined attempt across every payment on the order, in the order the
+  // gateway made them. `Payment.failure_reason` holds only the last decline, so
+  // a card refused three times is three rows here and one there.
+  const paymentFailures = (order.payments ?? []).flatMap((p) =>
+    (p.attempts ?? [])
+      .filter((a) => !!a.failure_message)
+      .map((a) => ({ message: a.failure_message, at: a.created_at })),
+  );
 
   return {
     id: order.order_number,
@@ -436,6 +502,9 @@ function toOrderDetail(order: Order): OrderDetail {
     itemCount: order.items_count ?? order.item_count ?? items.length,
     isExpress: order.is_express === true,
     isEmergency: order.is_emergency === true,
+    terminalReason: closedReason.text,
+    terminalReasonAt: closedReason.at,
+    paymentFailures,
   };
 }
 
@@ -553,11 +622,11 @@ export function OrdersPage() {
   const selectedOrder = openOrder ? toOrderDetail(openOrder) : null;
 
   // Flow 28 API 16 — the real milestone ladder for the open order. Fetched only
-  // while the drawer is open; the drawer shows an empty state until it lands.
-  const { data: timeline, isFetching: timelineLoading } = useGetOrderTimelineQuery(
-    selectedRaw?.id ?? "",
-    { skip: !selectedRaw?.id },
-  );
+  // while the drawer is open; until it lands the drawer's rail falls back to the
+  // status-derived stages, so there is no loading state to thread through.
+  const { data: timeline } = useGetOrderTimelineQuery(selectedRaw?.id ?? "", {
+    skip: !selectedRaw?.id,
+  });
 
   const totalCount = data?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / LIMIT));
@@ -718,15 +787,23 @@ export function OrdersPage() {
         allLabel: M.STATUS_FILTER.ALL,
       },
       cell: (o) => (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <StatusBadge status={o.st} />
-          {/* Flow 11 §17 — self-clearing "needs attention" flag: true only while
-              an unactioned pending location report exists. */}
-          {o.raw.has_location_request && (
-            <Badge variant="warning" className="h-[22px] text-[10px]">
-              {M.LOCATION_REQUEST}
-            </Badge>
-          )}
+        <div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {/* Coloured from the raw status key, not the display label — see
+                `orderStatusVariant`. */}
+            <Badge variant={orderStatusVariant(o.raw.status)}>{o.st}</Badge>
+            {/* Flow 11 §17 — self-clearing "needs attention" flag: true only while
+                an unactioned pending location report exists. */}
+            {o.raw.has_location_request && (
+              <Badge variant="warning" className="h-[22px] text-[10px]">
+                {M.LOCATION_REQUEST}
+              </Badge>
+            )}
+          </div>
+          {/* Why a failed or cancelled row ended here — the backend sends it on
+              the list itself, so the reassign-or-refund call no longer costs a
+              drawer open per row. */}
+          <RowReason text={o.reason} at={o.reasonAt} className="mt-1" />
         </div>
       ),
     },
@@ -885,7 +962,6 @@ export function OrdersPage() {
       <OrderDetailDrawer
         order={selectedOrder}
         timeline={timeline?.steps}
-        timelineLoading={timelineLoading}
         onClose={() => setSelectedRaw(null)}
         // No `onReassign`: the drawer's own partner section owns assignment now.
         // Both popups are custom Dialogs, which would render behind the Sheet

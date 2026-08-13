@@ -60,6 +60,10 @@ export function OrderAssignPartnerSection({
   const [claimOrder, { isLoading: claiming }] = useClaimOrderMutation();
 
   const current = activeAssignment?.is_active ? activeAssignment : null;
+  // Verbatim partner report + when it was made; "" when nothing failed.
+  const failure = [activeAssignment?.failure_reason, activeAssignment?.failed_at]
+    .filter(Boolean)
+    .join(" · ");
 
   // All local state is per-order. The caller keys this component on the order
   // id, so switching orders in the drawer remounts it and resets the picker —
@@ -251,6 +255,20 @@ export function OrderAssignPartnerSection({
           )}
         </div>
       </div>
+
+      {/* What the partner reported when the delivery failed — the answer the
+          reassign-or-refund decision turns on. Read off the assignment, which
+          is where the backend keeps it: the status-history note carrying the
+          same words is free text and is pruned 180 days after the order
+          settles. Rendered from `activeAssignment` rather than `current`
+          because a failure deliberately leaves the assignment active, so the
+          record survives even when the picker below is gone. */}
+      {failure && (
+        <div className="detail-kv">
+          <div className="detail-k">{M.FAILURE_REASON}</div>
+          <div className="detail-v text-[var(--danger-text)]">{failure}</div>
+        </div>
+      )}
 
       {/* The assign controls exist only while the order can actually take a
           partner. On a closed order (delivered / cancelled / refunded) there is

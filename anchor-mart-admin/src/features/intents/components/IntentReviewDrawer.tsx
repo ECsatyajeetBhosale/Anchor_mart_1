@@ -477,7 +477,14 @@ export function IntentReviewDrawer({
                 </div>
               )
             }
-            rail={<IntentLifecycleRail status={status} steps={timeline?.steps} />}
+            rail={
+              <IntentLifecycleRail
+                status={status}
+                steps={timeline?.steps}
+                reason={detail?.terminalReason}
+                reasonAt={detail?.terminalReasonAt}
+              />
+            }
             facts={[
               { label: R.SUMMARY.ITEMS, value: String(view.itemCount ?? 0) },
               { label: R.SUMMARY.SUBMITTED, value: view.submitted },

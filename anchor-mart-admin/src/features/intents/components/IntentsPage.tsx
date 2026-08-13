@@ -18,6 +18,7 @@ import { useSearchParams } from "react-router-dom";
 import { OrderTypeBadges } from "@/components/common/OrderTypeBadges";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PillToggle } from "@/components/common/PillToggle";
+import { RowReason } from "@/components/common/RowReason";
 import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import { avatarColumn, badgeColumn, textColumn } from "@/components/common/tableColumns";
@@ -569,19 +570,34 @@ export function IntentsPage() {
     {
       id: "items",
       header: M.COLUMNS.ITEMS,
-      cell: (i) => (
-        <div className="flex aic g8">
-          <div className="prod-thumb h-8 w-8">
-            <IconPackage size={16} />
+      cell: (i) => {
+        // The backend's own per-line explanation ("Out of stock — none
+        // available", "Short by 2: only 1 of 3 available"), prefixed with the
+        // item it belongs to because a row holds several.
+        //
+        // A `null` reason means there is nothing to explain — most often
+        // because nobody has verified the line yet. It never means the item is
+        // unavailable; that verdict comes from `is_available` alone.
+        const notes = i.reqItems.filter((it) => it.reason).map((it) => `${it.name} — ${it.reason}`);
+        return (
+          <div className="flex items-start gap-2">
+            <div className="prod-thumb h-8 w-8 shrink-0">
+              <IconPackage size={16} />
+            </div>
+            <div className="min-w-0">
+              <span
+                className="trunc block max-w-[170px] text-[12.5px] font-medium text-[var(--t3)]"
+                title={i.it}
+              >
+                {i.it}
+              </span>
+              {notes.map((n) => (
+                <RowReason key={n} text={n} className="mt-0.5" />
+              ))}
+            </div>
           </div>
-          <span
-            className="trunc block max-w-[170px] text-[12.5px] font-medium text-[var(--t3)]"
-            title={i.it}
-          >
-            {i.it}
-          </span>
-        </div>
-      ),
+        );
+      },
     },
     {
       id: "type",
@@ -609,6 +625,9 @@ export function IntentsPage() {
       header: M.COLUMNS.STATUS,
       get: (i) => i.st,
       variant: (i) => i.sc,
+      // Why a rejected or cancelled intent ended here. Both reason columns come
+      // down on the list itself, so a terminated row explains itself in place.
+      note: (i) => <RowReason text={i.reason} at={i.reasonAt} className="mt-1" />,
       filter: {
         // The URL uses "" for unfiltered; the local sentinel is "all".
         value: statusFilter === "all" ? "" : statusFilter,

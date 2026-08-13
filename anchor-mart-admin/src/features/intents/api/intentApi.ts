@@ -2,6 +2,7 @@ import type { AssignedAdmin } from "@/features/orders";
 import { INTENT_ENDPOINTS, ORDER_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
+import { terminalReason } from "@/lib/terminalReason";
 import type {
   AvailabilityState,
   GetIntentStatsParams,
@@ -171,6 +172,14 @@ export function toIntentData(intent: IntentApi): IntentData {
   const status = str(intent.status);
   const vessel = str(sa.vessel_name);
   const imo = str(sa.imo_number) || str(sa.imo);
+  // Which of the two reason columns applies is decided in one shared place, so
+  // this list and the Orders list can't answer the same question differently.
+  const reason = terminalReason({
+    status,
+    rejection_reason: intent.rejection_reason,
+    cancellation_reason: intent.cancellation_reason,
+    cancelled_at: intent.cancelled_at,
+  });
 
   return {
     id: str(intent.id),
@@ -206,6 +215,8 @@ export function toIntentData(intent: IntentApi): IntentData {
       intent.substitution_needed === true || reqItems.some((i) => i.needsSuggestion),
     isExpress: intent.is_express === true,
     isEmergency: intent.is_emergency === true,
+    reason: reason.text,
+    reasonAt: reason.at,
   };
 }
 
@@ -376,6 +387,17 @@ export const intentApi = baseApi.injectEndpoints({
 
         const statusRaw = str(o.status);
         const needsSub = o.substitution_needed === true || items.some((i) => i.needsSuggestion);
+        // A closed intent explains itself in the rail's terminal notice. The
+        // failure branch reads the assignment, which is where the partner's
+        // words live — the detail payload has no top-level `failure_reason`.
+        const closedReason = terminalReason({
+          status: statusRaw,
+          rejection_reason: str(o.rejection_reason),
+          cancellation_reason: str(o.cancellation_reason),
+          cancelled_at: str(o.cancelled_at),
+          failure_reason: str(assignment?.failure_reason),
+          failed_at: str(assignment?.failed_at),
+        });
 
         return {
           id: str(o.id),
@@ -435,6 +457,8 @@ export const intentApi = baseApi.injectEndpoints({
           isEmergency: o.is_emergency === true,
           portId: str(port?.id) || str(o.port_id),
           substitutionNeeded: needsSub,
+          terminalReason: closedReason.text,
+          terminalReasonAt: closedReason.at,
         };
       },
       providesTags: (_r, _e, id) => [{ type: "Intents", id }],

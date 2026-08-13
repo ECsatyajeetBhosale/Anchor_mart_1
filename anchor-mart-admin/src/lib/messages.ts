@@ -383,7 +383,9 @@ export const MESSAGES = {
         FULFILMENT: "Fulfilment",
       },
       ORDER_INFO: "Order Information",
-      TIMELINE: "Delivery Timeline",
+      // Labels the first declined charge attempt under the payment line. Later
+      // attempts repeat with a blank label so the block reads as one list.
+      PAYMENT_DECLINED: "Payment Declined",
       // Review layout (Flow 14) — mirrors the intent review drawer so the two
       // screens read as the same product. Worded for a placed order: the
       // intents drawer says "Created Intent on", this one says "Order Date".
@@ -623,6 +625,8 @@ export const MESSAGES = {
     ASSIGN_PARTNER: {
       SECTION: "Delivery Partner",
       NONE: "No delivery partner assigned",
+      // The partner's own account of a failed delivery, shown beside them.
+      FAILURE_REASON: "Delivery Failed",
       PICK_PLACEHOLDER: "Select a delivery partner…",
       PICK_LOADING: "Loading partners…",
       PICK_EMPTY: "No delivery partners available",

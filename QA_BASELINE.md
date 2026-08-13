@@ -1048,6 +1048,161 @@ explicitly — **never infer it from `?status=refunded`**, which is all-time and
 query parameters**, not the underlying view class — see the alias-suppression correction in
 [§4.3](#43-contract-gates-).
 
+### C-16 — Account Management creates a real partner · 13 Aug 2026 · authorized by user
+
+**Reported:** selecting the Delivery Partner role in Account Management → Create User should open the
+same form the Delivery Partners screen uses.
+
+The form was the visible half. The functional half is that the two screens post to **different
+endpoints, and only one of them produces a working partner**:
+
+| Endpoint | Creates |
+|---|---|
+| `admin/create-user/` | `User` only — `AdminCreateUserSerializer.create()` builds the user and returns it |
+| `partner/create/` | `User` + `DeliveryPartnerProfile`, then the view sends the invite |
+
+So a delivery partner created from Account Management had no profile: no partner code, no
+capabilities, no assigned port, no availability flag. **Two such records already exist in the dev
+database** — 17 users with `role=delivery_partner` against 15 `DeliveryPartnerProfile` rows
+(`kunal.k@`, `pratap.patil@`); the first is visible in the active-partners payload as
+`"partner_code": null, "is_available": null`.
+
+The drawer now routes on role — `partner/create/` for `delivery_partner`, `create-user` for
+everything else — and renders `CapabilityFields` plus the port picker only for the partner role,
+since no other role has them.
+
+**Not fixed by this, and stated to the user:** the two existing profile-less partners are not
+repaired — both screens create rather than backfill. And `admin/create-user/` still accepts
+`role=delivery_partner` from Postman or any future caller, so the half-record remains reachable
+outside the UI; whether it should 400 is an open backend question.
+
+**Files:** `features/account-management/components/CreateUserDrawer.tsx` ·
+`features/account-management/schemas/createUser.schema.ts` ·
+`features/account-management/lib/roles.ts` (role note corrected — it claimed partner details were
+managed elsewhere, which this change made false) · `features/partners/index.ts` (exports
+`CapabilityFields`)
+
+### C-17 — One delivery timeline per order drawer · 13 Aug 2026 · authorized by user
+
+**Reported:** the order review drawer shows two delivery timelines; remove the one in Fulfilment.
+
+Both were rendering the same `order-timeline` steps: the `LifecycleRail` in the summary strip
+(horizontal, "Stage 6 of 10", visible from every tab) and the vertical `Timeline` inside the
+Fulfilment tab. This was introduced by C-05, which added the rail without removing the ladder that
+predated it. The rail is the one that survives — it is visible from all three tabs, so the tab-local
+copy was both duplicated and less reachable.
+
+**Trade-off recorded:** the vertical timeline carried per-step **timestamps**; the rail does not, so
+those are no longer shown anywhere in this drawer. Removed on the user's explicit instruction. If a
+timestamped view is wanted later, it belongs in the rail (a popover per segment), not as a second
+ladder.
+
+`timelineLoading` went with it — the rail falls back to status-derived stages while the query is in
+flight, so there was no longer a loading state to thread through. `ORDERS.DRAWER.TIMELINE` was the
+only consumer of that string and is deleted.
+
+**Not touched:** `DashboardOrderDrawer` still renders `Timeline`. It has no rail, so its ladder is
+the only one on that surface — not a duplicate.
+
+**Files:** `components/common/OrderDetailDrawer.tsx` · `features/orders/components/OrdersPage.tsx` ·
+`lib/messages.ts`
+
+**Verified.** `tsc --noEmit -p tsconfig.json` clean · `biome lint src` reports **11 errors + 1
+warning, all pre-existing BL-04, zero new** · `vite build` exits 0.
+
+⚠️ **`npm run build` fails, and did so before this change.** Its `tsc -b` step trips on
+`tsconfig.node.json(8,35): error TS5096` — `allowImportingTsExtensions` without `noEmit` on a
+composite project. Confirmed pre-existing by stashing the three modified files and re-running: same
+error, identical output. This is **BL-02 surfacing** — that project exists to typecheck
+`vite.config.ts`, and the emitted `vite.config.js` / `vite.config.d.ts` artifacts (10 Aug) are the
+shadowing files BL-02 records. The production bundle is unaffected; `vite build` alone succeeds.
+
+### C-18 — Reason visibility on terminated orders and intents · 13 Aug 2026 · authorized by user
+
+**Audit finding first.** Five backend fields answer "why did this end here", every one of them
+already arriving in the browser and every one discarded in a `transformResponse` mapper:
+
+| Reason | Model field | Rows carrying it (dev DB) |
+|---|---|---|
+| Intent rejected | `Order.rejection_reason` | 2 of 3 |
+| Cancelled | `Order.cancellation_reason` + `cancelled_at` | 65 of 69 |
+| Delivery failed | `DeliveryAssignment.failure_reason` + `failed_at` | 2 assignments |
+| Assignment declined | `DeliveryAssignment.rejection_reason` | 1 |
+| Payment declined | `payments[].attempts[].failure_message` | — |
+
+A cancelled order showed the rail's red banner — *"Cancelled — this order is closed"* — and nothing
+else. Backend commit `1b12fc7` (same day) added the first three to **both list serializers**, so the
+whole gap became frontend-only.
+
+**Selection lives in one place.** `lib/terminalReason.ts` maps status → which field applies, and
+both lists plus both drawers call it. Three surfaces answering one question independently is how
+they drift; the module is deliberately **selection only** — every string is the backend's, nothing
+is derived from status, availability or the timeline, and an order with no recorded reason returns
+`""` rather than a manufactured sentence.
+
+**Where it shows.** Muted line under the status badge on both lists (`RowReason`); inside the
+existing terminal notice in both review drawers (`LifecycleRail`, shared by both, so one edit);
+`failure_reason` beside the partner in the Fulfilment tab. **No new sections and no new requests** —
+every field rides a response the screen already fetched.
+
+**`items[].reason` (intent list).** The backend composes a per-line explanation — *"Out of stock —
+none available"*, *"Short by 2: only 1 of 3 available"* — which was mapped into `IntentItem.reason`
+and never rendered. Now shown under the items cell, prefixed with the item it belongs to because a
+row holds several. `null` means **nothing to explain** (usually unverified) and is never read as
+unavailable; availability state still comes from `is_available` alone.
+
+**Payment declines are scoped to the payment line**, by explicit instruction: a refused card
+explains why an order is *unpaid*, which is a different question from why an order *closed*. They
+render under the Overview's Payment row and appear in neither the list column nor the terminal
+banner. Each attempt is listed, because `Payment.failure_reason` keeps only the last decline.
+
+**One correctness detail.** A failed delivery is retried by *reassigning*, so the failure can sit on
+a past assignment. The drawer mirrors the backend's own `timeline.delivery_failure` — the latest
+assignment carrying a `failed_at`, taken from the newest-first `assignments[]` ordering. Timestamps
+are display-formatted strings and are therefore never compared.
+
+**Empty is empty.** `RowReason` renders `null` when there is no reason, so the 4 cancelled orders
+with no recorded reason (and every non-terminal row) show the badge alone. Reason text is never
+sliced; the list line clips to two lines in CSS with the full string on `title`.
+
+**Deliberately not done** (both are backend/product decisions, held separately at the user's
+direction): widening `cancellation_reason` beyond `CharField(50)` — the admin dialog still accepts a
+sentence and `AdminCancelOrderView` still does `reason = reason[:50]` — and adding `cancelled_by`,
+without which a cancellation does not say whether the sailor or an admin decided.
+
+**Files:** new `lib/terminalReason.ts` · new `components/common/RowReason.tsx` ·
+`components/common/LifecycleRail.tsx` · `components/common/OrderDetailDrawer.tsx` ·
+`components/common/tableColumns.tsx` · `features/orders/types/order.types.ts` ·
+`features/orders/components/OrdersPage.tsx` ·
+`features/orders/components/OrderAssignPartnerSection.tsx` ·
+`features/intents/types/intent.types.ts` · `features/intents/api/intentApi.ts` ·
+`features/intents/components/IntentsPage.tsx` ·
+`features/intents/components/IntentReviewDrawer.tsx` · `lib/messages.ts`
+
+**Follow-up (C-18a) — the Orders list ignored the canonical status colours.** Reported from the
+screen: a `delivery_failed` row rendered a neutral pill beside a red `cancelled` one.
+
+The cause was not the new reason line. `StatusBadge` picks its colour by matching the **display
+label** against a hardcoded list written for generic active/inactive rows — `"cancelled"` and
+`"delivered"` are in it, `"delivery failed"` is not, so it fell through to `neutral`. Every other
+post-payment status fell through too.
+
+`lib/orderStatuses.ts` already carries a `variant` per status and its own docstring says *"consume
+this everywhere order/intent statuses are labelled, ordered, coloured, or explained (Intents,
+**Orders**, Assignments, Verification) — never re-declare status keys/labels inline."* The Intents
+list obeys that; the Orders list did not, so the status-legend popup and the table were colouring
+the same 18 statuses from two different sources. The list now reads the canonical variant off the
+**raw status key**, not the label.
+
+Beyond the reported row this also recolours `order_confirmed` (→ success), `partner_assigned`
+(→ info) and `items_collected` / `at_port` / `at_berth` (→ teal), all of which were neutral against
+a legend that already called them otherwise. `delivered`, `cancelled` and `refunded` are unchanged.
+
+**Verified.** `tsc --noEmit -p tsconfig.json` clean · `biome lint src` **11 errors + 1 warning, all
+pre-existing BL-04, zero new** · `vite build` exits 0 · diff carries no new query, mutation or
+fetch. `npm run build` still fails at the pre-existing `tsconfig.node.json` TS5096 config error
+recorded in [C-17](#c-17--one-delivery-timeline-per-order-drawer--13-aug-2026--authorized-by-user).
+
 ---
 
 ## 11. Method

@@ -174,6 +174,12 @@ export function badgeColumn<T>(
     variant?: BadgeProps["variant"] | ((row: T) => BadgeProps["variant"]);
     badgeClassName?: string;
     filter?: ColumnFilter;
+    /**
+     * Optional muted line under the badge — e.g. why a terminated row ended
+     * where it did. Returning `null` (or an empty node) renders nothing, so
+     * rows without one keep the badge alone.
+     */
+    note?: (row: T) => ReactNode;
   },
 ): Column<T> {
   return {
@@ -182,14 +188,26 @@ export function badgeColumn<T>(
     headerClassName: opts.headerClassName,
     className: opts.className,
     filter: opts.filter,
-    cell: (row) => (
-      <Badge
-        variant={typeof opts.variant === "function" ? opts.variant(row) : opts.variant}
-        className={opts.badgeClassName ?? "text-[10px] h-[24px]"}
-      >
-        {opts.get(row)}
-      </Badge>
-    ),
+    cell: (row) => {
+      const badge = (
+        <Badge
+          variant={typeof opts.variant === "function" ? opts.variant(row) : opts.variant}
+          className={opts.badgeClassName ?? "text-[10px] h-[24px]"}
+        >
+          {opts.get(row)}
+        </Badge>
+      );
+      if (!opts.note) return badge;
+      // No wrapper around the note: it renders `null` on most rows, and a
+      // spacing div would still occupy height on every one of them. The note
+      // brings its own margin.
+      return (
+        <div>
+          {badge}
+          {opts.note(row)}
+        </div>
+      );
+    },
   };
 }
 

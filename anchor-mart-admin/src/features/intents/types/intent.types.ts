@@ -91,6 +91,17 @@ export interface IntentApi {
   /** Order type. Independent flags — an intent may be both. */
   is_express?: boolean;
   is_emergency?: boolean;
+  /**
+   * Why a terminated intent ended where it did. Both are plain columns on the
+   * order and are sent by the list serializer, so `?status=intent_rejected` is
+   * a worklist that explains itself in place.
+   *
+   * `""` / `null` means the backend recorded nothing — never filled in from the
+   * status or anything else.
+   */
+  rejection_reason?: string;
+  cancellation_reason?: string;
+  cancelled_at?: string | null;
 }
 
 /** UI row model consumed by the list table + review drawer. */
@@ -124,6 +135,13 @@ export interface IntentData {
   /** Order type. Independent flags — an intent may be both. */
   isExpress: boolean;
   isEmergency: boolean;
+  /**
+   * The backend's explanation for a terminated row (`lib/terminalReason`), and
+   * when it was recorded. `""` when there is none — the row then shows its
+   * status badge alone.
+   */
+  reason: string;
+  reasonAt: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -236,6 +254,12 @@ export interface IntentDetail {
   portId: string;
   /** Row-level Flow 06 signal: at `verification_submitted` with a short/unavailable line. */
   substitutionNeeded: boolean;
+  /**
+   * The backend's explanation for a terminated intent (`lib/terminalReason`),
+   * shown in the lifecycle rail's closed-order notice. `""` when none.
+   */
+  terminalReason: string;
+  terminalReasonAt: string;
 }
 
 /**

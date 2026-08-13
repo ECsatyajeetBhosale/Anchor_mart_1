@@ -26,7 +26,6 @@ import {
   ReviewTiles,
   Section,
 } from "./ReviewLayout";
-import { Timeline } from "./Timeline";
 
 const M = MESSAGES.ORDERS;
 const D = MESSAGES.ORDERS.DRAWER;
@@ -120,6 +119,27 @@ export interface OrderDetail {
   itemCount?: number;
   isExpress?: boolean;
   isEmergency?: boolean;
+  /**
+   * The backend's explanation for a closed order, shown inside the lifecycle
+   * rail's terminal notice. Selected from the three reason columns by
+   * `lib/terminalReason`; `""` when the backend recorded none.
+   */
+  terminalReason?: string;
+  terminalReasonAt?: string;
+  /**
+   * Declined charge attempts, newest last — from `payments[].attempts[]`.
+   * Shown only in the payment context; a decline is why an order sits unpaid,
+   * not a reason the order itself ended.
+   */
+  paymentFailures?: OrderPaymentFailure[];
+}
+
+/** One declined charge attempt, as shown under the order's payment line. */
+export interface OrderPaymentFailure {
+  /** The gateway's own message, verbatim. */
+  message: string;
+  /** When the attempt was made, already display-formatted. */
+  at: string;
 }
 
 /** A step in the order progress timeline (from the live-order details API). */
@@ -150,10 +170,12 @@ interface OrderDetailDrawerProps {
   onDownloadSlip?: () => void;
   /** True while the slip is being generated. */
   slipLoading?: boolean;
-  /** Live milestone ladder; nothing is invented when it's absent. */
+  /**
+   * Live milestone ladder; nothing is invented when it's absent. Drives the
+   * lifecycle rail in the summary strip — while it loads, the rail falls back
+   * to the status-derived stages, so no loading flag is needed here.
+   */
   timeline?: OrderTimelineItem[];
-  /** True while the live timeline is being fetched. */
-  timelineLoading?: boolean;
   /**
    * Optional feature-owned section rendered below Order Information (e.g. the
    * delivery-partner assignment, Flow 28 · APIs 11–12). Kept as a slot so this
@@ -238,7 +260,6 @@ export function OrderDetailDrawer({
   onDownloadSlip,
   slipLoading,
   timeline,
-  timelineLoading,
   detailSlot,
 }: OrderDetailDrawerProps) {
   const [tab, setTab] = useState(TAB_OVERVIEW);
@@ -342,7 +363,14 @@ export function OrderDetailDrawer({
                   {order.total}
                 </div>
               }
-              rail={<LifecycleRail status={order.statusKey ?? ""} steps={timeline} />}
+              rail={
+                <LifecycleRail
+                  status={order.statusKey ?? ""}
+                  steps={timeline}
+                  reason={order.terminalReason}
+                  reasonAt={order.terminalReasonAt}
+                />
+              }
               facts={[
                 { label: D.SUMMARY.ITEMS, value: String(order.itemCount ?? order.items.length) },
                 { label: D.SUMMARY.ORDER_DATE, value: order.orderDate ?? "" },
@@ -426,6 +454,19 @@ export function OrderDetailDrawer({
                     <KV label={D.ANCHORAGE_CHANGE} value={order.anchorageChange ?? ""} />
                     <KV label={D.PARTNER} value={order.partner} />
                     <KV label={D.PAYMENT} value={order.payment} className="csuccess" />
+                    {/* Declines sit with the payment line they belong to, not in
+                        the terminal banner: a refused card explains why an order
+                        is unpaid, which is a different question from why an order
+                        closed. Each attempt is listed — `failure_reason` on the
+                        payment keeps only the last one. */}
+                    {(order.paymentFailures ?? []).map((f, i) => (
+                      <KV
+                        key={`${f.at}-${i}`}
+                        label={i === 0 ? D.PAYMENT_DECLINED : ""}
+                        value={[f.message, f.at].filter(Boolean).join(" · ")}
+                        className="text-[var(--danger-text)]"
+                      />
+                    ))}
                     <KV label={D.COUPON} value={order.coupon || D.COUPON_NONE} />
                   </Section>
 
@@ -487,12 +528,13 @@ export function OrderDetailDrawer({
                 </>
               )}
 
-              {/* ── Fulfilment: progress and the feature-owned actions ── */}
+              {/* ── Fulfilment: the feature-owned actions ──────────────
+                  No milestone ladder here: `timeline` already drives the
+                  lifecycle rail in the summary strip above, which is visible
+                  from every tab. Rendering it twice showed the same ten steps
+                  in two places on one screen. */}
               {tab === TAB_FULFILMENT && (
                 <>
-                  <div className="sec-label">{D.TIMELINE}</div>
-                  <Timeline items={timeline} loading={timelineLoading} className="mb-5" />
-
                   {/* Feature-owned section (Orders passes partner assignment,
                       ship agent and the location/delta panels). */}
                   {detailSlot}

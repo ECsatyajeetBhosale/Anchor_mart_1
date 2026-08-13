@@ -111,6 +111,18 @@ export interface LifecycleRailProps {
    * (`status` vs `is_done` — see `lib/timeline.ts`). Both shapes satisfy this.
    */
   steps?: LifecycleRailStep[];
+  /**
+   * The backend's own explanation for a terminal status — a cancellation
+   * reason, a rejection reason, a partner's delivery-failure note. Rendered
+   * inside the closed-order notice, which until now said only *that* the order
+   * closed and never *why*.
+   *
+   * `""` renders nothing: an order the backend recorded no reason for keeps the
+   * notice exactly as it was, rather than gaining an empty line.
+   */
+  reason?: string;
+  /** When that reason was recorded, already display-formatted by the API. */
+  reasonAt?: string;
   className?: string;
 }
 
@@ -155,21 +167,37 @@ function fromStatus(status: string): Segment[] {
  * refunded / delivery failed) render a danger notice instead, since a progress
  * bar would imply the order is still moving.
  */
-export function LifecycleRail({ status, steps, className }: LifecycleRailProps) {
+export function LifecycleRail({ status, steps, reason, reasonAt, className }: LifecycleRailProps) {
   const info = ORDER_STATUS_BY_KEY[status];
 
   if (TERMINAL.has(status)) {
+    const why = [reason, reasonAt].filter(Boolean).join(" · ");
     return (
       <div
         className={cn(
-          "flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2",
+          "flex gap-2 rounded-[var(--radius-md)] border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2",
+          // Centred while it is one line; top-aligned once the reason wraps
+          // beneath it, so the icon sits with the headline either way.
+          why ? "items-start" : "items-center",
           className,
         )}
       >
-        <IconAlertTriangle size={15} className="shrink-0 text-[var(--danger-icon)]" />
-        <span className="text-[12px] font-bold text-[var(--danger-text)]">
-          {R.TERMINAL_NOTICE(info?.label ?? status)}
-        </span>
+        <IconAlertTriangle
+          size={15}
+          className={cn("shrink-0 text-[var(--danger-icon)]", why && "mt-0.5")}
+        />
+        <div className="min-w-0">
+          <div className="text-[12px] font-bold text-[var(--danger-text)]">
+            {R.TERMINAL_NOTICE(info?.label ?? status)}
+          </div>
+          {/* Verbatim backend text — never truncated, so a long partner note
+              wraps rather than losing its tail. */}
+          {why && (
+            <div className="mt-0.5 text-[12px] font-medium leading-[1.4] text-[var(--danger-text)] opacity-90">
+              {why}
+            </div>
+          )}
+        </div>
       </div>
     );
   }

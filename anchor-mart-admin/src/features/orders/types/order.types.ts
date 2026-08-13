@@ -92,6 +92,51 @@ export interface OrderAssignment {
   assigned_at: string | null;
   picked_up_at: string | null;
   is_active: boolean;
+  /** Partner's own words when they declined the assignment; `""` when they didn't. */
+  rejection_reason?: string;
+  rejected_at?: string | null;
+  /**
+   * Partner's own words when they reported the delivery failed; `""` when it
+   * didn't fail. Paired with `failed_at`. The assignment deliberately stays
+   * active after a failure — the admin reassigns or refunds — so this is a
+   * record of what happened, not a closure.
+   */
+  failure_reason?: string;
+  failed_at?: string | null;
+}
+
+/**
+ * One gateway charge attempt. A card that was declined twice before succeeding
+ * produces three of these; `Payment.failure_reason` only ever holds the last
+ * decline, so this array is the only place the earlier ones survive.
+ */
+export interface OrderPaymentAttempt {
+  id: string;
+  outcome: string;
+  amount: string;
+  currency: string;
+  /** Gateway's machine code — `""` on a successful attempt. */
+  failure_code: string;
+  /** Gateway's human-readable decline message — `""` on a successful attempt. */
+  failure_message: string;
+  created_at: string;
+}
+
+/** A payment on the order (initial bill or a delta), with its attempt history. */
+export interface OrderPayment {
+  id: string;
+  kind: string;
+  kind_display: string;
+  amount: string;
+  currency: string;
+  status: string;
+  status_display: string;
+  /** The LAST decline only — read `attempts[]` for the full sequence. */
+  failure_reason: string;
+  paid_at: string | null;
+  attempts?: OrderPaymentAttempt[];
+  attempt_count?: number;
+  failed_attempt_count?: number;
 }
 
 export interface Order {
@@ -113,6 +158,18 @@ export interface Order {
   partner_allocated?: boolean;
   partner_name?: string | null;
   has_location_request?: boolean;
+  /**
+   * Why a terminated row ended where it did. All three are sent by the LIST
+   * serializer as well as the detail one, so a worklist row explains itself
+   * without a second request.
+   *
+   * `""` (and `null` for the timestamp) means the backend recorded nothing —
+   * which is not the same as "no reason exists", and is never filled in from
+   * the status, the timeline or anything else.
+   */
+  failure_reason?: string;
+  cancellation_reason?: string;
+  cancelled_at?: string | null;
 
   // --- Nested fields returned by the DETAIL endpoint ---------------------
   // Optional so the list rows (which omit them) still type-check.
@@ -154,6 +211,10 @@ export interface Order {
   total_quantity?: number;
   active_assignment?: OrderAssignment | null;
   assignments?: OrderAssignment[];
+  /** Detail read only — every payment on the order, each with its attempts. */
+  payments?: OrderPayment[];
+  /** Admin's reason for rejecting the intent (detail read only); `""` otherwise. */
+  rejection_reason?: string;
   // --- Flow 27 ownership + Flow 02 ship-agent (API 17) --------------------
   /** The accountable admin (Flow 27); null when unclaimed. */
   assigned_admin?: AssignedAdmin | null;
