@@ -10,6 +10,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useGetDashboardPortsQuery } from "@/features/dashboard";
+import { CapabilityFields, useCreatePartnerMutation } from "@/features/partners";
 import { getApiMessage, getFieldErrors } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
@@ -29,6 +31,10 @@ const DEFAULTS: CreateUserFormData = {
   last_name: "",
   email: "",
   role: "customer",
+  // Partner-only. "Both" mirrors the server-side default; no port by default.
+  can_verify: true,
+  can_deliver: true,
+  assigned_port: "",
   country_code: "+91",
   whatsapp_number: "",
 };
@@ -42,6 +48,7 @@ export interface CreateUserDrawerProps {
 
 export function CreateUserDrawer({ isOpen, onClose, lockedRole }: CreateUserDrawerProps) {
   const [createUser, { isLoading }] = useCreateUserMutation();
+  const [createPartner] = useCreatePartnerMutation();
 
   /**
    * Flow 31 SEC-1 — creating an `admin` or `super_admin` requires a super-admin
@@ -80,6 +87,18 @@ export function CreateUserDrawer({ isOpen, onClose, lockedRole }: CreateUserDraw
   }, [isOpen, lockedRole, isSuperAdmin, reset]);
 
   // Each role lands somewhere different in the app; say so before submitting.
+  const selectedRole = watch("role");
+  const isPartnerRole = selectedRole === "delivery_partner";
+
+  // Ports for the partner picker — fetched only when that role is selected.
+  const { data: ports = [] } = useGetDashboardPortsQuery(undefined, {
+    skip: !isOpen || !isPartnerRole,
+  });
+  const portOptions = [
+    { value: "", label: MESSAGES.PARTNERS.DETAIL.PORT_NONE },
+    ...ports.map((port) => ({ value: port.id, label: port.name })),
+  ];
+
   const note = ROLE_NOTES[watch("role")];
 
   /** Maps a 400's field errors onto the form, ignoring keys this form has no input for. */
@@ -93,14 +112,40 @@ export function CreateUserDrawer({ isOpen, onClose, lockedRole }: CreateUserDraw
 
   const onSubmit = async (formData: CreateUserFormData) => {
     try {
-      const response = await createUser({
-        email: formData.email,
-        role: formData.role,
-        first_name: formData.first_name,
-        last_name: formData.last_name,
-        country_code: formData.country_code,
-        whatsapp_number: formData.whatsapp_number,
-      }).unwrap();
+      /**
+       * A delivery partner goes to `partner/create/`, not `admin/create-user/`.
+       *
+       * `create-user` builds a `User` and nothing else. For every other role
+       * that is the whole account, but a delivery partner also needs a
+       * `DeliveryPartnerProfile` — which carries the partner code, capabilities,
+       * port and availability. Created here before, they arrived without one:
+       * two such users exist in the dev database, and they surface in the
+       * partner lists with `partner_code: null` and `is_available: null`.
+       *
+       * `partner/create/` builds the user *and* the profile and sends the
+       * invite, so it is the only complete path for this role.
+       */
+      const isPartner = formData.role === "delivery_partner";
+      const response = isPartner
+        ? await createPartner({
+            email: formData.email,
+            role: formData.role,
+            first_name: formData.first_name,
+            last_name: formData.last_name,
+            country_code: formData.country_code,
+            whatsapp_number: formData.whatsapp_number,
+            can_verify: formData.can_verify ?? true,
+            can_deliver: formData.can_deliver ?? true,
+            assigned_port: formData.assigned_port || null,
+          }).unwrap()
+        : await createUser({
+            email: formData.email,
+            role: formData.role,
+            first_name: formData.first_name,
+            last_name: formData.last_name,
+            country_code: formData.country_code,
+            whatsapp_number: formData.whatsapp_number,
+          }).unwrap();
       onClose();
       toast.success(
         getApiMessage(response) ?? MESSAGES.ACCOUNT_MANAGEMENT.PROVISION.TOAST.CREATE_SUCCESS,
@@ -227,6 +272,52 @@ export function CreateUserDrawer({ isOpen, onClose, lockedRole }: CreateUserDraw
                 />
               </FormField>
             </FormRow>
+
+            {/* Delivery-partner extras. Shown only for that role because they are
+              the fields `partner/create/` needs and no other role has — the
+              same capability toggles and port picker as the Delivery Partners
+              screen, so a partner created here is complete either way. */}
+            {isPartnerRole && (
+              <>
+                <div className="sec-label mt16">{MESSAGES.PARTNERS.CAPABILITY.SECTION}</div>
+                <Controller
+                  control={control}
+                  name="can_verify"
+                  render={({ field: verifyField }) => (
+                    <Controller
+                      control={control}
+                      name="can_deliver"
+                      render={({ field: deliverField }) => (
+                        <CapabilityFields
+                          canVerify={verifyField.value ?? true}
+                          canDeliver={deliverField.value ?? true}
+                          onChange={({ canVerify, canDeliver }) => {
+                            verifyField.onChange(canVerify);
+                            deliverField.onChange(canDeliver);
+                          }}
+                        />
+                      )}
+                    />
+                  )}
+                />
+
+                <FormField label={MESSAGES.PARTNERS.DETAIL.PORT}>
+                  <Controller
+                    control={control}
+                    name="assigned_port"
+                    render={({ field }) => (
+                      <DropdownSelect
+                        value={field.value ?? ""}
+                        onValueChange={field.onChange}
+                        placeholder={MESSAGES.PARTNERS.DETAIL.PORT_PLACEHOLDER}
+                        options={portOptions}
+                        width="100%"
+                      />
+                    )}
+                  />
+                </FormField>
+              </>
+            )}
           </section>
         </div>
 

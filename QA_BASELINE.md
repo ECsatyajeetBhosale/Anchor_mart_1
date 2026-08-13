@@ -100,6 +100,18 @@ builds, the build *script* does not.** `tsc -b` is a pure typecheck gate that co
 The drift check is the strongest single fact in this baseline: backend and Postman agree exactly, so
 any behavioural discrepancy found later is frontend-side by elimination.
 
+> ⚠️ **Corrected 13 Aug 2026 — that inference is narrower than it reads.** The checker matches on
+> **view class**, not on route, and **23 of 363 live routes are aliases sharing a view with a covered
+> path**. The backend demonstrated the hole: a live endpoint pointed at an already-covered view class
+> reports **"No drift"** and `--fail-on-drift` exits **0**. `get-all-products/` was only caught
+> because `ListAllProductsView` is a new class.
+>
+> So "no drift" means *every view class is represented*, not *every route is covered*. A new endpoint
+> reusing an existing view is invisible to the gate. **Do not use this check alone to conclude a
+> discrepancy is frontend-side** — confirm the specific route is in the collection first. The fix is
+> a small edit on the backend, deliberately unscheduled because it changes a CI gate's semantics and
+> wants a chosen first run.
+
 ### 4.4 Test inventory — nothing exists ⚪
 
 | Check | Result |
@@ -935,6 +947,106 @@ state; the chart cannot be empty, because the endpoint always falls back to its 
 
 **Open — raised with the backend:** `get-all-products/` is not yet in the Postman collection, so the
 drift check that underwrites [§4.3](#43-contract-gates-) no longer covers the full route table.
+
+### C-14 — Dashboard drill-through rule + Special Request Cancellation · 13 Aug 2026
+
+**The rule, established jointly with the backend and verified against live data.** A dashboard
+counter may link to a list **only** when three things hold:
+
+1. **Same base population** — both sides start from the same queryset
+2. **Same predicate** — the status/filter test is identical
+3. **Same date field** — both window on the same column, or neither windows at all
+
+Two conditions are not enough. `refunded` shares population *and* predicate with the Orders list and
+still reads **11 against 43 rows**, because the card windows on `refunded_at` and the list cannot
+filter on that column at all.
+
+**Measured on live data:**
+
+| Card | Card | Rows | Fails on |
+| ---- | ---: | ---: | -------- |
+| `in_progress` | 119 | 119 | — passes |
+| `delivery_failed` | 4 | 4 | — passes |
+| `pending_intents` | 3 | 3 | — passes |
+| `location_reports_pending` | 4 | 4 | — passes |
+| `special_request_cancellations` | 3 | 3 | — passes |
+| `cancelled` | **13** | **1** | population **and** date |
+| `refunded` | **11** | **43** | date |
+| `orders_placed` | — | — | population and date |
+
+**The observation that matters most:** *every card that currently passes does so because neither
+side has a date filter.* **Not one card survives a date-scoped comparison.** The third condition is
+not a checklist item — it is the one doing the work, and it is unproven across the whole dashboard.
+
+The two failures point in **opposite** directions — one card reads 13× its list, the other a quarter
+of it. Checking only one would have supported the wrong diagnosis ("the card is stale") instead of
+the right one ("the definitions differ"). This is the same class as the `total_orders` bug in C-06,
+which read 0 against 715: a plausible number is not a verified one.
+
+**Wired:** Special Request Cancellation → `/requests?status=rejected`. Both sides run
+`SpecialRequest.objects.exclude(is_deleted=True)` filtered to `status=REJECTED`, and
+`ListSpecialRequestsView` accepts only `status` and `search` — so the third condition holds
+*structurally*, not by luck. Card = 3, rows = 3, verified live by both sides independently.
+
+Label kept as **"Cancellation"** pending product confirmation: `REJECTED` is the database's word, and
+rejected/cancelled are distinct events elsewhere in this product.
+
+**Still non-clickable, unchanged:** Assignments and Verifications (parked routes — a product
+decision), Cancelled and Refunded (await the decision below), Expired Deltas and Location Reports —
+the latter two have **no cross-order list endpoint to link to at all**.
+
+**Open product decision (Cancelled / Refunded).** Recorded in C-14 rather than acted on:
+`refunded` could drop its window and become a snapshot, matching the Orders list exactly — but it
+would then leave the "This Period" group and move to the snapshot rows, so the drill-through decision
+and the C-13 card grouping are coupled. `cancelled` is harder: 67 of its 68 records are **unpaid**
+intents, which the Orders screen structurally cannot show, and both slices are already displayed
+correctly elsewhere — Intents "Cancelled (Unpaid)" and Orders "Cancelled". The dashboard's single
+figure matches neither screen.
+
+### C-15 — Drill-through regression test (backend) + open items · 13 Aug 2026
+
+**Backend built the test.** `admin_panel/tests/test_dashboard_drillthrough.py` — 9 tests, suite green
+at 2826. A `WIRED_CARDS` table drives one generic assertion, so protecting a new drill-through is a
+one-line addition. Two design details worth recording:
+
+- `test_no_wired_card_is_trivially_zero` stops the file passing vacuously at `0 == 0`, and was
+  verified to go red (dropping the paid filter from `in_progress` produces 4 failures).
+- `UnwiredCardsStayUnwiredTests` records **why** each unwired card is unwired as executable facts —
+  an unpaid cancellation moves the card and not the list; an old refund sits outside the window but
+  on the list; `orders_placed` counts 2 where the list counts 1. Re-wiring one has to pass those.
+
+**Its stated limit:** all five pairs are date-free on both sides, so it exercises population and
+predicate and **cannot touch `date_field`**. That condition remains untested until a date-scoped
+drill-through exists.
+
+**⚠️ This test protects the backend half only.** The frontend has no tests at all (BL-05), so the
+card→URL mapping on this side is unprotected: if a future change points a card at the wrong filter,
+nothing catches it. That is a larger exposure than any single card in this work.
+
+**Answered:** a declared `(population, predicate, date_field)` registry per card is the right fix,
+**provided the triple generates the query rather than describing it** — a registry maintained
+alongside a hand-built aggregate is a second definition that drifts, which is the exact defect class
+this session has been removing. It is a real refactor of `DashboardStatsView` and wants its own task.
+`?date_field=` should be general across both lists but validated against a per-screen allowlist,
+400-ing on an invalid pairing (`refunded_at` with `?status=cancelled`) rather than silently returning
+zero rows. A cross-order delta list is ~half a day and unscheduled — the cheapest remaining unblock.
+
+**✅ Product decision, 13 Aug 2026 — `refunded` is period refund volume.** Orders whose `refunded_at`
+falls inside the selected window: *Today* → refunds completed today, *This Month* → refunds completed
+this month. It is **not** a snapshot of orders currently in the refunded state. Option (b), not (a).
+
+**This requires no frontend change** — the card already reads the backend's period-scoped `refunded`
+counter, already sits in the **This Period** group, and is already non-clickable. The decision
+confirms the implementation rather than altering it.
+
+It **stays non-clickable** until a destination exists whose population uses the same
+`refunded_at + selected period` predicate. When it does, the frontend must consume that filter
+explicitly — **never infer it from `?status=refunded`**, which is all-time and paid-only and reads
+43 against the card's 11.
+
+**Standing QA rule adopted:** every dashboard drill-through is verified against the **exact route and
+query parameters**, not the underlying view class — see the alias-suppression correction in
+[§4.3](#43-contract-gates-).
 
 ---
 

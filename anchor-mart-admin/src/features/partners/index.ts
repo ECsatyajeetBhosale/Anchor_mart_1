@@ -2,6 +2,7 @@ export { PartnersPage } from "./components/PartnersPage";
 export { PartnerDetailDrawer } from "./components/PartnerDetailDrawer";
 export { PartnerFormDrawer } from "./components/PartnerFormDrawer";
 export { PartnerHistoryDrawer } from "./components/PartnerHistoryDrawer";
+export { CapabilityFields } from "./components/CapabilityFields";
 export {
   useGetPartnersQuery,
   useGetPartnerStatsQuery,

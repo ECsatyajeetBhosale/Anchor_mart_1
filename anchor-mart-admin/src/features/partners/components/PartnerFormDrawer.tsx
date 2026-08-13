@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { FormField } from "@/components/common/FormField";
 import { FormRow } from "@/components/common/FormRow";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useGetDashboardPortsQuery } from "@/features/dashboard";
 import { getApiMessage, getFieldErrors } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { useCreatePartnerMutation } from "../api/partnerApi";
@@ -34,6 +36,9 @@ const EMPTY: PartnerFormData = {
   // partner starts capable of everything and is narrowed deliberately.
   can_verify: true,
   can_deliver: true,
+  // No port by default — an unassigned partner is valid, and guessing one would
+  // silently scope them to somewhere they may not work.
+  assigned_port: "",
 };
 
 export interface PartnerFormDrawerProps {
@@ -47,6 +52,14 @@ export interface PartnerFormDrawerProps {
  */
 export function PartnerFormDrawer({ isOpen, onClose }: PartnerFormDrawerProps) {
   const [createPartner, { isLoading: isCreating }] = useCreatePartnerMutation();
+
+  // `dashboard/ports/` is the lightweight {id, port_name} list kept for exactly
+  // this — a picker that needs names and ids and nothing else.
+  const { data: ports = [] } = useGetDashboardPortsQuery(undefined, { skip: !isOpen });
+  const portOptions = [
+    { value: "", label: M.DETAIL.PORT_NONE },
+    ...ports.map((p) => ({ value: p.id, label: p.name })),
+  ];
 
   const {
     register,
@@ -75,6 +88,9 @@ export function PartnerFormDrawer({ isOpen, onClose }: PartnerFormDrawerProps) {
       whatsapp_number: form.whatsapp_number,
       can_verify: form.can_verify,
       can_deliver: form.can_deliver,
+      // `""` means "no port". The field is a nullable FK, so send null rather
+      // than an empty string, which would fail UUID validation.
+      assigned_port: form.assigned_port || null,
     };
     try {
       await createPartner(payload).unwrap();
@@ -155,6 +171,25 @@ export function PartnerFormDrawer({ isOpen, onClose }: PartnerFormDrawerProps) {
               />
             </FormField>
           </FormRow>
+
+          {/* Home port. Optional, and left blank by default — but it is what
+              makes a partner reachable by port-scoped assignment, so without it
+              they are capability-matched only. */}
+          <FormField label={M.DETAIL.PORT} error={errors.assigned_port?.message}>
+            <Controller
+              control={control}
+              name="assigned_port"
+              render={({ field }) => (
+                <DropdownSelect
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  placeholder={M.DETAIL.PORT_PLACEHOLDER}
+                  options={portOptions}
+                  width="100%"
+                />
+              )}
+            />
+          </FormField>
 
           {/* One Controller drives both switches: the "at least one" rule spans
               the pair, so they have to be written together or a toggle could

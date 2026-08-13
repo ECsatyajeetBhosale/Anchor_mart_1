@@ -49,6 +49,7 @@ const EMPTY: PartnerFormData = {
   whatsapp_number: "",
   can_verify: true,
   can_deliver: true,
+  assigned_port: "",
 };
 
 export interface PartnerDetailDrawerProps {
@@ -101,6 +102,9 @@ export function PartnerDetailDrawer({ partner, isOpen, onClose }: PartnerDetailD
       // partner as having none — and then save that.
       can_verify: detail?.can_verify ?? partner?.canVerify ?? true,
       can_deliver: detail?.can_deliver ?? partner?.canDeliver ?? true,
+      // Seeded from the record, or an edit that never touches the picker would
+      // save `null` back over an existing port.
+      assigned_port: detail?.assigned_port ?? "",
     });
   }, [isOpen, detail, partner, reset]);
 
@@ -116,6 +120,7 @@ export function PartnerDetailDrawer({ partner, isOpen, onClose }: PartnerDetailD
       whatsapp_number: form.whatsapp_number,
       can_verify: form.can_verify,
       can_deliver: form.can_deliver,
+      assigned_port: form.assigned_port || null,
     };
     try {
       const change = await updatePartner({

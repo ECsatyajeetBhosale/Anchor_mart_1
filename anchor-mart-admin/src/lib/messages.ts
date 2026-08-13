@@ -97,6 +97,8 @@ export const MESSAGES = {
     // the fields respond to this filter, so the board says which.
     PERIOD_NOTE:
       "Orders, Cancelled and Refunded follow this period — every other tile is live now.",
+    /** Heading over the three tiles the period toggle moves. */
+    PERIOD_GROUP: "This Period",
     // KPI stat-card labels
     STATS: {
       TOTAL_SAILORS: "Total Sailors",
@@ -1485,7 +1487,15 @@ export const MESSAGES = {
       COUNTRY_CODE_PLACEHOLDER: "e.g. +91",
       WHATSAPP: "WhatsApp Number",
       WHATSAPP_PLACEHOLDER: "9989091871",
+      /**
+       * Reused for the list column and the form field, so the two name the same
+       * thing identically. Optional on the API, but it is what makes a partner
+       * reachable by port-scoped assignment — no UI collected it before, so
+       * every partner had none and the port-scoped picker returned nothing.
+       */
       PORT: "Port Zone",
+      PORT_PLACEHOLDER: "Select a port…",
+      PORT_NONE: "No port assigned",
       JOINED: "Joined",
       DELIVERIES: "Total Deliveries",
       SAVE: "Save Changes",

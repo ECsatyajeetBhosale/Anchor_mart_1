@@ -91,6 +91,8 @@ export interface CreatePartnerPayload {
   whatsapp_number: string;
   can_verify: boolean;
   can_deliver: boolean;
+  /** Home port UUID, or `null` for unassigned. */
+  assigned_port: string | null;
 }
 
 /** Request body for `PATCH /superadmin/partner/partner_detail_update/`. */

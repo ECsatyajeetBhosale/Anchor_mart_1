@@ -11,7 +11,7 @@ import { z } from "zod";
 /**
  * Shared onboard/edit partner form schema — maps 1:1 to the create/update
  * payloads (first_name, last_name, email, country_code, whatsapp_number,
- * can_verify, can_deliver).
+ * can_verify, can_deliver, assigned_port).
  *
  * Every text rule comes from `lib/validation` so this form agrees with every
  * other one that collects the same fields.
@@ -27,6 +27,14 @@ export const partnerFormSchema = z
     // shape. See the refine below for the one combination the backend refuses.
     can_verify: z.boolean(),
     can_deliver: z.boolean(),
+    /**
+     * Home port. Optional on the API (`required=False, allow_null=True`) and
+     * optional here — but until it is set the partner cannot be reached by
+     * port-scoped assignment, which is why no UI collecting it meant every
+     * partner had `assigned_port = null` and `assignable-partners/?order_id=`
+     * returned nothing. `""` is sent as `null`.
+     */
+    assigned_port: z.string(),
   })
   // Flow 28 API 1/5: "at least one must be true". A partner with neither is
   // rejected with a 400, and would in any case be unassignable — so the form

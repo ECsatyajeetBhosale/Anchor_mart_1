@@ -29,7 +29,10 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 export const ROLE_NOTES: Record<UserRole, string> = {
   customer: "The account will appear in Sailors, where you can edit or suspend it.",
   delivery_partner:
-    "Creates the login only. Assignments and partner details are managed on the Delivery Partners screen.",
+    // Was "Creates the login only…", which stopped being true when this drawer
+    // started posting to `partner/create/` for this role — it now builds the
+    // profile too, so the account is complete without a second screen.
+    "Creates the partner account and profile. Order assignments are made from the Delivery Partners screen.",
   seller: "Creates the login only. Approval is handled from the Seller Requests screen.",
   admin: "Full console access. Manage the account afterwards on the Admin Users tab.",
   super_admin: "Highest privilege level, and the only tier that can create another admin.",

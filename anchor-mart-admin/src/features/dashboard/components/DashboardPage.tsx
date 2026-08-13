@@ -97,14 +97,6 @@ export function DashboardPage() {
       onClick: () => navigate(APP_ROUTES.PARTNERS),
     },
     {
-      id: "orders",
-      label: "Orders",
-      value: stats.ordersPlaced,
-      icon: <IconPackage size={19} />,
-      variant: "blue",
-      onClick: () => navigate(APP_ROUTES.ORDERS),
-    },
-    {
       id: "products",
       label: "Products",
       value: stats.products,
@@ -134,6 +126,44 @@ export function DashboardPage() {
   ];
 
   // Row 2 — intents, requests & program metrics.
+  /**
+   * The only three tiles the period toggle moves.
+   *
+   * The backend scopes exactly `orders_placed`, `cancelled` and `refunded` to
+   * the selected window; everything else is a snapshot it computes as "right
+   * now" whatever window is asked for. Grouping the three under the note that
+   * says so is what makes the toggle legible — previously Orders sat in the
+   * first row while Cancelled and Refunded were two blocks further down under
+   * "Needs Attention", so changing the period appeared to move one tile.
+   *
+   * They are also not exception work: an order cancelled last week needs
+   * nothing from anybody, which is the other reason they do not belong there.
+   */
+  const periodItems: StatsGridItem[] = [
+    {
+      id: "orders",
+      label: "Orders",
+      value: stats.ordersPlaced,
+      icon: <IconPackage size={19} />,
+      variant: "blue",
+      onClick: () => navigate(APP_ROUTES.ORDERS),
+    },
+    {
+      id: "cancelled",
+      label: "Cancelled",
+      value: stats.cancelled,
+      icon: <IconBan size={19} />,
+      variant: "red",
+    },
+    {
+      id: "refunded",
+      label: "Refunded",
+      value: stats.refunded,
+      icon: <IconReceiptRefund size={19} />,
+      variant: "purple",
+    },
+  ];
+
   /**
    * Exception work.
    *
@@ -193,20 +223,6 @@ export function DashboardPage() {
       icon: <IconClockExclamation size={19} />,
       variant: "amber",
     },
-    {
-      id: "cancelled",
-      label: "Cancelled",
-      value: stats.cancelled,
-      icon: <IconBan size={19} />,
-      variant: "red",
-    },
-    {
-      id: "refunded",
-      label: "Refunded",
-      value: stats.refunded,
-      icon: <IconReceiptRefund size={19} />,
-      variant: "purple",
-    },
   ];
 
   const row2: StatsGridItem[] = [
@@ -239,8 +255,18 @@ export function DashboardPage() {
     {
       // No dedicated route exists for cancellations — left non-navigable.
       id: "cancellation",
+      // Label kept as "Cancellation" pending product confirmation — the counter
+      // is `SpecialRequest.status = REJECTED`, but "rejected" is the database's
+      // word, not necessarily the business's, and the two are distinct events
+      // elsewhere in this product (an intent can be rejected OR cancelled).
+      //
+      // The drill-through is safe because both sides share one predicate:
+      // the card counts `exclude(is_deleted=True).filter(status=REJECTED)`, and
+      // `?status=rejected` runs the same base queryset with the same filter and
+      // no date scoping on either side. Verified live: 3 = 3.
       label: "Special Request Cancellation",
       value: stats.specialRequestCancellations,
+      onClick: () => navigate(`${APP_ROUTES.REQUESTS}?status=rejected`),
       icon: <IconReceiptRefund size={19} />,
       variant: "amber",
     },
@@ -321,6 +347,14 @@ export function DashboardPage() {
       </div>
 
       {/* ── Stat cards (2 rows of 6) ──────────────────── */}
+      {/* The three tiles the toggle above actually moves, directly beneath the
+          note that names them. */}
+      <div>
+        <div className="sec-label">{M.PERIOD_GROUP}</div>
+        <StatsGrid items={periodItems} className="cols-4" />
+      </div>
+
+      {/* Snapshots — "right now" regardless of the selected period. */}
       <StatsGrid items={row1} />
       <StatsGrid items={row2} />
 
