@@ -32,6 +32,8 @@ const productTabs = [
   { label: MESSAGES.PRODUCTS.TABS.TOP_RATED, value: "top_rated" },
 ];
 
+const PS = MESSAGES.PRODUCTS.STATS;
+
 const LIMIT = 10;
 
 export function ProductsPage() {
@@ -69,18 +71,27 @@ export function ProductsPage() {
   const isTopRated = activeTab === "top_rated" ? true : undefined;
 
   // Products list — search, status, category, deal, and top-rated all filter server-side.
-  const { data, isLoading, isError, refetch } = useGetProductsQuery({
-    page,
-    limit: LIMIT,
+  const listFilters = {
     search: searchTerm,
     isActive,
     category: categoryFilter !== "all" ? categoryFilter : undefined,
     onDeal,
     isTopRated,
+  };
+  const { data, isLoading, isError, refetch } = useGetProductsQuery({
+    page,
+    limit: LIMIT,
+    ...listFilters,
   });
 
-  // Aggregate KPI counts from the product-stats API.
-  const { data: productStats } = useGetProductStatsQuery();
+  /**
+   * KPI counts, given **the table's own filters** — one object, so the cards
+   * cannot drift from the list they head.
+   *
+   * The endpoint took no query params until 2026-08-14: filtering the table to
+   * eight express rows left every card showing the unfiltered totals.
+   */
+  const { data: productStats } = useGetProductStatsQuery(listFilters);
 
   // Category options for the filter dropdown (value = id, label = name).
   const { data: categoriesData } = useGetCategoriesQuery({ limit: 100 });
@@ -245,13 +256,41 @@ export function ProductsPage() {
       value: productStats?.total ?? totalCount,
       icon: <IconBoxSeam size={19} />,
       variant: "navy" as const,
+      /**
+       * **This total spans all three catalogs; the table below serves two.**
+       * Unfiltered it reads 50 over a list of 36 — the 14 marine-emergency
+       * products have their own screen and their own endpoint.
+       *
+       * The breakdown is the explanation: without it the two numbers look like
+       * arithmetic that does not add up, and the honest fix is to say where the
+       * difference goes rather than to hide it by narrowing the count.
+       */
+      breakdown: productStats
+        ? [
+            { label: PS.REGULAR, value: String(productStats.regular) },
+            { label: PS.EXPRESS, value: String(productStats.express) },
+            { label: PS.EMERGENCY, value: String(productStats.emergency) },
+          ]
+        : undefined,
     },
     {
       id: "total-categories",
+      // The category **taxonomy**, not products — the one figure here that does
+      // not follow the filter bar, because a product filter has no meaning for
+      // it. Labelled so a number that stays put doesn't read as stuck.
       label: MESSAGES.PRODUCTS.STATS.TOTAL_CATEGORIES,
       value: productStats?.total_categories ?? categoriesData?.count ?? categories.length,
       icon: <IconCategory size={19} />,
       variant: "teal" as const,
+      breakdown: productStats
+        ? [
+            { label: PS.GENERAL_CATEGORIES, value: String(productStats.general_categories) },
+            {
+              label: PS.EMERGENCY_CATEGORIES,
+              value: String(productStats.marine_emergency_categories),
+            },
+          ]
+        : undefined,
     },
     {
       id: "featured-deals",

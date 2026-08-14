@@ -1849,10 +1849,24 @@ export const MESSAGES = {
       DEAL: "Deal Products",
       TOP_RATED: "Top Rated",
     },
-    // KPI cards
+    /**
+     * KPI cards. All of them follow the filter bar **except the category
+     * counts**, which are the taxonomy rather than products.
+     */
     STATS: {
-      TOTAL_PRODUCTS: "Total Products",
-      TOTAL_CATEGORIES: "Total Categories",
+      /**
+       * Spans all three catalogs, while the table below serves the general two —
+       * 50 against 36 unfiltered. The sub-lines say where the difference goes;
+       * narrowing the count instead would under-report the catalog.
+       */
+      TOTAL_PRODUCTS: "Total Products · all catalogs",
+      REGULAR: "Regular",
+      EXPRESS: "Express",
+      EMERGENCY: "Marine Emergency · listed separately",
+      /** The taxonomy — a product filter has no meaning for it, so it holds still. */
+      TOTAL_CATEGORIES: "Total Categories · all scopes",
+      GENERAL_CATEGORIES: "General",
+      EMERGENCY_CATEGORIES: "Marine Emergency",
       FEATURED_DEALS: "Featured / Deals",
     },
     // Table

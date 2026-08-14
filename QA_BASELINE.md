@@ -1623,6 +1623,89 @@ deleted `vite.config.js`, `vite.config.d.ts`
 belongs in `vite.config.ts` and takes effect immediately — the trap that made BL-02 the
 highest-priority baseline finding is gone.
 
+### C-24 — Navigation restructure + image and filter fixes · 14 Aug 2026 · authorized by user
+
+**Sidebar rebuilt around what an admin is doing.** Sections were split by which flow introduced a
+screen rather than by the job it serves, so a person could be looked up in three different places.
+
+| Change | Reason |
+|---|---|
+| New **Account Management** section — Admins · Sailors · Delivery Partners · Seller Requests · Deletion Requests | Five screens answering *who is this, and may they be here?*, previously split across the order funnel, Operations, and tabs of one screen |
+| **Admins** and **Deletion Requests** became routes | They were `?tab=` links; `NavLink` matches on pathname, so two entries sharing `/account-management` would both have rendered active. `AccountManagementPage` deleted, old paths redirected |
+| New **Ports & Agents** section | Nothing in it is bought; they sat under Catalog because they were administered similarly |
+| **Deal of the Day** became a route under Marketing | The one Rewards tab sharing nothing with points and coupon codes |
+| **Help & FAQ** moved to System; Settings' two shortcut cards removed | Both were already sidebar entries; the Accounts card pointed at what is now only a redirect |
+| Settings keeps **Operational Limits** only | The loyalty block was a *second* editor of one record — Rewards' Configure Points drawer writes the same endpoint |
+
+**Nav entries can now be hidden by tier.** `superAdminOnly` drops an entry below super admin, and a
+section emptied by the filter loses its heading too. Admin accounts are refused server-side (SEC-1),
+so listing them for a sub-admin advertised a permission they cannot be granted.
+
+**Final section order — reactive work first, planned work after** (the user's axis, and a better one
+than the frequency ordering it replaced): Overview · **Orders & Delivery** · **Operations** · Catalog
+· Ports & Agents · Marketing · Account Management · System. The first two are where work *arrives*,
+which is also why they are the two carrying live count badges.
+
+**Four smaller fixes in the same session:**
+
+- **`Thumbnail` falls back on a failed load**, not only on an absent URL — a `src` that 404s used to
+  render the browser's broken-image glyph. Fixes every table using it; see [BL-11](#bl-11--media-images-blocked-by-orb-when-the-api-is-tunnelled-through-ngrok--environment-not-a-defect).
+- **Variant images** now render in the product drawer's Variants tab, and a row **expands in place**
+  to show the full gallery plus the fields the table has no column for. It expands rather than
+  opening a drawer because a Dialog over a `Sheet` renders behind its overlay here — Orders and
+  Intents both carry workarounds for that. Costs no extra request: the nested variants carry the same
+  shape the dedicated `product-variant/` endpoint returns.
+- **The FAQ category filter gained an "All categories" row.** It was one-way — the placeholder
+  vanished on first selection, leaving no option meaning *stop filtering*.
+- **The deal form's variant dropdown shows each SKU's price**, with the ceiling stated under the
+  price field. The API refuses a `deal_price` not below `variant.price`, and that number was nowhere
+  on the form.
+
+**Files:** `lib/navigation.ts` · `lib/constants.ts` · `routes/AppRouter.tsx` ·
+`components/common/AppSidebar.tsx` · `components/common/Thumbnail.tsx` ·
+`features/account-management/*` (2 new pages, 1 deleted) · `features/rewards/components/DealsPage.tsx`
+(new) · `features/rewards/components/DealFormDrawer.tsx` · `features/products/components/ProductEditDrawer.tsx`
+· `features/variants/lib/variantImage.ts` (new) · `features/saved-products/*` · `features/settings/*` ·
+`lib/messages.ts`
+
+**Verified.** `tsc --noEmit -p tsconfig.json` clean · `biome lint .` **12 errors + 1 warning, all
+pre-existing BL-04, zero new** · `npm run build` exits 0.
+
+### C-25 — Product stat cards follow the table · 14 Aug 2026 · authorized by user
+
+**The cards read no filters at all.** `product-stats/` was called with no arguments while the list
+received search, category, `is_active`, `on_deal` and `is_top_rated`. The backend made the endpoint
+filter-aware on 14 Aug for exactly this, and its docstring quotes the symptom: *"`?catalog_type=express`
+took the table from 36 rows to 8 and left every card unchanged."* The five filters the list sends are
+now sent here too, through **one shared object** so the two cannot drift.
+
+`catalog_type` and `is_express` are accepted by the endpoint but deliberately **not** sent: this
+screen's list is the general catalog and never scopes by type, so either would describe a table that
+is not on screen.
+
+**The 50-vs-36 gap is now stated, not left as broken arithmetic.** `TOTAL PRODUCTS 50` sat above a
+table paging through 36 — visible in the screenshot that prompted this. The cause is not a bug:
+`total` spans all three catalog types while `get-products/` serves the general two, so the 14
+marine-emergency products are counted and not listed. 28 + 8 + 14 = 50.
+
+Narrowing the count to 36 was rejected — it under-reports the catalog to make two numbers match. The
+card instead carries the breakdown as sub-lines (Regular · Express · **Marine Emergency · listed
+separately**) and its label says *all catalogs*, so the difference is explained where it is seen.
+This is the same principle as C-21b's deal buckets: when counts do not reconcile by design, say so
+rather than presenting them as if they should.
+
+**The category card was labelled for the opposite reason.** Its three counts are the category
+**taxonomy**, not products — `?on_deal=true` does not make a category more or less existent — so it
+is the one figure here that must *not* follow the filter bar. Sitting between two cards that do move,
+a number holding still reads as stuck; it now says *all scopes* and shows its General / Marine
+Emergency split.
+
+**Files:** `features/products/api/productApi.ts` · `features/products/components/ProductsPage.tsx` ·
+`lib/messages.ts`
+
+**Verified.** `tsc --noEmit -p tsconfig.json` clean · `biome lint .` **12 errors + 1 warning, all
+pre-existing BL-04, zero new** · `npm run build` exits 0.
+
 ---
 
 ## 11. Method

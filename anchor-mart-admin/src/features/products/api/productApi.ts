@@ -26,6 +26,23 @@ export interface GetProductsParams {
 }
 
 /**
+ * Query params for `product-stats/`.
+ *
+ * **Deliberately the same five the list sends** — the endpoint accepts seven
+ * (`catalog_type` and `is_express` as well), but this screen's list is the
+ * *general* catalog and never scopes by type, so sending either would describe
+ * a table that isn't on screen.
+ *
+ * Passing them at all is the point: the endpoint honoured no query params until
+ * 2026-08-14, so filtering the table to 8 express rows left every card reading
+ * the unfiltered totals.
+ */
+export type GetProductStatsParams = Pick<
+  GetProductsParams,
+  "search" | "isActive" | "category" | "onDeal" | "isTopRated"
+>;
+
+/**
  * The get-product/{id}/ detail response can arrive wrapped a few ways across
  * this backend (`{ results: { data } }`, `{ data }`, or a flat object). Dig the
  * product object out of whichever envelope is used.
@@ -98,8 +115,34 @@ export const productsApi = baseApi.injectEndpoints({
       }),
       providesTags: [{ type: "Products", id: "ALL-LIST" }],
     }),
-    getProductStats: builder.query<ProductStats, void>({
-      query: () => ({ url: PRODUCT_ENDPOINTS.GET_STATS, method: "GET" }),
+    /**
+     * Card counters, scoped by the same filters as the table beneath them.
+     *
+     * Bad input is a **400** here exactly as on the list — a card that silently
+     * ignored a filter the table rejected would be the same defect, quieter.
+     *
+     * Two parts of the response deliberately do not follow these filters, and
+     * must not be presented as if they did:
+     * - the `*_categories` counts are the category **taxonomy**, not products;
+     *   `?on_deal=true` does not make a category more or less existent.
+     * - `total` spans all three catalog types while this list serves two, so it
+     *   reads 50 against a table of 36. That gap is stated on the card.
+     */
+    getProductStats: builder.query<ProductStats, GetProductStatsParams>({
+      query: (params) => ({
+        url: PRODUCT_ENDPOINTS.GET_STATS,
+        method: "GET",
+        // Same encoding as the list: Django wants capitalised booleans, and an
+        // omitted key means "all" rather than false.
+        params: {
+          search: params.search || undefined,
+          is_active: params.isActive === undefined ? undefined : params.isActive ? "True" : "False",
+          category: params.category || undefined,
+          on_deal: params.onDeal === undefined ? undefined : params.onDeal ? "True" : "False",
+          is_top_rated:
+            params.isTopRated === undefined ? undefined : params.isTopRated ? "True" : "False",
+        },
+      }),
       providesTags: [{ type: "Products", id: "STATS" }],
     }),
     // Full product detail — the list serializer omits description/images, so the

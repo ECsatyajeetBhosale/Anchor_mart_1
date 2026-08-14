@@ -80,6 +80,17 @@ export interface NavSection {
  * under Catalog for exactly that reason until Catalog filled with entries that
  * genuinely are products, at which point the two non-products stood out enough
  * to be worth their own heading.
+ *
+ * **Section order is reactive work first, then planned work.** Orders &
+ * Delivery and Operations are the two sections where work *arrives* — a queue
+ * fills, a message lands, a request waits on a reply — so they sit together at
+ * the top, which is also why they are the two carrying live count badges.
+ * Everything below is work an admin chooses to go and do: what is sold, where
+ * it ships to, what promotes it, who holds an account, and the system itself.
+ *
+ * That is the axis, not raw frequency. Catalog is edited often but never
+ * *waits* on anyone; Operations may be quiet for an hour and then need an answer
+ * within minutes.
  */
 export const NAV_SECTIONS: NavSection[] = [
   {
@@ -102,9 +113,8 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     // The order funnel and nothing else: three queues of work an admin actions.
     // Sailors and Delivery Partners used to sit here too, which mixed two jobs
-    // — working a queue and looking someone up — under one heading. They now
-    // live in Account Management, immediately below, so they stay a glance away
-    // from the orders that reference them without being filed as order work.
+    // — working a queue and looking someone up — under one heading. They live in
+    // Account Management now.
     label: "Orders & Delivery",
     items: [
       {
@@ -146,64 +156,53 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    /**
-     * Every account on the platform, one entry per kind, plus the queue that
-     * closes one.
-     *
-     * These five answer the same question — *who is this, and may they be here?*
-     * — and were previously split three ways: the two directories under the
-     * order funnel because orders reference them, Seller Requests under
-     * Operations because it is an inbox, and admins and deletion review buried
-     * as tabs of a single "Account Management" screen. An admin looking up a
-     * person had to know which of the three to try.
-     *
-     * The section replaces that screen, which is why there is no longer an entry
-     * called Account Management: the section *is* it. Admins and Deletion
-     * Requests each took a route of their own, because `NavLink` matches on
-     * pathname and two `?tab=` links sharing `/account-management` would have
-     * rendered active simultaneously.
-     *
-     * Placed directly under Orders & Delivery because Sailors and Delivery
-     * Partners are most often opened *from* order work.
-     */
-    label: "Account Management",
+    // Four inboxes: what the platform sends out, and what comes back in.
+    // Directly under the order funnel because both are reactive — someone is
+    // waiting on the other end of each — and they are the two sections carrying
+    // live counts.
+    //
+    // The two account-review queues that used to sit here moved to Account
+    // Management. They are inboxes too, but the question they answer is about a
+    // person rather than a conversation.
+    label: "Operations",
     items: [
       {
-        key: "admins",
-        label: "Admins",
-        icon: IconUserCog,
-        path: APP_ROUTES.ADMIN_USERS,
-        // Admin accounts are refused server-side below super admin (SEC-1).
-        superAdminOnly: true,
+        key: "notifications",
+        label: "Notifications",
+        icon: IconBell,
+        path: APP_ROUTES.NOTIFICATIONS,
+        badge: "5",
       },
       {
-        key: "sailors",
-        label: "Sailors",
-        icon: IconUsers,
-        path: APP_ROUTES.SAILORS,
+        key: "chat",
+        label: "Chat Monitor",
+        icon: IconMessages,
+        path: APP_ROUTES.CHAT,
       },
       {
-        key: "partners",
-        label: "Delivery Partners",
-        icon: IconMotorbike,
-        path: APP_ROUTES.PARTNERS,
+        key: "support",
+        label: "Support",
+        icon: IconLifebuoy,
+        path: APP_ROUTES.SUPPORT,
+        badge: "3",
       },
       {
-        key: "sellers",
-        label: "Seller Requests",
-        icon: IconBuildingStore,
-        path: APP_ROUTES.SELLERS,
-        badge: "4",
-        badgeVariant: "warning",
+        // Flow 23 §4.3 — per-order threads, deliberately separate from Chat
+        // Monitor: that one is the shared partner support inbox, this one is
+        // scoped to the orders you own (super admins see all).
+        key: "order-chats",
+        label: "Order Chats",
+        icon: IconMessage2,
+        path: APP_ROUTES.ORDER_CHATS,
       },
-      {
-        // Flow 31 §8–11 — the deletion-review queue. Last in the section: it is
-        // the end of an account's life, and the four above are its kinds.
-        key: "deletion-requests",
-        label: "Deletion Requests",
-        icon: IconUserMinus,
-        path: APP_ROUTES.DELETION_REQUESTS,
-      },
+      // Parked, not removed — see the note on Assignments above.
+      // {
+      //   // Flow 22 §3.1 — the outbound email/WhatsApp delivery log.
+      //   key: "messages",
+      //   label: "Message Log",
+      //   icon: IconMailFast,
+      //   path: APP_ROUTES.MESSAGES,
+      // },
     ],
   },
   {
@@ -319,49 +318,68 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    // Four inboxes: what the platform sends out, and what comes back in. The
-    // two account-review queues that used to sit here moved to People — they
-    // are inboxes too, but the question they answer is about a person, not a
-    // conversation.
-    label: "Operations",
+    /**
+     * Every account on the platform, one entry per kind, plus the queue that
+     * closes one.
+     *
+     * These five answer the same question — *who is this, and may they be here?*
+     * — and were previously split three ways: the two directories under the
+     * order funnel because orders reference them, Seller Requests under
+     * Operations because it is an inbox, and admins and deletion review buried
+     * as tabs of a single "Account Management" screen. An admin looking up a
+     * person had to know which of the three to try.
+     *
+     * The section replaces that screen, which is why there is no longer an entry
+     * called Account Management: the section *is* it. Admins and Deletion
+     * Requests each took a route of their own, because `NavLink` matches on
+     * pathname and two `?tab=` links sharing `/account-management` would have
+     * rendered active simultaneously.
+     *
+     * Sits low in the sidebar. It was directly under Orders & Delivery on the
+     * grounds that Sailors and Delivery Partners get opened *from* order work —
+     * but they largely do not: the order drawer already carries the sailor's
+     * name, email and phone, and partner assignment happens inside it. What
+     * remains is a directory to browse and three review queues, none of which
+     * anybody is waiting on by the minute.
+     */
+    label: "Account Management",
     items: [
       {
-        key: "notifications",
-        label: "Notifications",
-        icon: IconBell,
-        path: APP_ROUTES.NOTIFICATIONS,
-        badge: "5",
+        key: "admins",
+        label: "Admins",
+        icon: IconUserCog,
+        path: APP_ROUTES.ADMIN_USERS,
+        // Admin accounts are refused server-side below super admin (SEC-1).
+        superAdminOnly: true,
       },
       {
-        key: "chat",
-        label: "Chat Monitor",
-        icon: IconMessages,
-        path: APP_ROUTES.CHAT,
+        key: "sailors",
+        label: "Sailors",
+        icon: IconUsers,
+        path: APP_ROUTES.SAILORS,
       },
       {
-        key: "support",
-        label: "Support",
-        icon: IconLifebuoy,
-        path: APP_ROUTES.SUPPORT,
-        badge: "3",
+        key: "partners",
+        label: "Delivery Partners",
+        icon: IconMotorbike,
+        path: APP_ROUTES.PARTNERS,
       },
       {
-        // Flow 23 §4.3 — per-order threads, deliberately separate from Chat
-        // Monitor: that one is the shared partner support inbox, this one is
-        // scoped to the orders you own (super admins see all).
-        key: "order-chats",
-        label: "Order Chats",
-        icon: IconMessage2,
-        path: APP_ROUTES.ORDER_CHATS,
+        key: "sellers",
+        label: "Seller Requests",
+        icon: IconBuildingStore,
+        path: APP_ROUTES.SELLERS,
+        badge: "4",
+        badgeVariant: "warning",
       },
-      // Parked, not removed — see the note on Assignments above.
-      // {
-      //   // Flow 22 §3.1 — the outbound email/WhatsApp delivery log.
-      //   key: "messages",
-      //   label: "Message Log",
-      //   icon: IconMailFast,
-      //   path: APP_ROUTES.MESSAGES,
-      // },
+      {
+        // Flow 31 §8–11 — the deletion-review queue. Last in the section: it is
+        // the end of an account's life, and the four above are its kinds.
+        key: "deletion-requests",
+        label: "Deletion Requests",
+        icon: IconUserMinus,
+        path: APP_ROUTES.DELETION_REQUESTS,
+      },
     ],
   },
   {
