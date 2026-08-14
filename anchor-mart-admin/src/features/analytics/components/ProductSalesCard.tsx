@@ -3,6 +3,7 @@ import { IconChartHistogram } from "@tabler/icons-react";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { SectionCard } from "@/components/common/SectionCard";
 import { Badge } from "@/components/ui/badge";
+import { CATALOG_TYPE_FILTERS, catalogTypeLabel } from "@/features/products";
 import { MESSAGES } from "@/lib/messages";
 import { formatCurrency } from "@/lib/utils";
 
@@ -34,13 +35,6 @@ function formatGrowth(value: number | null | undefined): string {
  * Catalog-type chips for the picker. `""` is all three — `get-all-products/`
  * spans the whole catalog when `catalog_type` is omitted.
  */
-const CATALOG_TYPE_FILTERS = [
-  { label: M.CATALOG_TYPE_ALL, value: "" },
-  { label: M.CATALOG_TYPE.regular, value: "regular" },
-  { label: M.CATALOG_TYPE.express, value: "express" },
-  { label: M.CATALOG_TYPE.marine_emergency, value: "marine_emergency" },
-];
-
 export interface ProductSalesCardProps {
   params: AnalyticsParams;
 }
@@ -94,7 +88,7 @@ export function ProductSalesCard({ params }: ProductSalesCardProps) {
           )}
           {product?.catalog_type && (
             <Badge variant="neutral">
-              {M.CATALOG_TYPE[product.catalog_type] ?? product.catalog_type}
+              {catalogTypeLabel(product.catalog_type) ?? product.catalog_type}
             </Badge>
           )}
           {/* A delisted product still reports its full history — the sales
@@ -112,7 +106,7 @@ export function ProductSalesCard({ params }: ProductSalesCardProps) {
           options={options.map((o) => ({
             value: o.value,
             label: o.label,
-            meta: o.catalogType ? M.CATALOG_TYPE[o.catalogType] : undefined,
+            meta: catalogTypeLabel(o.catalogType),
           }))}
           filters={CATALOG_TYPE_FILTERS}
           activeFilter={catalogType}

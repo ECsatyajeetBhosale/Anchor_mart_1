@@ -8,11 +8,34 @@
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "moduleDetection": "force",
-    "composite": true,
+    // `vite.config.ts` uses `path`, `process` and `__dirname`. Without these the
+    // file cannot type-check at all — which nobody noticed, because the stale
+    // emitted `.js` kept `tsc -b` believing the project was already up to date.
+    "types": ["node"],
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    // This project exists to TYPE-CHECK `vite.config.ts`, never to compile it —
+    // Vite reads the `.ts` directly. But it is a *referenced* project, and a
+    // reference may not disable emit, so the emit is redirected instead of
+    // switched off: declarations only, written under `node_modules/.tmp`.
+    //
+    // It previously emitted into the source directory, producing
+    // `vite.config.js` + `vite.config.d.ts` beside the original. Vite resolves
+    // `.js` ahead of `.ts`, so it loaded the **generated copy** — every edit to
+    // the real config was ignored until something regenerated the stale one.
+    // Both artifacts were committed, which is how the shadow outlived the build
+    // that made it. Emitting outside the tree is what stops it coming back.
+    //
+    // `emitDeclarationOnly` also satisfies `allowImportingTsExtensions` above,
+    // which demands it or `noEmit`; with neither, `tsc -b` failed TS5096 and
+    // took `npm run build` down with it.
+    "composite": true,
+    "emitDeclarationOnly": true,
+    "outDir": "./node_modules/.tmp/tsconfig.node",
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo"
   },
   "include": ["vite.config.ts"]
 }

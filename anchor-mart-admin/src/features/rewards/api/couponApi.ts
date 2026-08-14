@@ -3,17 +3,37 @@ import { baseApi } from "@/lib/fetchUtils";
 import type {
   ApiCouponListResponse,
   CreateCouponPayload,
+  GetCouponsParams,
   UpdateCouponPayload,
 } from "../types/reward.types";
 
-// Coupon endpoints for the "Active Coupons" panel. The list is fetched without
-// any status filter so both active and inactive coupons are returned.
+/**
+ * Coupons.
+ *
+ * The list takes no status filter by default, so both active and inactive
+ * coupons come back — the panel labelled "Active Coupons" narrows to the live
+ * ones itself, and the full table below it wants everything.
+ */
 export const couponApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getActiveCoupons: builder.query<ApiCouponListResponse, void>({
-      query: () => ({
+    /**
+     * Paginated, searchable coupon list.
+     *
+     * It used to take no arguments at all, which is not "give me everything":
+     * `CustomPagination` answers with **10 rows** and reports the real total
+     * only in `count`, which nothing read. The eleventh coupon was unreachable
+     * from a table that showed no pager.
+     */
+    getActiveCoupons: builder.query<ApiCouponListResponse, GetCouponsParams>({
+      query: (params) => ({
         url: REWARD_ENDPOINTS.GET_COUPONS,
         method: "GET",
+        params: {
+          page: params.page,
+          page_size: params.limit,
+          search: params.search || undefined,
+          is_active: params.isActive || undefined,
+        },
       }),
       providesTags: [{ type: "Coupons", id: "ACTIVE-LIST" }],
     }),

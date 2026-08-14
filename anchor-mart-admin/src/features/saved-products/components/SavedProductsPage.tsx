@@ -1,7 +1,9 @@
+import { IconPackage } from "@tabler/icons-react";
 import { useSearchParams } from "react-router-dom";
 
 import { PageHeader } from "@/components/common/PageHeader";
 import { SearchFilters } from "@/components/common/SearchFilters";
+import { Thumbnail } from "@/components/common/Thumbnail";
 import { idColumn, textColumn } from "@/components/common/tableColumns";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { MESSAGES } from "@/lib/messages";
@@ -69,17 +71,23 @@ export function SavedProductsPage() {
     {
       id: "product",
       header: M.COLUMNS.PRODUCT,
-      // The API returns a resolved image URL, but only when the product has one
-      // — fall back to an initial rather than a broken <img>.
+      /**
+       * `Thumbnail` covers both ways an image can be missing — the row having
+       * none (`image: null`), and a URL that fails to load. The previous cell
+       * handled only the first, so a product whose photo 404s rendered the
+       * browser's broken-image glyph.
+       *
+       * The fallback is a package icon, not the product's initial: a letter
+       * tile is the avatar treatment for people, and a product is not one.
+       */
       cell: (r) => (
         <div className="flex items-center gap-2">
-          {r.image ? (
-            <div className="av av-sm av-img">
-              <img src={r.image} alt={r.productName} loading="lazy" />
-            </div>
-          ) : (
-            <div className="av av-sm av-navy">{r.productName.charAt(0)}</div>
-          )}
+          <Thumbnail
+            src={r.image}
+            alt={r.productName}
+            placeholder={<IconPackage size={16} />}
+            className="h-8 w-8 shrink-0"
+          />
           <span className="td-p">{r.productName}</span>
         </div>
       ),

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { DynamicTabs } from "@/components/common/DynamicTabs";
 import { PageHeader } from "@/components/common/PageHeader";
+import { Search } from "@/components/common/Search";
 import { SectionCard } from "@/components/common/SectionCard";
 import { idColumn, statusColumn, textColumn } from "@/components/common/tableColumns";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ const M = MESSAGES.REWARDS;
 const P = MESSAGES.PROMOTION;
 
 const TAB_OVERVIEW = "overview";
+const COUPON_LIMIT = 10;
 
 /** Format an ISO timestamp (e.g. "2026-12-31T23:59:59Z") as "Dec 31, 2026". */
 function formatCouponDate(iso: string | null): string {
@@ -130,6 +132,8 @@ export function RewardsPage() {
   const [couponToDelete, setCouponToDelete] = useState<Coupon | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(TAB_OVERVIEW);
+  const [couponPage, setCouponPage] = useState(1);
+  const [couponSearch, setCouponSearch] = useState("");
 
   /**
    * Coupons and the loyalty config are **governance** capabilities — the backend
@@ -144,14 +148,22 @@ export function RewardsPage() {
   const canManageCoupons = can("promo.coupon");
   const canConfigureLoyalty = can("finance.config");
 
-  // Active coupons (live API). Seed local state so the existing add/edit UI
-  // keeps working optimistically until those mutation endpoints are wired up.
+  /**
+   * Coupons (live API). Seed local state so the existing add/edit UI keeps
+   * working optimistically until those mutation endpoints are wired up.
+   *
+   * **Paged and searched server-side.** The query used to be sent bare, which
+   * returns the endpoint's default page of ten and reports the real total only
+   * in `count` — read by nothing, under a table with its pager switched off. The
+   * eleventh coupon existed and could not be reached.
+   */
   const {
     data: couponData,
     isLoading: couponsLoading,
     isError: couponsError,
     refetch: refetchCoupons,
-  } = useGetActiveCouponsQuery();
+  } = useGetActiveCouponsQuery({ page: couponPage, limit: COUPON_LIMIT, search: couponSearch });
+  const couponPages = Math.max(1, Math.ceil((couponData?.count ?? 0) / COUPON_LIMIT));
   const [createCoupon, { isLoading: isCreating }] = useCreateCouponMutation();
   const [updateCoupon, { isLoading: isUpdating }] = useUpdateCouponMutation();
   const [deleteCoupon, { isLoading: isDeleting }] = useDeleteCouponMutation();
@@ -326,7 +338,23 @@ export function RewardsPage() {
       </div>
 
       {/* All coupons (same data as the cards) in a table — click a row to edit. */}
-      <SectionCard icon={<IconTicket size={18} />} title={M.TABLE.TITLE} bodyPadding="none">
+      <SectionCard
+        icon={<IconTicket size={18} />}
+        title={M.TABLE.TITLE}
+        bodyPadding="none"
+        actions={
+          <Search
+            value={couponSearch}
+            onSearch={(value) => {
+              setCouponSearch(value);
+              setCouponPage(1);
+            }}
+            placeholder={M.TABLE.SEARCH_PLACEHOLDER}
+            debounceMs={300}
+            style={{ width: "240px" }}
+          />
+        }
+      >
         <DataTable
           columns={couponColumns}
           data={coupons}
@@ -335,7 +363,9 @@ export function RewardsPage() {
           isError={couponsError}
           error={couponsError ? MESSAGES.COMMON.ERROR : null}
           onRetry={refetchCoupons}
-          showPagination={false}
+          page={couponPage}
+          pages={couponPages}
+          onPageChange={setCouponPage}
           emptyMessage={M.TABLE.EMPTY}
           // The row opens the edit form, so it is a write entry point too. The
           // table itself stays readable for both tiers.

@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { DatePicker } from "@/components/common/DatePicker";
 import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { FormField } from "@/components/common/FormField";
-import { Search } from "@/components/common/Search";
+import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,11 +17,12 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import { useGetProductsQuery } from "@/features/products";
+import { CATALOG_TYPE_FILTERS, catalogTypeLabel, useProductPicker } from "@/features/products";
 import { useGetVariantsQuery } from "@/features/variants";
 import { getApiMessage } from "@/lib/apiError";
 import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
+import { formatCurrency } from "@/lib/utils";
 import { useCreateDealMutation, useUpdateDealMutation } from "../api/promotionApi";
 import type { Deal } from "../types/reward.types";
 
@@ -54,23 +55,22 @@ export function DealFormDrawer({ deal, isOpen, onClose }: DealFormDrawerProps) {
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
-  const [productSearch, setProductSearch] = useState("");
 
   const [createDeal, { isLoading: isCreating }] = useCreateDealMutation();
   const [updateDeal, { isLoading: isUpdating }] = useUpdateDealMutation();
   const isSaving = isCreating || isUpdating;
 
   /**
-   * A "generous page" was the original intent here, but it could not work:
-   * `BaseListProductsView` paginates with `CustomPagination`, which caps a page
-   * at 50 — the extra 50 were never sent, so a deal could not be created for the
-   * 51st product. Search runs server-side instead (`name` icontains).
+   * The same whole-catalog picker Analytics uses — server-side search, catalog
+   * type chips and paged loading, shared through `useProductPicker`.
+   *
+   * It replaces a `get-products/` call, which serves the **general catalog
+   * only**: the 14 marine-emergency products were absent from this dropdown
+   * entirely, so no deal could ever be scheduled on a marine-emergency spare.
+   * The same defect was fixed on the Analytics picker; sharing the hook is what
+   * stops it recurring on the next screen that needs a product.
    */
-  const { data: productsData, isFetching: productsFetching } = useGetProductsQuery(
-    { page: 1, limit: API_MAX_PAGE_SIZE, search: productSearch },
-    { skip: !isOpen },
-  );
-  const products = productsData?.results?.data ?? [];
+  const picker = useProductPicker(isOpen);
 
   // Variants are scoped to the chosen product — a deal must price a SKU that
   // actually belongs to it. One page is ample: a product carries a handful of
@@ -80,6 +80,8 @@ export function DealFormDrawer({ deal, isOpen, onClose }: DealFormDrawerProps) {
     { skip: !isOpen || !productId },
   );
   const variants = variantsData?.variants ?? [];
+  /** The chosen SKU, for the price ceiling shown under the deal-price field. */
+  const selectedVariant = variants.find((v) => v.id === variantId);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -90,7 +92,6 @@ export function DealFormDrawer({ deal, isOpen, onClose }: DealFormDrawerProps) {
     setStart(deal?.startTime ?? "");
     setEnd(deal?.endTime ?? "");
     setErrors({});
-    setProductSearch("");
   }, [isOpen, deal]);
 
   const validate = (): boolean => {
@@ -165,42 +166,64 @@ export function DealFormDrawer({ deal, isOpen, onClose }: DealFormDrawerProps) {
 
         <div className="flex-1 overflow-y-auto p-6">
           <FormField label={F.PRODUCT} error={errors.product}>
-            <div className="mb-2">
-              <Search
-                value={productSearch}
-                onSearch={setProductSearch}
-                placeholder={F.PRODUCT_SEARCH_PLACEHOLDER}
-                debounceMs={300}
-                loading={productsFetching}
-                className="w-full"
-                style={{ width: "100%" }}
-              />
-            </div>
-            <DropdownSelect
+            {/* Search, type chips and "Load more" are all inside the control —
+                the same one the Analytics product picker uses. */}
+            <SearchableSelect
               value={productId}
               onValueChange={(val) => {
                 setProductId(val);
                 // The old variant belongs to the previous product — clear it.
                 setVariantId("");
               }}
+              // Each row carries its catalog type, so a marine-emergency spare
+              // is distinguishable from a regular product before it is picked.
+              options={picker.options.map((o) => ({
+                value: o.value,
+                label: o.label,
+                meta: catalogTypeLabel(o.catalogType),
+              }))}
+              filters={CATALOG_TYPE_FILTERS}
+              activeFilter={picker.catalogType}
+              onFilterChange={picker.setCatalogType}
+              search={picker.search}
+              onSearchChange={picker.setSearch}
+              hasMore={picker.hasMore}
+              onLoadMore={picker.loadMore}
+              isLoading={picker.isFetching}
               placeholder={F.PRODUCT_PLACEHOLDER}
-              options={products.map((p) => ({ value: p.id, label: p.name }))}
               width="100%"
             />
           </FormField>
 
           <FormField label={F.VARIANT} hint={F.VARIANT_HINT} error={errors.variant}>
+            {/* The SKU alone was not enough to price against. The backend
+                rejects any `deal_price` that is not **below** `variant.price`,
+                and that price was nowhere on this form — so the admin picked a
+                SKU, guessed a figure and learned the ceiling from a 400. */}
             <DropdownSelect
               value={variantId}
               onValueChange={setVariantId}
               placeholder={F.VARIANT_PLACEHOLDER}
-              options={variants.map((v) => ({ value: v.id, label: v.sku }))}
+              options={variants.map((v) => ({
+                value: v.id,
+                label: `${v.sku} · ${formatCurrency(v.price)}`,
+              }))}
               width="100%"
               disabled={!productId}
             />
           </FormField>
 
-          <FormField label={F.PRICE} error={errors.price}>
+          {/* The ceiling, stated rather than discovered: the API refuses a deal
+              price that is not below the variant's. Shown as a hint, not a
+              blocking rule — the server owns the rule, this just stops the
+              admin having to find it by being rejected. */}
+          <FormField
+            label={F.PRICE}
+            hint={
+              selectedVariant ? F.PRICE_CEILING(formatCurrency(selectedVariant.price)) : undefined
+            }
+            error={errors.price}
+          >
             <Input
               type="number"
               min="0"

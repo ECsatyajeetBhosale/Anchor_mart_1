@@ -6,17 +6,10 @@ import { Pagination } from "@/components/common/Pagination";
 import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import { getApiMessage } from "@/lib/apiError";
-import { APP_ROUTES } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
-import {
-  IconArrowLeft,
-  IconCategory,
-  IconHelpCircle,
-  IconMoodEmpty,
-  IconPlus,
-} from "@tabler/icons-react";
+import { IconCategory, IconHelpCircle, IconMoodEmpty, IconPlus } from "@tabler/icons-react";
 import { useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useDeleteFaqMutation, useGetFaqTypesQuery, useGetFaqsQuery } from "../api/faqApi";
 import type { Faq } from "../types/settings.types";
@@ -25,6 +18,15 @@ import { FaqFormModal } from "./FaqFormModal";
 import { FaqTypesCard } from "./FaqTypesCard";
 
 const PAGE_SIZE = 10;
+
+/**
+ * The "no category filter" sentinel.
+ *
+ * A dropdown row needs a non-empty value to be selectable, while the URL and the
+ * API want the param simply absent — so this is translated at both edges rather
+ * than sent.
+ */
+const ALL_TYPES = "all";
 
 /**
  * Help & FAQ management.
@@ -57,6 +59,19 @@ export function FaqsPage() {
   const total = data?.count ?? 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const types = typesData?.results ?? [];
+
+  /**
+   * Category options, led by an explicit "All categories" row.
+   *
+   * Without it the filter was one-way: the placeholder reads "All categories"
+   * only while nothing is selected, so picking a category left no option that
+   * meant *stop filtering* — the admin had to edit the URL or reload. Products
+   * and Marine Emergency Spares both lead their category filters the same way.
+   */
+  const categoryOptions = [
+    { value: ALL_TYPES, label: MESSAGES.SETTINGS.FAQ.ALL_CATEGORIES },
+    ...types.map((t) => ({ value: t.name, label: t.name })),
+  ];
 
   /** Group the current page by category so the list reads like the help centre. */
   const grouped = faqs.reduce<Record<string, Faq[]>>((acc, faq) => {
@@ -125,10 +140,14 @@ export function FaqsPage() {
             filters={[
               {
                 id: "faq_type",
-                value: faqType,
-                onValueChange: (value) => setParam("faq_type", value),
+                // Unfiltered shows as the "All categories" row selected, rather
+                // than as a placeholder — so the way back out is visible and
+                // ticked, not merely implied.
+                value: faqType || ALL_TYPES,
+                emptyValue: ALL_TYPES,
+                onValueChange: (value) => setParam("faq_type", value === ALL_TYPES ? "" : value),
                 placeholder: MESSAGES.SETTINGS.FAQ.ALL_CATEGORIES,
-                options: types.map((t) => ({ value: t.name, label: t.name })),
+                options: categoryOptions,
               },
             ]}
           >
@@ -147,14 +166,9 @@ export function FaqsPage() {
         }
       />
 
-      <Link
-        to={APP_ROUTES.SETTINGS}
-        className="mb-4 inline-flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--teal-600)] hover:text-[var(--teal-700)]"
-      >
-        <IconArrowLeft size={15} />
-        {MESSAGES.SETTINGS.FAQ.BACK_TO_SETTINGS}
-      </Link>
-
+      {/* No "Back to Settings": this was a sub-page of Settings, reached only
+          through a card there. Help & FAQ is its own System entry now, so the
+          link pointed at an unrelated screen. */}
       <StatsGrid items={statItems} />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">

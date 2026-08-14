@@ -1335,6 +1335,223 @@ fixed during the run: `GetSpecialRequestStatsParams | void` tripped `noConfusing
 errors), the same rule an order-stats union hit earlier; the union was unnecessary since the page
 always passes an argument.
 
+### C-21 — Promotion lists were showing page one of N · 14 Aug 2026 · authorized by user
+
+**Audit.** All 23 promotion endpoints (coupons, assignments, bonus points, loyalty, deals) had an
+RTK Query definition and an exported hook — 23/23 wired. Five were **called in a way that could not
+return the right rows**, which is a different question and the one worth asking.
+
+**The type filter that filtered nothing.** The Bonus Points tab sent `?type=loyalty|referral`.
+`ListBonusPointsView` reads `search` and `user_id` and nothing else, so the param was accepted by
+the URL and ignored by the view; nothing filtered client-side either. The dropdown changed, a
+request fired, the same rows came back.
+
+It was also the wrong axis, which is why the control is **removed rather than repaired**: a row is
+a *user*, carrying `referral_points` and `loyalty_points` at once, so a user with both would belong
+to both halves of the filter. The two figures remain as columns; a server-side `search` box takes
+the control's place, matching what the endpoint implements.
+
+**Four lists fetched page one and hid the pager.** `getActiveCoupons`, `getCouponAssignments` and
+`getCouponReport` all took `void` — no `page`, `page_size` or `search` — and every table rendered
+`showPagination={false}`. `CustomPagination` answers with **10 rows** and reports the real total
+only through `count`, which nothing read. The bonus-point ledger was the same shape with a higher
+cap: `limit: 50`, no pager, and 50 is `max_page_size`, so a busier sailor's history simply stopped.
+
+Verified against the data — the defect is live, not theoretical:
+
+```
+coupons (not deleted): 5     under the cap today
+coupon assignments   : 0     under the cap today
+users with bonus pts : 19    ← 10 shown, 9 unreachable
+```
+
+**The coupon picker had the tighter version of the same bug.** The assign-to-sailor dialog fetched
+coupons with no page size, so it offered ten and nothing could assign the eleventh — the same hole
+the sailor picker beside it had already been fixed for. It now asks for a full page.
+
+`getCouponReport` also stopped returning a bare array: the paginated envelope's `count` was being
+discarded by the transform, so even a caller that wanted to page had nothing to page with.
+
+**Files:** `features/rewards/types/reward.types.ts` · `features/rewards/api/couponApi.ts` ·
+`features/rewards/api/promotionApi.ts` · `features/rewards/components/RewardsPage.tsx` ·
+`features/rewards/components/BonusPointsTab.tsx` ·
+`features/rewards/components/CouponAssignmentsTab.tsx` ·
+`features/rewards/components/CouponReportTab.tsx` · `lib/messages.ts`
+
+**Left alone, deliberately:** the `is_active` filter on the coupon list. The list is fetched
+unfiltered on purpose so the table below shows both states; the panel labelled *Active Coupons*
+narrows to the live ones itself. Worth revisiting only if that panel's title is meant literally.
+
+**Follow-up (C-21a) — three mappers were reading fields that do not exist.** Live payloads supplied
+straight after the paging fix showed the columns themselves were wrong. Each mapper had been written
+defensively — `pick(raw, "a", "b") || pick(nested, "c")` — which turns a wrong guess into a dash
+instead of an error, so all three had been shipping placeholder values with the real data sitting
+untouched in the response.
+
+| Screen | Rendered | Actually sent |
+|---|---|---|
+| Bonus Points | Sailor `-`, Type `-`, Points `0` on every row | flat `first_name`/`last_name`, no `type`, `referral_points` + `loyalty_points` + `total_points` |
+| Coupon Assignments | Sailor `-`, green **Unused** on every row | `user_email` only (no name), **no `is_used`**, plus an unused `assigned_at` |
+| Coupon Report | Usage Limit **Unlimited**, Total Discount `-`, **Active** on every row | no `usage_limit`, no `is_active`; `total_discount_given`, `revenue_impact`, `status`, `title`, `discount`, `applicable_to` |
+
+**Two of those were worse than blank — they asserted facts.** A green *"Unused"* badge on every
+assignment claimed a redemption state the endpoint does not report (`is_used` is on `CouponUsage`,
+which it does not join), and *"Unlimited"* claimed every coupon was uncapped. A dash says "no
+value"; those said something false. Both are gone: assignments show `assigned_at` instead, and the
+report reads the API's own `status` word rather than re-deriving one from a boolean it never sends.
+
+**The Bonus Points type dimension came back as columns.** The removed filter's data does exist —
+just per user, as two balances. Referral and Loyalty are now columns beside the Total, which is the
+shape the endpoint returns and the reason a single-value filter could never have been right.
+
+**Files (in addition to those above):** the same three mappers in
+`features/rewards/api/promotionApi.ts`, their row types, and the two tab tables.
+
+**Verified.** `tsc --noEmit -p tsconfig.json` clean · `biome lint src` **11 errors + 1 warning, all
+pre-existing BL-04, zero new** · `vite build` exits 0 · no `showPagination={false}` remains in the
+feature. `GetCouponsParams | void` tripped `noConfusingVoidType` mid-run for the third time in this
+session — the union is never needed once every caller passes an argument.
+
+**Follow-up (C-21b) — Deal of the Day, checked against the serializer.** All 8 deal endpoints were
+wired and, unlike the three above, the row mapper read real field names. Three other things did not:
+
+**Two stat cards were structurally zero.** `DealStatsView` returns `total`, `active_now`,
+`scheduled`, `expired`, `inactive`. The tab read `active` and `upcoming` — neither exists — so
+**Active** and **Upcoming** displayed 0 however many deals were running or queued. `inactive` was
+read by nothing, so a switched-off deal was counted in no card and Total never reconciled with the
+rest. Now five cards on the API's own keys.
+
+**The cards are drillable.** `?status=` accepts exactly those four buckets, and the view's own
+comment says why it exists — *"mirrors the DealStatsView buckets, so a stat card can filter the list
+to just that group"* — a drill-through the frontend had never sent. Clicking a card filters; clicking
+it again, or Total, clears.
+
+**`search` and `category` were never sent either**, though the list has supported both all along
+(`search` over variant SKU and product name). Search is wired; `category` is typed and left unsent
+until a category picker earns its place on this screen.
+
+**Three fields were being dropped from every row** — `original_price`, `discount_percentage` and
+`variant_images`. The first two matter: a Deal of the Day table was showing a deal price with
+**nothing to compare it against**, on a screen whose entire subject is the size of a discount. The
+row now reads `Was $80.00 · $60.00 · 25% off`, all three from the API — the percentage is the
+backend's own, computed from `variant.price` when create omits it, never recalculated here.
+
+**The five counts became a filter strip, not stat cards** — corrected on the backend's advice before
+this shipped. They are **not a partition of `total`**: `expired` and `inactive` overlap (a switched-off
+deal whose dates have passed is in both), and an inactive deal still inside its window is in neither
+`active_now` nor `scheduled`. On their current data that is 3 + 2 + 2 + 2 = **9 against a total of 7**.
+
+A `StatsGrid` would have asserted otherwise. Everywhere else in this console it heads counts that
+*are* mutually exclusive and *do* sum — Orders' six statuses, Intents' six funnel stages, Special
+Requests' five — and [C-11](#c-11--status-filter-moved-to-the-column-header--11-aug-2026--authorized-by-user)
+and C-20 both turn on that reading. Five cards here would have invited the same arithmetic and failed
+it. `PillToggle` is the control this codebase already uses for exactly this shape: the Orders
+order-type filter, whose counts also overlap by design (129 + 49 + 546 against 715, the difference
+being the 9 orders that are both). Same problem, same control.
+
+**Two documentation defects reported and fixed by the backend (14 Aug):**
+
+1. **The Toggle description said activation "sets a fresh 24-h window".** The view does the opposite —
+   it keeps the stored window and 400s when that window has closed, precisely because the rolling
+   version silently moved a deal built for the 22nd to whatever day it was re-enabled. The wrong text
+   appeared **twice in the versioned flow doc**, which is the copy that persists. Backend re-verified
+   the real behaviour against live rows (expired-activate → 400 with the window untouched; string
+   `"true"` → 400; deactivate/re-activate round-trip → dates identical) rather than re-reading the code.
+2. **The stats description gave prose, not keys** — *"Cards: total / active now / scheduled / expired /
+   inactive"*. `active` and `upcoming` are a fair guess from that sentence, which is the actual root of
+   the two zero cards: a mapper written from a doc that never stated the field names. It now lists the
+   literal keys and says outright that there is no `active` or `upcoming`.
+
+*Note for whoever picks this up:* the Postman collection is gitignored (`.gitignore:25`), so the
+collection half of that correction arrives only by fresh export. The flow-doc half is versioned.
+
+### C-22 — One product picker, shared · 14 Aug 2026 · authorized by user
+
+**Reported:** the Create Deal form should pick a product the way Analytics does.
+
+Doing it revealed the same defect that prompted the Analytics picker in the first place
+([C-13](#c-13--analytics-picker-on-the-whole-catalog--12-aug-2026--authorized-by-user)). The deal
+form read **`get-products/`**, which serves the *general* catalog only — so the **14
+marine-emergency products were absent from the dropdown entirely** and no deal could ever be
+scheduled on a marine-emergency spare. The screenshot shows it plainly: eight regular products, no
+emergency spares, while the Analytics picker beside it lists them with their type badges.
+
+**So the mechanism is now shared rather than copied.** `useProductPicker` (products feature) owns
+`get-all-products/`, the page accumulation, the server-side search and the catalog-type filter;
+`CATALOG_TYPE_FILTERS` and `catalogTypeLabel` own the chips and badges. Analytics was refactored onto
+it too — the point is that the two controls now cannot drift, and the next screen needing a product
+gets the whole catalog by default instead of rediscovering this.
+
+Two things that make the copy-paste version fail silently are recorded in the hook itself: the 50-row
+page cap that ignores a larger `limit` without erroring, and the general-vs-all catalog split.
+
+**The labels moved to `MESSAGES.COMMON.PRODUCT_PICKER`.** They were under `ANALYTICS`, which stops
+being true the moment a second screen offers the same three types — and a picker that omits one is
+exactly the defect above.
+
+**Files:** new `features/products/hooks/useProductPicker.ts` · new
+`features/products/lib/catalogTypeFilters.ts` · `features/products/index.ts` ·
+`features/rewards/components/DealFormDrawer.tsx` · `features/analytics/hooks/useProductSales.ts` ·
+`features/analytics/components/ProductSalesCard.tsx` · `lib/messages.ts`
+
+**Verified.** `tsc --noEmit -p tsconfig.json` clean · `biome lint src` **11 errors + 1 warning, all
+pre-existing BL-04, zero new** · `vite build` exits 0.
+
+---
+
+**⚠️ Standing lesson.** Defensive field mapping hid three broken screens indefinitely. `pick()`
+chains with fallbacks are the right tool for a field that is *legitimately* absent (`failed_at` on a
+successful assignment); for a field the contract guarantees, they convert a loud failure into a
+quiet dash. Every mapper in this session was verified against a real payload rather than the field
+names alone — that is the only check that catches this class.
+
+### C-23 — BL-02 fixed: the config Vite loaded was not the config in the repo · 14 Aug 2026 · authorized by user
+
+**`npm run build` now passes.** It had been failing all session on `tsconfig.node.json(8,35): error
+TS5096`, reported in [C-17](#c-17--one-delivery-timeline-per-order-drawer--13-aug-2026--authorized-by-user)
+and C-18 as pre-existing. Both symptoms — the failing build and BL-02's config shadowing — were the
+same defect.
+
+**What was actually wrong.** `tsconfig.node.json` exists to type-check `vite.config.ts`. It was
+`composite`, which forces emit, and it emitted **into the source directory**: `vite.config.js` and
+`vite.config.d.ts` appeared next to the original, and **both were committed**. Vite resolves
+`vite.config.js` ahead of `vite.config.ts`, so the dev server and the build read the *generated
+copy*. Every edit to the real config did nothing until something regenerated the stale one.
+
+That is why the proxy's `ngrok-skip-browser-warning` header appeared in two files: someone had to
+edit the `.js` to make it take effect. Verified today — both copies carried it, and the `.js` was
+identical in structure to the `.ts`, so nothing was lost by deleting it.
+
+`composite` + `allowImportingTsExtensions` is also illegal (TS5096), which is what broke the build.
+The two are the same root cause: a project configured to compile something it only needed to check.
+
+**The fix.** Emit is redirected rather than switched off, because a *referenced* project may not set
+`noEmit`: `emitDeclarationOnly` with `outDir` and `tsBuildInfoFile` under `node_modules/.tmp`. The
+two committed artifacts are `git rm`-ed and added to `.gitignore` as a second line of defence.
+
+**It had never type-checked.** With the shadow gone, `tsc -b` finally read `vite.config.ts` and found
+three errors — `path`, `process` and `__dirname` all unresolved, because **`@types/node` was not
+installed**. The stale `tsbuildinfo` had kept the project marked up to date, so the file had gone
+unchecked since it was written. Added `@types/node` (devDependency) and `"types": ["node"]`.
+
+**Verified end to end**, not just compiled:
+
+| Check | Result |
+|---|---|
+| `npm run build` | **exit 0** — first time this session |
+| `tsc --noEmit -p tsconfig.json` | clean |
+| `biome lint src` | 11 errors + 1 warning — BL-04 baseline, zero new |
+| `vite.config.js` / `.d.ts` regenerated? | no — only `vite.config.ts` remains |
+| Emit location | `node_modules/.tmp/tsconfig.node/` |
+| `npx vite` dev server | boots from the `.ts`, serves **HTTP 200** |
+
+**Files:** `tsconfig.node.json` · `.gitignore` · `package.json` (+`@types/node`) · deleted
+`vite.config.js`, `vite.config.d.ts`
+
+**BL-02 and the C-17/C-18 build caveat are both closed.** Any future proxy or alias change now
+belongs in `vite.config.ts` and takes effect immediately — the trap that made BL-02 the
+highest-priority baseline finding is gone.
+
 ---
 
 ## 11. Method

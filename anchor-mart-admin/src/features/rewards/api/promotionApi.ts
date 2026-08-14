@@ -8,11 +8,14 @@ import type {
   BonusPointListResult,
   CouponAssignment,
   CouponAssignmentListResult,
-  CouponReportRow,
+  CouponReportResult,
   Deal,
   DealListResult,
   DealPayload,
   DealStats,
+  GetBonusPointsParams,
+  GetCouponAssignmentsParams,
+  GetCouponReportParams,
   GetDealsParams,
 } from "../types/reward.types";
 
@@ -44,6 +47,21 @@ function money(value: unknown): string {
     : "-";
 }
 
+/** ISO timestamp → "Aug 14, 2026, 07:09 AM". Blank input stays a dash. */
+function formatDateTime(value: string): string {
+  if (!value) return "-";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime())
+    ? value
+    : d.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+}
+
 /** Extracts rows + total from whichever envelope the endpoint returns. */
 function extractList(res: unknown): { count: number; rows: unknown[] } {
   const results = getProp(res, "results");
@@ -57,19 +75,33 @@ function extractList(res: unknown): { count: number; rows: unknown[] } {
   return { count: typeof countRaw === "number" ? countRaw : rows.length, rows };
 }
 
-/** Maps a raw deal record onto the flat UI row. */
+/**
+ * Maps a raw deal record onto the flat UI row.
+ *
+ * `product` and `variant` are UUID strings; the readable values arrive beside
+ * them as `product_name` and `variant_sku`. Three fields the serializer sends
+ * were previously dropped — `original_price`, `discount_percentage` and
+ * `variant_images` — which left a deal row showing a price with nothing to
+ * compare it against, on a screen whose entire subject is the size of a
+ * discount.
+ */
 function toDeal(raw: unknown, index: number): Deal {
-  const product = getProp(raw, "product");
-  const variant = getProp(raw, "variant");
   const priceValue = Number(getProp(raw, "deal_price") ?? 0);
+  const pct = getProp(raw, "discount_percentage");
+  const images = asArray(getProp(raw, "variant_images")) ?? [];
   return {
     id: pick(raw, "id") || `deal-${index}`,
-    productId: typeof product === "string" ? product : pick(product, "id"),
-    productName: pick(raw, "product_name") || pick(product, "name") || "-",
-    variantId: typeof variant === "string" ? variant : pick(variant, "id"),
-    variantSku: pick(raw, "variant_sku") || pick(variant, "sku") || "-",
+    productId: pick(raw, "product"),
+    productName: pick(raw, "product_name") || "-",
+    variantId: pick(raw, "variant"),
+    variantSku: pick(raw, "variant_sku") || "-",
     dealPrice: money(priceValue),
     dealPriceValue: Number.isFinite(priceValue) ? priceValue : 0,
+    // `original_price` is the variant's own price — the figure the backend
+    // treats as authoritative and computes the percentage from.
+    originalPrice: money(getProp(raw, "original_price")),
+    discountPercentage: Number.isFinite(Number(pct)) ? `${Number(pct)}%` : "-",
+    imageUrl: pick(images[0], "image", "url"),
     termsAndConditions: pick(raw, "terms_and_conditions") || "",
     startTime: pick(raw, "start_time") || "",
     endTime: pick(raw, "end_time") || "",
@@ -78,33 +110,53 @@ function toDeal(raw: unknown, index: number): Deal {
 }
 
 /** Maps a raw bonus-point record onto the flat UI row. */
+/**
+ * Maps a raw bonus-points row onto the flat UI row.
+ *
+ * The row is **flat** — `first_name`, `last_name`, `user_email`,
+ * `referral_points`, `loyalty_points`, `total_points`. This used to look for a
+ * nested `user` object, a `user_name`, a `type` and a `points`, none of which
+ * the endpoint sends, so three of the four columns rendered "-" or 0 on every
+ * row while the data sat in the response untouched.
+ */
 function toBonusPoint(raw: unknown, index: number): BonusPoint {
-  const user = getProp(raw, "user");
-  const userId = pick(raw, "user_id") || pick(user, "id");
+  const userId = pick(raw, "user_id");
+  const name = `${pick(raw, "first_name")} ${pick(raw, "last_name")}`.trim();
+  const email = pick(raw, "user_email");
   return {
     id: pick(raw, "id") || userId || `bonus-${index}`,
     userId,
-    userName: pick(raw, "user_name", "name") || pick(user, "first_name", "name", "email") || "-",
-    userEmail: pick(raw, "user_email", "email") || pick(user, "email") || "-",
-    type: pick(raw, "type") || "-",
-    points: Number(getProp(raw, "points") ?? 0),
+    // Seeded and self-registered accounts often carry no name at all; the email
+    // identifies them where a dash would not.
+    userName: name || email || "-",
+    userEmail: email || "-",
+    referralPoints: Number(getProp(raw, "referral_points") ?? 0),
+    loyaltyPoints: Number(getProp(raw, "loyalty_points") ?? 0),
+    totalPoints: Number(getProp(raw, "total_points") ?? 0),
   };
 }
 
 /** Maps a raw assignment record onto the flat UI row. */
+/**
+ * Maps a raw assignment row onto the flat UI row.
+ *
+ * `user` and `coupon` are **UUID strings**, not nested objects — the readable
+ * values arrive alongside them as `user_email` and `coupon_code`. The dropped
+ * `userName` and `isUsed` were never in the payload: the first rendered "-" on
+ * every row, and the second defaulted `is_used` to `false` and printed a green
+ * "Unused" badge, which asserted a redemption state the endpoint does not
+ * report.
+ */
 function toAssignment(raw: unknown, index: number): CouponAssignment {
-  const user = getProp(raw, "user");
-  const coupon = getProp(raw, "coupon");
   const rawId = getProp(raw, "id");
   return {
     // Assignment ids are integers — preserved as-is so the delete URL matches.
     id: typeof rawId === "number" || typeof rawId === "string" ? rawId : `assignment-${index}`,
-    userId: typeof user === "string" ? user : pick(user, "id"),
-    userName: pick(raw, "user_name") || pick(user, "first_name", "name", "email") || "-",
-    userEmail: pick(raw, "user_email") || pick(user, "email") || "-",
-    couponId: typeof coupon === "string" ? coupon : pick(coupon, "id"),
-    couponCode: pick(raw, "coupon_code") || pick(coupon, "code") || "-",
-    isUsed: getProp(raw, "is_used") === true,
+    userId: pick(raw, "user"),
+    userEmail: pick(raw, "user_email") || "-",
+    couponId: pick(raw, "coupon"),
+    couponCode: pick(raw, "coupon_code") || "-",
+    assignedAt: formatDateTime(pick(raw, "assigned_at")),
   };
 }
 
@@ -119,6 +171,12 @@ export const promotionApi = baseApi.injectEndpoints({
         params: {
           page: params?.page,
           page_size: params?.limit,
+          // `search` matches variant SKU or product name; `status` is the
+          // computed bucket the stat cards drill into. Both existed on the view
+          // and neither was being sent.
+          search: params?.search || undefined,
+          status: params?.status || undefined,
+          category: params?.category || undefined,
           sort_by_is_active: params?.sortByIsActive || undefined,
           sort_by_start_date: params?.sortByStartDate || undefined,
           sort_by_end_date: params?.sortByEndDate || undefined,
@@ -205,11 +263,24 @@ export const promotionApi = baseApi.injectEndpoints({
 
     /* ── Bonus points ─────────────────────────────────────────────── */
 
-    getBonusPoints: builder.query<BonusPointListResult, { type?: string }>({
+    /**
+     * Users ranked by bonus-point balance.
+     *
+     * Sent `?type=` until this was checked against `ListBonusPointsView`, which
+     * reads `search` and `user_id` and nothing else: the tab's type dropdown
+     * fired a request and got the same rows back, filtering nothing. Paging was
+     * missing too, so the list stopped at the default 10 with 19 users to show.
+     */
+    getBonusPoints: builder.query<BonusPointListResult, GetBonusPointsParams>({
       query: (params) => ({
         url: REWARD_ENDPOINTS.GET_BONUS_POINTS,
         method: "GET",
-        params: { type: params?.type || undefined },
+        params: {
+          page: params.page,
+          page_size: params.limit,
+          search: params.search || undefined,
+          user_id: params.userId || undefined,
+        },
       }),
       transformResponse: (res: unknown): BonusPointListResult => {
         const { count, rows } = extractList(res);
@@ -267,8 +338,19 @@ export const promotionApi = baseApi.injectEndpoints({
 
     /* ── Coupon assignments + report ──────────────────────────────── */
 
-    getCouponAssignments: builder.query<CouponAssignmentListResult, void>({
-      query: () => ({ url: REWARD_ENDPOINTS.GET_COUPON_ASSIGNMENTS, method: "GET" }),
+    getCouponAssignments: builder.query<CouponAssignmentListResult, GetCouponAssignmentsParams>({
+      query: (params) => ({
+        url: REWARD_ENDPOINTS.GET_COUPON_ASSIGNMENTS,
+        method: "GET",
+        // Both filters must be UUIDs — the view 400s on anything else, so blank
+        // strings are dropped rather than sent as empty params.
+        params: {
+          page: params.page,
+          page_size: params.limit,
+          coupon_id: params.couponId || undefined,
+          user_id: params.userId || undefined,
+        },
+      }),
       transformResponse: (res: unknown): CouponAssignmentListResult => {
         const { count, rows } = extractList(res);
         return { count, assignments: rows.map(toAssignment) };
@@ -293,22 +375,44 @@ export const promotionApi = baseApi.injectEndpoints({
       invalidatesTags: [{ type: "Coupons", id: "ASSIGNMENTS" }],
     }),
 
-    getCouponReport: builder.query<CouponReportRow[], void>({
-      query: () => ({ url: REWARD_ENDPOINTS.COUPON_REPORT, method: "GET" }),
-      transformResponse: (res: unknown): CouponReportRow[] =>
-        extractList(res).rows.map((raw) => {
-          const limit = getProp(raw, "usage_limit");
-          return {
-            couponId: pick(raw, "id", "coupon_id"),
-            code: pick(raw, "code", "coupon_code") || "-",
+    /**
+     * Per-coupon usage, aggregated from `CouponUsage` snapshots.
+     *
+     * Returns the page's `count` alongside its rows: the report is paginated
+     * like every other list, and returning a bare array threw the total away —
+     * which is what left the table showing 10 of N with no pager.
+     */
+    getCouponReport: builder.query<CouponReportResult, GetCouponReportParams>({
+      query: (params) => ({
+        url: REWARD_ENDPOINTS.COUPON_REPORT,
+        method: "GET",
+        params: {
+          page: params.page,
+          page_size: params.limit,
+          search: params.search || undefined,
+        },
+      }),
+      transformResponse: (res: unknown): CouponReportResult => {
+        const { count, rows } = extractList(res);
+        return {
+          count,
+          // Straight passthrough. `usage_limit` and `is_active` were read here
+          // and are not in this response — the first rendered "Unlimited" on
+          // every row and the second an ACTIVE badge on every row, neither
+          // being anything the report said.
+          rows: rows.map((raw) => ({
+            couponId: pick(raw, "id"),
+            code: pick(raw, "code") || "-",
+            title: pick(raw, "title") || "-",
+            discount: pick(raw, "discount") || "-",
+            applicableTo: pick(raw, "applicable_to") || "-",
             timesUsed: Number(getProp(raw, "times_used") ?? 0),
-            usageLimit: typeof limit === "number" ? limit : null,
-            totalDiscount: money(
-              getProp(raw, "total_discount") ?? getProp(raw, "total_discount_amount"),
-            ),
-            isActive: getProp(raw, "is_active") !== false,
-          };
-        }),
+            totalDiscount: money(getProp(raw, "total_discount_given")),
+            revenueImpact: money(getProp(raw, "revenue_impact")),
+            status: pick(raw, "status") || "-",
+          })),
+        };
+      },
       providesTags: [{ type: "Coupons", id: "REPORT" }],
     }),
   }),

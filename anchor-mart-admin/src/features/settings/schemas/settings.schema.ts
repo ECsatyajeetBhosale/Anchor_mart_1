@@ -9,23 +9,6 @@ export const faqSchema = z.object({
 
 export type FaqFormData = z.infer<typeof faqSchema>;
 
-/**
- * Loyalty configuration — the only part of Platform Configuration with a real
- * endpoint (`promotion/loyalty/config/update/`). `point_value` is a decimal
- * string on the wire, so it is validated as a number and serialised back.
- */
-export const loyaltyConfigSchema = z.object({
-  points_per_delivery: z.coerce
-    .number({ invalid_type_error: "Must be a number" })
-    .int("Must be a whole number")
-    .min(0, "Must be 0 or more"),
-  points_per_referral: z.coerce
-    .number({ invalid_type_error: "Must be a number" })
-    .int("Must be a whole number")
-    .min(0, "Must be 0 or more"),
-  point_value: z.coerce
-    .number({ invalid_type_error: "Must be a number" })
-    .min(0, "Must be 0 or more"),
-});
-
-export type LoyaltyConfigFormData = z.infer<typeof loyaltyConfigSchema>;
+// The loyalty-config schema that lived here went with the form it validated.
+// Settings no longer edits loyalty values — Rewards & Coupons owns that, and its
+// own `loyaltyConfig.schema.ts` validates the surviving editor.

@@ -106,6 +106,20 @@ export interface ApiCouponListResponse {
 }
 
 /**
+ * Query params for the coupon list. All optional — but omitting `limit` does
+ * **not** mean "everything": `CustomPagination` defaults to 10 rows per page and
+ * says so only through `count`.
+ */
+export interface GetCouponsParams {
+  page?: number;
+  limit?: number;
+  /** Matches code or title. */
+  search?: string;
+  /** `"true"` / `"false"`; omit for both states. */
+  isActive?: string;
+}
+
+/**
  * Request body for POST /superadmin/promotion/coupons/add/.
  * Built field-by-field from the coupon form (never spread raw form state).
  */
@@ -172,6 +186,20 @@ export interface Deal {
   dealPrice: string;
   /** Raw numeric price, kept so the edit form can round-trip it. */
   dealPriceValue: number;
+  /**
+   * Formatted `original_price` — the **variant's** price, which the deal
+   * discounts from and which the backend treats as authoritative. Without it a
+   * deal row showed a price with nothing to compare it to.
+   */
+  originalPrice: string;
+  /**
+   * `discount_percentage`, as a display string ("25%"). The API computes it
+   * from `variant.price` and `deal_price` when the field is omitted at create,
+   * so this is the backend's own number rather than one recalculated here.
+   */
+  discountPercentage: string;
+  /** First variant image, for the row thumbnail; "" when the variant has none. */
+  imageUrl: string;
   termsAndConditions: string;
   /** Date-only strings as returned, e.g. "2026-06-02". */
   startTime: string;
@@ -189,6 +217,17 @@ export interface DealListResult {
 export interface GetDealsParams {
   page?: number;
   limit?: number;
+  /** Matches variant SKU or product name. */
+  search?: string;
+  /**
+   * One of the four computed buckets. The backend's own note says the filter
+   * "mirrors the DealStatsView buckets, so a stat card can filter the list to
+   * just that group" — which is exactly what the cards now do. An unknown value
+   * is a 400, not an empty list.
+   */
+  status?: DealStatus | "";
+  /** Product category UUID; a non-UUID is a 400. */
+  category?: string;
   /** Pass "true"/"false" to filter by active state. */
   sortByIsActive?: string;
   sortByStartDate?: string;
@@ -211,12 +250,29 @@ export interface DealPayload {
 }
 
 /** Aggregates from `GET /superadmin/promotion/deals/stats/`. */
+/**
+ * Deal summary cards. **Five buckets, and these are their names on the wire** —
+ * `active` and `upcoming` were being read and are not sent, so the Active and
+ * Upcoming cards showed 0 no matter how many deals were running. `inactive` was
+ * not read at all, so its bucket had no card.
+ *
+ * Each maps 1:1 to a `?status=` value on the list, which is what makes the cards
+ * drillable.
+ */
 export interface DealStats {
   total?: number;
-  active?: number;
+  /** `is_active` and now inside the window. */
+  active_now?: number;
+  /** `is_active` with a start time still in the future. */
+  scheduled?: number;
+  /** Window has closed, whatever `is_active` says. */
   expired?: number;
-  upcoming?: number;
+  /** Switched off by an admin. */
+  inactive?: number;
 }
+
+/** The four `?status=` buckets; `total` is the unfiltered list. */
+export type DealStatus = "active_now" | "scheduled" | "expired" | "inactive";
 
 /* ── Bonus points ─────────────────────────────────────────────────── */
 
@@ -224,20 +280,49 @@ export interface DealStats {
 export type BonusPointType = "referral" | "loyalty";
 
 /** A bonus-point balance row. */
+/**
+ * One row of the bonus-points list: a **user** and their balances.
+ *
+ * There is no single `type` or `points` on the wire. The endpoint annotates each
+ * user with `referral_points`, `loyalty_points` and `total_points` — three
+ * numbers per person, not one typed row — which is the same reason the list has
+ * no `?type=` filter.
+ */
 export interface BonusPoint {
-  /** Row id — falls back to the user id when the API omits one. */
+  /** Row id — the API sends the user's id in both `id` and `user_id`. */
   id: string;
   userId: string;
+  /** `first_name` + `last_name`; falls back to the email when both are blank. */
   userName: string;
   userEmail: string;
-  type: string;
-  points: number;
+  referralPoints: number;
+  loyaltyPoints: number;
+  /** `total_points` — the sum the list is ordered by. */
+  totalPoints: number;
 }
 
 /** Transformed bonus-points list. */
 export interface BonusPointListResult {
   count: number;
   rows: BonusPoint[];
+}
+
+/**
+ * Query params for the bonus-points list.
+ *
+ * **`type` is not among them.** The view reads `search` and `user_id` and
+ * nothing else, so a `?type=` was accepted by the URL and ignored by the
+ * backend — the tab's filter fired a request and got the same rows back. It is
+ * also the wrong axis: a row is a *user*, carrying both a referral and a loyalty
+ * balance, so a user with each would belong to both filters.
+ */
+export interface GetBonusPointsParams {
+  page?: number;
+  limit?: number;
+  /** Matches first name, last name or email. */
+  search?: string;
+  /** A single user's row, by UUID. */
+  userId?: string;
 }
 
 /** Body for `POST bonus-points/add/`. `points` is sent as a string by the API. */
@@ -268,20 +353,38 @@ export interface BonusPointHistoryResult {
  * A coupon granted to one user. Assignment ids are **integers** here, unlike
  * the coupon UUIDs they point at.
  */
+/**
+ * One coupon granted to one sailor.
+ *
+ * The row carries `id` (integer), `coupon` + `coupon_code`, `user` +
+ * `user_email` and `assigned_at` — **and nothing else**. There is no sailor
+ * name, and no redemption flag: whether the coupon has been used lives on
+ * `CouponUsage`, which this endpoint does not join. Both were being rendered
+ * anyway, one as a dash and one as a green "Unused" badge on every row.
+ */
 export interface CouponAssignment {
   id: number | string;
   userId: string;
-  userName: string;
   userEmail: string;
   couponId: string;
   couponCode: string;
-  isUsed: boolean;
+  /** Display-formatted grant time, from `assigned_at`. */
+  assignedAt: string;
 }
 
 /** Transformed assignments list. */
 export interface CouponAssignmentListResult {
   count: number;
   assignments: CouponAssignment[];
+}
+
+/** Query params for the assignments list. Both filters take a **UUID**; a
+ *  non-UUID is a 400, not an empty list. */
+export interface GetCouponAssignmentsParams {
+  page?: number;
+  limit?: number;
+  couponId?: string;
+  userId?: string;
 }
 
 /** Body for `POST coupons/assignments/add/`. */
@@ -291,12 +394,41 @@ export interface AddCouponAssignmentPayload {
 }
 
 /** A row of the coupon redemption report. */
+/**
+ * One coupon's usage, as the report returns it.
+ *
+ * **The report is not the coupon record.** It sends `discount` and `status` as
+ * ready-made strings ("10%", "active") and `applicable_to` as prose ("All
+ * users", "3 assigned users") — and it does **not** send `usage_limit` or
+ * `is_active`. Those two were being read anyway, which printed "Unlimited" and
+ * a green ACTIVE badge on every row regardless of the coupon.
+ */
 export interface CouponReportRow {
   couponId: string;
   code: string;
+  title: string;
+  /** Pre-formatted by the API, e.g. "10%" or "$5.00". */
+  discount: string;
+  /** Prose, e.g. "All users" / "3 assigned users". */
+  applicableTo: string;
   timesUsed: number;
-  usageLimit: number | null;
-  /** Formatted total discount granted, e.g. "$1,250.00". */
+  /** Formatted `total_discount_given`, e.g. "$30.53". */
   totalDiscount: string;
-  isActive: boolean;
+  /** Formatted `revenue_impact` — order value the coupon was used against. */
+  revenueImpact: string;
+  /** The API's own word, e.g. "active" / "inactive". */
+  status: string;
+}
+
+/** Paginated report result — the count is the whole report, not this page. */
+export interface CouponReportResult {
+  count: number;
+  rows: CouponReportRow[];
+}
+
+/** Query params for the usage report. */
+export interface GetCouponReportParams {
+  page?: number;
+  limit?: number;
+  search?: string;
 }

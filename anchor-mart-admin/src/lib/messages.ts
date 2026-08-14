@@ -206,7 +206,6 @@ export const MESSAGES = {
     SALES_TREND: "Sales Trend (Daily)",
     ORDERS_BY_CATEGORY: "Orders by Category",
     PRODUCT_SALES: "Product-wise Sales",
-    CATALOG_TYPE_ALL: "All types",
     /** Picker placeholder — no product has been explicitly chosen. */
     PRODUCT_PLACEHOLDER: "Select a product",
     /** Prefixes the auto-picked product's name in the card title. */
@@ -214,11 +213,8 @@ export const MESSAGES = {
     /** Shown when the charted product has been soft-deleted. Its sales still
      *  count — the endpoint reports history, and delisting does not undo it. */
     PRODUCT_DELISTED: "Delisted",
-    CATALOG_TYPE: {
-      regular: "Regular",
-      express: "Express",
-      marine_emergency: "Marine Emergency",
-    } as Record<string, string>,
+    // The catalog-type labels moved to COMMON.PRODUCT_PICKER when the deal form
+    // adopted the same control — both pickers must offer the same three types.
     PRODUCT_METRICS: {
       REVENUE_7D: "Revenue (7d)",
       UNITS_SOLD: "Units Sold",
@@ -1968,24 +1964,23 @@ export const MESSAGES = {
   SETTINGS: {
     TITLE: "Settings",
     SUBTITLE: "Platform configuration, admin accounts and the help centre",
+    /**
+     * Platform Configuration. Read-only throughout — the loyalty values that
+     * were the one editable part moved to the Configure Points drawer on
+     * Rewards & Coupons, which writes the same endpoint and was always the
+     * second editor of the same record.
+     */
     CONFIG: {
       TITLE: "Platform Configuration",
-      SAVING: "Saving…",
       SECTIONS: {
-        LOYALTY: "Loyalty & Rewards",
         OPERATIONAL: "Operational Limits",
       },
       NO_ENDPOINT_HINT:
         "These limits have no API yet, so they are shown for reference and cannot be edited here.",
-      TOAST: {
-        SAVE_SUCCESS: "Loyalty configuration saved",
-        SAVE_ERROR: "Could not save the loyalty configuration",
-      },
     },
     FAQ: {
       PAGE_TITLE: "Help & FAQ",
       PAGE_SUBTITLE: "Questions and answers shown to sailors in the help centre",
-      BACK_TO_SETTINGS: "Back to Settings",
       SEARCH_PLACEHOLDER: "Search FAQs…",
       ALL_CATEGORIES: "All categories",
       ADD_BUTTON: "Add FAQ",
@@ -2590,20 +2585,32 @@ export const MESSAGES = {
       FETCH_ERROR: "Failed to load deals.",
       TODAY_TITLE: "Live today",
       TODAY_EMPTY: "No deals are live right now.",
+      /**
+       * The five buckets the stats endpoint returns, each drilling into the
+       * list via `?status=`. Named for the API's own keys: "Expired" is the
+       * window having closed, "Inactive" is an admin having switched the deal
+       * off — a deal can be either, which is why they are separate counts.
+       */
       STATS: {
         TOTAL: "Total Deals",
         TOTAL_FOOTER: "All time",
-        ACTIVE: "Active",
+        ACTIVE: "Active Now",
         ACTIVE_FOOTER: "Currently running",
-        UPCOMING: "Upcoming",
+        UPCOMING: "Scheduled",
         UPCOMING_FOOTER: "Scheduled ahead",
         EXPIRED: "Expired",
         EXPIRED_FOOTER: "Past their window",
+        INACTIVE: "Inactive",
       },
+      SEARCH_PLACEHOLDER: "Search product or SKU…",
+      /** Heads the status filter strip. Not "stats" — the counts overlap. */
+      STATUS_FILTER_LABEL: "STATUS",
       COLUMNS: {
         PRODUCT: "Product",
         VARIANT: "Variant",
+        ORIGINAL: "Was",
         PRICE: "Deal Price",
+        DISCOUNT: "Off",
         WINDOW: "Window",
         ACTIVE: "Active",
         ACTIONS: "Actions",
@@ -2621,6 +2628,13 @@ export const MESSAGES = {
         VARIANT_HINT: "A deal prices one specific variant, not the whole product.",
         PRICE: "Deal Price",
         PRICE_PLACEHOLDER: "0.00",
+        /**
+         * The API refuses a deal price that is not **below** the variant's own,
+         * and that price was nowhere on this form — so the ceiling was
+         * discovered by being rejected. Stated, not enforced: the rule belongs
+         * to the server.
+         */
+        PRICE_CEILING: (was: string) => `Must be below ${was} — the variant's price`,
         TERMS: "Terms & Conditions",
         TERMS_PLACEHOLDER: "e.g. Available today only",
         START: "Start Date",
@@ -2657,16 +2671,24 @@ export const MESSAGES = {
       ADD: "Grant Points",
       EMPTY: "No bonus points granted yet.",
       FETCH_ERROR: "Failed to load bonus points.",
+      SEARCH_PLACEHOLDER: "Search name or email…",
+      /**
+       * Grant-form choices. `ALL` went with the list filter that used it: the
+       * endpoint has no `?type=`, and a row is a user holding both balances, so
+       * there was no filtered view to offer.
+       */
       TYPE_FILTER: {
-        ALL: "All types",
         LOYALTY: "Loyalty",
         REFERRAL: "Referral",
       },
       COLUMNS: {
         USER: "Sailor",
         EMAIL: "Email",
-        TYPE: "Type",
-        POINTS: "Points",
+        // The endpoint annotates each user with both balances plus their sum,
+        // so the type dimension is two columns rather than one badge.
+        REFERRAL: "Referral",
+        LOYALTY: "Loyalty",
+        POINTS: "Total",
         ACTIONS: "Actions",
       },
       HISTORY: {
@@ -2720,15 +2742,17 @@ export const MESSAGES = {
       ADD: "Assign Coupon",
       EMPTY: "No coupons have been assigned to individual sailors.",
       FETCH_ERROR: "Failed to load coupon assignments.",
+      /**
+       * No Sailor column and no Used column: this endpoint returns the user's
+       * id and email, the coupon's id and code, and `assigned_at`. Redemption
+       * state lives on `CouponUsage`, which it does not join.
+       */
       COLUMNS: {
-        USER: "Sailor",
-        EMAIL: "Email",
+        EMAIL: "Sailor",
         COUPON: "Coupon",
-        USED: "Used",
+        ASSIGNED: "Assigned",
         ACTIONS: "Actions",
       },
-      USED_YES: "Used",
-      USED_NO: "Unused",
       FORM: {
         TITLE: "Assign a Coupon",
         USER: "Sailor",
@@ -2757,14 +2781,18 @@ export const MESSAGES = {
     },
     REPORT: {
       TITLE: "Coupon Redemption Report",
+      SEARCH_PLACEHOLDER: "Search coupon code…",
       EMPTY: "No redemption data yet.",
       FETCH_ERROR: "Failed to load the coupon report.",
       UNLIMITED: "Unlimited",
       COLUMNS: {
         CODE: "Code",
+        TITLE: "Title",
+        DISCOUNT: "Discount",
+        APPLICABLE: "Applicable To",
         USED: "Times Used",
-        LIMIT: "Usage Limit",
-        DISCOUNT: "Total Discount",
+        TOTAL_DISCOUNT: "Total Discount",
+        REVENUE: "Revenue Impact",
         STATUS: "Status",
       },
       ACTIVE: "Active",
@@ -2826,6 +2854,7 @@ export const MESSAGES = {
     // Coupons table (same data as the Active Coupons cards, tabular view)
     TABLE: {
       TITLE: "All Coupons",
+      SEARCH_PLACEHOLDER: "Search code or title…",
       EMPTY: "No coupons found",
       COLUMNS: {
         CODE: "Code",
@@ -4136,6 +4165,23 @@ export const MESSAGES = {
     EMAIL_INVALID: "Enter a valid email address",
   },
   COMMON: {
+    /**
+     * The whole-catalog product picker, shared by Analytics and the deal form.
+     *
+     * Lives here rather than under one feature because both screens must offer
+     * the *same* three types — a picker that omits one silently hides part of
+     * the catalog, which is the defect these labels exist to prevent.
+     */
+    PRODUCT_PICKER: {
+      ALL_TYPES: "All types",
+      PLACEHOLDER: "Select a product",
+      SEARCH_PLACEHOLDER: "Search products by name…",
+      CATALOG_TYPE: {
+        regular: "Regular",
+        express: "Express",
+        marine_emergency: "Marine Emergency",
+      } as Record<string, string>,
+    },
     /**
      * The outstanding partner requirement on a list row, worded in the
      * backend's own terms: verifier ↔ `can_verify`, delivery ↔ `can_deliver`.

@@ -3,3 +3,11 @@ dist
 .env
 .env.local
 backend
+
+# Build artifacts that must never sit beside their source.
+# `tsconfig.node.json` type-checks vite.config.ts; when it emitted into this
+# directory it produced a vite.config.js that Vite loaded *in preference to*
+# the .ts, so config edits silently did nothing. Emit is redirected to
+# node_modules/.tmp now — these entries are the second line of defence.
+vite.config.js
+vite.config.d.ts

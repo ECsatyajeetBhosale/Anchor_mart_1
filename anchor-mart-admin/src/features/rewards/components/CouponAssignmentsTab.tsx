@@ -7,7 +7,6 @@ import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { FormField } from "@/components/common/FormField";
 import { Search } from "@/components/common/Search";
 import { SectionCard } from "@/components/common/SectionCard";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import {
@@ -31,12 +30,14 @@ import {
 } from "../api/promotionApi";
 import type { CouponAssignment } from "../types/reward.types";
 
+const LIMIT = 10;
 const M = MESSAGES.PROMOTION.ASSIGNMENTS;
 const F = M.FORM;
 const V = M.VALIDATION;
 
 /** Per-user coupon grants — hand a specific coupon to a specific sailor. */
 export function CouponAssignmentsTab() {
+  const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [sailorSearch, setSailorSearch] = useState("");
   const [toRemove, setToRemove] = useState<CouponAssignment | null>(null);
@@ -44,7 +45,11 @@ export function CouponAssignmentsTab() {
   const [couponId, setCouponId] = useState("");
   const [errors, setErrors] = useState<{ user?: string; coupon?: string }>({});
 
-  const { data, isLoading, isError, refetch } = useGetCouponAssignmentsQuery();
+  const { data, isLoading, isError, refetch } = useGetCouponAssignmentsQuery({
+    page,
+    limit: LIMIT,
+  });
+  const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / LIMIT));
 
   /**
    * Pickers are only populated while the dialog is open.
@@ -52,13 +57,20 @@ export function CouponAssignmentsTab() {
    * Sailor search runs server-side: a page is capped at 50 by
    * `CustomPagination`, so picking from a single fetched page left every sailor
    * past the 50th unassignable.
+   *
+   * The coupon picker had the same hole and a tighter one — it asked for no page
+   * size at all, so it offered the first **ten** coupons and nothing could
+   * assign the eleventh. It now asks for a full page.
    */
   const { data: sailorsData, isFetching: sailorsFetching } = useGetSailorsQuery(
     { page: 1, limit: API_MAX_PAGE_SIZE, search: sailorSearch },
     { skip: !formOpen },
   );
   const sailors = sailorsData?.sailors ?? [];
-  const { data: couponsData } = useGetActiveCouponsQuery(undefined, { skip: !formOpen });
+  const { data: couponsData } = useGetActiveCouponsQuery(
+    { page: 1, limit: API_MAX_PAGE_SIZE },
+    { skip: !formOpen },
+  );
   const coupons = couponsData?.results ?? [];
 
   const [addAssignment, { isLoading: isSaving }] = useAddCouponAssignmentMutation();
@@ -109,7 +121,9 @@ export function CouponAssignmentsTab() {
   };
 
   const columns: Column<CouponAssignment>[] = [
-    { id: "user", header: M.COLUMNS.USER, cell: (r) => r.userName },
+    // No Sailor column: this response carries the user's **id and email only**.
+    // The name column read a field that was never sent and printed a dash on
+    // every row.
     { id: "email", header: M.COLUMNS.EMAIL, className: "td-m", cell: (r) => r.userEmail },
     {
       id: "coupon",
@@ -117,14 +131,14 @@ export function CouponAssignmentsTab() {
       className: "td-id",
       cell: (r) => r.couponCode,
     },
+    // Replaces the "Used / Unused" badge, which had no field behind it —
+    // `is_used` is not in this payload, so every row claimed Unused. When the
+    // coupon was granted is a fact the endpoint does report.
     {
-      id: "used",
-      header: M.COLUMNS.USED,
-      cell: (r) => (
-        <Badge variant={r.isUsed ? "neutral" : "success"}>
-          {r.isUsed ? M.USED_YES : M.USED_NO}
-        </Badge>
-      ),
+      id: "assigned",
+      header: M.COLUMNS.ASSIGNED,
+      className: "td-m",
+      cell: (r) => r.assignedAt,
     },
     {
       id: "actions",
@@ -165,7 +179,9 @@ export function CouponAssignmentsTab() {
           isError={isError}
           error={isError ? M.FETCH_ERROR : null}
           onRetry={refetch}
-          showPagination={false}
+          page={page}
+          pages={totalPages}
+          onPageChange={setPage}
           emptyMessage={M.EMPTY}
           bare
         />
