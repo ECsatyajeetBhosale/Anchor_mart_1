@@ -41,6 +41,17 @@ export const APP_ROUTES = {
    * both are kept as redirect sources so existing links and bookmarks still land.
    */
   ACCOUNT_MANAGEMENT: "/account-management",
+  /**
+   * The two halves of Account Management, each on its own path.
+   *
+   * They were tabs of `/account-management` until the sidebar grew an Account
+   * Management *section*: with Sailors, Delivery Partners and Seller Requests
+   * listed as siblings, admins and deletion review had to be siblings too — and
+   * `NavLink` matches on pathname, so `?tab=` deep links would have lit up every
+   * entry sharing the path.
+   */
+  ADMIN_USERS: "/account-management/admins",
+  DELETION_REQUESTS: "/account-management/deletion-requests",
   ACCOUNT_DELETIONS: "/account-deletions",
   MESSAGES: "/messages",
   AUDIT: "/audit",

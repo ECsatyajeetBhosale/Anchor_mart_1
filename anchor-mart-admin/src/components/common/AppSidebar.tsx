@@ -3,6 +3,7 @@ import { logout } from "@/features/auth/slice/authSlice";
 import { useAppDispatch, useAppSelector } from "@/hooks/useAppDispatch";
 import { APP_ROUTES } from "@/lib/constants";
 import { NAV_SECTIONS } from "@/lib/navigation";
+import { useAdminAccess } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import { IconChevronLeft, IconChevronRight, IconLogout } from "@tabler/icons-react";
 import { Fragment } from "react";
@@ -18,6 +19,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const user = useAppSelector((s) => s.auth.user);
+  const { isSuperAdmin } = useAdminAccess();
 
   function handleLogout() {
     dispatch(logout());
@@ -108,47 +110,55 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
 
         {/* ── NAV SECTIONS ── */}
         <div className="sb-scroll">
-          {NAV_SECTIONS.map((section) => (
-            <div key={section.label}>
-              <div className="sb-section">{section.label}</div>
-              {section.items.map((item) => {
-                const Icon = item.icon;
-                const link = (
-                  // String className (not a function) so it survives Radix's
-                  // `Slot` merge when used as `TooltipTrigger asChild`. React
-                  // Router auto-appends the `active` class, so active state is
-                  // preserved without a function className.
-                  <NavLink to={item.path} className="nav-item">
-                    <Icon size={17} />
-                    <span>{item.label}</span>
-                    {item.badge && (
-                      <span
-                        className={cn(
-                          "nav-badge",
-                          "mla",
-                          item.badgeVariant === "warning" && "warning",
-                        )}
-                      >
-                        {item.badge}
-                      </span>
-                    )}
-                  </NavLink>
-                );
-
-                // Collapsed: the labels are hidden, so surface each item's name via
-                // a tooltip on hover/focus. Expanded: the label is already visible.
-                if (collapsed) {
-                  return (
-                    <Tooltip key={item.key}>
-                      <TooltipTrigger asChild>{link}</TooltipTrigger>
-                      <TooltipContent side="right">{item.label}</TooltipContent>
-                    </Tooltip>
+          {NAV_SECTIONS.map((section) => {
+            // Entries the backend refuses below super admin are dropped, not
+            // disabled: a visible-but-dead link advertises a permission a
+            // sub-admin cannot be granted. A section emptied by the filter
+            // disappears with its heading rather than leaving a bare label.
+            const items = section.items.filter((item) => !item.superAdminOnly || isSuperAdmin);
+            if (items.length === 0) return null;
+            return (
+              <div key={section.label}>
+                <div className="sb-section">{section.label}</div>
+                {items.map((item) => {
+                  const Icon = item.icon;
+                  const link = (
+                    // String className (not a function) so it survives Radix's
+                    // `Slot` merge when used as `TooltipTrigger asChild`. React
+                    // Router auto-appends the `active` class, so active state is
+                    // preserved without a function className.
+                    <NavLink to={item.path} className="nav-item">
+                      <Icon size={17} />
+                      <span>{item.label}</span>
+                      {item.badge && (
+                        <span
+                          className={cn(
+                            "nav-badge",
+                            "mla",
+                            item.badgeVariant === "warning" && "warning",
+                          )}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
+                    </NavLink>
                   );
-                }
-                return <Fragment key={item.key}>{link}</Fragment>;
-              })}
-            </div>
-          ))}
+
+                  // Collapsed: the labels are hidden, so surface each item's name via
+                  // a tooltip on hover/focus. Expanded: the label is already visible.
+                  if (collapsed) {
+                    return (
+                      <Tooltip key={item.key}>
+                        <TooltipTrigger asChild>{link}</TooltipTrigger>
+                        <TooltipContent side="right">{item.label}</TooltipContent>
+                      </Tooltip>
+                    );
+                  }
+                  return <Fragment key={item.key}>{link}</Fragment>;
+                })}
+              </div>
+            );
+          })}
         </div>
 
         {/* ── USER + LOGOUT ── */}

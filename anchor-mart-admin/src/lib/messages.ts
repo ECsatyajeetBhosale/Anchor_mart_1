@@ -3686,11 +3686,19 @@ export const MESSAGES = {
   ACCOUNT_MANAGEMENT: {
     TITLE: "Account Management",
     SUBTITLE: "Provision accounts, and review requests to erase them.",
+    /**
+     * Page titles. These were tab labels on one combined screen until Account
+     * Management became a sidebar *section* — each is now a route of its own,
+     * and the key name is kept so nothing else has to move.
+     */
     TABS: {
       DELETIONS: "Deletion Requests",
       PROVISION: "Provision Users",
-      ADMINS: "Admin Users",
+      ADMINS: "Admins",
     },
+    /** Shown when a sub-admin reaches the admin directory by URL. */
+    ADMINS_SUPER_ONLY:
+      "Admin accounts are managed by super admins only. This screen has nothing for your tier — the server refuses the underlying calls regardless of what is shown here.",
     /**
      * Admin-tier user administration.
      *

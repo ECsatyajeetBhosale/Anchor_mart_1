@@ -61,7 +61,7 @@ import { ShipAgentsPage } from "@/features/ship-agents";
 import { SellerRequestsPage } from "@/features/sellers";
 
 // Account Management (Flow 31) — provision users + review deletion requests
-import { AccountManagementPage } from "@/features/account-management";
+import { AdminUsersPage, DeletionRequestsPage } from "@/features/account-management";
 
 // Outbound message ledger (Flow 22) — did the email/WhatsApp actually land?
 // Parked — see the note above `AssignmentsPage`.
@@ -116,18 +116,27 @@ export function AppRouter() {
             <Route path={APP_ROUTES.SUPPORT} element={<SupportChatsPage />} />
             <Route path={APP_ROUTES.ORDER_CHATS} element={<OrderChatsPage />} />
             <Route path={APP_ROUTES.SELLERS} element={<SellerRequestsPage />} />
-            <Route path={APP_ROUTES.ACCOUNT_MANAGEMENT} element={<AccountManagementPage />} />
-            {/* The two paths Account Management replaced. Redirected rather
-                than dropped so existing links and bookmarks still land — the
-                404 fallback would otherwise send them to the dashboard with no
-                explanation. */}
+            {/* Account Management is a sidebar *section* now, not a screen —
+                its two halves each hold a path so the section can list them as
+                siblings of Sailors, Delivery Partners and Seller Requests. */}
+            <Route path={APP_ROUTES.ADMIN_USERS} element={<AdminUsersPage />} />
+            <Route path={APP_ROUTES.DELETION_REQUESTS} element={<DeletionRequestsPage />} />
+            {/* Every path that has ever pointed at this area, redirected rather
+                than dropped so existing links and bookmarks still land — the 404
+                fallback would otherwise send them to the dashboard with no
+                explanation. Deletion review is the target because every admin
+                tier can use it; the admin directory is super-admin only. */}
+            <Route
+              path={APP_ROUTES.ACCOUNT_MANAGEMENT}
+              element={<Navigate to={APP_ROUTES.DELETION_REQUESTS} replace />}
+            />
             <Route
               path={APP_ROUTES.ACCOUNT_DELETIONS}
-              element={<Navigate to={APP_ROUTES.ACCOUNT_MANAGEMENT} replace />}
+              element={<Navigate to={APP_ROUTES.DELETION_REQUESTS} replace />}
             />
             <Route
               path={APP_ROUTES.SETTINGS_USERS}
-              element={<Navigate to={APP_ROUTES.ACCOUNT_MANAGEMENT} replace />}
+              element={<Navigate to={APP_ROUTES.DELETION_REQUESTS} replace />}
             />
             {/* Parked — see the note beside the Assignments route above. */}
             {/* <Route path={APP_ROUTES.MESSAGES} element={<OutboundMessagesPage />} /> */}

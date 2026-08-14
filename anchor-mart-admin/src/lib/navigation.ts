@@ -31,6 +31,7 @@ import {
   IconStar,
   IconStarFilled,
   IconUserCog,
+  IconUserMinus,
   IconUsers,
 } from "@tabler/icons-react";
 import type { ComponentType } from "react";
@@ -48,6 +49,14 @@ export interface NavItem {
    */
   badge?: string | null;
   badgeVariant?: "warning" | "success" | "info" | "danger" | null;
+  /**
+   * Hide this entry below super admin.
+   *
+   * For screens the backend refuses outright at a lower tier, not merely ones
+   * that render less. Listing such a screen and then explaining it is off-limits
+   * advertises a permission a sub-admin cannot be granted.
+   */
+  superAdminOnly?: boolean;
 }
 
 export interface NavSection {
@@ -88,9 +97,11 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    // The order funnel end to end, plus the two parties to it. Delivery
-    // Partners joins here rather than keeping a one-item "Delivery App"
-    // section — assignment is the tail of this same flow.
+    // The order funnel and nothing else: three queues of work an admin actions.
+    // Sailors and Delivery Partners used to sit here too, which mixed two jobs
+    // — working a queue and looking someone up — under one heading. They now
+    // live in People, immediately below, so they stay a glance away from the
+    // orders that reference them without being filed as order work.
     label: "Orders & Delivery",
     items: [
       {
@@ -110,18 +121,6 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "Special Requests",
         icon: IconClipboardText,
         path: APP_ROUTES.REQUESTS,
-      },
-      {
-        key: "sailors",
-        label: "Sailors",
-        icon: IconUsers,
-        path: APP_ROUTES.SAILORS,
-      },
-      {
-        key: "partners",
-        label: "Delivery Partners",
-        icon: IconMotorbike,
-        path: APP_ROUTES.PARTNERS,
       },
       // Parked, not removed — both screens are built and wired; they are just
       // hidden from the drawer for now. Restore these entries together with
@@ -144,9 +143,70 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    // Everything that defines what can be bought and where it goes. The three
-    // catalogs (regular, express, marine emergency) sit together because they
-    // are the same administration job against different scopes.
+    /**
+     * Every account on the platform, one entry per kind, plus the queue that
+     * closes one.
+     *
+     * These five answer the same question — *who is this, and may they be here?*
+     * — and were previously split three ways: the two directories under the
+     * order funnel because orders reference them, Seller Requests under
+     * Operations because it is an inbox, and admins and deletion review buried
+     * as tabs of a single "Account Management" screen. An admin looking up a
+     * person had to know which of the three to try.
+     *
+     * The section replaces that screen, which is why there is no longer an entry
+     * called Account Management: the section *is* it. Admins and Deletion
+     * Requests each took a route of their own, because `NavLink` matches on
+     * pathname and two `?tab=` links sharing `/account-management` would have
+     * rendered active simultaneously.
+     *
+     * Placed directly under Orders & Delivery because Sailors and Delivery
+     * Partners are most often opened *from* order work.
+     */
+    label: "Account Management",
+    items: [
+      {
+        key: "admins",
+        label: "Admins",
+        icon: IconUserCog,
+        path: APP_ROUTES.ADMIN_USERS,
+        // Admin accounts are refused server-side below super admin (SEC-1).
+        superAdminOnly: true,
+      },
+      {
+        key: "sailors",
+        label: "Sailors",
+        icon: IconUsers,
+        path: APP_ROUTES.SAILORS,
+      },
+      {
+        key: "partners",
+        label: "Delivery Partners",
+        icon: IconMotorbike,
+        path: APP_ROUTES.PARTNERS,
+      },
+      {
+        key: "sellers",
+        label: "Seller Requests",
+        icon: IconBuildingStore,
+        path: APP_ROUTES.SELLERS,
+        badge: "4",
+        badgeVariant: "warning",
+      },
+      {
+        // Flow 31 §8–11 — the deletion-review queue. Last in the section: it is
+        // the end of an account's life, and the four above are its kinds.
+        key: "deletion-requests",
+        label: "Deletion Requests",
+        icon: IconUserMinus,
+        path: APP_ROUTES.DELETION_REQUESTS,
+      },
+    ],
+  },
+  {
+    // Everything that defines what can be bought. The three catalogs (regular,
+    // express, marine emergency) sit together because they are the same
+    // administration job against different scopes.
     label: "Catalog",
     items: [
       {
@@ -179,6 +239,22 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: IconCategory2,
         path: APP_ROUTES.EMERGENCY_CATEGORIES,
       },
+    ],
+  },
+  {
+    /**
+     * The real-world network the platform delivers into: the places a vessel
+     * can be, and the agents who represent it there.
+     *
+     * They sat under Catalog on the reasoning that they are administered the
+     * same way and did not earn a section of their own — the comment there said
+     * as much. They are not catalog, though: nothing here is bought, and an
+     * admin editing a port is not editing what is for sale. With Catalog now
+     * holding five entries that genuinely are products, the two stand out
+     * plainly enough to be worth their own heading.
+     */
+    label: "Ports & Agents",
+    items: [
       {
         key: "ports",
         label: "Ports",
@@ -230,6 +306,10 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    // Four inboxes: what the platform sends out, and what comes back in. The
+    // two account-review queues that used to sit here moved to People — they
+    // are inboxes too, but the question they answer is about a person, not a
+    // conversation.
     label: "Operations",
     items: [
       {
@@ -260,23 +340,6 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "Order Chats",
         icon: IconMessage2,
         path: APP_ROUTES.ORDER_CHATS,
-      },
-      {
-        key: "sellers",
-        label: "Seller Requests",
-        icon: IconBuildingStore,
-        path: APP_ROUTES.SELLERS,
-        badge: "4",
-        badgeVariant: "warning",
-      },
-      {
-        // Flow 31 — provisioning and deletion review on one screen. Sits beside
-        // Seller Requests: both are review queues, and neither is sailor-only
-        // (partners and sellers raise deletion requests too).
-        key: "account-management",
-        label: "Account Management",
-        icon: IconUserCog,
-        path: APP_ROUTES.ACCOUNT_MANAGEMENT,
       },
       // Parked, not removed — see the note on Assignments above.
       // {
