@@ -627,6 +627,17 @@ export const MESSAGES = {
       NONE: "No delivery partner assigned",
       // The partner's own account of a failed delivery, shown beside them.
       FAILURE_REASON: "Delivery Failed",
+      // Wording comes from the backend's requirement flags, not from whether an
+      // assignment exists: a finished verification leaves an active assignment
+      // behind, and calling the first delivery assignment a "reassignment"
+      // is what made that look like the order already had a deliverer.
+      ASSIGN_DELIVERY: "Assign Delivery Partner",
+      ASSIGN_VERIFICATION: "Assign Verification Partner",
+      NEEDS_DELIVERY: "This order is waiting for a delivery partner (can_deliver).",
+      NEEDS_VERIFIER: "This order is waiting for a verification partner (can_verify).",
+      NO_REQUIREMENT: "No partner is outstanding on this order.",
+      REQUIREMENT_UNKNOWN:
+        "This response did not include needs_verifier_partner / needs_delivery_partner, so the outstanding requirement is unknown. It is not inferred from the status or from partner_allocated — report this to the backend.",
       PICK_PLACEHOLDER: "Select a delivery partner…",
       PICK_LOADING: "Loading partners…",
       PICK_EMPTY: "No delivery partners available",
@@ -847,8 +858,12 @@ export const MESSAGES = {
       TERMINAL: "Terminal",
       ARRIVAL: "Arrival Date",
       REQUESTED_ITEMS: "Requested Items",
-      ASSIGN_SECTION: "Assign Delivery Partner",
-      REASSIGN_SECTION: "Reassign Delivery Partner",
+      // This drawer is the sourcing/verification surface, so the partner it
+      // assigns is a `can_verify` one. Both labels used to say "Delivery
+      // Partner", which is the wrong capability for every action on this screen.
+      ASSIGN_VERIFICATION_SECTION: "Assign Verification Partner",
+      ASSIGN_VERIFICATION: "Assign Verification Partner",
+      REASSIGN_SECTION: "Reassign Verification Partner",
       REASSIGN: "Reassign",
       REASSIGNING: "Reassigning…",
       REASSIGN_HINT: "A partner is verifying — reassign to a different partner if needed.",
@@ -4086,6 +4101,17 @@ export const MESSAGES = {
     EMAIL_INVALID: "Enter a valid email address",
   },
   COMMON: {
+    /**
+     * The outstanding partner requirement on a list row, worded in the
+     * backend's own terms: verifier ↔ `can_verify`, delivery ↔ `can_deliver`.
+     */
+    PARTNER_REQUIREMENT: {
+      NEEDS_VERIFIER: "Needs verification partner",
+      NEEDS_DELIVERY: "Needs delivery partner",
+      UNKNOWN: "Partner requirement unknown",
+      UNKNOWN_HINT:
+        "This response did not include needs_verifier_partner / needs_delivery_partner, so the outstanding requirement cannot be shown. It is not inferred from the order status or from partner_allocated.",
+    },
     /** Shared long-list picker: server-side search, paged loading, reset. */
     SEARCHABLE_SELECT: {
       PLACEHOLDER: "Select…",

@@ -1203,6 +1203,65 @@ pre-existing BL-04, zero new** · `vite build` exits 0 · diff carries no new qu
 fetch. `npm run build` still fails at the pre-existing `tsconfig.node.json` TS5096 config error
 recorded in [C-17](#c-17--one-delivery-timeline-per-order-drawer--13-aug-2026--authorized-by-user).
 
+### C-19 — `needs_verifier_partner` / `needs_delivery_partner` · 13 Aug 2026 · authorized by user
+
+**The defect these fields fix.** The panel decided "does this order have a partner?" from
+`partner_allocated` / an active assignment existing. A paid order whose one active assignment was a
+**finished verification** answered *yes* — so the verifier's name filled the PARTNER column, and the
+drawer offered **"Reassign Delivery Partner"** for what was actually the first delivery assignment.
+Nobody was taking the goods to the vessel. The backend's own note records that three surfaces agreed
+with each other and all three were wrong.
+
+`orders/assignment_lifecycle.partner_requirements` is now the single answer, sent on both list
+serializers and the detail one. The frontend reads it and derives nothing: not from `status`, not
+from `partner_allocated`, `partner_name`, `active_assignment.status`, `can_verify` or `can_deliver`.
+
+**`lib/partnerRequirement.ts`** turns the pair into `verify | deliver | none | unknown`. `unknown` is
+deliberate: the flags are documented as booleans that are never null, so an absent one is **reported
+in the UI** (`readPartnerNeed` yields `null`, never `false`) rather than read as "nothing needed".
+
+**Where it decides the UI:**
+
+| Surface | Effect |
+|---|---|
+| Orders drawer | Primary button becomes **Assign Delivery Partner** / **Assign Verification Partner**; picker fetches that capability; hint states the requirement |
+| Intents drawer | Footer action and section heading become **Assign Verification Partner**; the picker opens on any unserved verify-phase status, not just `intent_received` |
+| Both lists | `PartnerRequirementBadge` under the partner/status cell |
+
+**What these flags do *not* answer — recorded because it shaped the implementation.** They say the
+order is *short of* a partner, not whether the admin *may* assign one. Read against
+`assignment_lifecycle`: an order at `partner_assigned` has its deliverer and reports `false`, and a
+`delivery_failed` order also reports `false` — the failed assignment deliberately stays active
+(`is_active` untouched, failure recorded as a stamp), while that module's own docstring calls
+reassignment the documented recovery. Gating the picker on the flags alone would therefore have
+removed the retry path from the exact screen that exists to run it. So the flags drive **the
+requirement and its wording**; each screen keeps its existing rule for when a picker is offered
+(`closed` / `payment_pending` on Orders, `partner_verifying` on Intents), and with nothing
+outstanding the control degrades to the plain "Reassign" it has always been.
+
+**Terminology corrected.** The intents drawer's own labels read "Assign / Reassign **Delivery**
+Partner" — the wrong capability on every action of a `can_verify` surface. Now "Verification
+Partner" throughout, matching the backend's `needs_verifier_partner` ↔ `can_verify` pairing.
+
+**Untouched by instruction:** the 409 `requires_confirmation` path. The backend has *proposed* that a
+completed verifier should not require confirmation for a first delivery assignment but has not
+implemented it, so the existing handling stands until they confirm. Until then Case B still raises
+the misleading *"This order is currently assigned to FE Verifier…"* dialog on the second click.
+
+**Found, not changed (out of scope):** `features/express/components/ExpressItemDrawer.tsx:84` still
+does `isReassign = !!item.partner_allocated` — the same defect on the Express screen, which reads the
+same `OrderListSerializer` and therefore already receives the new fields.
+
+**Files:** new `lib/partnerRequirement.ts` · new `components/common/PartnerRequirementBadge.tsx` ·
+`features/orders/types/order.types.ts` · `features/orders/components/OrdersPage.tsx` ·
+`features/orders/components/OrderAssignPartnerSection.tsx` · `features/intents/types/intent.types.ts`
+· `features/intents/api/intentApi.ts` · `features/intents/components/IntentsPage.tsx` ·
+`features/intents/components/IntentReviewDrawer.tsx` · `lib/messages.ts`
+
+**Verified.** `tsc --noEmit -p tsconfig.json` clean · `biome lint src` **11 errors + 1 warning, all
+pre-existing BL-04, zero new** · `vite build` exits 0 · `partner_allocated` no longer appears in any
+Orders or Intents decision (remaining hits are comments and the out-of-scope Express screen).
+
 ---
 
 ## 11. Method

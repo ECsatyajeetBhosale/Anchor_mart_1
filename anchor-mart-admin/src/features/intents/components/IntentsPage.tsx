@@ -17,6 +17,7 @@ import { useSearchParams } from "react-router-dom";
 
 import { OrderTypeBadges } from "@/components/common/OrderTypeBadges";
 import { PageHeader } from "@/components/common/PageHeader";
+import { PartnerRequirementBadge } from "@/components/common/PartnerRequirementBadge";
 import { PillToggle } from "@/components/common/PillToggle";
 import { RowReason } from "@/components/common/RowReason";
 import { SearchFilters } from "@/components/common/SearchFilters";
@@ -627,7 +628,18 @@ export function IntentsPage() {
       variant: (i) => i.sc,
       // Why a rejected or cancelled intent ended here. Both reason columns come
       // down on the list itself, so a terminated row explains itself in place.
-      note: (i) => <RowReason text={i.reason} at={i.reasonAt} className="mt-1" />,
+      note: (i) => (
+        <>
+          {/* What the intent is short of — the backend's own flag, so the row
+              does not have to be opened to see that it is waiting on a
+              verification partner. */}
+          <PartnerRequirementBadge
+            needsVerifierPartner={i.needsVerifierPartner}
+            needsDeliveryPartner={i.needsDeliveryPartner}
+          />
+          <RowReason text={i.reason} at={i.reasonAt} className="mt-1" />
+        </>
+      ),
       filter: {
         // The URL uses "" for unfiltered; the local sentinel is "all".
         value: statusFilter === "all" ? "" : statusFilter,

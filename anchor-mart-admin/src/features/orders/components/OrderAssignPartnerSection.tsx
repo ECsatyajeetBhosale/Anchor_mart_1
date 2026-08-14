@@ -9,6 +9,7 @@ import {
 } from "@/features/assignments";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
+import { type PartnerRequirement, partnerRequirement } from "@/lib/partnerRequirement";
 import { IconShieldCheck, IconTruckDelivery } from "@tabler/icons-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -29,6 +30,14 @@ const CLOSED_STATUSES = new Set(["delivered", "cancelled", "refunded", "intent_r
  */
 const UNPAID_STATUS = "payment_pending";
 
+/** The outstanding requirement, in words. `none` says nothing — there is nothing to say. */
+const REQUIREMENT_HINT: Record<PartnerRequirement, string | null> = {
+  verify: M.NEEDS_VERIFIER,
+  deliver: M.NEEDS_DELIVERY,
+  none: null,
+  unknown: M.REQUIREMENT_UNKNOWN,
+};
+
 export interface OrderAssignPartnerSectionProps {
   orderId: string;
   /** Raw order status (e.g. "order_confirmed") — drives the stage gate. */
@@ -37,6 +46,13 @@ export interface OrderAssignPartnerSectionProps {
   activeAssignment?: OrderAssignment | null;
   /** Owning admin (Flow 27); undefined when the row didn't load it. */
   assignedAdmin?: AssignedAdmin | null;
+  /**
+   * The backend's `needs_verifier_partner` / `needs_delivery_partner`, passed
+   * straight through. `null` means the response omitted the field — reported,
+   * never read as "nothing outstanding".
+   */
+  needsVerifierPartner?: boolean | null;
+  needsDeliveryPartner?: boolean | null;
 }
 
 /**
@@ -54,6 +70,8 @@ export function OrderAssignPartnerSection({
   status,
   activeAssignment,
   assignedAdmin,
+  needsVerifierPartner,
+  needsDeliveryPartner,
 }: OrderAssignPartnerSectionProps) {
   const { isSuperAdmin, stateOf } = useOrderOwnership();
   const [assignOrder, { isLoading: assigning }] = useAssignOrderMutation();
@@ -74,6 +92,17 @@ export function OrderAssignPartnerSection({
   // Claimed in-session — list rows rarely carry `assigned_admin`, so a
   // successful claim here grants write access locally.
   const [claimedLocal, setClaimedLocal] = useState(false);
+
+  /**
+   * What the order is short of, from the backend's flags alone.
+   *
+   * This replaces the old reading of "is there an active assignment?" — which
+   * answered *yes* for a paid order whose only assignment was a finished
+   * verification, and so labelled the very first delivery assignment a
+   * "reassignment". `partner_allocated`, `partner_name` and
+   * `active_assignment.status` are not consulted for this.
+   */
+  const requirement = partnerRequirement(needsVerifierPartner, needsDeliveryPartner);
 
   // Gate, mirroring the backend's evaluation order: status → ownership.
   const normalised = status.trim().toLowerCase();
@@ -96,8 +125,12 @@ export function OrderAssignPartnerSection({
   // `partner/list/?can_deliver=true`, which includes both-capable partners.
   // `stageBlocked` already covers the statuses that take no partner at all
   // (closed, and `payment_pending` — verification is done but the order is unpaid).
+  // When the backend names a requirement, the picker fetches exactly that
+  // capability. With nothing outstanding this is a reassignment on the
+  // fulfilment screen, which is a delivery surface — the screen's own standing
+  // rule, not a phase re-derived from the status.
   const { data: partners = [], isLoading: partnersLoading } = useGetPartnersByCapabilityQuery(
-    { capability: "deliver" },
+    { capability: requirement === "verify" ? "verify" : "deliver" },
     { skip: stageBlocked },
   );
 
@@ -133,7 +166,10 @@ export function OrderAssignPartnerSection({
         ? M.OTHER_ADMIN
         : showClaim
           ? M.CLAIM_FIRST
-          : null;
+          : // With the gate clear, the line states the outstanding requirement in
+            // words — including when the API didn't send it, which is reported
+            // rather than quietly treated as "nothing needed".
+            (REQUIREMENT_HINT[requirement] ?? null);
 
   const handleClaim = async () => {
     try {
@@ -224,13 +260,26 @@ export function OrderAssignPartnerSection({
     }
   };
 
-  const actionLabel = current
-    ? assigning
+  /**
+   * The button says what the order actually needs.
+   *
+   * It used to say "Reassign" whenever an assignment existed, which is how a
+   * paid order carrying a completed verifier presented its **first** delivery
+   * assignment as a hand-over. When the backend reports an outstanding
+   * requirement, that requirement names the action; only with nothing
+   * outstanding does this fall back to the plain reassign wording.
+   */
+  const actionLabel = assigning
+    ? current && requirement === "none"
       ? M.REASSIGNING
-      : M.REASSIGN
-    : assigning
-      ? M.ASSIGNING
-      : M.ASSIGN;
+      : M.ASSIGNING
+    : requirement === "deliver"
+      ? M.ASSIGN_DELIVERY
+      : requirement === "verify"
+        ? M.ASSIGN_VERIFICATION
+        : current
+          ? M.REASSIGN
+          : M.ASSIGN;
 
   return (
     <div className="mt16">

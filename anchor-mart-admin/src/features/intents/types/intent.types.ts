@@ -102,6 +102,13 @@ export interface IntentApi {
   rejection_reason?: string;
   cancellation_reason?: string;
   cancelled_at?: string | null;
+  /**
+   * Whether the intent still needs a partner, and of which kind — the backend's
+   * canonical answer. Optional only so an absent field is detectable; see
+   * `lib/partnerRequirement`.
+   */
+  needs_verifier_partner?: boolean;
+  needs_delivery_partner?: boolean;
 }
 
 /** UI row model consumed by the list table + review drawer. */
@@ -142,6 +149,13 @@ export interface IntentData {
    */
   reason: string;
   reasonAt: string;
+  /**
+   * Straight from `needs_verifier_partner` / `needs_delivery_partner`. `null`
+   * means the API omitted the field — never coerced to `false`, which would
+   * silently claim nothing is outstanding.
+   */
+  needsVerifierPartner: boolean | null;
+  needsDeliveryPartner: boolean | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -260,6 +274,9 @@ export interface IntentDetail {
    */
   terminalReason: string;
   terminalReasonAt: string;
+  /** See {@link IntentData.needsVerifierPartner}. */
+  needsVerifierPartner: boolean | null;
+  needsDeliveryPartner: boolean | null;
 }
 
 /**

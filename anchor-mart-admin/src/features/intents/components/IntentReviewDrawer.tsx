@@ -24,6 +24,7 @@ import { OwnerCell, type OwnershipState } from "@/features/orders";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
+import { partnerRequirement } from "@/lib/partnerRequirement";
 import {
   IconAlertTriangle,
   IconAnchor,
@@ -213,10 +214,21 @@ export function IntentReviewDrawer({
     status,
     detail?.substitutionNeeded ?? intent?.substitutionNeeded ?? false,
   );
-  // First assignment at the intent stage; reassignment while a partner verifies.
-  const showAssign = action === "assign";
-  const showReassign = status === "partner_verifying";
-  const showPartnerPicker = showAssign || showReassign;
+  /**
+   * What the intent is short of, from `needs_verifier_partner` /
+   * `needs_delivery_partner` — the backend's own answer, not one worked out
+   * from the status or from whether an assignment exists.
+   */
+  const requirement = partnerRequirement(
+    detail?.needsVerifierPartner ?? intent?.needsVerifierPartner,
+    detail?.needsDeliveryPartner ?? intent?.needsDeliveryPartner,
+  );
+  const needsVerifier = requirement === "verify";
+  // Reassignment while a partner verifies: the requirement is already met (the
+  // verifier is working), so the flags report nothing outstanding — swapping
+  // them is still legitimate, and this is the surface that offers it.
+  const showReassign = !needsVerifier && status === "partner_verifying";
+  const showPartnerPicker = needsVerifier || showReassign;
   const showSubstitution =
     status === "verification_submitted" || status === "pending_customer_response";
 
@@ -342,9 +354,10 @@ export function IntentReviewDrawer({
       ? O.OWNED_BY_OTHER(owner.name)
       : O.CLAIM_FIRST;
 
-  // Primary footer action, driven by the derived state.
-  const primary = showAssign
-    ? { label: assigning ? R.ASSIGNING : R.ASSIGN, disabled: !canManage || assigning }
+  // Primary footer action. The assign branch is the backend's requirement, not
+  // a status the frontend classified.
+  const primary = needsVerifier
+    ? { label: assigning ? R.ASSIGNING : R.ASSIGN_VERIFICATION, disabled: !canManage || assigning }
     : showReassign
       ? {
           label: assigning ? R.REASSIGNING : R.REASSIGN,
@@ -363,7 +376,7 @@ export function IntentReviewDrawer({
   // Assign/reassign are handled here (the partner selection lives in this
   // drawer); release/bill are dispatched to the page (mutation/dialog owner).
   const handlePrimary = () => {
-    if (showAssign) return handleAssign(false);
+    if (needsVerifier) return handleAssign(false);
     if (showReassign) return handleAssign(true);
     return onPrimaryAction(action);
   };
@@ -739,7 +752,7 @@ export function IntentReviewDrawer({
                       {showPartnerPicker && (
                         <div className="mt-4">
                           <div className="sec-label">
-                            {showReassign ? R.REASSIGN_SECTION : R.ASSIGN_SECTION}
+                            {showReassign ? R.REASSIGN_SECTION : R.ASSIGN_VERIFICATION_SECTION}
                           </div>
                           <FormField label={R.PARTNER_LABEL}>
                             <DropdownSelect

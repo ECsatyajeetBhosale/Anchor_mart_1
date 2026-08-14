@@ -2,6 +2,7 @@ import type { AssignedAdmin } from "@/features/orders";
 import { INTENT_ENDPOINTS, ORDER_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
+import { readPartnerNeed } from "@/lib/partnerRequirement";
 import { terminalReason } from "@/lib/terminalReason";
 import type {
   AvailabilityState,
@@ -217,6 +218,9 @@ export function toIntentData(intent: IntentApi): IntentData {
     isEmergency: intent.is_emergency === true,
     reason: reason.text,
     reasonAt: reason.at,
+    // Straight passthrough — the backend owns this answer entirely.
+    needsVerifierPartner: readPartnerNeed(intent.needs_verifier_partner),
+    needsDeliveryPartner: readPartnerNeed(intent.needs_delivery_partner),
   };
 }
 
@@ -459,6 +463,8 @@ export const intentApi = baseApi.injectEndpoints({
           substitutionNeeded: needsSub,
           terminalReason: closedReason.text,
           terminalReasonAt: closedReason.at,
+          needsVerifierPartner: readPartnerNeed(o.needs_verifier_partner),
+          needsDeliveryPartner: readPartnerNeed(o.needs_delivery_partner),
         };
       },
       providesTags: (_r, _e, id) => [{ type: "Intents", id }],

@@ -3,6 +3,7 @@ import { DynamicTabs } from "@/components/common/DynamicTabs";
 import { type OrderDetail, OrderDetailDrawer } from "@/components/common/OrderDetailDrawer";
 import { OrderTypeBadges } from "@/components/common/OrderTypeBadges";
 import { PageHeader } from "@/components/common/PageHeader";
+import { PartnerRequirementBadge } from "@/components/common/PartnerRequirementBadge";
 import { PillToggle } from "@/components/common/PillToggle";
 import { RowReason } from "@/components/common/RowReason";
 import { SearchFilters } from "@/components/common/SearchFilters";
@@ -22,6 +23,7 @@ import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
+import { readPartnerNeed } from "@/lib/partnerRequirement";
 import { terminalReason } from "@/lib/terminalReason";
 import { clearParams } from "@/lib/utils";
 import {
@@ -89,6 +91,12 @@ interface OrderRow {
    */
   reason: string;
   reasonAt: string;
+  /**
+   * The backend's outstanding-partner flags, passed through. `null` means the
+   * response omitted the field; it is never coerced to `false`.
+   */
+  needsVerifierPartner: boolean | null;
+  needsDeliveryPartner: boolean | null;
   raw: Order; // full API record for the detail drawer
 }
 
@@ -389,6 +397,8 @@ function toOrderRow(order: Order): OrderRow {
     isEmergency: order.is_emergency === true,
     reason: reason.text,
     reasonAt: reason.at,
+    needsVerifierPartner: readPartnerNeed(order.needs_verifier_partner),
+    needsDeliveryPartner: readPartnerNeed(order.needs_delivery_partner),
     raw: order,
   };
 }
@@ -754,15 +764,31 @@ export function OrdersPage() {
       get: () => "—",
       className: "td-m text-center",
     }),
-    textColumn({
+    {
       id: "partner",
       header: M.COLUMNS.PARTNER,
-      get: (o) => o.pt,
-      cellClassName: (o) =>
-        o.pt === M.UNASSIGNED
-          ? "text-[var(--danger-text)] font-semibold text-[12.5px]"
-          : "text-[var(--t3)] font-semibold text-[12.5px]",
-    }),
+      // The name alone was misleading: a paid order still waiting for a
+      // deliverer showed the verifier who had already finished, which reads as
+      // "a delivery partner is on this". The name stays — it is real history —
+      // and the backend's requirement flag says what is still outstanding.
+      cell: (o) => (
+        <div>
+          <div
+            className={
+              o.pt === M.UNASSIGNED
+                ? "text-[var(--danger-text)] font-semibold text-[12.5px]"
+                : "text-[var(--t3)] font-semibold text-[12.5px]"
+            }
+          >
+            {o.pt}
+          </div>
+          <PartnerRequirementBadge
+            needsVerifierPartner={o.needsVerifierPartner}
+            needsDeliveryPartner={o.needsDeliveryPartner}
+          />
+        </div>
+      ),
+    },
     textColumn({
       id: "payment",
       header: M.COLUMNS.PAYMENT,
@@ -998,6 +1024,10 @@ export function OrdersPage() {
                 // Detail carries the owning admin the list row usually omits, so
                 // the ownership gate resolves properly once it lands.
                 assignedAdmin={openOrder.assigned_admin}
+                // The backend's answer to "what is this order short of". Passed
+                // through untouched — see `lib/partnerRequirement`.
+                needsVerifierPartner={readPartnerNeed(openOrder.needs_verifier_partner)}
+                needsDeliveryPartner={readPartnerNeed(openOrder.needs_delivery_partner)}
               />
               {/* Flow 02 · API 17 — ship-agent binding. Kept alongside partner
                   assignment rather than replaced by it: they are different

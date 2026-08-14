@@ -155,9 +155,27 @@ export interface Order {
   anchorage_name?: string | null;
   payment_completed_at?: string | null;
   is_emergency?: boolean;
+  /**
+   * Kept for compatibility and history only. **Neither answers whether a
+   * delivery partner is assigned**: an order whose one active assignment is a
+   * finished verification reports `partner_allocated: true` while still needing
+   * someone to bring the goods to the vessel. Use `needs_delivery_partner`.
+   */
   partner_allocated?: boolean;
   partner_name?: string | null;
   has_location_request?: boolean;
+  /**
+   * Whether the order still needs a partner, and of which kind — the backend's
+   * canonical answer (`orders/assignment_lifecycle.partner_requirements`). At
+   * most one is ever true, and both are false for an order awaiting payment or
+   * already terminal.
+   *
+   * Sent by both list serializers and the detail one. Optional here only so an
+   * absent field is *detectable*: `lib/partnerRequirement` reports it rather
+   * than reading it as `false`.
+   */
+  needs_verifier_partner?: boolean;
+  needs_delivery_partner?: boolean;
   /**
    * Why a terminated row ended where it did. All three are sent by the LIST
    * serializer as well as the detail one, so a worklist row explains itself
