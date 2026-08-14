@@ -1154,10 +1154,20 @@ export const MESSAGES = {
       QUOTE_SENT: "Quote Sent",
       ACCEPTED: "Accepted",
       REJECTED: "Rejected",
+      /**
+       * A slice of Sourcing Confirmed, not a bucket of its own — rendered as a
+       * sub-line inside that card because adding it as a peer would count the
+       * same requests twice.
+       */
+      AWAITING_REBILL: "Awaiting re-quote",
     },
+    /** Row chip for the same state the AWAITING_REBILL card counts. */
+    AWAITING_REBILL_ROW: "Awaiting re-quote",
     // Table columns
     COLUMNS: {
-      ORDER_ID: "Order ID",
+      // The `SR…` reference, not an order number — an order exists only after
+      // the sailor pays, and its `AM…` number lives on the detail.
+      REFERENCE: "Reference",
       SAILOR: "Sailor",
       PHONE: "Phone",
       PRODUCT: "Product",
@@ -1216,10 +1226,34 @@ export const MESSAGES = {
       MAX_BUDGET: "Max Budget",
       /** Flag on the budget row when the quote exceeds what the sailor stated. */
       OVER_BUDGET: "over budget",
-      DESCRIPTION: "Description",
+      CATEGORY: "Category",
+      /** The sailor's own words — no admin action writes either of these. */
+      DESCRIPTION: "Sailor's Description",
+      NOTES: "Sailor's Notes",
       CUSTOMER_NOTE: "Customer Note",
+      PLATFORM: "Submitted From",
       // Delivery
       DELIVERY: "Delivery",
+      DESTINATION: "Destination",
+      ADDRESS_LABEL: "Delivery Address",
+      PORT: "Port",
+      ANCHORAGE: "Anchorage",
+      SCHEDULE: "Schedule",
+      /** Parts of the address block, joined only when the sailor supplied them. */
+      ADDRESS: {
+        DECK: (v: string) => `Deck ${v}`,
+        CABIN: (v: string) => `Cabin ${v}`,
+        SECTION: (v: string) => `Section ${v}`,
+        IMO: (v: string) => `IMO ${v}`,
+      },
+      /**
+       * The staged delivery change, shown against the current values. The
+       * snapshot is not applied until generate-bill folds it in, so the rows
+       * above still hold what the request says today.
+       */
+      PENDING_CHANGES: "Requested Changes — Awaiting Re-quote",
+      ANCHORAGE_CLEARED:
+        "The new port comes without an anchorage, so the current one is cleared when this is quoted.",
       SHIP_ARRIVAL: "Ship Arrival",
       EXPECTED_DEPARTURE: "Expected Departure",
       FASTEST_DELIVERY: "Fastest Delivery",
@@ -1227,7 +1261,11 @@ export const MESSAGES = {
       QUOTE: "Quote",
       QUOTED_PRICE: "Quoted Price",
       FAST_DELIVERY_CHARGE: "Fast Delivery Charge",
+      /** The admin's description of what they sourced — empty before a quote. */
+      QUOTE_DESCRIPTION: "Sourced",
       ADMIN_RESPONSE: "Admin Response",
+      /** The order this became; only exists once the sailor has paid. */
+      ORDER: "Order",
       REBILL: "Delivery Changes",
       // `(requested|not requested) · used / cap`
       REBILL_SUMMARY: (requested: string, used: number, cap: number) =>
@@ -1237,8 +1275,11 @@ export const MESSAGES = {
       NOT_QUOTED: "Not quoted yet",
       // Quoted total = quoted price × qty (+ fast-delivery charge when fastest).
       QUOTED_TOTAL: "Quoted Total",
-      // Images
+      // Images — kept apart by uploader, so a reference photo attached to a
+      // quote never reads as something the sailor sent.
       IMAGES: "Reference Images",
+      IMAGES_BY_CUSTOMER: "Sailor's Images",
+      IMAGES_BY_ADMIN: "Admin's Images",
       NO_IMAGE: "No image provided",
       IMAGE_ALT: (product: string, index: number) => `${product} image ${index}`,
       YES: "Yes",

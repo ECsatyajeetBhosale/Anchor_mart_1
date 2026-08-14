@@ -1262,6 +1262,79 @@ same `OrderListSerializer` and therefore already receives the new fields.
 pre-existing BL-04, zero new** · `vite build` exits 0 · `partner_allocated` no longer appears in any
 Orders or Intents decision (remaining hits are comments and the out-of-scope Express screen).
 
+### C-20 — Special Requests consumes the 2026-08-14 contract · 14 Aug 2026 · authorized by user
+
+**Audit first, then the backend closed four gaps.** Reviewing the built screen against the
+Special Request API doc found three frontend defects and produced four backend questions; the
+backend shipped answers to all four, and this entry is the frontend half.
+
+**Three findings from the audit:**
+
+1. The **"Order ID" column showed the `SR…` reference**. An order only exists once the sailor
+   pays, and its `AM…` number wasn't in the payload at all. Renamed to **Reference**; the order
+   number now appears on the detail with a link into the Orders screen.
+2. The **status filter sat in the toolbar** beside search, implying it rescoped the cards. It
+   doesn't — the cards are the status breakdown and the endpoint ignores `?status`. Moved to the
+   **STATUS column header**, the same correction made on Orders and Intents in
+   [C-11](#c-11--status-filter-moved-to-the-column-header--11-aug-2026--authorized-by-user).
+3. The list was **ordered alphabetically by raw status** (`accepted, pending, quote_sent…`) while
+   reading as a queue — finished work on top, the two pending rows below it. Fixed server-side:
+   `?sort=workflow` is now the default. **No client-side sort was added** — it would reorder ten
+   rows of N and be wrong across pages.
+
+**Cards now follow `search` and never `status`.** Confirmed against this repo before accepting
+the backend's reasoning: `AdminOrderStatsView` and `IntentRequestsStatsView` behave identically,
+so this makes the three screens consistent rather than special. No "all time" disclaimer needed.
+
+**`awaiting_rebill` is nested, not a seventh card** — it is a slice of `sourcing_confirmed`, so it
+renders through `StatCard.breakdown` (the mechanism the intents substitution sub-buckets already
+use). As a peer it would count the same requests twice and break the five-sum-to-total contract.
+Its row-level counterpart is the new `rebill_requested` field, so the card names a worklist the
+table can now identify — that field was added at this session's request precisely because
+positional inference under the workflow sort dies at a page boundary.
+
+**The quote screen stopped flying blind.** The admin detail now carries `shipping_address`,
+`port`, `anchorage`, `category`, `order`, `platform`, `notes`, `quote_description` and the split
+image lists. Consequences here: a Destination block (the delivery was previously being priced
+unseen), and **`category_id` is no longer sent on every quote** — it prefills from the request's
+own category and is omitted unless changed, so re-quoting can no longer silently re-file a
+request. It is still form-required, which now bites only on a legacy row that has no category —
+exactly when the API demands one.
+
+**`pending_delivery_changes` renders as a before/after diff.** The staged snapshot is not applied
+until generate-bill folds it in, so the current values stay in the rows above and the changed
+keys are struck through against their replacements. Includes the anchorage note: a port change
+without an anchorage clears the existing one when quoted.
+
+**The description split.** `description` / `notes` are the sailor's and are relabelled as such;
+`quote_description` is the admin's and is written by the quote form. **The quote box renders only
+when `quote_description` is non-empty** — no identical-string heuristic. That was possible
+because the backend *withdrew* its own backfill: it had assumed the surviving `description` on a
+quoted row was the admin's text, and real rows disproved it (they still carry the `"\n\nNotes: …"`
+marker only the submit path writes, evidence the panel's prefill-and-resend workaround meant the
+overwrite mostly never happened). Neither field is touched on historical rows, so
+`quote_description` is `""` there and the box simply doesn't appear.
+
+**Also:** `quote_description` is omitted from the payload when unchanged, since an omitted key now
+leaves the previous quote alone — which is what a re-quote that only moves the price wants.
+
+**Files:** `features/special-requests/types/specialRequest.types.ts` ·
+`features/special-requests/api/specialRequestApi.ts` ·
+`features/special-requests/components/SpecialRequestsPage.tsx` ·
+`features/special-requests/components/SpecialRequestDetailDrawer.tsx` ·
+`features/special-requests/components/GenerateBillDialog.tsx` ·
+`features/special-requests/schemas/specialRequest.schema.ts` · `lib/messages.ts`
+
+**Still open (backend, not requested here):** sailors cannot upload images (gap #1); the rebill
+counter is invisible to the sailor (gap #3); `request-changes` has no departure-after-arrival
+check, so the UI must validate it (gap #4).
+
+**Verified.** `tsc --noEmit -p tsconfig.json` clean · `biome lint src` **11 errors + 1 warning,
+all pre-existing BL-04, zero new** · `vite build` exits 0. One transient regression was caught and
+fixed during the run: `GetSpecialRequestStatsParams | void` tripped `noConfusingVoidType` (12
+errors), the same rule an order-stats union hit earlier; the union was unnecessary since the page
+always passes an argument.
+
 ---
 
 ## 11. Method

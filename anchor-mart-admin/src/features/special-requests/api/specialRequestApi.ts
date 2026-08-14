@@ -3,6 +3,7 @@ import { baseApi } from "@/lib/fetchUtils";
 import type {
   AllowChangesPayload,
   GenerateBillPayload,
+  GetSpecialRequestStatsParams,
   GetSpecialRequestsParams,
   RejectSpecialRequestPayload,
   SpecialRequest,
@@ -72,6 +73,7 @@ function toSpecialRequest(row: SpecialRequestApi): SpecialRequest {
     st: dash(row.status_display),
     status,
     sc: specialRequestStatusVariant(status),
+    rebillRequested: row.rebill_requested === true,
   };
 }
 
@@ -119,9 +121,21 @@ export const specialRequestApi = baseApi.injectEndpoints({
           : [{ type: "SpecialRequests", id: "PARTIAL-LIST" }],
     }),
 
-    getSpecialRequestStats: builder.query<SpecialRequestStats, void>({
-      // Stats is a plain GET — no query params are sent with it.
-      query: () => ({ url: SPECIAL_REQUEST_ENDPOINTS.GET_STATS, method: "GET" }),
+    /**
+     * Card counters, scoped by the screen's **search** and nothing else.
+     *
+     * `status` is deliberately not sent, matching the order and intent
+     * dashboards: the five counts *are* the status breakdown, so filtering them
+     * by status would zero four cards and leave the fifth restating the row
+     * count. Search is a different kind of narrowing — it selects which
+     * requests are on the screen at all — so the cards follow it.
+     */
+    getSpecialRequestStats: builder.query<SpecialRequestStats, GetSpecialRequestStatsParams>({
+      query: (params) => ({
+        url: SPECIAL_REQUEST_ENDPOINTS.GET_STATS,
+        method: "GET",
+        params: { search: params.search || undefined },
+      }),
       transformResponse: (res: unknown): SpecialRequestStats =>
         unwrap<SpecialRequestStats>(res) ?? {},
       providesTags: [{ type: "SpecialRequests", id: "STATS" }],

@@ -22,12 +22,17 @@ export const generateBillSchema = z.object({
   /**
    * The general-scope catalog category the quoted item is filed under.
    *
-   * The flow doc calls this an optional *override*, but the API only treats it
-   * that way when the request already carries a category — otherwise it answers
-   * `category_id: This field is required (the request has no category).` The
-   * admin detail payload exposes no category field, so there is no way to tell
-   * the two cases apart client-side. Requiring it always is the only option
-   * that can't fail: sending it is accepted in both cases.
+   * Required *in the form*, which is not the same as always being sent. The
+   * dialog prefills it from the request's own `category`, so on a filed request
+   * this is already satisfied and the value is left out of the payload unless
+   * the admin actually changes it. On a legacy row carrying no category the
+   * field starts empty and the admin must pick one — which is exactly when the
+   * API answers `category_id: This field is required (the request has no
+   * category).`
+   *
+   * Before the detail returned `category` there was no way to tell those two
+   * cases apart, so every quote re-sent this and a re-quote could silently
+   * re-file the request.
    */
   category_id: z.string().trim().min(1, "Category is required"),
 });

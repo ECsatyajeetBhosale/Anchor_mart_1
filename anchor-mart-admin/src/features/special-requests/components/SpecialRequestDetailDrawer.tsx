@@ -9,6 +9,7 @@ import {
 } from "@tabler/icons-react";
 
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 
 import { DynamicTabs } from "@/components/common/DynamicTabs";
 import { Badge } from "@/components/ui/badge";
@@ -36,12 +37,78 @@ import {
   isAtRebillCap,
   isKnownStatus,
 } from "../lib/specialRequestStatus";
-import type { SpecialRequestDetail } from "../types/specialRequest.types";
+import type {
+  SpecialRequestAddress,
+  SpecialRequestDetail,
+  SpecialRequestPlace,
+} from "../types/specialRequest.types";
 import { SpecialRequestLifecycleRail } from "./SpecialRequestLifecycleRail";
 
 const M = MESSAGES.SPECIAL_REQUESTS;
 const D = M.DETAIL;
 const RB = M.REBILL_BANNER;
+
+/** "Fujairah (AEFJR)" — the place plus its code, when there is one. */
+function placeLabel(place?: SpecialRequestPlace | null): string {
+  if (!place?.name) return "";
+  return place.code ? `${place.name} (${place.code})` : place.name;
+}
+
+/**
+ * The delivery address as one readable block: who receives it, on which vessel,
+ * and where on board. Blank parts are dropped rather than rendered as dashes —
+ * the object is optional in most of its own fields.
+ */
+function addressLines(address?: SpecialRequestAddress | null): string[] {
+  if (!address) return [];
+  const berth = [
+    address.deck && D.ADDRESS.DECK(address.deck),
+    address.cabin_number && D.ADDRESS.CABIN(address.cabin_number),
+    address.section && D.ADDRESS.SECTION(address.section),
+  ].filter(Boolean) as string[];
+  return [
+    [address.full_name, address.phone].filter(Boolean).join(" · "),
+    [address.vessel_name, address.imo_number && D.ADDRESS.IMO(address.imo_number)]
+      .filter(Boolean)
+      .join(" · "),
+    berth.join(" · "),
+    [address.port_name, address.anchorage_name].filter(Boolean).join(" · "),
+    address.delivery_instructions ?? "",
+  ].filter((line) => line.trim() !== "");
+}
+
+/**
+ * One line of the rebill diff: what the delivery detail is now, and what the
+ * sailor is asking for. Rendered only for the keys they actually changed —
+ * `pending_delivery_changes` omits the rest.
+ */
+function DiffRow({ label, from, to }: { label: string; from: string; to: string }) {
+  return (
+    <div className="detail-kv">
+      <div className="detail-k">{label}</div>
+      <div className="detail-v">
+        <div className="text-[12px] font-medium text-[var(--t4)] line-through">{from || "—"}</div>
+        <div className="text-[13px] font-bold text-[var(--warning-text)]">{to || "—"}</div>
+      </div>
+    </div>
+  );
+}
+
+/** A row of thumbnails; used once per uploader. */
+function Gallery({ srcs, productName }: { srcs: string[]; productName: string }) {
+  return (
+    <div className="flex flex-wrap gap-3">
+      {srcs.map((src, i) => (
+        <img
+          key={src}
+          src={src}
+          alt={D.IMAGE_ALT(productName, i + 1)}
+          className="h-28 w-28 rounded-[var(--radius-sm)] border border-[var(--border-sm)] object-cover"
+        />
+      ))}
+    </div>
+  );
+}
 
 /** One key/value row — the Orders-drawer detail layout. */
 function Row({
@@ -122,13 +189,22 @@ export function SpecialRequestDetailDrawer({
   const avatarSrc = user?.profile_picture || getFallbackAvatar(user?.id || fullName || "sailor");
   const currency = detail?.currency;
   const productName = dash(detail?.product_name);
-  // `images` is the gallery, but a request can carry only a `primary_image` —
-  // fall back to it rather than claiming there is no image.
-  const images = detail?.images?.length
-    ? detail.images
+  /**
+   * Galleries, split by who uploaded. `images_by_customer` falls back to
+   * `primary_image` so a request carrying only that still shows something; the
+   * legacy flat `images` list is deliberately not used, since it merges both
+   * uploaders and cannot say which is which.
+   */
+  const adminImages = detail?.images_by_admin ?? [];
+  const customerImages = detail?.images_by_customer?.length
+    ? detail.images_by_customer
     : detail?.primary_image
       ? [detail.primary_image]
       : [];
+  const images = [...customerImages, ...adminImages];
+  const deliveryLines = addressLines(detail?.shipping_address);
+  // Only present while a delivery change is staged and unquoted.
+  const pending = detail?.pending_delivery_changes ?? null;
   const total = quotedTotal(
     detail?.quoted_price,
     detail?.quantity,
@@ -303,8 +379,14 @@ export function SpecialRequestDetailDrawer({
                             </span>
                           }
                         />
+                        <Row label={D.CATEGORY} value={dash(detail.category?.name)} />
+                        {/* The sailor's own words. `description` and `notes` are
+                            never written by an admin — the quote's text lives in
+                            `quote_description` on the Quote tab. */}
                         <Row label={D.DESCRIPTION} value={dash(detail.description)} />
+                        <Row label={D.NOTES} value={dash(detail.notes)} />
                         <Row label={D.CUSTOMER_NOTE} value={dash(detail.customer_note)} />
+                        <Row label={D.PLATFORM} value={dash(detail.platform)} />
                       </>
                     ),
                   },
@@ -313,6 +395,28 @@ export function SpecialRequestDetailDrawer({
                     label: D.TABS.DELIVERY,
                     content: (
                       <>
+                        {/* Where the goods are going. Until the admin detail
+                            carried this, the quote screen priced a delivery it
+                            could not see. */}
+                        <div className="sec-label">{D.DESTINATION}</div>
+                        <Row
+                          label={D.ADDRESS_LABEL}
+                          value={
+                            deliveryLines.length ? (
+                              <div className="flex flex-col gap-0.5">
+                                {deliveryLines.map((line) => (
+                                  <span key={line}>{line}</span>
+                                ))}
+                              </div>
+                            ) : (
+                              D.FALLBACK
+                            )
+                          }
+                        />
+                        <Row label={D.PORT} value={dash(placeLabel(detail.port))} />
+                        <Row label={D.ANCHORAGE} value={dash(placeLabel(detail.anchorage))} />
+
+                        <div className="sec-label mt16">{D.SCHEDULE}</div>
                         <Row label={D.SHIP_ARRIVAL} value={formatDate(detail.ship_arrival_date)} />
                         <Row
                           label={D.EXPECTED_DEPARTURE}
@@ -332,6 +436,60 @@ export function SpecialRequestDetailDrawer({
                           )}
                           className={detail.rebill_requested ? "cwarning" : undefined}
                         />
+
+                        {/* What the sailor is asking to change, against what is
+                            on the request today. The staged snapshot is not
+                            applied until generate-bill folds it in, so the rows
+                            above still show the current values — the two read as
+                            a before/after and the admin re-quotes on facts. */}
+                        {pending && (
+                          <>
+                            <div className="sec-label mt16">{D.PENDING_CHANGES}</div>
+                            {pending.shipping_address && (
+                              <DiffRow
+                                label={D.ADDRESS_LABEL}
+                                from={addressLines(detail.shipping_address).join(" · ")}
+                                to={addressLines(pending.shipping_address).join(" · ")}
+                              />
+                            )}
+                            {pending.port && (
+                              <DiffRow
+                                label={D.PORT}
+                                from={placeLabel(detail.port)}
+                                to={placeLabel(pending.port)}
+                              />
+                            )}
+                            {pending.anchorage && (
+                              <DiffRow
+                                label={D.ANCHORAGE}
+                                from={placeLabel(detail.anchorage)}
+                                to={placeLabel(pending.anchorage)}
+                              />
+                            )}
+                            {pending.ship_arrival_date && (
+                              <DiffRow
+                                label={D.SHIP_ARRIVAL}
+                                from={formatDate(detail.ship_arrival_date)}
+                                to={formatDate(pending.ship_arrival_date)}
+                              />
+                            )}
+                            {pending.expected_departure && (
+                              <DiffRow
+                                label={D.EXPECTED_DEPARTURE}
+                                from={formatDate(detail.expected_departure)}
+                                to={formatDate(pending.expected_departure)}
+                              />
+                            )}
+                            {/* A port change without an anchorage clears the
+                                anchorage when applied — one belongs to a single
+                                port and must not outlive a change of port. */}
+                            {pending.port && !pending.anchorage && detail.anchorage?.name && (
+                              <div className="mt-1 text-[11.5px] font-medium text-[var(--t4)]">
+                                {D.ANCHORAGE_CLEARED}
+                              </div>
+                            )}
+                          </>
+                        )}
                       </>
                     ),
                   },
@@ -353,7 +511,38 @@ export function SpecialRequestDetailDrawer({
                           label={D.FAST_DELIVERY_CHARGE}
                           value={money(detail.fast_delivery_charge, currency)}
                         />
+                        {/* The admin's own description of what they sourced.
+                            Shown only when it exists: it is `""` on every
+                            request quoted before the field was split out, and
+                            falling back to `description` there would put the
+                            sailor's words under an admin label. */}
+                        {detail.quote_description && (
+                          <Row label={D.QUOTE_DESCRIPTION} value={detail.quote_description} />
+                        )}
                         <Row label={D.ADMIN_RESPONSE} value={dash(detail.admin_response)} />
+
+                        {/* Once paid, the request became an order — this is the
+                            only place its `AM…` number appears. */}
+                        {detail.order?.order_number && (
+                          <Row
+                            label={D.ORDER}
+                            value={
+                              <span className="flex flex-wrap items-center gap-2">
+                                <Link
+                                  to={`/orders?search=${encodeURIComponent(detail.order.order_number)}`}
+                                  className="mono cteal hover:underline"
+                                >
+                                  {detail.order.order_number}
+                                </Link>
+                                {detail.order.status && (
+                                  <Badge variant="neutral" className="h-[20px] text-[10px]">
+                                    {detail.order.status}
+                                  </Badge>
+                                )}
+                              </span>
+                            }
+                          />
+                        )}
 
                         {/* Quoted total — only once a quote exists. */}
                         {total !== null && (
@@ -379,16 +568,24 @@ export function SpecialRequestDetailDrawer({
                           <span>{D.NO_IMAGE}</span>
                         </div>
                       ) : (
-                        <div className="flex flex-wrap gap-3">
-                          {images.map((src, i) => (
-                            <img
-                              key={src}
-                              src={src}
-                              alt={D.IMAGE_ALT(productName, i + 1)}
-                              className="h-28 w-28 rounded-[var(--radius-sm)] border border-[var(--border-sm)] object-cover"
-                            />
-                          ))}
-                        </div>
+                        /* Split by uploader. The flat `images` list mixes both
+                           and loses `is_uploaded_by_admin`, so a reference photo
+                           attached to a quote was indistinguishable from what
+                           the sailor sent. */
+                        <>
+                          {customerImages.length > 0 && (
+                            <>
+                              <div className="sec-label">{D.IMAGES_BY_CUSTOMER}</div>
+                              <Gallery srcs={customerImages} productName={productName} />
+                            </>
+                          )}
+                          {adminImages.length > 0 && (
+                            <>
+                              <div className="sec-label mt16">{D.IMAGES_BY_ADMIN}</div>
+                              <Gallery srcs={adminImages} productName={productName} />
+                            </>
+                          )}
+                        </>
                       ),
                   },
                 ]}

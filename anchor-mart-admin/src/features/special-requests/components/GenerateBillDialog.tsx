@@ -91,18 +91,28 @@ export function GenerateBillDialog({
     },
   });
 
-  // Reload the sailor's own values each time the dialog opens for a request.
+  /**
+   * Reload each time the dialog opens for a request.
+   *
+   * `description` here is the **admin's** quote text (`quote_description`), not
+   * the sailor's. The two were the same field until 2026-08-14, which is why
+   * quoting used to overwrite the request it was answering; the form now edits
+   * the admin's copy and leaves the sailor's alone.
+   *
+   * `category_id` prefills from the request's existing category, so the dropdown
+   * shows where it is already filed and sending it back unchanged is a no-op.
+   */
   useEffect(() => {
     if (isOpen && request) {
       reset({
         product_name: request.product_name ?? "",
-        description: request.description ?? "",
+        description: request.quote_description ?? "",
         quoted_price: request.quoted_price ? Number(request.quoted_price) : 0,
         fast_delivery_charge: request.fast_delivery_charge
           ? Number(request.fast_delivery_charge)
           : 0,
         admin_response: request.admin_response ?? "",
-        category_id: "",
+        category_id: request.category?.id ?? "",
       });
     }
   }, [isOpen, request, reset]);
@@ -114,17 +124,26 @@ export function GenerateBillDialog({
   const total = price * qty + (request?.is_fastest_delivery ? fastCharge : 0);
 
   const submit = (data: GenerateBillFormData) => {
-    // Built field-by-field: decimals go as strings, and `category_id` is always
-    // sent — the API demands it whenever the request has no category of its own,
-    // and the detail payload gives us no way to know which case we're in.
+    // Built field-by-field: decimals go as strings.
     const payload: GenerateBillPayload = {
       product_name: data.product_name,
       quoted_price: data.quoted_price.toFixed(2),
       fast_delivery_charge: data.fast_delivery_charge.toFixed(2),
       admin_response: data.admin_response,
-      category_id: data.category_id,
     };
-    if (data.description) payload.description = data.description;
+    // Omitting `quote_description` leaves the previous quote text alone, which
+    // is what a re-quote that only changes the price wants. Sent whenever the
+    // field differs from what was loaded — including when it was cleared, since
+    // clearing it is a deliberate edit.
+    if (data.description !== (request?.quote_description ?? "")) {
+      payload.quote_description = data.description;
+    }
+    // Override only. The detail now returns `category`, so an unchanged
+    // selection is left out rather than re-sent — re-filing a request as a side
+    // effect of re-quoting it is not something the admin asked for.
+    if (data.category_id && data.category_id !== request?.category?.id) {
+      payload.category_id = data.category_id;
+    }
     onConfirm(payload);
   };
 

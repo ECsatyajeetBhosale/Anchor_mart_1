@@ -23,6 +23,7 @@ import {
   textColumn,
   truncatedColumn,
 } from "@/components/common/tableColumns";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { getApiMessage } from "@/lib/apiError";
@@ -150,14 +151,33 @@ export function SpecialRequestsPage() {
   const totalCount = data?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / LIMIT));
 
-  // Live KPI stats from the API; cards show "—" while loading and 0 when absent.
-  const { data: stats, isLoading: statsLoading } = useGetSpecialRequestStatsQuery();
+  /**
+   * Live KPI stats. **Search is passed, status is not.**
+   *
+   * The endpoint ignores `?status` by design, and so it should: these five
+   * counts *are* the status breakdown, so filtering them by status would zero
+   * four cards and leave the fifth restating the row count below it. Search is
+   * different — it decides which requests are on the screen at all — so the
+   * cards follow it and a searched table gets searched cards.
+   */
+  const { data: stats, isLoading: statsLoading } = useGetSpecialRequestStatsQuery({ search });
   const statItems = STAT_CONFIG.map((c) => ({
     id: c.id,
     label: c.label,
     value: statsLoading ? "—" : (stats?.[c.key] ?? 0).toLocaleString(),
     icon: c.icon,
     variant: c.variant,
+    /**
+     * `awaiting_rebill` hangs *inside* Sourcing Confirmed rather than beside it.
+     * Those requests already sit in that bucket, so a seventh card would count
+     * them twice and break the five-cards-sum-to-total contract. It is the
+     * "needs an admin right now" slice: a sailor changed delivery details and is
+     * waiting on the re-quote.
+     */
+    breakdown:
+      c.key === "sourcing_confirmed" && !statsLoading && (stats?.awaiting_rebill ?? 0) > 0
+        ? [{ label: M.STATS.AWAITING_REBILL, value: String(stats?.awaiting_rebill ?? 0) }]
+        : undefined,
   }));
 
   const openDetail = (req: SpecialRequest) => {
@@ -209,7 +229,10 @@ export function SpecialRequestsPage() {
   };
 
   const columns: Column<SpecialRequest>[] = [
-    idColumn({ id: "ref", header: M.COLUMNS.ORDER_ID, get: (r) => r.r }),
+    // The row's id is the special-request reference (`SR…`). It is not an order
+    // number: an order only exists once the sailor pays, and its `AM…` number is
+    // on the detail as `order.order_number`.
+    idColumn({ id: "ref", header: M.COLUMNS.REFERENCE, get: (r) => r.r }),
     avatarColumn({
       id: "sailor",
       header: M.COLUMNS.SAILOR,
@@ -232,7 +255,29 @@ export function SpecialRequestsPage() {
       get: (r) => r.dt,
       className: "td-m",
     }),
-    badgeColumn({ id: "status", header: M.COLUMNS.STATUS, get: (r) => r.st, variant: (r) => r.sc }),
+    badgeColumn({
+      id: "status",
+      header: M.COLUMNS.STATUS,
+      get: (r) => r.st,
+      variant: (r) => r.sc,
+      // The filter sits on the column it filters, as on Orders and Intents. In
+      // the toolbar beside search it implied it rescoped the cards too, which it
+      // does not — the cards are the status breakdown and ignore `?status`.
+      filter: {
+        value: statusFilter === "all" ? "" : statusFilter,
+        options: STATUS_OPTIONS.filter((o) => o.value !== "all"),
+        onChange: (val: string) => setParam("status", val),
+        allLabel: M.ALL_STATUS,
+      },
+      // The row-level counterpart of the `awaiting_rebill` card: the sailor has
+      // asked for different delivery details and is waiting on a re-quote.
+      note: (r) =>
+        r.rebillRequested ? (
+          <Badge variant="warning" className="mt-1 h-[22px] text-[10px]">
+            {M.AWAITING_REBILL_ROW}
+          </Badge>
+        ) : null,
+    }),
     {
       id: "actions",
       header: M.COLUMNS.ACTIONS,
@@ -267,16 +312,6 @@ export function SpecialRequestsPage() {
             searchPlaceholder={M.SEARCH_PLACEHOLDER}
             searchDebounceMs={300}
             searchLoading={isFetching}
-            filters={[
-              {
-                id: "status",
-                value: statusFilter,
-                placeholder: M.ALL_STATUS,
-                options: STATUS_OPTIONS,
-                width: "150px",
-                onValueChange: (val) => setParam("status", val),
-              },
-            ]}
           >
             <Button
               variant="secondary"
