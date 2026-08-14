@@ -14,10 +14,12 @@ import {
   // IconChecklist,
   // IconClipboardList,
   IconClipboardText,
+  IconDiscount2,
   IconEngine,
   IconFileInvoice,
   IconGift,
   IconHeart,
+  IconHelpCircle,
   IconLayoutDashboard,
   IconLifebuoy,
   // IconMailFast,
@@ -73,10 +75,11 @@ export interface NavSection {
  * reading the whole list. It is split by *what the admin is doing*: working the
  * order funnel, administering the catalog, or running promotions.
  *
- * The counterweight is that a section per screen is no better than none, so
- * related work stays together even when the fit isn't perfect (Ports and Ship
- * Agents are master data rather than catalog, but they are administered the
- * same way and don't earn a section of their own).
+ * The counterweight is that a section per screen is no better than none, so a
+ * pair only splits out once the mismatch is plain: Ports and Ship Agents sat
+ * under Catalog for exactly that reason until Catalog filled with entries that
+ * genuinely are products, at which point the two non-products stood out enough
+ * to be worth their own heading.
  */
 export const NAV_SECTIONS: NavSection[] = [
   {
@@ -100,8 +103,8 @@ export const NAV_SECTIONS: NavSection[] = [
     // The order funnel and nothing else: three queues of work an admin actions.
     // Sailors and Delivery Partners used to sit here too, which mixed two jobs
     // — working a queue and looking someone up — under one heading. They now
-    // live in People, immediately below, so they stay a glance away from the
-    // orders that reference them without being filed as order work.
+    // live in Account Management, immediately below, so they stay a glance away
+    // from the orders that reference them without being filed as order work.
     label: "Orders & Delivery",
     items: [
       {
@@ -281,6 +284,16 @@ export const NAV_SECTIONS: NavSection[] = [
         path: APP_ROUTES.REWARDS,
       },
       {
+        // Was a tab of Rewards & Coupons. A daily offer is scheduled and priced
+        // on its own terms — it shares nothing with the loyalty programme or the
+        // coupon book beyond being a promotion — so it belongs beside Surprise
+        // Gifts rather than behind a tab on a screen about points and codes.
+        key: "deals",
+        label: "Deal of the Day",
+        icon: IconDiscount2,
+        path: APP_ROUTES.DEALS,
+      },
+      {
         // Flow 20 is platform advertising ("reach, not reward"), so it belongs
         // with coupons and deals rather than the order funnel.
         key: "gifts",
@@ -367,6 +380,16 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "Settings",
         icon: IconSettings,
         path: APP_ROUTES.SETTINGS,
+      },
+      {
+        // Sailor-facing help content. It was reachable only through a card on
+        // the Settings page — a screen with its own list, drawers and category
+        // management, filed as if it were a setting. The card is gone; this is
+        // the way in.
+        key: "faqs",
+        label: "Help & FAQ",
+        icon: IconHelpCircle,
+        path: APP_ROUTES.SETTINGS_FAQS,
       },
     ],
   },

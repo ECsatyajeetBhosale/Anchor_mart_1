@@ -1,4 +1,6 @@
 export { RewardsPage } from "./components/RewardsPage";
+// Deal of the Day is its own Marketing screen, not a tab of Rewards & Coupons.
+export { DealsPage } from "./components/DealsPage";
 export { ActiveCouponsCard } from "./components/ActiveCouponsCard";
 export type { ActiveCouponsCardProps } from "./components/ActiveCouponsCard";
 export { CouponFormDrawer } from "./components/CouponFormDrawer";

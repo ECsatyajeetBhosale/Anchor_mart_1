@@ -11,6 +11,7 @@ import { AnalyticsPage } from "@/features/analytics";
 // Dashboard — from feature
 import { DashboardPage } from "@/features/dashboard";
 
+import { DealsPage } from "@/features/rewards";
 // Parked screens — hidden from the sidebar and unrouted for now. The pages
 // themselves are untouched; uncomment the import and its <Route> below (and the
 // matching entry in `lib/navigation.ts`) to bring one back.
@@ -104,6 +105,7 @@ export function AppRouter() {
             <Route path={APP_ROUTES.EXPRESS} element={<ExpressPage />} />
             <Route path={APP_ROUTES.PORTS} element={<PortsPage />} />
             <Route path={APP_ROUTES.REWARDS} element={<RewardsPage />} />
+            <Route path={APP_ROUTES.DEALS} element={<DealsPage />} />
             <Route path={APP_ROUTES.GIFTS} element={<GiftShipsPage />} />
             <Route path={APP_ROUTES.RATINGS} element={<RatingsPage />} />
             <Route path={APP_ROUTES.PARTNERS} element={<PartnersPage />} />

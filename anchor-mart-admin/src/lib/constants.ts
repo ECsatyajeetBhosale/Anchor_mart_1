@@ -16,6 +16,8 @@ export const APP_ROUTES = {
   SHIP_AGENTS: "/ship-agents",
   EXPRESS: "/express",
   REWARDS: "/rewards",
+  /** Deal of the Day — a Rewards & Coupons tab until it earned its own entry. */
+  DEALS: "/deals",
   PARTNERS: "/partners",
   ASSIGNMENTS: "/assignments",
   VERIFICATION: "/verification",

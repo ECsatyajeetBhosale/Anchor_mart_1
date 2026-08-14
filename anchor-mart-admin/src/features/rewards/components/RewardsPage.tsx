@@ -36,7 +36,6 @@ import { BonusPointsTab } from "./BonusPointsTab";
 import { CouponAssignmentsTab } from "./CouponAssignmentsTab";
 import { CouponFormDrawer } from "./CouponFormDrawer";
 import { CouponReportTab } from "./CouponReportTab";
-import { DealsTab } from "./DealsTab";
 import { LoyaltyConfigDrawer } from "./LoyaltyConfigDrawer";
 
 const M = MESSAGES.REWARDS;
@@ -374,7 +373,10 @@ export function RewardsPage() {
         onTabChange={setActiveTab}
         tabs={[
           { value: TAB_OVERVIEW, label: P.TABS.OVERVIEW, content: overviewTab },
-          { value: "deals", label: P.TABS.DEALS, content: <DealsTab /> },
+          // Deal of the Day left this screen for its own Marketing entry: a
+          // daily offer is scheduled and priced independently of the loyalty
+          // programme and the coupon book, so it was the one tab here that
+          // shared nothing with the rest.
           { value: "bonus", label: P.TABS.BONUS, content: <BonusPointsTab /> },
           { value: "assignments", label: P.TABS.ASSIGNMENTS, content: <CouponAssignmentsTab /> },
           { value: "report", label: P.TABS.REPORT, content: <CouponReportTab /> },

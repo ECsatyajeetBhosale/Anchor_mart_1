@@ -1982,23 +1982,9 @@ export const MESSAGES = {
         SAVE_ERROR: "Could not save the loyalty configuration",
       },
     },
-    /**
-     * User provisioning moved to Account Management, where it sits beside the
-     * deletion queue — one screen for an account's whole life. Settings keeps a
-     * pointer so the old path still leads somewhere.
-     */
-    ACCOUNTS_LINK: {
-      CARD_TITLE: "Account Management",
-      CARD_SUBTITLE: "Create accounts for any role, and review deletion requests",
-    },
     FAQ: {
       PAGE_TITLE: "Help & FAQ",
       PAGE_SUBTITLE: "Questions and answers shown to sailors in the help centre",
-      CARD_TITLE: "Help & FAQ",
-      CARD_COUNTS: (faqs: number, categories: number) =>
-        `${faqs} ${faqs === 1 ? "question" : "questions"} across ${categories} ${
-          categories === 1 ? "category" : "categories"
-        }`,
       BACK_TO_SETTINGS: "Back to Settings",
       SEARCH_PLACEHOLDER: "Search FAQs…",
       ALL_CATEGORIES: "All categories",
