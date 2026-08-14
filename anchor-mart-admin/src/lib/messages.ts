@@ -1916,12 +1916,30 @@ export const MESSAGES = {
       EMPTY: "This product has no variants yet.",
       READ_ONLY: "Variants are managed from the Products list — row menu → Manage variants.",
       COLUMNS: {
+        IMAGE: "Image",
         SKU: "SKU",
         PRICE: "Price",
         ATTRIBUTES: "Attributes",
         EXPRESS: "Express",
         ORDERABLE: "Orderable",
         ADDED: "Added",
+      },
+      /**
+       * The expanded row. It reads the variant already nested on the product
+       * detail response — the dedicated `product-variant/` endpoint returns the
+       * same shape, so expanding costs no extra request.
+       */
+      DETAIL: {
+        GALLERY: (n: number) => `Images · ${n}`,
+        NO_IMAGES: "This variant has no images.",
+        IMAGE_ALT: (sku: string, n: number) => `${sku} image ${n}`,
+        DETAILS: "Variant Details",
+        CATALOG_TYPE: "Catalog Type",
+        ACTIVE: "Active",
+        /** Half the rule only — the Orderable badge is the effective answer. */
+        VARIANT_SOURCEABLE: "Variant Sourceable",
+        ABOUT: "About This Variant",
+        UPDATED: "Last Updated",
       },
       YES: "Yes",
       NO: "No",

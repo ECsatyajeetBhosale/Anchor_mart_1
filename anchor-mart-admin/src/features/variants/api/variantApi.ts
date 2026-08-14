@@ -1,6 +1,7 @@
 import { toStoredPath } from "@/features/media";
 import { VARIANT_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
+import { primaryImageUrl } from "../lib/variantImage";
 import type {
   AddVariantPayload,
   GetVariantsParams,
@@ -47,18 +48,6 @@ function toImagePaths(value: unknown): string[] {
     .map((row) => (typeof row === "string" ? row : pick(row, "image", "image_url", "url")))
     .map(toStoredPath)
     .filter((s): s is string => Boolean(s));
-}
-
-/**
- * Absolute URL of the primary image (falling back to the first), for rendering.
- * Unlike {@link toImagePaths} this keeps the URL intact — it never round-trips
- * to the API, so the stored-path normalisation would only break the `<img>`.
- */
-function primaryImageUrl(value: unknown): string {
-  const rows = asArray(value);
-  if (!rows?.length) return "";
-  const primary = rows.find((row) => getProp(row, "is_primary") === true) ?? rows[0];
-  return typeof primary === "string" ? primary : pick(primary, "image", "image_url", "url");
 }
 
 /** Maps a raw variant record onto the flat UI row. */

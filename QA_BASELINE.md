@@ -79,9 +79,9 @@ not a JSON field error.
 | Gate | Command | Result |
 | ---- | ------- | ------ |
 | Typecheck (app) | `tsc -p tsconfig.json --noEmit` | ✅ **Clean** — zero errors across 393 source files |
-| Build gate | `npm run build` (`tsc -b && vite build`) | 🟠 **FAILS** — `TS5096`, see BL-01 |
+| Build gate | `npm run build` (`tsc -b && vite build`) | 🟠 **FAILS** — `TS5096`, see BL-01 · ✅ **fixed 14 Aug by C-23 — now exits 0** |
 | Bundle build | `vite build` | ✅ **Exits 0** — `dist/` produced, 11.98 s |
-| Lint | `biome lint .` | 🟠 **13 errors + 1 warning** across 7 files, see BL-04 |
+| Lint | `biome lint .` | 🟠 **13 errors + 1 warning** across 7 files, see BL-04 · **12 after C-23** — the deleted `vite.config.js` took one duplicate with it |
 
 The two build rows are not contradictory and the distinction is the important part: **the app
 builds, the build *script* does not.** `tsc -b` is a pure typecheck gate that contributes nothing to
@@ -131,7 +131,11 @@ favour of automation.
 
 Ten findings. All pre-date this programme; none was introduced by it. No fixes applied.
 
-### BL-01 🟠 `npm run build` fails — `TS5096`
+### BL-01 ✅ `npm run build` fails — `TS5096` — **CLOSED by [C-23](#c-23--bl-02-fixed-the-config-vite-loaded-was-not-the-config-in-the-repo--14-aug-2026--authorized-by-user), 14 Aug 2026**
+
+> Same root cause as BL-02 — one project configured to *compile* a file it only needed to *check*.
+> `npm run build` now exits 0. The workaround below (`tsc -p tsconfig.json --noEmit`) is no longer
+> required, though it remains a valid faster gate.
 
 ```
 tsconfig.node.json(8,35): error TS5096: Option 'allowImportingTsExtensions' can only be used
@@ -144,7 +148,16 @@ when either 'noEmit' or 'emitDeclarationOnly' is set.
 **Impact on QA:** CI cannot gate on `npm run build`. Until fixed, the typecheck gate must be invoked
 as `tsc -p tsconfig.json --noEmit`, which passes cleanly.
 
-### BL-02 🟠 `vite.config.js` shadows `vite.config.ts`
+### BL-02 ✅ `vite.config.js` shadows `vite.config.ts` — **CLOSED by [C-23](#c-23--bl-02-fixed-the-config-vite-loaded-was-not-the-config-in-the-repo--14-aug-2026--authorized-by-user), 14 Aug 2026**
+
+> **The prediction below came true before it was fixed.** "Any future edit to `vite.config.ts` will
+> be silently ignored" — the dev proxy's `ngrok-skip-browser-warning` header ended up in **both**
+> copies, because someone had to edit the emitted `.js` to make it take effect. That is the shadow
+> biting, recorded live.
+>
+> Emit is now redirected to `node_modules/.tmp`, both artifacts are deleted and gitignored, and
+> `@types/node` was added — the config had never type-checked, which the stale `tsbuildinfo` hid.
+> Verified by booting `npx vite`, not merely by building.
 
 `tsc -b` emits `vite.config.js` from `vite.config.ts`, and the emitted output is **committed**:
 `vite.config.js`, `vite.config.d.ts`, `tsconfig.tsbuildinfo`, `tsconfig.node.tsbuildinfo` are all
@@ -262,6 +275,47 @@ BL-03 needs 51+ rows to reproduce; Phase 5 needs a list with a real page 2 and a
 data existed then. **Not re-measured here** — every list endpoint requires a token, and BL-09 leaves
 us without one. First task after BL-09 clears.
 
+### BL-11 ⚪ Media images blocked by ORB when the API is tunnelled through ngrok — **environment, not a defect**
+
+Investigated 14 Aug 2026 after product thumbnails rendered as placeholders in Brave while loading in
+Chrome. **No application defect; no frontend change made or required.**
+
+```
+Django media file (valid JPEG, 206 KB)
+   ↓  <img src="https://….ngrok-free.app/media/…jpg">
+ngrok sees a browser User-Agent with no skip-cookie
+   ↓  returns its interstitial: 200 text/html · ngrok-error-code: ERR_NGROK_6024
+Chromium ORB: HTML response for an image request
+   ↓
+net::ERR_BLOCKED_BY_ORB — blocked before the renderer sees a byte
+```
+
+**Confirmed by response headers, not inference** — the same URL, two requests:
+
+| Request | Response |
+|---|---|
+| Browser UA, no skip header *(what an `<img>` sends)* | `200` · `content-type: text/html` · `ngrok-error-code: ERR_NGROK_6024` |
+| Browser UA + `ngrok-skip-browser-warning` *(what RTK Query sends)* | `200` · `content-type: image/jpeg` · `content-length: 206509` |
+
+**Why the API works and images do not.** `fetchUtils.ts` and the Vite `/api` proxy both set
+`ngrok-skip-browser-warning`. An `<img>` tag cannot send a header, so it gets the interstitial.
+
+**Why Chrome looked fine.** That profile had clicked *Visit Site* once, holds ngrok's cookie, and
+now serves from disk cache. A fresh Chrome profile fails identically — this is not a browser
+difference, and should not be filed as one.
+
+**Development rule:** use `VITE_API_BASE_URL=http://localhost:8000/api` — already the committed
+default — so Django builds media URLs from the request host. Reserve ngrok for cases that genuinely
+need external access (mobile testing, sharing), and treat the interstitial as a tunnel constraint.
+
+> ⚠️ **`curl` alone does not reproduce this.** ngrok skips the interstitial for any non-browser
+> `User-Agent`, so a plain `curl -I` returns `image/jpeg` and makes the problem look imaginary. Any
+> future reproduction must spoof a browser UA.
+
+The `Thumbnail` fallback added in the same session is what turned this into "placeholder shown"
+rather than a column of broken-image glyphs. **Keep it** — it is the correct rendering for any
+failed image load, whatever the cause.
+
 ---
 
 ## 6. Intentionally unfixed — do not "fix" these
@@ -331,11 +385,11 @@ sourcing funnel, so their admin leg is smaller, but both still originate custome
 
 | # | Blocker | Blocks | Owner |
 | - | ------- | ------ | ----- |
-| **1** | **BL-02** — config shadowing | Every configuration task. Fix before writing any test config, or the config is silently ignored | Dev |
+| ~~**1**~~ | ~~**BL-02** — config shadowing~~ | ✅ **CLEARED 14 Aug (C-23).** Test config written into `vite.config.ts` now takes effect | Dev |
 | **2** | **BL-09** — credentials | Phase 2 entirely; Phase 3 onward for the two-role passes | **Client / you** |
 | **3** | **BL-10** — seed volumes | Phase 5, and BL-03 reproduction. Unblocked by #2 | QA |
-| 4 | **BL-05** — no tooling | All automation. Mechanical once #1 lands | Dev |
-| 5 | **BL-01** — build gate | CI only. Does not block manual phases | Dev |
+| **1** | **BL-05** — no tooling | All automation. **Unblocked** — #1 above has cleared | Dev |
+| ~~5~~ | ~~**BL-01** — build gate~~ | ✅ **CLEARED 14 Aug (C-23).** CI can gate on `npm run build` | Dev |
 | 6 | Write policy | Phase 4 (CRUD) and Phase 8 (money) need to create and delete records. **May tests write to the dev database, and against which order fixtures?** | **Client / you** |
 | 7 | `newman` absent | Phase 7 hybrid harness, and any API regression run | Dev |
 
@@ -1545,8 +1599,25 @@ unchecked since it was written. Added `@types/node` (devDependency) and `"types"
 | Emit location | `node_modules/.tmp/tsconfig.node/` |
 | `npx vite` dev server | boots from the `.ts`, serves **HTTP 200** |
 
-**Files:** `tsconfig.node.json` · `.gitignore` · `package.json` (+`@types/node`) · deleted
-`vite.config.js`, `vite.config.d.ts`
+**Follow-up caught by a repo-wide lint.** The explanatory comments added to `tsconfig.node.json`
+took `biome lint .` from 13 to **53** — biome parsed the file as strict JSON and rejected every
+comment. Every per-change check this session had run `biome lint src`, which never sees root files,
+so it was invisible until the whole repo was linted.
+
+Fixed at the parser, not by deleting the comments: tsconfig is **JSONC** by TypeScript's own spec, so
+`biome.json` now carries an override allowing comments in `tsconfig*.json`. The comments matter —
+without them the next person re-adds `composite: true` and the shadow returns.
+
+`biome lint .` now reports **12 errors + 1 warning**, and every one is an original BL-04 finding.
+That reconciles exactly with the freeze's 13: the deleted `vite.config.js` took its duplicate
+`useNodejsImportProtocol` with it. Zero new.
+
+> **Lesson for the gate:** `biome lint src` is not the project's lint. Root-level config files —
+> `vite.config.ts`, `biome.json`, `tsconfig*.json` — are only covered by `biome lint .`, which is
+> what BL-04 was measured with and what CI should run.
+
+**Files:** `tsconfig.node.json` · `biome.json` · `.gitignore` · `package.json` (+`@types/node`) ·
+deleted `vite.config.js`, `vite.config.d.ts`
 
 **BL-02 and the C-17/C-18 build caveat are both closed.** Any future proxy or alias change now
 belongs in `vite.config.ts` and takes effect immediately — the trap that made BL-02 the

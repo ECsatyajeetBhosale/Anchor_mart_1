@@ -2,6 +2,7 @@ import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { DynamicTabs } from "@/components/common/DynamicTabs";
 import { FormField } from "@/components/common/FormField";
 import { FormRow } from "@/components/common/FormRow";
+import { Thumbnail } from "@/components/common/Thumbnail";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,11 +17,12 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useGetCategoriesQuery } from "@/features/catalog";
 import { FILE_LOCATIONS, ImageListField, toStoredPath } from "@/features/media";
+import { allImageUrls, primaryImageUrl } from "@/features/variants";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { IconBoxSeam, IconCheck, IconPhoto } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
+import { IconBoxSeam, IconCheck, IconPackage, IconPhoto } from "@tabler/icons-react";
+import { Fragment, useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useGetProductQuery, useUpdateProductMutation } from "../api/productApi";
@@ -102,6 +104,8 @@ function orderableState(
 
 export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawerProps) {
   const [activeTab, setActiveTab] = useState("pt-basic");
+  /** Which variant row is expanded; one at a time, null when none. */
+  const [openVariantId, setOpenVariantId] = useState<string | null>(null);
   const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
 
   // The list serializer omits description/images, so load the full record.
@@ -136,6 +140,7 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
   useEffect(() => {
     if (!isOpen) return;
     setActiveTab("pt-basic");
+    setOpenVariantId(null);
     const cats = categoriesData?.results?.data ?? [];
     const categoryId =
       source.category || cats.find((c) => c.name === source.category_name)?.id || "";
@@ -491,6 +496,10 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                   <table>
                     <thead>
                       <tr>
+                        {/* The variant's own photo. `images[]` was on every row
+                            of this payload and rendered nowhere, so two SKUs of
+                            the same product were told apart by code alone. */}
+                        <th className="w-14">{VT.COLUMNS.IMAGE}</th>
                         <th>{VT.COLUMNS.SKU}</th>
                         <th>{VT.COLUMNS.PRICE}</th>
                         <th>{VT.COLUMNS.ATTRIBUTES}</th>
@@ -502,33 +511,124 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                     <tbody>
                       {variants.map((variant) => {
                         const state = orderableState(variant, source);
+                        const isOpen = openVariantId === variant.id;
+                        const gallery = allImageUrls(variant.images);
                         return (
-                          <tr key={variant.id}>
-                            <td className="td-id">{variant.sku}</td>
-                            <td className="td-p">${Number(variant.price).toFixed(2)}</td>
-                            <td className="td-m">{formatAttributes(variant.attributes)}</td>
-                            <td>
-                              <Badge
-                                variant={variant.is_express ? "amber" : "neutral"}
-                                className="h-[20px] px-1.5 text-[9px]"
-                              >
-                                {variant.is_express ? VT.YES : VT.NO}
-                              </Badge>
-                            </td>
-                            <td>
-                              {/* Computed, never read off `admin_sourceable`
+                          <Fragment key={variant.id}>
+                            <tr
+                              /**
+                               * Expands in place rather than opening a drawer.
+                               * This table already lives inside a `Sheet`, and a
+                               * Dialog over a Sheet renders *behind* its overlay
+                               * here — a defect the Orders and Intents screens
+                               * both had to work around by closing the drawer
+                               * first. Expanding keeps the product context and
+                               * sidesteps the stacking problem entirely.
+                               */
+                              className="cursor-pointer hover:bg-[var(--surface-alt)]"
+                              // Focusable and operable from the keyboard: the
+                              // row is the only way to reach the images, so a
+                              // mouse-only control would put them out of reach.
+                              tabIndex={0}
+                              aria-expanded={isOpen}
+                              onClick={() => setOpenVariantId(isOpen ? null : variant.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  setOpenVariantId(isOpen ? null : variant.id);
+                                }
+                              }}
+                            >
+                              <td>
+                                <Thumbnail
+                                  src={primaryImageUrl(variant.images)}
+                                  alt={variant.sku}
+                                  placeholder={<IconPackage size={14} />}
+                                  className="h-9 w-9"
+                                />
+                              </td>
+                              <td className="td-id">{variant.sku}</td>
+                              <td className="td-p">${Number(variant.price).toFixed(2)}</td>
+                              <td className="td-m">{formatAttributes(variant.attributes)}</td>
+                              <td>
+                                <Badge
+                                  variant={variant.is_express ? "amber" : "neutral"}
+                                  className="h-[20px] px-1.5 text-[9px]"
+                                >
+                                  {variant.is_express ? VT.YES : VT.NO}
+                                </Badge>
+                              </td>
+                              <td>
+                                {/* Computed, never read off `admin_sourceable`
                                   alone: a variant flagged sourceable is still
                                   unbuyable while the product master is off. */}
-                              <Badge
-                                variant={state.orderable ? "success" : "warning"}
-                                className="h-[20px] px-1.5 text-[9px]"
-                                title={state.reason}
-                              >
-                                {state.orderable ? VT.ORDERABLE_YES : VT.ORDERABLE_NO}
-                              </Badge>
-                            </td>
-                            <td className="td-m">{variant.created_at ?? "—"}</td>
-                          </tr>
+                                <Badge
+                                  variant={state.orderable ? "success" : "warning"}
+                                  className="h-[20px] px-1.5 text-[9px]"
+                                  title={state.reason}
+                                >
+                                  {state.orderable ? VT.ORDERABLE_YES : VT.ORDERABLE_NO}
+                                </Badge>
+                              </td>
+                              <td className="td-m">{variant.created_at ?? "—"}</td>
+                            </tr>
+
+                            {isOpen && (
+                              <tr>
+                                <td colSpan={7} className="!bg-[var(--surface-alt)]">
+                                  <div className="px-2 py-3">
+                                    <div className="sec-label">
+                                      {VT.DETAIL.GALLERY(gallery.length)}
+                                    </div>
+                                    {gallery.length === 0 ? (
+                                      <p className="td-m">{VT.DETAIL.NO_IMAGES}</p>
+                                    ) : (
+                                      <div className="flex flex-wrap gap-2">
+                                        {gallery.map((url, i) => (
+                                          <Thumbnail
+                                            key={url}
+                                            src={url}
+                                            alt={VT.DETAIL.IMAGE_ALT(variant.sku, i + 1)}
+                                            placeholder={<IconPackage size={18} />}
+                                            className="h-24 w-24"
+                                          />
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* The fields the row has no column for. */}
+                                    <div className="sec-label mt16">{VT.DETAIL.DETAILS}</div>
+                                    <div className="detail-kv">
+                                      <div className="detail-k">{VT.DETAIL.CATALOG_TYPE}</div>
+                                      <div className="detail-v">{variant.catalog_type ?? "—"}</div>
+                                    </div>
+                                    <div className="detail-kv">
+                                      <div className="detail-k">{VT.DETAIL.ACTIVE}</div>
+                                      <div className="detail-v">
+                                        {variant.is_active ? VT.YES : VT.NO}
+                                      </div>
+                                    </div>
+                                    <div className="detail-kv">
+                                      {/* Only half the orderable rule — the badge
+                                        above is the effective answer. */}
+                                      <div className="detail-k">{VT.DETAIL.VARIANT_SOURCEABLE}</div>
+                                      <div className="detail-v">
+                                        {variant.admin_sourceable ? VT.YES : VT.NO}
+                                      </div>
+                                    </div>
+                                    <div className="detail-kv">
+                                      <div className="detail-k">{VT.DETAIL.ABOUT}</div>
+                                      <div className="detail-v">{variant.about_product || "—"}</div>
+                                    </div>
+                                    <div className="detail-kv">
+                                      <div className="detail-k">{VT.DETAIL.UPDATED}</div>
+                                      <div className="detail-v">{variant.updated_at ?? "—"}</div>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
                         );
                       })}
                     </tbody>

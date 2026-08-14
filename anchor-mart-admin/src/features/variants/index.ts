@@ -18,3 +18,6 @@ export type {
   UpdateVariantPayload,
   VariantListResult,
 } from "./types/variant.types";
+// Shared so the product drawer's Variants tab picks the same image the
+// variants list does, rather than re-deriving "which one is primary".
+export { primaryImageUrl, allImageUrls } from "./lib/variantImage";
