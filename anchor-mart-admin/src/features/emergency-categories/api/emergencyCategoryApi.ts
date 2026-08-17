@@ -11,7 +11,7 @@ import type {
 /**
  * Query params for the emergency categories list.
  *
- * **These four and no others** — no `parent`, `has_products` or `ordering`.
+ * **These four and no others** — no `has_products`, `ordering` or `scope`.
  * Ordering is fixed **name ascending**. Pagination is the shared
  * `CustomPagination`: default 10, `page_size` clamped to 50, junk falls back to
  * 10, and a page past the end is a **404** `{"detail": "Invalid page."}`.

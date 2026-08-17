@@ -1,6 +1,11 @@
 /**
  * A category row as returned by GET /superadmin/categories/get-categories/.
  * The list is wrapped in the shared DRF envelope (`results: { message, data }`).
+ *
+ * **The taxonomy is flat** (Build A, 2026-08-17): every category is a root, and
+ * neither `parent` nor `parent_name` is returned by any of the nine admin
+ * category endpoints. The model column survives dormant for Build B, so nesting
+ * returns as a backend serializer change plus the mirror of this commit.
  */
 export interface Category {
   id: string;
@@ -12,10 +17,6 @@ export interface Category {
   scope: string;
   /** Number of products assigned to this category. */
   product_count: number;
-  /** Parent category id (null for top-level categories). */
-  parent: string | null;
-  /** Parent category display name (null for top-level categories). */
-  parent_name: string | null;
   is_active: boolean;
   /** Pre-formatted timestamp, e.g. "June 01, 2026, 10:12 AM". */
   created_at: string;
@@ -51,10 +52,9 @@ export interface CategoryStats {
   active: number;
   inactive: number;
   /**
-   * Categories with **no products directly assigned**. Counts a product whether
-   * or not it is active, and ignores soft-deleted ones — so "empty" means
-   * nothing is filed here, not "nothing here is on sale". Products in a *child*
-   * category do not count towards the parent.
+   * Categories with **no products assigned**. Counts a product whether or not it
+   * is active, and ignores soft-deleted ones — so "empty" means nothing is filed
+   * here, not "nothing here is on sale".
    */
   empty: number;
 }
@@ -75,13 +75,6 @@ export interface AddCategoryPayload {
   description?: string;
   /** Stored image path/key — must start `category_images/`, enforced server-side. */
   image?: string;
-  /**
-   * Parent category id, or null for top-level. Validated server-side: same
-   * scope, not itself, and no cycle. A soft-deleted parent is rejected; an
-   * inactive one is accepted deliberately, since deactivation is reversible and
-   * must not dissolve a tree.
-   */
-  parent?: string | null;
 }
 
 /**
@@ -92,13 +85,14 @@ export interface AddCategoryPayload {
  * is a full-row write, and unknown keys are dropped silently, so neither
  * over-sending nor an unsupported key would surface as an error.
  *
- * `scope` is absent because a category cannot change taxonomy.
+ * `scope` is absent because a category cannot change taxonomy, and `parent`
+ * because the taxonomy is flat — it is unwritable in **both** directions, so
+ * sending `null` would not clear a legacy value either.
  */
 export type UpdateCategoryPayload = Partial<{
   name: string;
   description: string;
   /** Sending `null` or `""` clears the image. */
   image: string | null;
-  parent: string | null;
   is_active: boolean;
 }>;

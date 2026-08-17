@@ -2236,18 +2236,6 @@ export const MESSAGES = {
     FETCH_ERROR: "Failed to fetch categories",
     EMPTY: "No categories found.",
     IMAGE_ALT: "Category",
-    /** Shown on a child whose parent has been deleted — see the Parent column. */
-    PARENT_DELETED: "Parent deleted",
-    PARENT_LABEL: "Parent Category",
-    NO_PARENT: "None — top level",
-    /**
-     * The hierarchy is writable and validated server-side (same scope, no self,
-     * no cycle, no soft-deleted parent) but nothing downstream reads it yet: the
-     * sailor's category list is flat. So it organises the admin view and changes
-     * nothing a customer sees — worth saying, so no one files products expecting
-     * a nested storefront.
-     */
-    PARENT_HINT: "Organises the admin list. Customers see a flat category list either way.",
     ACTIVE_HINT:
       "Hides the category from the customer's browse list. Its products stay on sale and remain findable by search.",
     /**
@@ -2260,10 +2248,9 @@ export const MESSAGES = {
       ACTIVE_CATEGORIES: "Active",
       INACTIVE_CATEGORIES: "Inactive",
       /**
-       * Counts **direct** assignments only, active or not — so a category can be
-       * "not empty" and still show a sailor nothing, and a parent whose products
-       * all sit in child categories counts as empty. Labelled for what it
-       * measures rather than the bare word.
+       * Counts assignments active or not — so a category can be "not empty" and
+       * still show a sailor nothing. Labelled for what it measures rather than
+       * the bare word.
        */
       EMPTY_CATEGORIES: "No Products Filed",
     },
@@ -2271,7 +2258,6 @@ export const MESSAGES = {
     COLUMNS: {
       CATEGORY: "Category",
       SCOPE: "Scope",
-      PARENT: "Parent",
       PRODUCTS: "Products",
       STATUS: "Status",
       ACTIONS: "Actions",
@@ -2368,11 +2354,6 @@ export const MESSAGES = {
     FETCH_ERROR: "Failed to fetch emergency categories",
     EMPTY: "No emergency categories found.",
     IMAGE_ALT: "Emergency category",
-    /** Shown on a child whose parent has been deleted — see the Parent column. */
-    PARENT_DELETED: "Parent deleted",
-    PARENT_LABEL: "Parent Category",
-    NO_PARENT: "None — top level",
-    PARENT_HINT: "Organises the admin list. Customers see a flat category list either way.",
     ACTIVE_HINT:
       "Hides the category from the customer's browse list. Its spares stay on sale and remain findable by search.",
     /** Scoped to the marine taxonomy and following the list's filters since 2026-08-17. */
@@ -2380,14 +2361,13 @@ export const MESSAGES = {
       TOTAL_CATEGORIES: "Total Categories",
       ACTIVE_CATEGORIES: "Active",
       INACTIVE_CATEGORIES: "Inactive",
-      /** Direct assignments only, active or not — see the general screen's note. */
+      /** Assignments active or not — see the general screen's note. */
       EMPTY_CATEGORIES: "No Spares Filed",
     },
     // Table
     COLUMNS: {
       CATEGORY: "Category",
       SCOPE: "Scope",
-      PARENT: "Parent",
       PRODUCTS: "Products",
       STATUS: "Status",
       ACTIONS: "Actions",

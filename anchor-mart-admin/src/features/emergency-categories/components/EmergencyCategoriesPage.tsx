@@ -14,7 +14,7 @@ import {
   IconPlus,
 } from "@tabler/icons-react";
 import type React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -28,9 +28,6 @@ import { EmergencyCategoryFormModal } from "./EmergencyCategoryFormModal";
 import { useEmergencyCategoryColumns } from "./emergencyCategoryColumns";
 
 const LIMIT = 10;
-
-/** The server's own `page_size` ceiling — the most one request can return. */
-const PAGE_SIZE_MAX = 50;
 
 export function EmergencyCategoriesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -86,19 +83,6 @@ export function EmergencyCategoriesPage() {
     next.set("page", "1");
     setSearchParams(next, { replace: true });
   }, [isPageOutOfRange, page, searchParams, setSearchParams]);
-
-  /**
-   * The whole marine taxonomy, unfiltered — the set that distinguishes a live
-   * parent from a deleted one. `null` when it may be incomplete, because an
-   * incomplete set would mark every off-page parent as deleted.
-   */
-  const { data: allCategoriesData } = useGetEmergencyCategoriesQuery({ limit: PAGE_SIZE_MAX });
-  const liveCategoryIds = useMemo(() => {
-    const rows = allCategoriesData?.results?.data ?? [];
-    return allCategoriesData && (allCategoriesData.count ?? 0) <= PAGE_SIZE_MAX
-      ? new Set(rows.map((c) => c.id))
-      : null;
-  }, [allCategoriesData]);
 
   const setFilterParam = (key: string, value: string) => {
     const next = new URLSearchParams(searchParams);
@@ -189,7 +173,6 @@ export function EmergencyCategoriesPage() {
     onEdit: handleEdit,
     onDelete: handleDeleteClick,
     onToggleActive: handleToggleActive,
-    liveCategoryIds,
     canDelete: canManageCatalog,
   });
 

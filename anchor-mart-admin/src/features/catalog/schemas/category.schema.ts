@@ -29,14 +29,6 @@ export const categoryAddSchema = z.object({
   description: z.string().trim().default(""),
   // Stored image path/key (e.g. "category_images/example.jpg") — not a file upload.
   image: categoryImageSchema,
-  /**
-   * Parent category id; `""` means top-level and is sent as `null`.
-   *
-   * The real rules — same scope, not itself, no cycle, parent not soft-deleted —
-   * are enforced by the backend and are the guarantee. The picker narrows the
-   * options as a convenience only.
-   */
-  parent: z.string().default(""),
 });
 
 export type CategoryAddFormData = z.infer<typeof categoryAddSchema>;

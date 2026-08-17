@@ -4,7 +4,6 @@ import {
   textColumn,
   twoLineColumn,
 } from "@/components/common/tableColumns";
-import { Badge } from "@/components/ui/badge";
 import type { Column } from "@/components/ui/data-table";
 import { Switch } from "@/components/ui/switch";
 import { MESSAGES } from "@/lib/messages";
@@ -40,11 +39,6 @@ export interface UseEmergencyCategoryColumnsOptions {
   onDelete: (e: React.MouseEvent, category: EmergencyCategory) => void;
   /** Activates / deactivates. Safe as a row control: it does not cascade. */
   onToggleActive: (category: EmergencyCategory, next: boolean) => void;
-  /**
-   * Every live category id, or `null` when the complete set isn't known — `null`
-   * disables the deleted-parent marking rather than guessing.
-   */
-  liveCategoryIds?: Set<string> | null;
   /** False for a sub-admin — deletion is super-admin only, so the action is omitted. */
   canDelete?: boolean;
 }
@@ -59,7 +53,6 @@ export function useEmergencyCategoryColumns({
   onEdit,
   onDelete,
   onToggleActive,
-  liveCategoryIds = null,
   canDelete = true,
 }: UseEmergencyCategoryColumnsOptions): Column<EmergencyCategory>[] {
   return [
@@ -81,34 +74,6 @@ export function useEmergencyCategoryColumns({
       get: (row) => row.scope || "—",
       variant: "neutral",
     }),
-    {
-      id: "parent",
-      header: MESSAGES.EMERGENCY_CATEGORIES.COLUMNS.PARENT,
-      /**
-       * The parent's name, flagged when the parent no longer exists.
-       *
-       * Deleting a parent leaves its children live, listed, and still pointing
-       * at it, while `parent_name` keeps rendering the deleted category's name —
-       * so the row looks healthy and the tree is broken. Only claimed when the
-       * complete live set is known; otherwise the name is shown plain.
-       */
-      cell: (row) => {
-        if (!row.parent_name) return <span className="td-m">—</span>;
-        const isMissing = !!liveCategoryIds && !!row.parent && !liveCategoryIds.has(row.parent);
-        return (
-          <div className="max-w-[160px]">
-            <div className="td-m trunc" title={row.parent_name}>
-              {row.parent_name}
-            </div>
-            {isMissing && (
-              <Badge variant="warning" className="mt-1 h-[20px] px-1.5 text-[9px]">
-                {MESSAGES.EMERGENCY_CATEGORIES.PARENT_DELETED}
-              </Badge>
-            )}
-          </div>
-        );
-      },
-    },
     textColumn({
       id: "products",
       header: MESSAGES.EMERGENCY_CATEGORIES.COLUMNS.PRODUCTS,
@@ -149,9 +114,10 @@ export function useEmergencyCategoryColumns({
           ? {
               delete: {
                 title: MESSAGES.EMERGENCY_CATEGORIES.ACTION_REMOVE,
-                // Behind the overflow menu: it cascades to every spare in the
-                // category and the category itself cannot be restored.
-                overflow: true,
+                // Inline trash icon rather than the overflow menu (product
+                // decision) — matching the general categories screen. Delete
+                // still cascades to every spare in the category and the category
+                // cannot be restored, so the typed confirm stays.
                 onClick: (e: React.MouseEvent, r: EmergencyCategory) => onDelete(e, r),
               },
             }

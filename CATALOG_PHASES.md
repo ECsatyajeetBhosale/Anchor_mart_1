@@ -8,7 +8,7 @@ categories**), run as **four passes plus setup and resolution**.
 
 | File | Role | Edited by |
 |---|---|---|
-| [CATALOG_API_MAP.md](CATALOG_API_MAP.md) | Route inventory, generated from the Django URL resolver. The authority on what exists. | Backend — **mirror only, never hand-edit** |
+| [CATALOG_API_MAP_BACKEND.md](CATALOG_API_MAP_BACKEND.md) | Route inventory, generated from the Django URL resolver. The authority on what exists. | Backend — **mirror only, never hand-edit** |
 | [CATALOG_CONFLICTS.md](CATALOG_CONFLICTS.md) | Running log of cross-catalog conflicts + standing constraints. | This sweep, continuously |
 | **CATALOG_PHASES.md** (this file) | Plan of record: what each pass covers, what is done, what is open. | This sweep, at each pass boundary |
 
@@ -73,7 +73,7 @@ before starting each pass.** Several of them look like bugs and are not.
 
 ## Phase 0 · Setup — ✅ Done
 
-- [x] [CATALOG_API_MAP.md](CATALOG_API_MAP.md) mirrored (re-synced 2026-08-17 with the
+- [x] [CATALOG_API_MAP_BACKEND.md](CATALOG_API_MAP_BACKEND.md) mirrored (re-synced 2026-08-17 with the
       `by-catalog-type` correction, new `category-stats/` semantics, and the category
       delete blast radius)
 - [x] [CATALOG_CONFLICTS.md](CATALOG_CONFLICTS.md) created; C1–C8 recorded

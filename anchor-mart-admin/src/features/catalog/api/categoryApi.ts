@@ -11,9 +11,11 @@ import type {
 /**
  * Query params for `get-categories/`.
  *
- * **These four and no others** — there is no `parent`, `has_products` or
- * `ordering` filter. Ordering is fixed **name ascending**, which differs from
- * `get-products/`'s `-created_at`; do not assume a shared default.
+ * **These four and no others** — there is no `has_products` or `ordering`
+ * filter, and no `catalog_type` / `scope` either: catalog filtering lives on the
+ * separate `get-categories-by-catalog-type/` route. Ordering is fixed **name
+ * ascending**, which differs from `get-products/`'s `-created_at`; do not assume
+ * a shared default.
  *
  * Pagination matches products exactly (same `CustomPagination`): default 10,
  * `page_size` clamped to 50, junk or 0 falls back to 10, and a page past the end

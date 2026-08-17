@@ -3,6 +3,10 @@
  * GET /superadmin/emergency-spares/categories/.
  * The list is wrapped in the shared DRF envelope (`results: { message, data }`),
  * matching the regular categories contract.
+ *
+ * **The taxonomy is flat** (Build A, 2026-08-17) — see the general twin. Both
+ * doors lost `parent` / `parent_name` in the same change, because they are one
+ * serializer.
  */
 export interface EmergencyCategory {
   id: string;
@@ -14,10 +18,6 @@ export interface EmergencyCategory {
   scope: string;
   /** Number of products assigned to this category. */
   product_count: number;
-  /** Parent category id (null for top-level categories). */
-  parent: string | null;
-  /** Parent category display name (null for top-level categories). */
-  parent_name: string | null;
   is_active: boolean;
   /** Pre-formatted timestamp, e.g. "June 01, 2026, 10:12 AM". */
   created_at: string;
@@ -53,8 +53,8 @@ export interface EmergencyCategoryStats {
   active: number;
   inactive: number;
   /**
-   * Categories with **no products directly assigned** — counting inactive ones,
-   * ignoring soft-deleted ones, and not counting products filed in a child.
+   * Categories with **no products assigned** — counting inactive ones and
+   * ignoring soft-deleted ones.
    */
   empty: number;
 }
@@ -72,13 +72,6 @@ export interface AddEmergencyCategoryPayload {
   description?: string;
   /** Stored image path/key — must start `category_images/`, enforced server-side. */
   image?: string;
-  /**
-   * Parent category id, or null for top-level. Validated server-side: same
-   * scope, not itself, no cycle, and not soft-deleted. An inactive parent is
-   * accepted deliberately — deactivation is reversible and must not dissolve a
-   * tree.
-   */
-  parent?: string | null;
 }
 
 /**
@@ -87,12 +80,14 @@ export interface AddEmergencyCategoryPayload {
  * A true partial, so **only changed fields are sent** — the underlying `save()`
  * is a full-row write and unknown keys are dropped without error, so neither
  * over-sending nor an unsupported key would surface as a failure.
+ *
+ * `parent` is absent because the taxonomy is flat — unwritable in both
+ * directions, so `null` would not clear a legacy value either.
  */
 export type UpdateEmergencyCategoryPayload = Partial<{
   name: string;
   description: string;
   /** Sending `null` or `""` clears the image. */
   image: string | null;
-  parent: string | null;
   is_active: boolean;
 }>;

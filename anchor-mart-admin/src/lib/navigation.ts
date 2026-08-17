@@ -209,19 +209,29 @@ export const NAV_SECTIONS: NavSection[] = [
     // Everything that defines what can be bought. The three catalogs (regular,
     // express, marine emergency) sit together because they are the same
     // administration job against different scopes.
+    //
+    // Categories lead the section: an admin defines the buckets before filling
+    // them, so both category surfaces come first and the item surfaces
+    // (products, express, spares) follow in the same scope order.
     label: "Catalog",
     items: [
-      {
-        key: "products",
-        label: "Products",
-        icon: IconBoxSeam,
-        path: APP_ROUTES.PRODUCTS,
-      },
       {
         key: "categories",
         label: "Categories",
         icon: IconCategory,
         path: APP_ROUTES.CATEGORIES,
+      },
+      {
+        key: "emergency-categories",
+        label: "Marine Emergency Categories",
+        icon: IconCategory2,
+        path: APP_ROUTES.EMERGENCY_CATEGORIES,
+      },
+      {
+        key: "products",
+        label: "Products",
+        icon: IconBoxSeam,
+        path: APP_ROUTES.PRODUCTS,
       },
       {
         key: "express",
@@ -234,12 +244,6 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "Marine Emergency Spares",
         icon: IconEngine,
         path: APP_ROUTES.SPARES,
-      },
-      {
-        key: "emergency-categories",
-        label: "Marine Emergency Categories",
-        icon: IconCategory2,
-        path: APP_ROUTES.EMERGENCY_CATEGORIES,
       },
     ],
   },

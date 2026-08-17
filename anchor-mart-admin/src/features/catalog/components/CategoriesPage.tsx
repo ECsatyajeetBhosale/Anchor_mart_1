@@ -14,7 +14,7 @@ import {
   IconPlus,
 } from "@tabler/icons-react";
 import type React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -28,12 +28,6 @@ import { CategoryFormModal } from "./CategoryFormModal";
 import { useCategoryColumns } from "./categoryColumns";
 
 const LIMIT = 10;
-
-/**
- * The server's own `page_size` ceiling. Asking for more is silently clamped to
- * this, so it is the largest set one request can return.
- */
-const PAGE_SIZE_MAX = 50;
 
 export function CategoriesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -79,24 +73,6 @@ export function CategoriesPage() {
   // KPI counts { total, active, inactive, empty }, scoped to this taxonomy and
   // following the filters above.
   const { data: stats } = useGetCategoryStatsQuery(listFilters);
-
-  /**
-   * The whole taxonomy, unfiltered — the parent picker's options, and the set
-   * that tells a live parent from a deleted one.
-   *
-   * `PAGE_SIZE_MAX` is the server's clamp, so one request is the most that can
-   * be fetched at a time. Beyond that the set is incomplete, and an incomplete
-   * set must not be used to claim a parent was deleted — hence the `null`.
-   */
-  const { data: allCategoriesData } = useGetCategoriesQuery({ limit: PAGE_SIZE_MAX });
-  const allCategories: Category[] = allCategoriesData?.results?.data ?? [];
-  const liveCategoryIds = useMemo(
-    () =>
-      allCategoriesData && (allCategoriesData.count ?? 0) <= PAGE_SIZE_MAX
-        ? new Set(allCategories.map((c) => c.id))
-        : null,
-    [allCategoriesData, allCategories],
-  );
 
   /**
    * A page past the end is a **404**, not an empty page — same `CustomPagination`
@@ -208,19 +184,6 @@ export function CategoriesPage() {
     onEdit: handleEdit,
     onDelete: handleDeleteClick,
     onToggleActive: handleToggleActive,
-    /**
-     * Ids of every live category, so the Parent column can tell a live parent
-     * from a deleted one.
-     *
-     * Deleting a parent does nothing to its children: they stay live and listed,
-     * still pointing at it, and `parent_name` keeps rendering the deleted
-     * category's name. The row looks entirely healthy and its parent is gone.
-     *
-     * Passed as `null` unless the lookup below holds the **complete** taxonomy —
-     * an incomplete set would mark every off-page parent as deleted, which is a
-     * worse lie than the one being fixed.
-     */
-    liveCategoryIds,
     canDelete: canManageCatalog,
   });
 

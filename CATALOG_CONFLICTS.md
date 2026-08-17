@@ -40,7 +40,7 @@ is the mistake this list exists to prevent.
 2026-08-17. Pass order, scope and per-route status live in
 [CATALOG_PHASES.md](CATALOG_PHASES.md) — four passes, not five, because categories are
 one model with two doors and general/marine products are one view family with two
-`CATALOG_TYPES` tuples. Route inventory is [CATALOG_API_MAP.md](CATALOG_API_MAP.md).
+`CATALOG_TYPES` tuples. Route inventory is [CATALOG_API_MAP_BACKEND.md](CATALOG_API_MAP_BACKEND.md).
 
 Products (general) is partially complete from the pre-plan work; the marine half of that
 pass, and all of the other three, have not started.
@@ -507,7 +507,7 @@ the two numbers will legitimately disagree and look like a bug.
 | 2026-08-17 | C7, C8 | Added from the `set-active/` + filter-contract pass |
 | 2026-08-17 | C2 | Backend answered: one model, two scope-locked doors. Narrowed to a `CategoryStatsView` scope bug; backend fixing pre-pass-1. OPEN → DECIDED |
 | 2026-08-17 | C3 | Backend answered: the two express flags compose, neither is derived. Rewritten around the confirmed one-directional cascade gap in `set-catalog-type/` |
-| 2026-08-17 | — | Standing constraints added; [CATALOG_API_MAP.md](CATALOG_API_MAP.md) mirrored |
+| 2026-08-17 | — | Standing constraints added; [CATALOG_API_MAP_BACKEND.md](CATALOG_API_MAP_BACKEND.md) mirrored |
 | 2026-08-17 | C2 | Backend shipped the scope + filter fix. DECIDED → **RESOLVED**; frontend verification deferred to pass 1 |
 | 2026-08-17 | C6 | Category delete semantics verified — cascades to products as a *deactivation*; the irreversible part is the category row, not the products |
 | 2026-08-17 | C9 | **Added in pass 1.** Category deactivate/delete have inverted blast radii — the safe action doesn't take products off sale, the irreversible one does |

@@ -1,4 +1,3 @@
-import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { FormField } from "@/components/common/FormField";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,13 +14,10 @@ import { getApiMessage, getFieldErrors } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconCategory, IconCheck } from "@tabler/icons-react";
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
-import {
-  useCreateEmergencyCategoryMutation,
-  useGetEmergencyCategoriesQuery,
-} from "../api/emergencyCategoryApi";
+import { useCreateEmergencyCategoryMutation } from "../api/emergencyCategoryApi";
 import {
   type EmergencyCategoryAddFormData,
   emergencyCategoryAddSchema,
@@ -37,25 +33,10 @@ const ADD_DEFAULTS: EmergencyCategoryAddFormData = {
   name: "",
   description: "",
   image: "",
-  parent: "",
 };
 
 export function EmergencyCategoryAddDrawer({ isOpen, onClose }: EmergencyCategoryAddDrawerProps) {
   const [createCategory, { isLoading: isCreating }] = useCreateEmergencyCategoryMutation();
-
-  // Parent options — every live category in the marine taxonomy. Nothing to
-  // exclude, since the category being created does not exist yet.
-  const { data: allCategoriesData } = useGetEmergencyCategoriesQuery(
-    { limit: 50 },
-    { skip: !isOpen },
-  );
-  const parentOptions = useMemo(
-    () => [
-      { value: "", label: MESSAGES.EMERGENCY_CATEGORIES.NO_PARENT },
-      ...(allCategoriesData?.results?.data ?? []).map((c) => ({ value: c.id, label: c.name })),
-    ],
-    [allCategoriesData],
-  );
 
   const {
     register,
@@ -80,8 +61,6 @@ export function EmergencyCategoryAddDrawer({ isOpen, onClose }: EmergencyCategor
       name: formData.name,
       description: formData.description,
       image: formData.image,
-      // "" is top-level; the API wants an explicit null rather than a blank id.
-      parent: formData.parent || null,
     };
 
     try {
@@ -90,10 +69,10 @@ export function EmergencyCategoryAddDrawer({ isOpen, onClose }: EmergencyCategor
       onClose();
       toast.success(getApiMessage(response) ?? MESSAGES.EMERGENCY_CATEGORIES.TOAST.ADD_SUCCESS);
     } catch (error) {
-      // Duplicate `(name, scope)` and invalid `parent` both come back
+      // A duplicate `(name, scope)` and a bad image prefix both come back
       // field-keyed — pin them to the input rather than to a toast.
       const fieldErrors = getFieldErrors(error);
-      const known = ["name", "description", "image", "parent"] as const;
+      const known = ["name", "description", "image"] as const;
       let pinned = false;
       for (const field of known) {
         if (fieldErrors[field]) {
@@ -144,26 +123,6 @@ export function EmergencyCategoryAddDrawer({ isOpen, onClose }: EmergencyCategor
                 className="h-24"
                 error={!!errors.description}
                 {...register("description")}
-              />
-            </FormField>
-            {/* `parent` is accepted on create and had no control here either. */}
-            <FormField
-              label={MESSAGES.EMERGENCY_CATEGORIES.PARENT_LABEL}
-              hint={MESSAGES.EMERGENCY_CATEGORIES.PARENT_HINT}
-              error={errors.parent?.message}
-            >
-              <Controller
-                control={control}
-                name="parent"
-                render={({ field }) => (
-                  <DropdownSelect
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    options={parentOptions}
-                    placeholder={MESSAGES.EMERGENCY_CATEGORIES.NO_PARENT}
-                    width="100%"
-                  />
-                )}
               />
             </FormField>
           </section>

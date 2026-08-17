@@ -63,6 +63,18 @@ export function TableActions<T>({ row, actions }: TableActionsProps<T>) {
             <DropdownMenu.Content
               align="end"
               sideOffset={6}
+              /**
+               * The menu is portalled out of the row in the **DOM**, but React
+               * replays events through the **component** tree — so a click in
+               * here still bubbles to the `<tr>` and fires `onRowClick`. Every
+               * action behind this menu is destructive, and the row opens an
+               * edit drawer, so without this the confirm dialog and the drawer
+               * both open on one click.
+               *
+               * Stopping at the content boundary covers every item at once. The
+               * items' own handlers have already run by the time it fires.
+               */
+              onClick={(e) => e.stopPropagation()}
               className="z-50 min-w-[170px] rounded-md border p-1 shadow-md"
               style={{ background: "var(--surface)", borderColor: "var(--border-md)" }}
             >
@@ -70,10 +82,17 @@ export function TableActions<T>({ row, actions }: TableActionsProps<T>) {
                 <DropdownMenu.Item
                   key={`${act.title}-${index}`}
                   onSelect={(e) => {
-                    // Radix's onSelect carries no mouse event; the row handlers
-                    // all take one only to stop propagation, which the menu has
-                    // already handled by the time we get here.
-                    e.preventDefault();
+                    /**
+                     * Radix's `onSelect` carries a CustomEvent, not a mouse
+                     * event. The row handlers type their first argument as one
+                     * and call `stopPropagation()` on it — harmless here (it is
+                     * still a DOM Event) but not what stops the row click; the
+                     * content's `onClick` above does that.
+                     *
+                     * Deliberately **not** `preventDefault()` — on `onSelect`
+                     * that is Radix's "keep the menu open" flag, not a
+                     * propagation guard. Selecting should close the menu.
+                     */
                     act.onClick(e as unknown as React.MouseEvent, row);
                   }}
                   className={cn(
