@@ -1838,8 +1838,10 @@ export const MESSAGES = {
   PRODUCTS: {
     // Page chrome
     TITLE: "Products & Catalog",
-    SEARCH_PLACEHOLDER: "Search products…",
+    /** `?search=` matches the product **name** only — not SKU, not description. */
+    SEARCH_PLACEHOLDER: "Search by product name…",
     ALL_CATEGORIES: "All Categories",
+    ALL_CATALOGS: "All Catalogs",
     ADD_PRODUCT: "Add Product",
     FETCH_ERROR: "Failed to fetch products",
     EMPTY: "No products found.",
@@ -1850,31 +1852,52 @@ export const MESSAGES = {
       TOP_RATED: "Top Rated",
     },
     /**
-     * KPI cards. All of them follow the filter bar **except the category
-     * counts**, which are the taxonomy rather than products.
+     * KPI cards — one per figure the product-stats endpoint returns, all eleven
+     * flat rather than nested as sub-lines, so every number is readable at a
+     * glance. All of them follow the filter bar **except the category counts**,
+     * which are the taxonomy rather than products.
      */
     STATS: {
       /**
        * Spans all three catalogs, while the table below serves the general two —
-       * 50 against 36 unfiltered. The sub-lines say where the difference goes;
-       * narrowing the count instead would under-report the catalog.
+       * 50 against 36 unfiltered. The catalog-type cards that follow say where
+       * the difference goes; narrowing the count would under-report the catalog.
        */
       TOTAL_PRODUCTS: "Total Products · all catalogs",
+      ACTIVE: "Active",
       REGULAR: "Regular",
       EXPRESS: "Express",
       EMERGENCY: "Marine Emergency · listed separately",
+      TOP_RATED: "Top Rated",
+      /**
+       * These two count **different things**, so both say their unit. `on_deal`
+       * counts products with at least one variant on a live deal;
+       * `deal_of_the_day` counts the deal rows themselves. Two variants of one
+       * product on deal reads 1 and 2 — side by side and unlabelled, that looks
+       * like one of them is wrong.
+       */
+      ON_DEAL: "Products On Deal",
+      DEAL_OF_THE_DAY: "Live Deals · one per variant",
       /** The taxonomy — a product filter has no meaning for it, so it holds still. */
       TOTAL_CATEGORIES: "Total Categories · all scopes",
-      GENERAL_CATEGORIES: "General",
-      EMERGENCY_CATEGORIES: "Marine Emergency",
-      FEATURED_DEALS: "Featured / Deals",
+      GENERAL_CATEGORIES: "General Categories",
+      EMERGENCY_CATEGORIES: "Marine Emergency Categories",
     },
-    // Table
+    /**
+     * Table columns — one per field the list serializer actually returns, so
+     * `catalog_type`, `variant_count`, `on_deal`, `average_rating` and
+     * `purchase_count` are readable from the row instead of only inside a
+     * drawer.
+     */
     COLUMNS: {
       PRODUCT: "Product",
       CATEGORY: "Category",
+      CATALOG: "Catalog",
       PRICE: "Price",
-      FEATURED: "Featured",
+      VARIANTS: "Variants",
+      RATING: "Rating",
+      PURCHASES: "Purchases",
+      DEAL: "Deal",
       STATUS: "Status",
       ACTIONS: "Actions",
     },
@@ -1882,7 +1905,11 @@ export const MESSAGES = {
       ACTIVE: "Active",
       INACTIVE: "Inactive",
     },
-    FEATURED_YES: "Yes",
+    DEAL_YES: "On Deal",
+    /** add-product creates the first variant from this SKU, or none without it. */
+    SKU_HINT: "Becomes the product's first variant, priced at the base price. Must be unique.",
+    /** Rendered where a field is absent or zero — never a bare 0, which reads as measured. */
+    DASH: "—",
     ACTION_EDIT: "Edit",
     ACTION_REMOVE: "Remove",
     IMAGE_ALT: "Product",
@@ -1894,12 +1921,28 @@ export const MESSAGES = {
       ADD_ERROR: "Failed to create product. Please try again.",
       UPDATE_SUCCESS: "Product updated successfully",
       UPDATE_ERROR: "Failed to update product. Please try again.",
+      /** Save pressed with a pristine form — no PATCH is sent. */
+      NO_CHANGES: "No changes to save",
+      ACTIVATED: "Product is now active",
+      DEACTIVATED: "Product deactivated — it can no longer be ordered",
+      ACTIVE_ERROR: "Failed to change the product's status",
     },
     // Delete confirmation dialog
+    /**
+     * Deleting is a soft delete server-side — `is_deleted` on the product and
+     * every variant — but there is **no undelete endpoint** and every admin
+     * queryset filters deleted rows out, so it is terminal from here: the row
+     * does not come back under the Inactive filter or anywhere else. The copy
+     * points at deactivation, which is the reversible action operators usually
+     * want and which lives on the edit drawer's Active switch.
+     */
     DELETE_CONFIRM: {
       TITLE: "Delete Product",
-      MESSAGE: "Are you sure you want to delete this product? This action cannot be undone.",
+      MESSAGE:
+        "This removes the product and all of its variants from every admin screen, and cannot be undone — there is no restore. It does not check for open orders, carts or running deals. To take it off sale but keep the record, switch it to inactive from the Status column instead.",
       CONFIRM: "Delete",
+      /** Typed to confirm — see the dialog's `confirmPhrase`. */
+      PHRASE: "delete",
     },
     // Add drawer
     ADD: {
@@ -1954,6 +1997,12 @@ export const MESSAGES = {
         VARIANT_SOURCEABLE: "Variant Sourceable",
         ABOUT: "About This Variant",
         UPDATED: "Last Updated",
+        /**
+         * Product deactivation does not cascade to variant rows, so a variant
+         * stays `is_active: true` under an inactive parent. Ordering is blocked
+         * either way; without this line the pair just looks inconsistent.
+         */
+        INHERITED_INACTIVE: "The product is inactive, so this variant cannot be ordered either.",
       },
       YES: "Yes",
       NO: "No",
@@ -1964,6 +2013,36 @@ export const MESSAGES = {
       BLOCKED_BY_PRODUCT: "Blocked by the product's sourceable switch, not this variant's",
       BLOCKED_BY_VARIANT: "This variant is not sourceable",
       BLOCKED_INACTIVE: "This variant is inactive",
+    },
+    /**
+     * The system-set half of the detail payload — figures and flags
+     * `get-product/<id>/` returns but the update contract does not accept, so
+     * they are shown rather than edited. Without this block `average_rating`,
+     * `purchase_count`, `catalog_type`, `is_internal` and both timestamps came
+     * back on every read and rendered nowhere.
+     */
+    RECORD: {
+      TITLE: "Record",
+      HINT: "Set by the system or from the Products list — not part of this form.",
+      CATALOG_TYPE: "Catalog Type",
+      /**
+       * Computed live per request from the promotion module's deal rows, and
+       * variant-level: true means *some* variant has a running deal, not that the
+       * product is discounted. No product endpoint can set it.
+       */
+      ON_DEAL: "On Deal",
+      NO_DEAL: "No running deal",
+      DEAL_HINT: "Deals are set per variant on the Deals screen, with a price and a time window.",
+      RATING: "Average Rating",
+      /** A rating of 0 means unrated, not badly rated — never shown as "0.0". */
+      UNRATED: "Not yet rated",
+      PURCHASES: "Purchases",
+      VARIANTS: "Variants",
+      INTERNAL: "Internal Product",
+      INTERNAL_YES: "Hidden from the customer catalogue",
+      INTERNAL_NO: "Listed to customers",
+      CREATED: "Created",
+      UPDATED: "Last Updated",
     },
     SECTIONS: {
       BASIC: "Basic Information",
@@ -1981,12 +2060,15 @@ export const MESSAGES = {
       FLAGS: "Catalog & Merchandising",
     },
     // Toggle labels
+    /**
+     * `EXPRESS` and `ON_DEAL` are gone from here: both labelled switches for
+     * fields update-product cannot write, and the API drops unknown keys
+     * silently, so each one saved successfully and changed nothing.
+     */
     TOGGLES: {
       ON_DISCOUNT: "On discount",
       ADMIN_SOURCEABLE: "Admin sourceable",
-      EXPRESS_ITEM: "Express item",
-      EXPRESS: "Express item",
-      ON_DEAL: "On deal",
+      ACTIVE: "Active",
       TOP_RATED: "Top rated",
       TAXABLE: "Taxable",
       PHYSICAL: "Physical Product",

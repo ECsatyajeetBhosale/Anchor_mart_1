@@ -1,7 +1,7 @@
-import { Outlet } from "react-router-dom";
 import { AppSidebar } from "@/components/common/AppSidebar";
 import { Header } from "@/components/common/Header";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Outlet } from "react-router-dom";
 
 /**
  * Main dashboard shell layout.
@@ -19,7 +19,7 @@ export function Layout() {
   return (
     <div className={`app-shell ${collapsed ? "collapsed" : ""} ${mounted ? "in" : ""}`} id="app">
       <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
-      
+
       <Header collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
 
       <main className="main-content" id="mc">

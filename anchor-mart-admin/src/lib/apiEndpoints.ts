@@ -38,6 +38,23 @@ export const PRODUCT_ENDPOINTS = {
    */
   SET_ADMIN_SOURCEABLE: (id: string) => `/superadmin/products/set-admin-sourceable/${id}/`,
   /**
+   * Body: `{ is_active: boolean }` — the reversible alternative to delete, and
+   * the third of the row toggles. Same shape as its two siblings: strict JSON
+   * bool (`"false"`, `0`, `"no"` are a 400), single-column write, small
+   * `{ message, is_active }` response, `CATALOG_AVAILABILITY` feature, and a
+   * 404 on a deleted product.
+   *
+   * **Does not cascade to variants** — child rows keep their own `is_active`,
+   * deliberately, so this cannot drift from a plain `PATCH update-product`
+   * field write. Ordering is still blocked either way, because the variant gate
+   * ANDs product liveness; the variants tab renders that as inherited state
+   * rather than flipping the children.
+   *
+   * Catalog-wide like the other toggles, so the marine emergency screen uses
+   * this one too — it has no toggle routes of its own.
+   */
+  SET_ACTIVE: (id: string) => `/superadmin/products/set-active/${id}/`,
+  /**
    * Flow 17 Build A — manually broadcast "{product} is now available" to all
    * customers (push + in-app, never email). No request body.
    *

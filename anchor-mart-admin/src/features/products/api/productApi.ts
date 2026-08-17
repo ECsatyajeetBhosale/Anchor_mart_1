@@ -9,16 +9,38 @@ import type {
   UpdateProductPayload,
 } from "../types/product.types";
 
-// Query parameters for fetching products
+/**
+ * Query parameters for `get-products/`.
+ *
+ * **All filters AND together, and every one is a no-op when blank** — sending
+ * the full set empty returns the unfiltered first page. So an omitted key and an
+ * empty value mean the same thing, which is why each is dropped rather than
+ * stringified below.
+ *
+ * Bad input is a **400**, never a silent fallback: an unparseable boolean used
+ * to read as `false` and quietly serve the inverse screen.
+ */
 export interface GetProductsParams {
   page?: number;
   limit?: number;
-  // Free-text search term, sent to the backend as `?search=...`
+  /**
+   * Free-text, sent as `?search=`. Matches **`name` only** — not SKU and not
+   * description — case-insensitively, on a trimmed substring. Never errors.
+   */
   search?: string;
   // Status filter, sent as `?is_active=True|False`. Omit for "all".
   isActive?: boolean;
-  // Category id filter, sent as `?category=<id>`. Omit for "all".
+  /**
+   * Category id, sent as `?category=<uuid>`. A malformed UUID is a 400; a
+   * well-formed unknown one is a 200 with no rows.
+   */
   category?: string;
+  /**
+   * Catalog scope, sent as `?catalog_type=`. **`regular` and `express` only** —
+   * this list is the general catalog and `marine_emergency` is a 400 here, since
+   * that catalog has its own endpoint. Omit for both.
+   */
+  catalogType?: string;
   // "Deal" filter, sent as `?on_deal=True|False`. Omit for "all".
   onDeal?: boolean;
   // "Top rated" filter, sent as `?is_top_rated=True|False`. Omit for "all".
@@ -26,20 +48,22 @@ export interface GetProductsParams {
 }
 
 /**
- * Query params for `product-stats/`.
- *
- * **Deliberately the same five the list sends** — the endpoint accepts seven
- * (`catalog_type` and `is_express` as well), but this screen's list is the
- * *general* catalog and never scopes by type, so sending either would describe
- * a table that isn't on screen.
+ * Query params for `product-stats/` — **the same filter set the list takes**,
+ * so passing the screen's current filter state through makes the cards describe
+ * the rows in the table beneath them.
  *
  * Passing them at all is the point: the endpoint honoured no query params until
  * 2026-08-14, so filtering the table to 8 express rows left every card reading
  * the unfiltered totals.
+ *
+ * One asymmetry: stats accepts all three `catalog_type` values where the list
+ * accepts two. It does not matter here — the filter bar can only offer what the
+ * list can serve — but it means these params are a subset of what stats allows,
+ * not a mirror of it.
  */
 export type GetProductStatsParams = Pick<
   GetProductsParams,
-  "search" | "isActive" | "category" | "onDeal" | "isTopRated"
+  "search" | "isActive" | "category" | "catalogType" | "onDeal" | "isTopRated"
 >;
 
 /**
@@ -77,6 +101,7 @@ export const productsApi = baseApi.injectEndpoints({
             is_active:
               params.isActive === undefined ? undefined : params.isActive ? "True" : "False",
             category: params.category || undefined,
+            catalog_type: params.catalogType || undefined,
             on_deal: params.onDeal === undefined ? undefined : params.onDeal ? "True" : "False",
             is_top_rated:
               params.isTopRated === undefined ? undefined : params.isTopRated ? "True" : "False",
@@ -138,6 +163,7 @@ export const productsApi = baseApi.injectEndpoints({
           search: params.search || undefined,
           is_active: params.isActive === undefined ? undefined : params.isActive ? "True" : "False",
           category: params.category || undefined,
+          catalog_type: params.catalogType || undefined,
           on_deal: params.onDeal === undefined ? undefined : params.onDeal ? "True" : "False",
           is_top_rated:
             params.isTopRated === undefined ? undefined : params.isTopRated ? "True" : "False",
@@ -237,6 +263,40 @@ export const productsApi = baseApi.injectEndpoints({
     }),
 
     /**
+     * Activate / deactivate — the reversible alternative to delete, and the one
+     * operators actually want when they mean "stop selling this".
+     *
+     * Preferred over `PATCH update-product { is_active }` for a row toggle: this
+     * writes a single column and returns ~20 bytes, where the PATCH re-serialises
+     * the whole product behind a re-fetch that recomputes the deal subquery,
+     * variant count and average rating. It also validates the bool strictly,
+     * where DRF's `BooleanField` would accept `"yes"`.
+     *
+     * Deactivating does **not** cascade to variants — see the endpoint comment.
+     * The row stays listed under `?is_active=false`, which is the whole point of
+     * preferring it to delete.
+     */
+    setProductActive: builder.mutation<
+      { message?: string; is_active?: boolean },
+      { id: string; isActive: boolean }
+    >({
+      query: ({ id, isActive }) => ({
+        url: PRODUCT_ENDPOINTS.SET_ACTIVE(id),
+        method: "POST",
+        body: { is_active: isActive },
+      }),
+      // Liveness gates orderability, so the same surfaces that follow the
+      // sourceable switch follow this one.
+      invalidatesTags: (_r, _e, { id }) => [
+        { type: "Products", id },
+        { type: "Products", id: "PARTIAL-LIST" },
+        { type: "Products", id: "STATS" },
+        { type: "Variants", id: "PARTIAL-LIST" },
+        { type: "ExpressItems", id: "CATALOG-LIST" },
+      ],
+    }),
+
+    /**
      * Flow 17 Build A / 29a §4 — broadcast "{product} is now available" to all
      * customers. No request body. Deliberately manual: flipping sourceable never
      * auto-notifies, so a bulk edit can't spam every sailor.
@@ -297,6 +357,7 @@ export const {
   useSetProductCatalogTypeMutation,
   useSetProductTopRatedMutation,
   useSetProductSourceableMutation,
+  useSetProductActiveMutation,
   useAnnounceProductAvailabilityMutation,
 } = productsApi;
 

@@ -1,6 +1,6 @@
 import type * as React from "react";
-import { Pagination } from "./Pagination";
 import { Button } from "../ui/button";
+import { Pagination } from "./Pagination";
 
 export interface Column<T> {
   id: string;
@@ -59,7 +59,12 @@ export function DataTable<T>({
       <div className="tbl-wrap" style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13.5px" }}>
           <thead>
-            <tr style={{ borderBottom: "1.5px solid var(--border-md)", background: "var(--surface-alt)" }}>
+            <tr
+              style={{
+                borderBottom: "1.5px solid var(--border-md)",
+                background: "var(--surface-alt)",
+              }}
+            >
               {columns.map((col) => (
                 <th
                   key={col.id}
@@ -83,7 +88,14 @@ export function DataTable<T>({
             {isLoading ? (
               <tr>
                 <td colSpan={columns.length} style={{ padding: "48px 24px", textAlign: "center" }}>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "10px",
+                    }}
+                  >
                     <div
                       style={{
                         width: "24px",
@@ -94,15 +106,26 @@ export function DataTable<T>({
                         animation: "lspin 0.8s linear infinite",
                       }}
                     />
-                    <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--t4)" }}>Loading data...</span>
+                    <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--t4)" }}>
+                      Loading data...
+                    </span>
                   </div>
                 </td>
               </tr>
             ) : isError ? (
               <tr>
                 <td colSpan={columns.length} style={{ padding: "48px 24px", textAlign: "center" }}>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
-                    <span style={{ fontSize: "13.5px", fontWeight: 600, color: "var(--danger-text)" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "12px",
+                    }}
+                  >
+                    <span
+                      style={{ fontSize: "13.5px", fontWeight: 600, color: "var(--danger-text)" }}
+                    >
                       {error || "Failed to load data."}
                     </span>
                     {onRetry && (
@@ -116,12 +139,24 @@ export function DataTable<T>({
             ) : data.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} style={{ padding: "48px 24px", textAlign: "center" }}>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
                     <span style={{ fontSize: "14px", fontWeight: 700, color: "var(--t3)" }}>
                       {emptyMessage}
                     </span>
                     {hasActiveFilters && onResetFilters && (
-                      <Button variant="link" size="xs" onClick={onResetFilters} style={{ marginTop: "4px" }}>
+                      <Button
+                        variant="link"
+                        size="xs"
+                        onClick={onResetFilters}
+                        style={{ marginTop: "4px" }}
+                      >
                         Reset Filters
                       </Button>
                     )}
@@ -162,9 +197,13 @@ export function DataTable<T>({
         </table>
       </div>
 
-      {showPagination && !isLoading && !isError && data.length > 0 && page && pages && onPageChange && (
-        <Pagination page={page} pages={pages} onPageChange={onPageChange} />
-      )}
+      {showPagination &&
+        !isLoading &&
+        !isError &&
+        data.length > 0 &&
+        page &&
+        pages &&
+        onPageChange && <Pagination page={page} pages={pages} onPageChange={onPageChange} />}
     </div>
   );
 }

@@ -51,6 +51,17 @@ const SEASON_OPTIONS = [
   { value: "Autumn", label: "Autumn" },
 ];
 
+/**
+ * The catalogs a product can be **created** into. Marine emergency is not one:
+ * it keeps its own category set, and this drawer's category picker lists the
+ * general ones. It is reached afterwards via the catalog dialog, which asks for
+ * a category from the right set.
+ */
+const ADD_CATALOG_OPTIONS = [
+  { value: "regular", label: MESSAGES.COMMON.PRODUCT_PICKER.CATALOG_TYPE.regular },
+  { value: "express", label: MESSAGES.COMMON.PRODUCT_PICKER.CATALOG_TYPE.express },
+];
+
 // API-specified defaults for the create payload.
 const ADD_DEFAULTS: ProductAddFormData = {
   category: "",
@@ -59,8 +70,9 @@ const ADD_DEFAULTS: ProductAddFormData = {
   images: [],
   base_price: 0,
   sku: "",
+  catalog_type: "regular",
   admin_sourceable: true,
-  is_express_item: false,
+  is_top_rated: false,
   attributes: {
     id: "",
     product_name: "",
@@ -123,9 +135,10 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
       description: formData.description,
       images: formData.images.filter(Boolean),
       base_price: formData.base_price,
+      catalog_type: formData.catalog_type,
       admin_sourceable: formData.admin_sourceable,
+      is_top_rated: formData.is_top_rated,
       sku: formData.sku,
-      is_express_item: formData.is_express_item,
       attributes: {
         ...formData.attributes,
         pockets: formData.attributes.pockets.filter(Boolean),
@@ -223,7 +236,13 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
           <section className="prod-tab">
             <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.INVENTORY_PRICING}</div>
             <FormRow>
-              <FormField label="SKU *" error={errors.sku?.message}>
+              {/* Sending a SKU is what makes the product orderable: add-product
+                  creates the first variant from it in the same transaction. */}
+              <FormField
+                label="SKU *"
+                hint={MESSAGES.PRODUCTS.SKU_HINT}
+                error={errors.sku?.message}
+              >
                 <Input
                   className="mono"
                   placeholder="e.g. PANT10"
@@ -235,6 +254,7 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
                 <Input
                   type="number"
                   step="0.01"
+                  min="0.01"
                   placeholder="0.00"
                   error={!!errors.base_price}
                   {...register("base_price")}
@@ -441,23 +461,51 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
               <div className="flex items-center gap-2">
                 <Controller
                   control={control}
-                  name="is_express_item"
+                  name="is_top_rated"
                   render={({ field }) => (
                     <Switch
-                      id="express-item"
+                      id="add-top-rated"
                       checked={field.value}
                       onCheckedChange={field.onChange}
                     />
                   )}
                 />
                 <label
-                  htmlFor="express-item"
+                  htmlFor="add-top-rated"
                   className="text-[13px] font-semibold text-[var(--t2)]"
                 >
-                  {MESSAGES.PRODUCTS.TOGGLES.EXPRESS_ITEM}
+                  {MESSAGES.PRODUCTS.TOGGLES.TOP_RATED}
                 </label>
               </div>
             </FormRow>
+            {/*
+              The catalog the product is created into, replacing an
+              `is_express_item` switch that add-product does not accept — a new
+              product's catalog is chosen by name here.
+
+              Marine emergency is deliberately absent: that catalog keeps its own
+              category set, and the picker above lists the general ones, so
+              offering it here would file a product under a category its catalog
+              does not have. Move a product there afterwards with the row menu's
+              catalog dialog, which asks for the right category.
+            */}
+            <FormField
+              label={MESSAGES.PRODUCT_FLAGS.CATALOG_DIALOG.CATALOG_LABEL}
+              error={errors.catalog_type?.message}
+            >
+              <Controller
+                control={control}
+                name="catalog_type"
+                render={({ field }) => (
+                  <DropdownSelect
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    options={ADD_CATALOG_OPTIONS}
+                    width="100%"
+                  />
+                )}
+              />
+            </FormField>
           </section>
         </div>
 

@@ -49,14 +49,33 @@ export interface Product {
   /** Single thumbnail URL returned by the list serializer (may be null). */
   image?: string | null;
   is_featured?: boolean;
-  // Catalog + merchandising flags returned by get-products (used by the edit form).
+  /** The product's catalog: `regular` | `express` | `marine_emergency`. */
   catalog_type?: string;
+  /**
+   * **Read-only, list rows only, and not a stored field.** The serializer
+   * computes it as `catalog_type === "express"`, which is why the detail read
+   * omits it — there is no column to serialise. Move a product with
+   * `set-catalog-type/`; never send this back.
+   *
+   * Distinct from `ProductDetailVariant.is_express`, which *is* a real column
+   * with its own endpoint — per-variant express eligibility, not catalog scope.
+   */
   is_express?: boolean;
+  /**
+   * **Read-only, list rows only, computed live per request.** True when the
+   * product has at least one variant with a currently-running `DealOfTheDay`
+   * (active, inside its start/end window). Deals are variant-level, so a product
+   * can be partly on deal, and they carry a price, a window and terms that no
+   * boolean can set — the writers are under `promotion/deals/`.
+   */
   on_deal?: boolean;
   is_top_rated?: boolean;
   admin_sourceable?: boolean;
+  /** List rows only; on the detail read, count `variants` instead. */
   variant_count?: number;
   purchase_count?: number;
+  /** Detail read only. Internal products are kept out of the customer catalogue. */
+  is_internal?: boolean;
   /**
    * Nested on the detail read only — the list serializer omits it. Saves the
    * edit drawer a second request to show a product's SKUs.
@@ -70,21 +89,31 @@ export interface ProductListResponseData {
 }
 
 /**
- * Payload contract for PATCH update-product/{id}/.
- * Only these fields are accepted by the API — nothing else is submitted.
- * (`shop` is NOT part of the update contract per the Postman collection.)
+ * Payload contract for PATCH update-product/{id}/ — **these eight keys and no
+ * others**, every one optional, with PUT and PATCH both partial.
+ *
+ * Only changed fields are sent. The endpoint drops unrecognised keys silently
+ * instead of 400ing, so an unsupported field is indistinguishable from an
+ * accepted one at the call site: `{"on_deal": true}` returns 200 having changed
+ * nothing. Narrowing this type is the only thing that catches it.
+ *
+ * Not here, and not writable through this endpoint:
+ * - `catalog_type` — silently dropped; `set-catalog-type/` is the sole writer.
+ * - `is_express` — not a column at all, a serializer alias for
+ *   `catalog_type == express`.
+ * - `on_deal` — a live annotation over the promotion module's deal rows.
+ * - `shop` — not part of the contract per the Postman collection.
  */
-export interface UpdateProductPayload {
+export type UpdateProductPayload = Partial<{
   category: string;
   name: string;
   description: string;
   images: string[];
   base_price: number;
-  is_express: boolean;
-  on_deal: boolean;
-  is_top_rated: boolean;
   admin_sourceable: boolean;
-}
+  is_active: boolean;
+  is_top_rated: boolean;
+}>;
 
 /**
  * Aggregate KPI counts for the products page from GET product-stats/.
@@ -139,16 +168,25 @@ export interface ProductAttributes {
 }
 
 /** Payload contract for POST add-product/. */
+/**
+ * Payload contract for POST add-product/.
+ *
+ * `catalog_type` and `is_top_rated` are part of it; `is_express_item` — which
+ * this payload used to carry — is not, and appears in no endpoint on the
+ * products contract. A new product's catalog is chosen here by name, not by an
+ * express boolean.
+ */
 export interface AddProductPayload {
   category: string;
   name: string;
   description: string;
   images: string[];
   base_price: number;
+  catalog_type: string;
   admin_sourceable: boolean;
+  is_top_rated: boolean;
   sku: string;
   attributes: ProductAttributes;
-  is_express_item: boolean;
 }
 
 export interface ProductListResponse {

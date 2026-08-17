@@ -22,10 +22,11 @@ import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconBoxSeam, IconCheck, IconPackage, IconPhoto } from "@tabler/icons-react";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useGetProductQuery, useUpdateProductMutation } from "../api/productApi";
+import { CATALOG_BADGE_VARIANT, catalogTypeLabel } from "../lib/catalogTypeFilters";
 import { type ProductUpdateFormData, productUpdateSchema } from "../schemas/product.schema";
 import type {
   Product,
@@ -42,11 +43,6 @@ export interface ProductEditDrawerProps {
 
 // Static option lists for the read-only/decorative selects (not part of the
 // update contract — shown for UI consistency only).
-const STATUS_OPTIONS = [
-  { value: "Active", label: "Active" },
-  { value: "Draft", label: "Draft" },
-  { value: "Archived", label: "Archived" },
-];
 const CURRENCY_OPTIONS = [
   { value: "USD", label: "USD ($)" },
   { value: "SGD", label: "SGD (S$)" },
@@ -68,6 +64,8 @@ const PACKAGE_TYPE_OPTIONS = [
   { value: "Custom", label: "Custom" },
 ];
 const VT = MESSAGES.PRODUCTS.VARIANTS_TAB;
+const PR = MESSAGES.PRODUCTS.RECORD;
+const DASH = MESSAGES.PRODUCTS.DASH;
 
 /** Extract the stored relative path (e.g. "product_images/x.png") from an image. */
 function toImagePath(img: ProductImage | string): string {
@@ -113,7 +111,22 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
   const { data: detail, isFetching: isLoadingDetail } = useGetProductQuery(product.id, {
     skip: !isOpen,
   });
-  const source = detail ?? product;
+  /**
+   * The list row and the detail merged, the detail winning on every key it
+   * actually sends.
+   *
+   * `detail ?? product` looked equivalent and was not: `get-product/<id>/`
+   * returns neither `on_deal` nor a product-level `is_express`, so the moment
+   * the detail landed both reset to `false` — and both are on the update
+   * contract. Saving a description therefore dropped the product out of the
+   * deal carousel and out of the express catalog, silently, having never shown
+   * the operator a flag they'd changed.
+   *
+   * Spreading keeps the row's value for any key the detail omits; a key the
+   * detail does send still wins, `false` included. Memoised because the reset
+   * effect below depends on this object's identity.
+   */
+  const source = useMemo(() => ({ ...product, ...detail }), [product, detail]);
   // Nested on the detail read, so the tab needs no request of its own; the list
   // row that seeds `product` never carries them.
   const variants: ProductDetailVariant[] = detail?.variants ?? [];
@@ -130,7 +143,8 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
     reset,
     watch,
     setValue,
-    formState: { errors },
+    // `dirtyFields` drives the PATCH body — see onSubmit.
+    formState: { errors, dirtyFields },
   } = useForm<ProductUpdateFormData>({
     resolver: zodResolver(productUpdateSchema),
   });
@@ -151,9 +165,9 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
       description: source.description ?? "",
       base_price: Number(source.base_price) || 0,
       images: rawImages.map(toImagePath).filter(Boolean),
-      // Flags come back from get-products, so these reflect the real current state.
-      is_express: source.is_express ?? false,
-      on_deal: source.on_deal ?? false,
+      // The three writable flags. `is_express` and `on_deal` are not among them
+      // — both are computed server-side and have no write path here.
+      is_active: source.is_active ?? true,
       is_top_rated: source.is_top_rated ?? false,
       admin_sourceable: source.admin_sourceable ?? true,
     });
@@ -163,19 +177,34 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
   const setImages = (next: string[]) => setValue("images", next, { shouldDirty: true });
 
   const onSubmit = async (formData: ProductUpdateFormData) => {
-    // Strictly the API contract — only the supported fields, nothing from the
-    // read-only UI state leaks into the request.
-    const payload: UpdateProductPayload = {
-      category: formData.category,
-      name: formData.name,
-      description: formData.description,
-      base_price: formData.base_price,
-      images: formData.images.filter(Boolean),
-      is_express: formData.is_express,
-      on_deal: formData.on_deal,
-      is_top_rated: formData.is_top_rated,
-      admin_sourceable: formData.admin_sourceable,
-    };
+    /**
+     * **Only the fields the operator actually changed**, out of the eight this
+     * endpoint accepts.
+     *
+     * update-product is a partial update whose reference body is two keys.
+     * Sending a fixed body asserted values for fields nobody touched, and the
+     * API drops unknown keys silently rather than 400ing — so neither the
+     * over-sending nor the two unsupported flags it carried would ever have
+     * surfaced as an error. Dirty-only keeps the request an accurate record of
+     * the edit.
+     */
+    const payload: UpdateProductPayload = {};
+    if (dirtyFields.category) payload.category = formData.category;
+    if (dirtyFields.name) payload.name = formData.name;
+    if (dirtyFields.description) payload.description = formData.description;
+    if (dirtyFields.base_price) payload.base_price = formData.base_price;
+    if (dirtyFields.images) payload.images = formData.images.filter(Boolean);
+    if (dirtyFields.is_active) payload.is_active = formData.is_active;
+    if (dirtyFields.is_top_rated) payload.is_top_rated = formData.is_top_rated;
+    if (dirtyFields.admin_sourceable) payload.admin_sourceable = formData.admin_sourceable;
+
+    // Nothing edited: an empty PATCH would be a round trip that says nothing
+    // and a success toast for a change that never happened.
+    if (Object.keys(payload).length === 0) {
+      toast.info(MESSAGES.PRODUCTS.TOAST.NO_CHANGES);
+      onClose();
+      return;
+    }
 
     try {
       const response = await updateProduct({ id: product.id, body: payload }).unwrap();
@@ -278,12 +307,6 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                   />
                 </FormField>
               </FormRow>
-              <FormRow>
-                <FormField label="Status" hint="Read-only — not sent on update">
-                  <DropdownSelect options={STATUS_OPTIONS} value="Active" width="100%" disabled />
-                </FormField>
-              </FormRow>
-
               <div className="sec-label mt-2">{MESSAGES.PRODUCTS.SECTIONS.FLAGS}</div>
               <div className="grid grid-cols-2 gap-3">
                 <Controller
@@ -305,40 +328,33 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                     </div>
                   )}
                 />
+                {/*
+                  `is_active` replaces the Express and On Deal switches that used
+                  to sit here. Neither of those was writable — Express is a
+                  serializer alias for the catalog type and On Deal is a live
+                  annotation over the promotion module — and update-product drops
+                  unknown keys without complaint, so both switches moved, saved,
+                  reported success and changed nothing.
+
+                  `is_active` is on the update contract and had no control at all,
+                  which left deactivating a product impossible from the admin: the
+                  only other route was delete, which is terminal.
+                */}
                 <Controller
                   control={control}
-                  name="is_express"
+                  name="is_active"
                   render={({ field }) => (
                     <div className="flex items-center gap-2">
                       <Switch
-                        id="pf-express"
+                        id="pf-is-active"
                         checked={field.value}
                         onCheckedChange={field.onChange}
                       />
                       <label
-                        htmlFor="pf-express"
+                        htmlFor="pf-is-active"
                         className="text-[13px] font-semibold text-[var(--t2)]"
                       >
-                        {MESSAGES.PRODUCTS.TOGGLES.EXPRESS}
-                      </label>
-                    </div>
-                  )}
-                />
-                <Controller
-                  control={control}
-                  name="on_deal"
-                  render={({ field }) => (
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        id="pf-on-deal"
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                      <label
-                        htmlFor="pf-on-deal"
-                        className="text-[13px] font-semibold text-[var(--t2)]"
-                      >
-                        {MESSAGES.PRODUCTS.TOGGLES.ON_DEAL}
+                        {MESSAGES.PRODUCTS.TOGGLES.ACTIVE}
                       </label>
                     </div>
                   )}
@@ -363,6 +379,84 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                   )}
                 />
               </div>
+
+              {/*
+                The system-set half of the record: everything `get-product/` sends
+                that the update contract will not take back. Read-only by nature,
+                not by omission — the hint says which, so a figure that cannot be
+                typed over doesn't read as a broken field.
+
+                It replaces a "Status" dropdown that was pinned to the literal
+                "Active" for every product, inactive ones included, and offered
+                Draft/Archived states this API has no concept of.
+              */}
+              <div className="sec-label mt-2">{PR.TITLE}</div>
+              <div className="detail-kv">
+                <div className="detail-k">{PR.CATALOG_TYPE}</div>
+                <div className="detail-v">
+                  <Badge
+                    variant={CATALOG_BADGE_VARIANT[source.catalog_type ?? ""] ?? "neutral"}
+                    className="text-[10px] h-[22px]"
+                  >
+                    {catalogTypeLabel(source.catalog_type) ?? DASH}
+                  </Badge>
+                </div>
+              </div>
+              {/*
+                Deals are variant-level and live: this says whether any variant
+                has a running one right now, which is why it can be true for a
+                product whose other SKUs are at full price. Shown, never edited —
+                a deal carries a price and a window that a switch cannot express.
+              */}
+              <div className="detail-kv">
+                <div className="detail-k">{PR.ON_DEAL}</div>
+                <div className="detail-v">
+                  {source.on_deal ? (
+                    <Badge variant="amber" className="text-[10px] h-[22px]">
+                      {MESSAGES.PRODUCTS.DEAL_YES}
+                    </Badge>
+                  ) : (
+                    PR.NO_DEAL
+                  )}
+                  <div className="fg-hint mt-1">{PR.DEAL_HINT}</div>
+                </div>
+              </div>
+              <div className="detail-kv">
+                <div className="detail-k">{PR.RATING}</div>
+                {/* 0 is "no ratings yet", not a score — saying so beats "0.0". */}
+                <div className="detail-v">
+                  {Number(source.average_rating) > 0
+                    ? Number(source.average_rating).toFixed(1)
+                    : PR.UNRATED}
+                </div>
+              </div>
+              <div className="detail-kv">
+                <div className="detail-k">{PR.PURCHASES}</div>
+                <div className="detail-v">{source.purchase_count ?? 0}</div>
+              </div>
+              <div className="detail-kv">
+                <div className="detail-k">{PR.VARIANTS}</div>
+                {/* Count the nested array once the detail lands; until then the
+                    row's own `variant_count` is the only figure available. */}
+                <div className="detail-v">
+                  {detail ? variants.length : (source.variant_count ?? 0)}
+                </div>
+              </div>
+              <div className="detail-kv">
+                <div className="detail-k">{PR.INTERNAL}</div>
+                <div className="detail-v">
+                  {source.is_internal ? PR.INTERNAL_YES : PR.INTERNAL_NO}
+                </div>
+              </div>
+              <div className="detail-kv">
+                <div className="detail-k">{PR.CREATED}</div>
+                <div className="detail-v">{source.created_at ?? DASH}</div>
+              </div>
+              <div className="detail-kv">
+                <div className="detail-k">{PR.UPDATED}</div>
+                <div className="detail-v">{source.updated_at ?? DASH}</div>
+              </div>
+              <p className="fg-hint mt-2">{PR.HINT}</p>
             </div>
           )}
 
@@ -400,6 +494,8 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                   <Input
                     type="number"
                     step="0.01"
+                    // The API's floor is 0.01, not 0 — a free product is a 400.
+                    min="0.01"
                     placeholder="0.00"
                     error={!!errors.base_price}
                     {...register("base_price")}
@@ -606,6 +702,20 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                                       <div className="detail-k">{VT.DETAIL.ACTIVE}</div>
                                       <div className="detail-v">
                                         {variant.is_active ? VT.YES : VT.NO}
+                                        {/*
+                                          Deactivating a product does not cascade
+                                          to its variants — they keep their own
+                                          `is_active`. Ordering is still blocked
+                                          (the Orderable badge above is the AND of
+                                          both), but an Active child under an
+                                          Inactive parent reads as a bug unless
+                                          the inheritance is stated.
+                                        */}
+                                        {variant.is_active && source.is_active === false && (
+                                          <div className="fg-hint mt-1">
+                                            {VT.DETAIL.INHERITED_INACTIVE}
+                                          </div>
+                                        )}
                                       </div>
                                     </div>
                                     <div className="detail-kv">

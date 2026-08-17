@@ -18,7 +18,17 @@ export function Pagination({ page, pages, onPageChange }: PaginationProps) {
   }
 
   return (
-    <div className="pagination" style={{ display: "flex", alignItems: "center", gap: "4px", justifyContent: "flex-end", padding: "14px 20px", borderTop: "1px solid var(--border-xs)" }}>
+    <div
+      className="pagination"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "4px",
+        justifyContent: "flex-end",
+        padding: "14px 20px",
+        borderTop: "1px solid var(--border-xs)",
+      }}
+    >
       {/* Prev button */}
       <button
         type="button"

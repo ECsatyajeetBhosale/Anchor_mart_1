@@ -1,4 +1,5 @@
 import type { SearchableSelectFilter } from "@/components/common/SearchableSelect";
+import type { BadgeProps } from "@/components/ui/badge";
 import { MESSAGES } from "@/lib/messages";
 
 const P = MESSAGES.COMMON.PRODUCT_PICKER;
@@ -21,3 +22,15 @@ export const CATALOG_TYPE_FILTERS: SearchableSelectFilter[] = [
 export function catalogTypeLabel(type?: string): string | undefined {
   return type ? P.CATALOG_TYPE[type] : undefined;
 }
+
+/**
+ * Catalog badge colours, shared so a type reads the same on the products table
+ * and in the edit drawer, and matching the KPI cards above the table. An unknown
+ * type falls back to neutral rather than borrowing a colour that would imply a
+ * catalog it isn't in.
+ */
+export const CATALOG_BADGE_VARIANT: Record<string, BadgeProps["variant"]> = {
+  regular: "blue",
+  express: "purple",
+  marine_emergency: "danger",
+};

@@ -60,10 +60,16 @@ const ACTION_ORDER: RowActionKey[] = [
   "delete",
 ];
 
-/** Per-page config for one action: a bare handler, or a handler + title override. */
+/**
+ * Per-page config for one action: a bare handler, or a handler plus overrides.
+ *
+ * `overflow` is per-page rather than per-action-type on purpose — whether Delete
+ * belongs behind a menu depends on what else the row offers and how recoverable
+ * it is, which the catalog can't know.
+ */
 export type RowActionConfig<T> =
   | ((e: React.MouseEvent, row: T) => void)
-  | { onClick: (e: React.MouseEvent, row: T) => void; title?: string };
+  | { onClick: (e: React.MouseEvent, row: T) => void; title?: string; overflow?: boolean };
 
 export interface RowActionsProps<T> {
   row: T;
@@ -80,6 +86,7 @@ export function RowActions<T>({ row, actions }: RowActionsProps<T>) {
       title: (isFn ? undefined : cfg.title) ?? ACTION_CATALOG[key].title,
       variant: ACTION_CATALOG[key].variant,
       onClick: isFn ? cfg : cfg.onClick,
+      overflow: isFn ? undefined : cfg.overflow,
     };
   });
 

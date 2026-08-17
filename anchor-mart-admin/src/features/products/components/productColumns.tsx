@@ -3,21 +3,23 @@ import {
   actionsColumn,
   badgeColumn,
   currencyColumn,
-  statusColumn,
   twoLineColumn,
 } from "@/components/common/tableColumns";
 import { Badge } from "@/components/ui/badge";
 import type { Column } from "@/components/ui/data-table";
 import { Switch } from "@/components/ui/switch";
 import { MESSAGES } from "@/lib/messages";
-import { IconDeviceSpeaker, IconStar } from "@tabler/icons-react";
+import { IconDeviceSpeaker, IconStar, IconTag } from "@tabler/icons-react";
 import type React from "react";
+import { CATALOG_BADGE_VARIANT, catalogTypeLabel } from "../lib/catalogTypeFilters";
 import type { Product } from "../types/product.types";
 
 const STATUS_FILTER_OPTIONS = [
   { label: MESSAGES.PRODUCTS.STATUS_FILTER.ACTIVE, value: "active" },
   { label: MESSAGES.PRODUCTS.STATUS_FILTER.INACTIVE, value: "inactive" },
 ];
+
+const DASH = MESSAGES.PRODUCTS.DASH;
 
 /**
  * Product thumbnail: the primary image, else the first, else the list
@@ -56,6 +58,12 @@ export interface UseProductColumnsOptions {
   onToggleTopRated: (product: Product, next: boolean) => void;
   /** Flips the product-level sourceable master switch. */
   onToggleSourceable: (product: Product, next: boolean) => void;
+  /**
+   * Activates / deactivates the product — the reversible alternative to delete.
+   * Unlike the other two toggles this has no dedicated endpoint yet, so it goes
+   * through update-product; see the handler.
+   */
+  onToggleActive: (product: Product, next: boolean) => void;
 }
 
 /**
@@ -72,6 +80,7 @@ export function useProductColumns({
   onAnnounce,
   onToggleTopRated,
   onToggleSourceable,
+  onToggleActive,
   canDelete = true,
 }: UseProductColumnsOptions): Column<Product>[] {
   return [
@@ -91,7 +100,12 @@ export function useProductColumns({
       id: "name",
       header: MESSAGES.PRODUCTS.COLUMNS.PRODUCT,
       primary: (row) => row.name,
-      secondary: (row) => row.description,
+      /**
+       * Created date, not `description`: the list serializer omits description
+       * entirely (it is a detail-only field), so this second line rendered blank
+       * on every row of the table it was written for.
+       */
+      secondary: (row) => row.created_at ?? DASH,
     }),
     badgeColumn({
       id: "category",
@@ -99,25 +113,86 @@ export function useProductColumns({
       get: (row) => row.category_name,
       variant: "navy",
     }),
+    {
+      id: "catalog",
+      header: MESSAGES.PRODUCTS.COLUMNS.CATALOG,
+      /*
+        `catalog_type` alone. There is no companion `is_express` chip because
+        there is nothing for it to add: the serializer defines `is_express` as
+        `catalog_type === "express"`, so a chip conditioned on the two
+        disagreeing is a branch that can never be taken.
+      */
+      cell: (row) => (
+        <Badge
+          variant={CATALOG_BADGE_VARIANT[row.catalog_type ?? ""] ?? "neutral"}
+          className="text-[10px] h-[24px]"
+        >
+          {catalogTypeLabel(row.catalog_type) ?? DASH}
+        </Badge>
+      ),
+    },
     currencyColumn({
       id: "price",
       header: MESSAGES.PRODUCTS.COLUMNS.PRICE,
       get: (row) => row.base_price,
     }),
     {
-      id: "featured",
-      header: MESSAGES.PRODUCTS.COLUMNS.FEATURED,
+      id: "variants",
+      header: MESSAGES.PRODUCTS.COLUMNS.VARIANTS,
+      // The SKU count the row menu's variant manager opens onto.
+      cell: (row) => <span className="td-p">{row.variant_count ?? 0}</span>,
+      className: "text-center",
+      headerClassName: "text-center",
+    },
+    {
+      id: "purchases",
+      header: MESSAGES.PRODUCTS.COLUMNS.PURCHASES,
+      cell: (row) => <span className="td-p">{row.purchase_count ?? 0}</span>,
+      className: "text-center",
+      headerClassName: "text-center",
+    },
+    {
+      id: "rating",
+      header: MESSAGES.PRODUCTS.COLUMNS.RATING,
+      /**
+       * Replaces the old Featured column, which read `is_featured || rating >=
+       * 4.5` — but `is_featured` is not on the list payload, so the pill turned
+       * on the rating alone and every row without one showed a dash that looked
+       * like a flag being off. The number is the honest version of the same
+       * signal; it still goes amber past the 4.5 the pill used, and an unrated
+       * product shows a dash rather than 0.0, which would read as "rated badly".
+       */
       cell: (row) => {
-        const isFeatured = row.is_featured || row.average_rating >= 4.5;
-        return isFeatured ? (
-          <Badge variant="amber" className="gap-1 h-[24px]">
+        const rating = Number(row.average_rating ?? 0);
+        if (!rating) return <span className="td-m">{DASH}</span>;
+        return (
+          <span
+            className={`td-p inline-flex items-center gap-1 tabular-nums ${
+              rating >= 4.5 ? "text-[var(--amber-700)]" : ""
+            }`}
+          >
             <IconStar size={12} fill="currentColor" />
-            {MESSAGES.PRODUCTS.FEATURED_YES}
-          </Badge>
-        ) : (
-          <span className="td-m">—</span>
+            {rating.toFixed(1)}
+          </span>
         );
       },
+      className: "text-center",
+      headerClassName: "text-center",
+    },
+    {
+      id: "deal",
+      header: MESSAGES.PRODUCTS.COLUMNS.DEAL,
+      // Read-only: the flag is part of the update contract, so it is edited in
+      // the drawer. On the row it exists to explain the "Deal Products" tab.
+      cell: (row) =>
+        row.on_deal ? (
+          <Badge variant="amber" className="gap-1 h-[24px]">
+            <IconTag size={12} />
+            {MESSAGES.PRODUCTS.DEAL_YES}
+          </Badge>
+        ) : (
+          <span className="td-m">{DASH}</span>
+        ),
     },
     {
       id: "topRated",
@@ -142,18 +217,35 @@ export function useProductColumns({
         />
       ),
     },
-    statusColumn({
+    {
       id: "status",
       header: MESSAGES.PRODUCTS.COLUMNS.STATUS,
-      get: (row) => row.is_active,
-      badgeClassName: "text-[10px] h-[24px]",
+      /**
+       * A switch, not a badge — deactivating is the action operators actually
+       * want and it had no control anywhere in the admin.
+       *
+       * The asymmetry this fixes: delete was a one-click row icon, is terminal
+       * (soft-delete with no restore endpoint, and every admin queryset filters
+       * deleted rows out, so it hides its own evidence), and runs with no check
+       * for open orders or running deals. Deactivating does the job people mean
+       * — `is_orderable()` ANDs product liveness, so it blocks add-to-cart and
+       * checkout — and is reversible. The safe action now sits where the
+       * destructive one used to, and delete has moved behind the overflow menu.
+       */
+      cell: (row) => (
+        <Switch
+          checked={row.is_active !== false}
+          onCheckedChange={(next) => onToggleActive(row, next)}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
       // Server-side status filter via the clickable header (?is_active=True|False).
       filter: {
         value: statusFilter,
         options: STATUS_FILTER_OPTIONS,
         onChange: onStatusFilter,
       },
-    }),
+    },
     actionsColumn({
       header: MESSAGES.PRODUCTS.COLUMNS.ACTIONS,
       actions: () => ({
@@ -168,6 +260,10 @@ export function useProductColumns({
           ? {
               delete: {
                 title: MESSAGES.PRODUCTS.ACTION_REMOVE,
+                // Behind the overflow menu: irreversible, unguarded server-side
+                // (no check for open orders, carts or running deals), and almost
+                // never the intent — the Active switch is.
+                overflow: true,
                 onClick: (e: React.MouseEvent, r: Product) => onDelete(e, r.id),
               },
             }

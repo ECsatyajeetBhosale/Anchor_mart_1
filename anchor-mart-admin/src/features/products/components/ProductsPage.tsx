@@ -6,10 +6,23 @@ import { StatsGrid } from "@/components/common/StatsGrid";
 import { DataTable } from "@/components/ui/data-table";
 import { useGetCategoriesQuery } from "@/features/catalog";
 import { ProductVariantsDrawer } from "@/features/variants";
-import { getApiMessage } from "@/lib/apiError";
+import { getApiMessage, getApiStatus } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
-import { IconBoxSeam, IconCategory, IconPlus, IconStar } from "@tabler/icons-react";
+import {
+  IconAlertTriangle,
+  IconAnchor,
+  IconBolt,
+  IconBoxSeam,
+  IconCategory,
+  IconCategory2,
+  IconCircleCheck,
+  IconClock,
+  IconFlame,
+  IconPlus,
+  IconStar,
+  IconTag,
+} from "@tabler/icons-react";
 import React, { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -18,6 +31,7 @@ import {
   useDeleteProductMutation,
   useGetProductStatsQuery,
   useGetProductsQuery,
+  useSetProductActiveMutation,
   useSetProductSourceableMutation,
   useSetProductTopRatedMutation,
 } from "../api/productApi";
@@ -33,6 +47,17 @@ const productTabs = [
 ];
 
 const PS = MESSAGES.PRODUCTS.STATS;
+
+/**
+ * Catalog scopes this list can serve. `marine_emergency` is deliberately absent:
+ * `get-products/` 400s on it, since the emergency catalog has its own endpoint
+ * and its own screen.
+ */
+const catalogOptions = [
+  { value: "all", label: MESSAGES.PRODUCTS.ALL_CATALOGS },
+  { value: "regular", label: MESSAGES.COMMON.PRODUCT_PICKER.CATALOG_TYPE.regular },
+  { value: "express", label: MESSAGES.COMMON.PRODUCT_PICKER.CATALOG_TYPE.express },
+];
 
 const LIMIT = 10;
 
@@ -53,6 +78,7 @@ export function ProductsPage() {
 
   const [setTopRated] = useSetProductTopRatedMutation();
   const [setSourceable] = useSetProductSourceableMutation();
+  const [setActive] = useSetProductActiveMutation();
   const [announceAvailability, { isLoading: isAnnouncing }] =
     useAnnounceProductAvailabilityMutation();
   const [deleteProduct, { isLoading: isDeleting }] = useDeleteProductMutation();
@@ -61,6 +87,7 @@ export function ProductsPage() {
   const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
   const searchTerm = searchParams.get("search") ?? "";
   const categoryFilter = searchParams.get("category") ?? "all"; // category id, or "all"
+  const catalogFilter = searchParams.get("catalog") ?? ""; // "", "regular", "express"
   const statusFilter = searchParams.get("status") ?? ""; // "", "active", "inactive"
 
   const isActive =
@@ -70,19 +97,36 @@ export function ProductsPage() {
   const onDeal = activeTab === "deal" ? true : undefined;
   const isTopRated = activeTab === "top_rated" ? true : undefined;
 
-  // Products list — search, status, category, deal, and top-rated all filter server-side.
+  /**
+   * All six filters the endpoint offers, in one object.
+   *
+   * They AND together server-side, and each is a no-op when blank — so "all"
+   * is expressed by omitting the key, never by sending an empty string. Bad
+   * input is a 400 rather than a silent fallback, which is why the two enum
+   * filters are driven by fixed option lists rather than free text.
+   */
   const listFilters = {
     search: searchTerm,
     isActive,
     category: categoryFilter !== "all" ? categoryFilter : undefined,
+    catalogType: catalogFilter || undefined,
     onDeal,
     isTopRated,
   };
-  const { data, isLoading, isError, refetch } = useGetProductsQuery({
-    page,
-    limit: LIMIT,
-    ...listFilters,
-  });
+  const { data, isLoading, isError, error, refetch } = useGetProductsQuery(
+    {
+      page,
+      limit: LIMIT,
+      ...listFilters,
+    },
+    /**
+     * `on_deal` is an EXISTS against a deal's live start/end window, so a row
+     * can enter or leave the Deal Products tab with no write to the product and
+     * nothing to invalidate the cache. Re-fetching on mount keeps a returning
+     * operator from acting on a deal state that expired while they were away.
+     */
+    { refetchOnMountOrArgChange: true },
+  );
 
   /**
    * KPI counts, given **the table's own filters** — one object, so the cards
@@ -91,7 +135,11 @@ export function ProductsPage() {
    * The endpoint took no query params until 2026-08-14: filtering the table to
    * eight express rows left every card showing the unfiltered totals.
    */
-  const { data: productStats } = useGetProductStatsQuery(listFilters);
+  const { data: productStats } = useGetProductStatsQuery(listFilters, {
+    // Same live-deal reasoning as the list: the on-deal counts are computed per
+    // request, so a cached card can outlive the window it counted.
+    refetchOnMountOrArgChange: true,
+  });
 
   // Category options for the filter dropdown (value = id, label = name).
   const { data: categoriesData } = useGetCategoriesQuery({ limit: 100 });
@@ -107,6 +155,25 @@ export function ProductsPage() {
   const productsData: Product[] = data?.results?.data ?? [];
   const totalCount = data?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / LIMIT));
+
+  /**
+   * A page past the end is a **404**, not an empty page and not a 400.
+   *
+   * Reachable without doing anything wrong: delete the last row on the last
+   * page, or open a bookmarked `?page=4` after the catalog shrank. The table
+   * would otherwise show "Failed to fetch products" with a Retry button that
+   * retries the same doomed request forever.
+   *
+   * Recovering to page 1 rather than surfacing the error — the operator asked
+   * for a list of products, and page 1 of that list is a truthful answer to it.
+   */
+  const isPageOutOfRange = getApiStatus(error) === 404;
+  React.useEffect(() => {
+    if (!isPageOutOfRange || page === 1) return;
+    const next = new URLSearchParams(searchParams);
+    next.set("page", "1");
+    setSearchParams(next, { replace: true });
+  }, [isPageOutOfRange, page, searchParams, setSearchParams]);
 
   // Client-side refinement: a category fallback that still works if the backend
   // ignores the `?category=` filter. (Deal/top-rated are now server-side.)
@@ -130,6 +197,16 @@ export function ProductsPage() {
       next.delete(key);
     }
     setSearchParams(next);
+  };
+
+  /**
+   * Drop every filter param at once and return to page 1.
+   *
+   * Rebuilt from scratch rather than deleted key by key, so a filter added later
+   * cannot survive a Reset by being forgotten here.
+   */
+  const handleResetFilters = () => {
+    setSearchParams(new URLSearchParams({ page: "1" }));
   };
 
   const handlePageChange = (newPage: number) => {
@@ -193,6 +270,28 @@ export function ProductsPage() {
     }
   };
 
+  /**
+   * Activate / deactivate from the row — via `set-active/`, so all three row
+   * toggles now share one shape: strict bool in, one column written, small
+   * response out. It replaces a single-key `PATCH update-product`, which was
+   * correct but re-serialised the whole product behind a re-fetch per click.
+   *
+   * The endpoint's own copy is preferred when it sends some; the fallback for
+   * deactivating spells out the consequence, because "updated" understates a
+   * change that takes the product off sale.
+   */
+  const handleToggleActive = async (product: Product, next: boolean) => {
+    try {
+      const res = await setActive({ id: product.id, isActive: next }).unwrap();
+      toast.success(
+        getApiMessage(res) ??
+          (next ? MESSAGES.PRODUCTS.TOAST.ACTIVATED : MESSAGES.PRODUCTS.TOAST.DEACTIVATED),
+      );
+    } catch (error) {
+      toast.error(getApiMessage(error) ?? MESSAGES.PRODUCTS.TOAST.ACTIVE_ERROR);
+    }
+  };
+
   const handleToggleSourceable = async (product: Product, next: boolean) => {
     try {
       await setSourceable({ id: product.id, adminSourceable: next }).unwrap();
@@ -245,60 +344,113 @@ export function ProductsPage() {
     },
     onToggleTopRated: handleToggleTopRated,
     onToggleSourceable: handleToggleSourceable,
+    onToggleActive: handleToggleActive,
     canDelete: canManageCatalog,
   });
 
+  /**
+   * One card per figure the product-stats endpoint returns — all eleven, flat.
+   *
+   * They were three cards with the other eight folded in as sub-lines; a
+   * breakdown row renders at 11.5px against the card's own number, so eight of
+   * the eleven counts were the hardest ones on the page to read. Flat, each
+   * figure gets the same weight, and `cols-4` wraps them 4 + 4 + 3 at one width.
+   *
+   * Colour carries the grouping the nesting used to: navy/green for the totals,
+   * blue → purple → red across the catalog types, amber/teal for merchandising,
+   * then the category trio echoing teal/blue/red.
+   *
+   * A missing stats response leaves every value at "-" rather than 0 — an
+   * unanswered call must not read as "you have none".
+   */
   const statItems = [
     {
       id: "total-products",
-      label: MESSAGES.PRODUCTS.STATS.TOTAL_PRODUCTS,
+      /**
+       * **This total spans all three catalogs; the table below serves two.**
+       * Unfiltered it reads 50 over a list of 36 — the 14 marine-emergency
+       * products have their own screen and their own endpoint. The three
+       * catalog-type cards below say where the difference goes; hiding it by
+       * narrowing the count would under-report the catalog.
+       */
+      label: PS.TOTAL_PRODUCTS,
       // Prefer the stats API total; fall back to the paginated list count.
       value: productStats?.total ?? totalCount,
       icon: <IconBoxSeam size={19} />,
       variant: "navy" as const,
-      /**
-       * **This total spans all three catalogs; the table below serves two.**
-       * Unfiltered it reads 50 over a list of 36 — the 14 marine-emergency
-       * products have their own screen and their own endpoint.
-       *
-       * The breakdown is the explanation: without it the two numbers look like
-       * arithmetic that does not add up, and the honest fix is to say where the
-       * difference goes rather than to hide it by narrowing the count.
-       */
-      breakdown: productStats
-        ? [
-            { label: PS.REGULAR, value: String(productStats.regular) },
-            { label: PS.EXPRESS, value: String(productStats.express) },
-            { label: PS.EMERGENCY, value: String(productStats.emergency) },
-          ]
-        : undefined,
     },
     {
-      id: "total-categories",
-      // The category **taxonomy**, not products — the one figure here that does
-      // not follow the filter bar, because a product filter has no meaning for
-      // it. Labelled so a number that stays put doesn't read as stuck.
-      label: MESSAGES.PRODUCTS.STATS.TOTAL_CATEGORIES,
-      value: productStats?.total_categories ?? categoriesData?.count ?? categories.length,
-      icon: <IconCategory size={19} />,
-      variant: "teal" as const,
-      breakdown: productStats
-        ? [
-            { label: PS.GENERAL_CATEGORIES, value: String(productStats.general_categories) },
-            {
-              label: PS.EMERGENCY_CATEGORIES,
-              value: String(productStats.marine_emergency_categories),
-            },
-          ]
-        : undefined,
+      id: "active-products",
+      label: PS.ACTIVE,
+      value: productStats?.active ?? "-",
+      icon: <IconCircleCheck size={19} />,
+      variant: "green" as const,
     },
     {
-      id: "featured-deals",
-      label: MESSAGES.PRODUCTS.STATS.FEATURED_DEALS,
-      // Top-rated ("featured") count from the stats API.
+      id: "regular-products",
+      label: PS.REGULAR,
+      value: productStats?.regular ?? "-",
+      icon: <IconClock size={19} />,
+      variant: "blue" as const,
+    },
+    {
+      id: "express-products",
+      label: PS.EXPRESS,
+      value: productStats?.express ?? "-",
+      icon: <IconBolt size={19} />,
+      variant: "purple" as const,
+    },
+    {
+      id: "emergency-products",
+      label: PS.EMERGENCY,
+      value: productStats?.emergency ?? "-",
+      icon: <IconAlertTriangle size={19} />,
+      variant: "red" as const,
+    },
+    {
+      id: "top-rated-products",
+      label: PS.TOP_RATED,
       value: productStats?.top_rated ?? "-",
       icon: <IconStar size={19} />,
       variant: "amber" as const,
+    },
+    {
+      id: "on-deal-products",
+      label: PS.ON_DEAL,
+      value: productStats?.on_deal ?? "-",
+      icon: <IconTag size={19} />,
+      variant: "teal" as const,
+    },
+    {
+      id: "deal-of-the-day-products",
+      label: PS.DEAL_OF_THE_DAY,
+      value: productStats?.deal_of_the_day ?? "-",
+      icon: <IconFlame size={19} />,
+      variant: "amber" as const,
+    },
+    {
+      id: "total-categories",
+      // The category **taxonomy**, not products — these three are the figures
+      // that do not follow the filter bar, because a product filter has no
+      // meaning for them. Labelled so numbers that stay put don't read as stuck.
+      label: PS.TOTAL_CATEGORIES,
+      value: productStats?.total_categories ?? categoriesData?.count ?? categories.length,
+      icon: <IconCategory size={19} />,
+      variant: "teal" as const,
+    },
+    {
+      id: "general-categories",
+      label: PS.GENERAL_CATEGORIES,
+      value: productStats?.general_categories ?? "-",
+      icon: <IconCategory2 size={19} />,
+      variant: "blue" as const,
+    },
+    {
+      id: "emergency-categories",
+      label: PS.EMERGENCY_CATEGORIES,
+      value: productStats?.marine_emergency_categories ?? "-",
+      icon: <IconAnchor size={19} />,
+      variant: "red" as const,
     },
   ];
 
@@ -320,9 +472,40 @@ export function ProductsPage() {
                 placeholder: MESSAGES.PRODUCTS.ALL_CATEGORIES,
                 options: categoryOptions,
                 width: "160px",
+                // Both dropdowns say "not filtering" with "all", not "" — without
+                // this the Reset button would offer itself on a pristine toolbar.
+                emptyValue: "all",
                 onValueChange: (val) => setFilterParam("category", val === "all" ? "" : val),
               },
+              {
+                /**
+                 * Catalog scope. The endpoint has always accepted
+                 * `?catalog_type=`; nothing sent it, so the Catalog column was
+                 * visible and unfilterable.
+                 *
+                 * Two values only — this list is the general catalog, and
+                 * `marine_emergency` is a 400 here rather than an empty page,
+                 * because those products are served by the Spares screen.
+                 */
+                id: "catalog",
+                value: catalogFilter || "all",
+                placeholder: MESSAGES.PRODUCTS.ALL_CATALOGS,
+                options: catalogOptions,
+                width: "140px",
+                emptyValue: "all",
+                onValueChange: (val) => setFilterParam("catalog", val === "all" ? "" : val),
+              },
             ]}
+            /**
+             * Clears **every** filter, the Status one in the column header
+             * included. Status lives outside this toolbar, but it is the same
+             * URL state on the same screen and an operator thinks of the set as
+             * one thing — a Reset that left one narrowing in place would be the
+             * exact confusion the button exists to prevent. `isFiltered` reports
+             * it upward so Reset appears when only Status is set.
+             */
+            isFiltered={!!statusFilter}
+            onReset={handleResetFilters}
           >
             {canManageCatalog && (
               <button type="button" className="btn btn-primary" onClick={handleAddProduct}>
@@ -334,7 +517,7 @@ export function ProductsPage() {
         }
       />
 
-      <StatsGrid items={statItems} />
+      <StatsGrid items={statItems} className="cols-4" />
 
       <DynamicTabs
         tabs={productTabs}
@@ -395,6 +578,12 @@ export function ProductsPage() {
         confirmText={MESSAGES.PRODUCT_FLAGS.ANNOUNCE_DIALOG.CONFIRM}
       />
 
+      {/*
+        Typed confirmation, which nothing else in this app asks for. Warranted
+        here: the delete cascades to every variant, runs without checking for
+        open orders or live deals, and has no restore endpoint — recovery is a
+        database edit. The phrase makes confirming an act of reading.
+      */}
       <ConfirmDialog
         isOpen={!!productToDelete}
         onClose={() => setProductToDelete(null)}
@@ -402,6 +591,7 @@ export function ProductsPage() {
         title={MESSAGES.PRODUCTS.DELETE_CONFIRM.TITLE}
         description={MESSAGES.PRODUCTS.DELETE_CONFIRM.MESSAGE}
         confirmText={MESSAGES.PRODUCTS.DELETE_CONFIRM.CONFIRM}
+        confirmPhrase={MESSAGES.PRODUCTS.DELETE_CONFIRM.PHRASE}
         isLoading={isDeleting}
       />
     </>

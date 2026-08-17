@@ -1,5 +1,5 @@
-import type React from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type React from "react";
 
 export interface TabDefinition {
   label: string;

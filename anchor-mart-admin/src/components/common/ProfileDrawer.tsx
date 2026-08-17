@@ -1,6 +1,6 @@
-import { IconX, IconMessage, IconEdit } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconEdit, IconMessage, IconX } from "@tabler/icons-react";
 import { toast } from "sonner";
 
 export interface ProfileDetail {
@@ -55,9 +55,14 @@ export function ProfileDrawer({ profile, onClose, onEdit }: ProfileDrawerProps) 
         }}
       >
         {/* Header */}
-        <div className="drawer-hd" style={{ padding: "20px 22px", borderBottom: "1px solid var(--border-xs)" }}>
+        <div
+          className="drawer-hd"
+          style={{ padding: "20px 22px", borderBottom: "1px solid var(--border-xs)" }}
+        >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span className="drawer-title" style={{ fontSize: "16px", fontWeight: 800 }}>Profile Overview</span>
+            <span className="drawer-title" style={{ fontSize: "16px", fontWeight: 800 }}>
+              Profile Overview
+            </span>
             <button
               onClick={onClose}
               className="modal-close"
@@ -79,7 +84,14 @@ export function ProfileDrawer({ profile, onClose, onEdit }: ProfileDrawerProps) 
         {/* Body */}
         <div className="drawer-body" style={{ flex: 1, overflowY: "auto", padding: "20px 22px" }}>
           {/* Avatar and Name */}
-          <div style={{ textAlign: "center", paddingBottom: "20px", borderBottom: "1px solid var(--border-sm)", marginBottom: "20px" }}>
+          <div
+            style={{
+              textAlign: "center",
+              paddingBottom: "20px",
+              borderBottom: "1px solid var(--border-sm)",
+              marginBottom: "20px",
+            }}
+          >
             <div
               className={`av av-xl av-${profile.role === "partner" ? "teal" : "navy"}`}
               style={{
@@ -98,37 +110,86 @@ export function ProfileDrawer({ profile, onClose, onEdit }: ProfileDrawerProps) 
             >
               {profile.name[0]}
             </div>
-            <div style={{ fontSize: "17px", fontWeight: 800, color: "var(--t1)" }}>{profile.name}</div>
-            <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--t4)", marginTop: "4px" }}>
+            <div style={{ fontSize: "17px", fontWeight: 800, color: "var(--t1)" }}>
+              {profile.name}
+            </div>
+            <div
+              style={{ fontSize: "13px", fontWeight: 600, color: "var(--t4)", marginTop: "4px" }}
+            >
               {profile.role === "partner" ? "Delivery Partner" : "Sailor"}
             </div>
-            <div style={{ marginTop: "12px", display: "flex", gap: "8px", justifyContent: "center" }}>
+            <div
+              style={{ marginTop: "12px", display: "flex", gap: "8px", justifyContent: "center" }}
+            >
               <Badge variant="success">{profile.status}</Badge>
               {profile.role === "partner" && <Badge variant="teal">On Duty</Badge>}
             </div>
           </div>
 
           {/* Contact */}
-          <div className="sec-label" style={{ fontSize: "11px", fontWeight: 800, color: "var(--t4)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "12px" }}>
+          <div
+            className="sec-label"
+            style={{
+              fontSize: "11px",
+              fontWeight: 800,
+              color: "var(--t4)",
+              textTransform: "uppercase",
+              letterSpacing: "1px",
+              marginBottom: "12px",
+            }}
+          >
             Contact Details
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "20px" }}>
-            <div className="detail-kv" style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
-              <span className="detail-k" style={{ color: "var(--t3)" }}>Email</span>
-              <span className="detail-v" style={{ fontWeight: 600, color: "var(--t1)" }}>{profile.email}</span>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "20px" }}
+          >
+            <div
+              className="detail-kv"
+              style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}
+            >
+              <span className="detail-k" style={{ color: "var(--t3)" }}>
+                Email
+              </span>
+              <span className="detail-v" style={{ fontWeight: 600, color: "var(--t1)" }}>
+                {profile.email}
+              </span>
             </div>
-            <div className="detail-kv" style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
-              <span className="detail-k" style={{ color: "var(--t3)" }}>WhatsApp</span>
-              <span className="detail-v" style={{ fontWeight: 600, color: "var(--t1)" }}>{profile.whatsapp}</span>
+            <div
+              className="detail-kv"
+              style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}
+            >
+              <span className="detail-k" style={{ color: "var(--t3)" }}>
+                WhatsApp
+              </span>
+              <span className="detail-v" style={{ fontWeight: 600, color: "var(--t1)" }}>
+                {profile.whatsapp}
+              </span>
             </div>
-            <div className="detail-kv" style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
-              <span className="detail-k" style={{ color: "var(--t3)" }}>Joined</span>
-              <span className="detail-v" style={{ fontWeight: 600, color: "var(--t1)" }}>{profile.joined}</span>
+            <div
+              className="detail-kv"
+              style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}
+            >
+              <span className="detail-k" style={{ color: "var(--t3)" }}>
+                Joined
+              </span>
+              <span className="detail-v" style={{ fontWeight: 600, color: "var(--t1)" }}>
+                {profile.joined}
+              </span>
             </div>
           </div>
 
           {/* Statistics */}
-          <div className="sec-label" style={{ fontSize: "11px", fontWeight: 800, color: "var(--t4)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "12px" }}>
+          <div
+            className="sec-label"
+            style={{
+              fontSize: "11px",
+              fontWeight: 800,
+              color: "var(--t4)",
+              textTransform: "uppercase",
+              letterSpacing: "1px",
+              marginBottom: "12px",
+            }}
+          >
             Statistics
           </div>
           <div
@@ -150,8 +211,24 @@ export function ProfileDrawer({ profile, onClose, onEdit }: ProfileDrawerProps) 
                 textAlign: "center",
               }}
             >
-              <div className="mini-stat-val" style={{ fontSize: "18px", fontWeight: 800, color: "var(--t1)" }}>{profile.stat1Val}</div>
-              <div className="mini-stat-lbl" style={{ fontSize: "10px", fontWeight: 600, color: "var(--t4)", textTransform: "uppercase", marginTop: "2px" }}>{profile.stat1Lbl}</div>
+              <div
+                className="mini-stat-val"
+                style={{ fontSize: "18px", fontWeight: 800, color: "var(--t1)" }}
+              >
+                {profile.stat1Val}
+              </div>
+              <div
+                className="mini-stat-lbl"
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 600,
+                  color: "var(--t4)",
+                  textTransform: "uppercase",
+                  marginTop: "2px",
+                }}
+              >
+                {profile.stat1Lbl}
+              </div>
             </div>
             <div
               className="mini-stat"
@@ -163,8 +240,24 @@ export function ProfileDrawer({ profile, onClose, onEdit }: ProfileDrawerProps) 
                 textAlign: "center",
               }}
             >
-              <div className="mini-stat-val" style={{ fontSize: "18px", fontWeight: 800, color: "var(--t1)" }}>{profile.stat2Val}</div>
-              <div className="mini-stat-lbl" style={{ fontSize: "10px", fontWeight: 600, color: "var(--t4)", textTransform: "uppercase", marginTop: "2px" }}>{profile.stat2Lbl}</div>
+              <div
+                className="mini-stat-val"
+                style={{ fontSize: "18px", fontWeight: 800, color: "var(--t1)" }}
+              >
+                {profile.stat2Val}
+              </div>
+              <div
+                className="mini-stat-lbl"
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 600,
+                  color: "var(--t4)",
+                  textTransform: "uppercase",
+                  marginTop: "2px",
+                }}
+              >
+                {profile.stat2Lbl}
+              </div>
             </div>
             <div
               className="mini-stat"
@@ -176,8 +269,24 @@ export function ProfileDrawer({ profile, onClose, onEdit }: ProfileDrawerProps) 
                 textAlign: "center",
               }}
             >
-              <div className="mini-stat-val" style={{ fontSize: "18px", fontWeight: 800, color: "var(--t1)" }}>{profile.stat3Val}</div>
-              <div className="mini-stat-lbl" style={{ fontSize: "10px", fontWeight: 600, color: "var(--t4)", textTransform: "uppercase", marginTop: "2px" }}>{profile.stat3Lbl}</div>
+              <div
+                className="mini-stat-val"
+                style={{ fontSize: "18px", fontWeight: 800, color: "var(--t1)" }}
+              >
+                {profile.stat3Val}
+              </div>
+              <div
+                className="mini-stat-lbl"
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 600,
+                  color: "var(--t4)",
+                  textTransform: "uppercase",
+                  marginTop: "2px",
+                }}
+              >
+                {profile.stat3Lbl}
+              </div>
             </div>
           </div>
         </div>
@@ -196,7 +305,11 @@ export function ProfileDrawer({ profile, onClose, onEdit }: ProfileDrawerProps) 
           <Button variant="ghost" size="sm" onClick={onClose} style={{ marginRight: "auto" }}>
             Close
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => toast.success(`Message thread opened with ${profile.name}`)}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => toast.success(`Message thread opened with ${profile.name}`)}
+          >
             <IconMessage size={15} style={{ marginRight: "4px" }} />
             Message
           </Button>
