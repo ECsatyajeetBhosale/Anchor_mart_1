@@ -44,6 +44,23 @@ export interface ProductVariant {
   aboutProduct: string;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Whether a sailor can **see** this variant, computed server-side from
+   * `ProductVariant.catalog_visibility_blockers()` — the same helper the express
+   * screen reads, so the two cannot disagree.
+   *
+   * Not derivable here: `product.is_active`, `product.is_deleted` and
+   * `product.is_internal` are all inputs and none is on this payload.
+   */
+  isSailorVisible: boolean;
+  /** Why not. Stable, add-only keys — an unmapped one is rendered raw. */
+  visibilityBlockers: string[];
+  /**
+   * Whether a sailor could **buy** it — a different question. Sourcing switched
+   * off leaves an item browsable-but-unavailable, so visible and not orderable
+   * is a real state, and this gate ignores the express flag entirely.
+   */
+  isSailorOrderable: boolean;
 }
 
 /** Transformed variants list: total count + UI rows. */

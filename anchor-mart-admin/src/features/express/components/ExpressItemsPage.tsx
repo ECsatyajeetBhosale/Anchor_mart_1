@@ -49,6 +49,7 @@ export function ExpressItemsPage() {
   const partnerFilter = searchParams.get("partner") ?? "";
   const sourceableFilter = searchParams.get("sourceable") ?? "";
   const activeFilter = searchParams.get("active") ?? "";
+  const expressFilter = searchParams.get("express") ?? "";
   const dateFrom = searchParams.get("from") ?? "";
   const dateTo = searchParams.get("to") ?? "";
 
@@ -82,6 +83,16 @@ export function ExpressItemsPage() {
   // Each card shows one headline number and folds its related counts into the
   // footer — the payload carries 15 figures and 15 cards would bury the four
   // that matter.
+  /**
+   * **Whole-catalog figures, not the filtered table's.**
+   *
+   * `express/stats/` deliberately takes no query params, and wiring the Items
+   * tab's filters into it would be wrong rather than merely unimplemented: one
+   * call feeds both tabs, and `category_id` or `min_price` mean nothing to the
+   * orders half — the item cards would track the table while the order cards
+   * described something unrelated. The labels say "all express" so a filtered
+   * table beneath unchanged cards reads as intended rather than broken.
+   */
   const statItems = [
     {
       id: "products",
@@ -179,6 +190,7 @@ export function ExpressItemsPage() {
       "to",
       "sourceable",
       "active",
+      "express",
     ]) {
       next.delete(key);
     }
@@ -265,11 +277,13 @@ export function ExpressItemsPage() {
                 sort={sort}
                 sourceable={sourceableFilter}
                 active={activeFilter}
+                express={expressFilter}
                 onPageChange={handlePageChange}
                 onSearchChange={(val) => setFilterParam("search", val)}
                 onSortChange={(val) => setFilterParam("sort", val)}
                 onSourceableChange={(val) => setFilterParam("sourceable", val)}
                 onActiveChange={(val) => setFilterParam("active", val)}
+                onExpressChange={(val) => setFilterParam("express", val)}
               />
             ),
           },

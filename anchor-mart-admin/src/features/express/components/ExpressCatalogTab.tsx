@@ -6,10 +6,10 @@ import { idColumn, textColumn, truncatedColumn } from "@/components/common/table
 import { Badge } from "@/components/ui/badge";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { useSetVariantExpressMutation } from "@/features/variants";
-import { getApiMessage } from "@/lib/apiError";
+import { getApiMessage, getApiStatus } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { IconBolt, IconBoltOff, IconPackage } from "@tabler/icons-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useGetExpressCatalogQuery } from "../api/expressApi";
 import type { ExpressItem } from "../types/expressItem.types";
@@ -41,6 +41,16 @@ const SORT_OPTIONS = [
 function splitSort(sort: string): { price?: string; popularity?: string; relevance?: string } {
   if (!sort) return {};
   const [kind, phrase] = sort.includes(":") ? sort.split(":") : ["relevance", sort];
+  /**
+   * Only phrases the API actually recognises are forwarded.
+   *
+   * An unrecognised sort value is **silently ignored** — no 400 — and the list
+   * falls back to `-created_at`. So a stale bookmark carrying `price_asc` would
+   * show a sort selection in the toolbar while the rows ignored it, which is
+   * worse than not sorting. Anything unknown is dropped here so the toolbar and
+   * the rows agree.
+   */
+  if (!SORT_OPTIONS.some((o) => o.value === `${kind}:${phrase}`)) return {};
   if (kind === "price") return { price: phrase };
   if (kind === "popularity") return { popularity: phrase };
   return { relevance: phrase };
@@ -59,17 +69,32 @@ const ACTIVE_OPTIONS = [
   { value: "false", label: M.FILTERS.ACTIVE_NO },
 ];
 
+/**
+ * The variant's own express flag — the filter this tab most needed and did not
+ * have. `false` isolates variants of express products that nobody has flagged,
+ * which is precisely the set no sailor can see: the actionable worklist for a
+ * screen whose job is enabling express.
+ */
+const EXPRESS_OPTIONS = [
+  { value: "", label: M.FILTERS.EXPRESS_ALL },
+  { value: "true", label: M.FILTERS.EXPRESS_YES },
+  { value: "false", label: M.FILTERS.EXPRESS_NO },
+];
+
 export interface ExpressCatalogTabProps {
   page: number;
   search: string;
   sort: string;
   sourceable: string;
   active: string;
+  /** The variant's own express flag: "" | "true" | "false". */
+  express: string;
   onPageChange: (page: number) => void;
   onSearchChange: (value: string) => void;
   onSortChange: (value: string) => void;
   onSourceableChange: (value: string) => void;
   onActiveChange: (value: string) => void;
+  onExpressChange: (value: string) => void;
 }
 
 /**
@@ -82,20 +107,23 @@ export function ExpressCatalogTab({
   sort,
   sourceable,
   active,
+  express,
   onPageChange,
   onSearchChange,
   onSortChange,
   onSourceableChange,
   onActiveChange,
+  onExpressChange,
 }: ExpressCatalogTabProps) {
   const sortParams = splitSort(sort);
 
-  const { data, isLoading, isFetching, isError, refetch } = useGetExpressCatalogQuery({
+  const { data, isLoading, isFetching, isError, error, refetch } = useGetExpressCatalogQuery({
     page,
     limit: LIMIT,
     search,
     adminSourceable: sourceable,
     isActive: active,
+    isExpress: express,
     sortByPrice: sortParams.price,
     sortByPopularity: sortParams.popularity,
     sortByRelevance: sortParams.relevance,
@@ -110,6 +138,17 @@ export function ExpressCatalogTab({
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / LIMIT));
 
   /**
+   * A page past the end is a **404**, not an empty page — the same
+   * `CustomPagination` as every other catalog list, so the same recovery. Most
+   * reachable here of anywhere: flagging the last unflagged variant while
+   * filtered to "not flagged express" empties the page you are standing on.
+   */
+  const isPageOutOfRange = getApiStatus(error) === 404;
+  useEffect(() => {
+    if (isPageOutOfRange && page !== 1) onPageChange(1);
+  }, [isPageOutOfRange, page, onPageChange]);
+
+  /**
    * Flip the variant's express flag. The cascade is the reason this confirms:
    * turning it **on** moves the parent product into the express catalog if it
    * isn't already there, and turning off the **last** express variant moves the
@@ -121,11 +160,19 @@ export function ExpressCatalogTab({
     if (!expressTarget) return;
     const next = !expressTarget.isExpress;
     try {
-      const res = (await setExpress({ id: expressTarget.id, isExpress: next }).unwrap()) as {
-        product_catalog_type?: string;
-      };
+      /**
+       * The mutation is typed, so no cast: it returns the message, the resulting
+       * flag, the product's resulting catalog **and** whether this call is what
+       * moved it. The old inline `as { product_catalog_type?: string }` hid the
+       * last of those, so the toast announced a catalog move on every toggle —
+       * including the majority that move nothing, because the product was
+       * already on the express shelf with other flagged variants.
+       */
+      const res = await setExpress({ id: expressTarget.id, isExpress: next }).unwrap();
       toast.success(
-        M.EXPRESS_TOGGLE.DONE(expressTarget.sku, next, res?.product_catalog_type ?? ""),
+        res.productCascaded
+          ? M.EXPRESS_TOGGLE.DONE(expressTarget.sku, next, res.productCatalogType ?? "")
+          : M.EXPRESS_TOGGLE.DONE_NO_MOVE(expressTarget.sku, next),
       );
       setExpressTarget(null);
     } catch (err) {
@@ -172,6 +219,46 @@ export function ExpressCatalogTab({
           {r.isExpress ? M.EXPRESS_ON : M.EXPRESS_OFF}
         </Badge>
       ),
+    },
+    {
+      id: "visibility",
+      header: M.COLUMNS.VISIBILITY,
+      headerClassName: "whitespace-nowrap",
+      /**
+       * **The answer this screen exists to give.** Everything else here reports
+       * a flag; this reports the consequence — whether a sailor can find the
+       * item at all.
+       *
+       * Server-computed, and deliberately not derived here: three of its inputs
+       * are not on this payload, so any client-side rule would be confidently
+       * wrong. The blockers are listed rather than summarised because each one
+       * has a different fix, and an unmapped key is printed raw — the contract
+       * is add-only, so a new blocker should look unpolished, never absent.
+       *
+       * Visible-but-not-orderable is its own state: sourcing switched off leaves
+       * an item browsable with an unavailable badge, so it is not a blocker.
+       */
+      cell: (r) => {
+        if (!r.isSailorVisible) {
+          return (
+            <div className="flex flex-col gap-1">
+              <Badge variant="danger" className="w-fit">
+                {M.NOT_VISIBLE}
+              </Badge>
+              {r.visibilityBlockers.length > 0 && (
+                <span className="td-m">
+                  {r.visibilityBlockers.map((b) => M.VISIBILITY_BLOCKER[b] ?? b).join(" · ")}
+                </span>
+              )}
+            </div>
+          );
+        }
+        return (
+          <Badge variant={r.isSailorOrderable ? "success" : "warning"} className="w-fit">
+            {r.isSailorOrderable ? M.VISIBLE : M.NOT_ORDERABLE}
+          </Badge>
+        );
+      },
     },
     {
       id: "sourceable",
@@ -240,6 +327,14 @@ export function ExpressCatalogTab({
               options: ACTIVE_OPTIONS,
               width: "150px",
               onValueChange: onActiveChange,
+            },
+            {
+              id: "express",
+              value: express,
+              placeholder: M.FILTERS.EXPRESS_ALL,
+              options: EXPRESS_OPTIONS,
+              width: "180px",
+              onValueChange: onExpressChange,
             },
             {
               id: "sort",

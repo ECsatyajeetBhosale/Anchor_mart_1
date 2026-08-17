@@ -79,6 +79,13 @@ function toVariant(raw: unknown, index: number): ProductVariant {
     aboutProduct: pick(raw, "about_product"),
     createdAt: pick(raw, "created_at"),
     updatedAt: pick(raw, "updated_at"),
+    // Defaults to visible when absent, so a deployment predating these fields
+    // does not paint every row with a blocker it never reported.
+    isSailorVisible: getProp(raw, "is_sailor_visible") !== false,
+    visibilityBlockers: (asArray(getProp(raw, "sailor_visibility_blockers")) ?? [])
+      .map((b) => (typeof b === "string" ? b : ""))
+      .filter(Boolean),
+    isSailorOrderable: getProp(raw, "is_sailor_orderable") !== false,
   };
 }
 

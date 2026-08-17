@@ -218,100 +218,34 @@ poll, accept staleness with a visible "as of" marker, or push.
 
 ---
 
-## C10 · An express product on a marine category can never appear in express browse
+## C10 · A marine-category express product is absent from express **category** browse
 
-**Status:** OPEN — confirmed by backend · **Catalogs:** Products, Marine emergency spares,
-Express items, Categories
+**Status:** OPEN — **downgraded 2026-08-17** · **Catalogs:** Products, Marine emergency
+spares, Express items, Categories
 
-Verified 2026-08-17 while auditing `set-catalog-type/`. The two directions out of the
-marine catalog behave differently, and the difference is deliberate:
+**Originally logged as "invisible in express browse". That was too strong.**
+`ExpressProductListView` filters on `catalog_type` alone, with no category-scope check —
+so a sailor **does** find the product, through the flat express list and by search. Only
+the express **category** list filters `scope=GENERAL`, so what is unreachable is the
+product's category tile, not the product.
 
-- **marine → regular** with no category is a **400**, with a message naming what to send.
-  Nothing changes. (Fixed in pass 2: the dialog now asks for a category in that direction
-  too, where it previously only asked when moving *into* marine.)
-- **marine → express** with no category is a **200**, leaving `catalog_type=express` on a
-  product whose category is still marine-scoped. That is allowed on purpose:
-  `allowed_category_scopes_for_catalog_type` treats express as an **operational overlay
-  valid for both scopes**.
+These rows correctly report `is_sailor_visible: true`, and there is a backend test pinning
+that so nobody later "fixes" it into a blocker.
 
-The consequence is downstream and invisible from the admin. The sailor-facing express
-**category** list filters `scope=GENERAL`, so a marine-category express product's category
-can never appear in express browse — the product is reachable only through the flat
-express product list. It is not a broken record, and no admin screen shows anything wrong.
+How it arises, unchanged: **marine → express** with no category is a 200 by design —
+`allowed_category_scopes_for_catalog_type` treats express as an operational overlay valid
+for both scopes — leaving `catalog_type=express` on a product whose category is still
+marine. (**marine → regular** with no category is a 400, and pass 2 fixed the dialog to
+ask for one in that direction.)
 
-Related to [C3](#c3--set-catalog-type-breaks-the-express-invariant-that-set-express-maintains):
-both are cases where `set-catalog-type/` produces a product that looks correct in the
-admin and is partly unreachable for sailors.
+So the residue is narrow: a product browsable by list and search but not filed under any
+tile a sailor can reach. Related to
+[C3](#c3--set-catalog-type-breaks-the-express-invariant-that-set-express-maintains) only
+in origin — both come from `set-catalog-type/` — not in severity.
 
 **Candidate resolutions:** (a) the express category list spans both scopes; (b) moving to
-express from marine also asks for a general category; (c) the admin warns on the move and
-the Express screen flags such rows. Decide alongside C3 — same dialog, same class of gap.
-
----
-
-## C11 · A soft-deleted variant's SKU is burned permanently
-
-**Status:** OPEN — confirmed by backend · **Catalogs:** Variants, Products, Marine
-emergency spares
-
-SKU uniqueness is global across all variants and the check **does not exclude
-soft-deleted rows** (the model column is `unique=True`). So deleting a variant reserves
-its SKU forever: re-creating `TWO-B` after deleting `TWO-B` is a 400.
-
-From the admin's side that is a conflict against a row that appears on no screen — every
-list, detail and stats queryset filters `is_deleted=False`. An operator tidying SKUs hits
-a phantom collision and has nowhere to look for the cause.
-
-**Handled in pass 3 by copy only**: the variant form's SKU hint says *"Unique across all
-variants. A deleted variant keeps its SKU reserved,"* and the delete confirm repeats it.
-That stops the surprise; it does not give the SKU back.
-
-Reaches products because `add-product/`'s inline `sku` hits the same global check, so the
-same phantom collision can block **product creation**, where the copy currently says only
-"Must be unique."
-
-**Candidate resolutions:** (a) exclude soft-deleted rows from the uniqueness check;
-(b) release the SKU on delete by suffixing the deleted row; (c) leave it and keep the
-copy. (a) and (b) are backend calls.
-
----
-
-## C12 · `admin_sourceable` has two writers on variants — decided, not a defect
-
-**Status:** DECIDED · **Catalogs:** Variants
-
-`admin_sourceable` is both on `UpdateProductVariantSerializer.fields` and served by its
-own `set-admin-sourceable/` endpoint — the same dual-writer shape as products'
-`is_top_rated`, which was reviewed in the products pass and accepted.
-
-Recorded so it is not rediscovered as a bug in a later pass. The resolution is the same
-as products': **the dedicated endpoint for row toggles, the PATCH for the drawer's
-multi-field save.** The dedicated one writes a single column and returns a small
-response; it also carries the up-cascade reporting (`product_cascaded`) that the PATCH
-does not.
-
-Contrast `is_express`, which is **not** on the update serializer at all — `set-express/`
-is genuinely its only writer, which is what lets that cascade be a single source of truth.
-
----
-
-## C13 · The only-variant delete guard is a count, not a constraint
-
-**Status:** OPEN — backend noted in place · **Catalogs:** Variants, Products
-
-Deleting a product's only variant is refused with a 400, which is what stops the delete
-path from producing a zero-variant, sailor-invisible product (the mirror of the
-zero-variant spare in [C10](#c10--an-express-product-on-a-marine-category-can-never-appear-in-express-browse)'s
-neighbourhood — see the pass-2 `sku` finding).
-
-But the guard is an **application-level count**, not a database constraint or a row lock.
-Two concurrent deletes of the last two variants can each see one surviving sibling and
-both proceed, leaving the product with none. This is the RC-4 pattern the codebase
-already tracks; backend added the note in place rather than fixing it, since the fix is a
-constraint or a lock.
-
-Nothing the frontend can do about it — recorded so the zero-variant badge added in pass 2
-is understood as a **detector for a state that is still reachable**, not a legacy display.
+express from marine also asks for a general category; (c) accept it and surface the
+category gap on the Express screen. Lower priority than first recorded.
 
 ---
 
@@ -402,6 +336,8 @@ the two numbers will legitimately disagree and look like a bug.
 | 2026-08-17 | C11 | **Added in pass 3.** A soft-deleted variant's SKU stays reserved forever, colliding against a row no screen shows |
 | 2026-08-17 | C12 | **Added in pass 3.** `admin_sourceable` dual writers on variants — same shape as products' top-rated; recorded as DECIDED, not a defect |
 | 2026-08-17 | C13 | **Added in pass 3.** The only-variant delete guard is an app-level count, so concurrent deletes can still strand a product at zero (RC-4) |
+| 2026-08-17 | C10 | **Downgraded in pass 4.** Backend verified the product *is* reachable by list and search — only its category tile is absent. Reworded and de-prioritised |
+| 2026-08-17 | C3 | **Now detectable in the UI.** `is_sailor_visible` + blockers surface the C3 state (`not_flagged_express`) on both the Express and variants screens |
 
 ---
 

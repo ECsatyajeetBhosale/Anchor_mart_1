@@ -2531,14 +2531,20 @@ export const MESSAGES = {
     },
     // KPI cards (express stats aggregates)
     STATS: {
-      PRODUCTS: "Express Products",
+      /**
+       * Labelled "All …" because `express/stats/` takes no filters by design —
+       * one call serves the catalog and orders tabs, so it cannot follow either
+       * one's table. Saying so keeps unchanged cards over a filtered table
+       * legible rather than looking stale.
+       */
+      PRODUCTS: "All Express Products",
       // Plain footers are the loading state; the *_BREAKDOWN forms replace them
       // once the counts arrive, so each card carries its own secondary figures
       // instead of the payload needing a card per field.
       PRODUCTS_FOOTER: "In the express catalog",
       PRODUCTS_BREAKDOWN: (active: string, topRated: string, onDeal: string) =>
         `${active} active · ${topRated} top-rated · ${onDeal} on deal`,
-      VARIANTS: "Express Variants",
+      VARIANTS: "All Express Variants",
       VARIANTS_FOOTER: "Across all products",
       VARIANTS_BREAKDOWN: (active: string) => `${active} active`,
       SOURCEABLE: "Sourceable Variants",
@@ -2558,8 +2564,39 @@ export const MESSAGES = {
     },
     // Express variant catalog tab
     CATALOG: {
+      /**
+       * Why a row is invisible to sailors. Keys come from
+       * `ProductVariant.catalog_visibility_blockers()` and are a **stable,
+       * add-only contract** — never renamed — so an unmapped key is rendered raw
+       * rather than swallowed. A new backend blocker therefore degrades to an
+       * ugly-but-honest label instead of a silently clean row.
+       */
+      VISIBILITY_BLOCKER: {
+        variant_inactive: "Variant is inactive",
+        product_inactive: "Product is inactive",
+        product_internal: "Internal product — never shown to sailors",
+        not_flagged_express: "Not flagged express",
+      } as Record<string, string>,
+      VISIBLE: "Visible",
+      NOT_VISIBLE: "Not visible",
+      /**
+       * Visibility and orderability are different questions. A product with
+       * sourcing switched off stays **browsable** with an unavailable badge, so it
+       * is visible and not orderable — which is why this is its own label and not
+       * a blocker.
+       */
+      NOT_ORDERABLE: "Visible, not orderable",
+      VISIBILITY_HELP:
+        "Whether a sailor can see this in the express catalog. Sourcing being off does not hide an item — it shows as unavailable.",
+
       TITLE: "Express Variant Catalog",
-      SEARCH_PLACEHOLDER: "Search by product, SKU or description…",
+      /**
+       * Four fields, broader than any other catalog search: product name,
+       * product description, SKU **and** the variant's `about_product`. Worth
+       * naming, because a match can be invisible in the row — a hit on the
+       * description or variant notes shows neither in the name nor the SKU.
+       */
+      SEARCH_PLACEHOLDER: "Search name, description, SKU or variant notes…",
       EMPTY: "No express items found.",
       FETCH_ERROR: "Failed to fetch the express catalog",
       SORT_PLACEHOLDER: "Sort",
@@ -2581,6 +2618,10 @@ export const MESSAGES = {
         ACTIVE_ALL: "Any status",
         ACTIVE_YES: "Active",
         ACTIVE_NO: "Inactive",
+        EXPRESS_ALL: "Any express flag",
+        EXPRESS_YES: "Flagged express",
+        /** The worklist: express-catalog variants nobody has flagged. */
+        EXPRESS_NO: "Not flagged express",
       },
       /** Flow 29a §6 — the variant-level express switch and its cascade. */
       EXPRESS_TOGGLE: {
@@ -2593,10 +2634,17 @@ export const MESSAGES = {
         OFF_TITLE: "Remove express from this variant?",
         OFF_DESCRIPTION: (sku: string) =>
           `${sku} stops being express-orderable. If it is the last express variant on its product, the product leaves the express catalog and reverts to regular or marine emergency, depending on its category.`,
+        /**
+         * Only used when the write actually moved the product between catalogs
+         * — `product_cascaded` says so. Announcing a move on every toggle was
+         * wrong for the common case, where the product is already on the express
+         * shelf because other variants are flagged.
+         */
         DONE: (sku: string, on: boolean, catalogType: string) =>
-          `${sku} is ${on ? "now express" : "no longer express"}${
-            catalogType ? ` — product catalog: ${catalogType}` : ""
-          }.`,
+          `${sku} is ${on ? "now express" : "no longer express"} — its product moved to the ${catalogType} catalog.`,
+        /** The flag changed; the product stayed where it was. */
+        DONE_NO_MOVE: (sku: string, on: boolean) =>
+          `${sku} is ${on ? "now express" : "no longer express"}.`,
         FAILED: "Could not change the express flag. Please try again.",
       },
       COLUMNS: {
@@ -2607,6 +2655,8 @@ export const MESSAGES = {
         EXPRESS: "Express",
         SOURCEABLE: "Sourceable",
         ACTIVE: "Active",
+        /** The consequence column — what all the flags add up to for a sailor. */
+        VISIBILITY: "Sailor visibility",
         ACTIONS: "Actions",
       },
       IMAGE_ALT: "Variant image",

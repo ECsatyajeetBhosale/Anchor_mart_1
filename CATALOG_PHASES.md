@@ -40,8 +40,8 @@ surfaces that write it.
 | 1 | Categories, both scopes | 13 | ✅ Done |
 | 2 | Products, both scopes | 18 | ✅ Done |
 | 3 | Variants | 7 | ✅ Done |
-| 4 | Express | 3 | ⬜ Not started |
-| 5 | Conflict resolution | — | ⬜ Blocked on 1–4 |
+| 4 | Express | 3 | ✅ Done |
+| 5 | Conflict resolution | — | 🟡 Unblocked — ready to start |
 
 **Every one of the 41 routes is already wired somewhere in the frontend.** This is not a
 missing-integration sweep. The work is contract correctness, behaviour the UI fails to
@@ -384,21 +384,102 @@ pass 2 remains a live detector because of C13.
 
 **Frontend:** `src/features/express/` (4 files)
 
-### Routes
+### Routes — all 3 audited ✅
 
-- [ ] `GET stats/` · [ ] `GET orders/` · [ ] `GET items/`
+- [x] `GET stats/` — confirmed **no params by design**; cards relabelled whole-catalog
+- [x] `GET orders/` — confirmed an *orders* surface, not a catalog one; nothing to change
+- [x] `GET items/` — `is_express` filter wired; visibility column added; 404 recovery
 
-### Known work
+### What changed
 
-- **No writers.** Every action on this screen must deep-link into phase 2 or 3 surfaces.
-  A control here that appears to write is a bug by construction.
-- **The Items tab lists *all* variants of express products on purpose** — that is where
-  you go to enable them. `ProductVariantSerializer` uses `exclude`, so `is_express` is on
-  every row: render it per row rather than assuming every listed variant is live.
-- Cross-check against the customer-facing routes in the map. An item can be present here
-  and absent from the sailor's catalog — that gap is [C3](CATALOG_CONFLICTS.md).
+| Fix | Why |
+|---|---|
+| **Sailor-visibility column** | The answer the screen exists to give. Server-computed — three inputs aren't on the payload, so no client rule could be right |
+| Same column on the variants drawer | Backend put the fields on that serializer too; shared labels so the two screens can't word it differently |
+| `is_express=false` filter | Isolates express-catalog variants nobody flagged — the actionable worklist |
+| Typed `set-express/` result | The inline cast hid `product_cascaded`, so the toast claimed a catalog move on **every** toggle |
+| Unknown sort tokens dropped | Bad values are silently ignored server-side, so the toolbar showed a sort the rows weren't using |
+| Stats cards relabelled "All Express …" | The endpoint takes no filters *by design* — one call serves two tabs |
+| 404 page recovery | Most reachable here: flagging the last unflagged variant while filtered empties the page you're on |
+| Search placeholder | Matches four fields including description and variant notes, so a hit can be invisible in the row |
 
----
+### Corrections to our own assumptions
+
+Two of the five visibility conditions I proposed were **wrong**, and backend built the
+field rather than let a client-side rule ship:
+
+- **product not sourceable** — not a visibility condition. Sourcing-off stays browsable
+  with an unavailable badge. This was the likeliest one to get wrong.
+- **marine-category express product** — not invisible either; see the C10 downgrade.
+- **missing**: `product.is_internal`, which we had no way to know about.
+
+Hence two separate booleans in the UI: *visible* and *orderable* are different questions.
+
+### Logged
+
+**[C10](CATALOG_CONFLICTS.md) downgraded** — the product is reachable by list and search;
+only its category tile is absent. **[C3](CATALOG_CONFLICTS.md) is now detectable in the
+UI** via the `not_flagged_express` blocker.
+
+### Frontend gaps found in the pre-pass survey — disclose up front
+
+1. **`getExpressStats` sends no params** — the fourth screen with this shape. It may be
+   correct here (the map says the endpoint takes none), which is question A1.
+2. **The Catalog tab casts the `set-express/` response inline**
+   (`as { product_catalog_type?: string }`) instead of using the result type Phase 3 gave
+   it — so it ignores `product_cascaded` and says "moved to X" even when nothing moved.
+3. **No `is_express` filter is offered**, so the actionable view — variants of express
+   products that are *not* themselves flagged, i.e. the ones invisible to sailors — cannot
+   be isolated. Question B6.
+
+The screen already does two things right and they should stay: `isExpress` is rendered
+per row with a hint (the C3 case), and the row action routes through
+`product-variants/set-express/` rather than pretending Express has a writer.
+
+### Open questions for backend
+
+**A · `express/stats/`**
+1. Does it accept the Items tab's filters, or genuinely none? Three screens had cards that
+   described a different population than the table beneath them. If express is
+   deliberately exempt — because it mixes catalog and order aggregates in one call — we
+   will label the cards as whole-catalog rather than wire filters that do nothing.
+2. Confirm the key set: `{ items: {9 keys}, orders: {7 keys} }` as we model it.
+3. Confirm `total_orders` is the aggregate and its siblings are the breakdown, so the two
+   must never be summed.
+
+**B · `express/items/`**
+4. Full accepted filter set? We send `page`, `page_size`, `search`, `category_id`,
+   `product_id`, `min_price`, `max_price`, `admin_sourceable`, `is_active`,
+   `sort_by_price`, `sort_by_popularity`, `sort_by_relevance`.
+5. **Can the three sort params combine**, or is only one honoured? We send exactly one, but
+   want to know whether that is a constraint or our own convention.
+6. Is there an `is_express` filter? This tab exists to enable express on variants, so
+   "show me the ones not yet flagged" is its most useful view and we cannot build it.
+7. Does `search` match SKU, product name, or both?
+8. Same pagination — default 10, clamp 50, page past end → 404?
+9. Confirm `admin_sourceable` filters the **effective** value (product AND variant), as our
+   type claims, rather than the raw variant column.
+
+**C · Sailor visibility — the point of running this pass last**
+10. **Can a row tell us whether a sailor can actually see it?** A variant can be on this
+    tab and invisible for at least five reasons: the product is not express
+    ([C3](CATALOG_CONFLICTS.md)), the variant is not flagged, either is inactive, the
+    product is not sourceable, or the product sits on a marine category
+    ([C10](CATALOG_CONFLICTS.md)). Is there one computed field for this, or do we compose
+    it client-side — and if we compose it, are those five the complete set?
+11. Specifically for C10: does `express/items/` include express products whose category is
+    marine-scoped? If so those rows are present in the admin and unreachable in express
+    browse, and this screen is the only place that gap is visible.
+
+**D · `express/orders/`**
+12. Is this in catalog scope at all? It reads as the Orders screen's sibling, pre-scoped to
+    `is_express=True`. Confirm we should treat it as an orders surface that happens to live
+    here, and that nothing catalog-shaped is expected of it.
+
+**E · Writers**
+13. Confirm the intended pattern is what the tab already does — Express as a read surface
+    that acts through `product-variants/set-express/` — and that there is no express-only
+    write we should be calling instead.
 
 ## Phase 5 · Conflict resolution
 

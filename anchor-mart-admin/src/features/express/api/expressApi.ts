@@ -103,6 +103,17 @@ function toExpressItem(raw: unknown, index: number): ExpressItem {
     // "express" on the one column whose whole job is to flag the exceptions.
     isExpress: getProp(raw, "is_express") === true,
     isActive: getProp(raw, "is_active") !== false,
+    /**
+     * Server-computed sailor visibility. Defaults to **true** when absent so a
+     * deployment predating these fields shows no alarming blocker banners
+     * everywhere; the blocker list is what actually drives the UI, and an empty
+     * list renders nothing either way.
+     */
+    isSailorVisible: getProp(raw, "is_sailor_visible") !== false,
+    visibilityBlockers: (asArray(getProp(raw, "sailor_visibility_blockers")) ?? [])
+      .map((b) => (typeof b === "string" ? b : ""))
+      .filter(Boolean),
+    isSailorOrderable: getProp(raw, "is_sailor_orderable") !== false,
   };
 }
 
@@ -152,6 +163,9 @@ export const expressApi = baseApi.injectEndpoints({
           max_price: params.maxPrice || undefined,
           admin_sourceable: params.adminSourceable || undefined,
           is_active: params.isActive || undefined,
+          // The variant's own flag here — NOT the parent-product alias the same
+          // param name carries on `get-product-variants/`.
+          is_express: params.isExpress || undefined,
           sort_by_price: params.sortByPrice || undefined,
           sort_by_popularity: params.sortByPopularity || undefined,
           sort_by_relevance: params.sortByRelevance || undefined,

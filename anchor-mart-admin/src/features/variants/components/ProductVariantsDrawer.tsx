@@ -29,6 +29,12 @@ import type { ProductVariant } from "../types/variant.types";
 import { VariantForm } from "./VariantForm";
 
 const M = MESSAGES.VARIANTS;
+/**
+ * Visibility labels live under the express screen's namespace because both read
+ * the same server-computed fields. Sharing the strings is deliberate: two
+ * wordings for one computed answer is how the screens start disagreeing.
+ */
+const EC = MESSAGES.EXPRESS.CATALOG;
 const LIMIT = 10;
 
 export interface ProductVariantsDrawerProps {
@@ -255,6 +261,45 @@ export function ProductVariantsDrawer({
           {v.isActive ? MESSAGES.EXPRESS.CATALOG.ACTIVE : MESSAGES.EXPRESS.CATALOG.INACTIVE}
         </Badge>
       ),
+    },
+    {
+      id: "visibility",
+      header: EC.COLUMNS.VISIBILITY,
+      headerClassName: "whitespace-nowrap",
+      /**
+       * What every other flag in this table adds up to: whether a sailor can
+       * find the SKU at all.
+       *
+       * Server-computed and shared with the express screen — the same
+       * `catalog_visibility_blockers()` helper feeds both, so the two views
+       * cannot disagree about the same variant. Three of its inputs are product
+       * fields absent from this payload, so it could not be derived here even
+       * approximately.
+       *
+       * Visible-but-not-orderable is a real state, not a contradiction: sourcing
+       * switched off leaves an item browsable with an unavailable badge.
+       */
+      cell: (v) => {
+        if (!v.isSailorVisible) {
+          return (
+            <div className="flex flex-col gap-1">
+              <Badge variant="danger" className="w-fit">
+                {EC.NOT_VISIBLE}
+              </Badge>
+              {v.visibilityBlockers.length > 0 && (
+                <span className="td-m">
+                  {v.visibilityBlockers.map((b) => EC.VISIBILITY_BLOCKER[b] ?? b).join(" · ")}
+                </span>
+              )}
+            </div>
+          );
+        }
+        return (
+          <Badge variant={v.isSailorOrderable ? "success" : "warning"} className="w-fit">
+            {v.isSailorOrderable ? EC.VISIBLE : EC.NOT_ORDERABLE}
+          </Badge>
+        );
+      },
     },
     {
       id: "actions",

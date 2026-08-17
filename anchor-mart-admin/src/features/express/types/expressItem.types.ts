@@ -72,6 +72,29 @@ export interface ExpressItem {
    */
   isExpress: boolean;
   isActive: boolean;
+  /**
+   * Whether a sailor can actually **see** this row in the express catalog.
+   *
+   * Server-computed from `ProductVariant.catalog_visibility_blockers()`, which
+   * sits beside `is_orderable()` on the model so the admin view cannot drift
+   * from the customer querysets it describes. It is not composable client-side:
+   * three of its inputs (`product.is_active`, `product.is_deleted`,
+   * `product.is_internal`) are not on the variant payload at all.
+   */
+  isSailorVisible: boolean;
+  /**
+   * Why not, when `isSailorVisible` is false. A **stable, add-only contract** —
+   * keys are never renamed — so an unrecognised one is rendered raw rather than
+   * dropped.
+   */
+  visibilityBlockers: string[];
+  /**
+   * Whether a sailor could **buy** it. Deliberately a different question from
+   * visibility: a product with sourcing switched off stays browsable with an
+   * unavailable badge, so it is visible and not orderable. `is_orderable()`
+   * also ignores the express flag — it is the cart gate, not the browse gate.
+   */
+  isSailorOrderable: boolean;
 }
 
 /** Transformed express-items result: total count + UI rows. */
@@ -87,6 +110,16 @@ export interface GetExpressCatalogParams {
   search?: string;
   categoryId?: string;
   productId?: string;
+  /**
+   * **Not cross-checked server-side.** Each bound is validated on its own, so an
+   * inverted range (`min_price=100&max_price=1`) is a 200 with zero rows rather
+   * than a 400 — unlike the customer catalog list, which rejects it. Any UI that
+   * exposes these must validate the pair itself, or an operator sees "no
+   * results" for what is really a typo.
+   *
+   * Neither is currently surfaced on the Items tab, so the trap is documented
+   * rather than guarded — there is nothing yet to guard.
+   */
   minPrice?: string;
   maxPrice?: string;
   /**
@@ -98,6 +131,19 @@ export interface GetExpressCatalogParams {
   adminSourceable?: string;
   /** `"true"` / `"false"` — variant liveness, independent of sourceability. */
   isActive?: string;
+  /**
+   * `"true"` / `"false"` — the **variant's own** express flag.
+   *
+   * `false` is the actionable view this screen exists for: variants of express
+   * products that nobody has flagged, which is exactly the set a sailor cannot
+   * see. Junk is a 400, like every other boolean.
+   *
+   * **Naming collision worth knowing.** On `get-product-variants/` the same
+   * param is a legacy alias meaning *"the parent product is express"*. Here the
+   * product is already fixed by the endpoint's scope, so it means *"the variant
+   * is flagged"*. One param name, two meanings, two endpoints.
+   */
+  isExpress?: string;
   /** Literal phrase the API expects: "low to high" | "high to low". */
   sortByPrice?: string;
   /** Same phrases as `sortByPrice`, ranked by average rating. */
@@ -107,9 +153,15 @@ export interface GetExpressCatalogParams {
 }
 
 /**
- * Catalog half of the express stats payload. The flow doc describes products
- * and variants as two separate aggregates, but the API returns them flattened
- * into one `items` object with prefixed keys — so they are modelled as sent.
+ * Catalog half of the express stats payload — **exactly these eight keys**,
+ * pinned by a backend test. The flow doc describes products and variants as two
+ * separate aggregates; the API returns them flattened into one object, so they
+ * are modelled as sent.
+ *
+ * **Mixed grain**: five product counts and three variant counts share this flat
+ * object. `sourceable_products` is the product master flag alone, while
+ * `sourceable_variants` is the effective AND *plus* `is_active` — so the two
+ * must never be presented as a pair or read as a ratio.
  */
 export interface ExpressItemStats {
   total_products?: number;
@@ -125,9 +177,15 @@ export interface ExpressItemStats {
 }
 
 /**
- * Order-volume half. `total_orders` is the aggregate the backend computes; the
- * sibling keys are its per-status breakdown, so the two must never be summed
- * together — `total_orders` already counts them.
+ * Order-volume half. `total_orders` is the aggregate the backend computes and
+ * the siblings are conditional counts within it, so the two must never be summed
+ * together.
+ *
+ * **The breakdown is not exhaustive**: it does not cover every post-payment
+ * status — `payment_received` falls into no bucket — so
+ * `sum(buckets) <= total_orders`, often strictly. Anything rendering these as
+ * parts of a whole (a stacked bar, a "total" row) must derive the remainder
+ * rather than assume it is zero.
  */
 export interface ExpressOrderStats {
   total_orders?: number;
@@ -144,6 +202,14 @@ export interface ExpressOrderStats {
  * `GET /superadmin/express/stats/` (Flow 09 API 4) — catalog counts and order
  * volume in one call, under two top-level keys. Every field is optional so a
  * partial response degrades to 0 rather than blanking a card.
+ *
+ * **Takes no query params, deliberately, and should not be made to.** One call
+ * serves two tabs: `category_id` or `min_price` are meaningless for the orders
+ * half, so following the Items tab's filters would make the item cards track the
+ * table while the order cards described something unrelated. The cards are
+ * therefore labelled whole-catalog — which is accurate rather than a hedge,
+ * since `total_variants` already counts exactly the tab's unfiltered population
+ * (every variant of an express product, flagged or not).
  */
 export interface ExpressStats {
   items?: ExpressItemStats;
