@@ -7,16 +7,13 @@ import { DataTable } from "@/components/ui/data-table";
 import { useGetCategoriesQuery } from "@/features/catalog";
 import { ProductVariantsDrawer } from "@/features/variants";
 import { getApiMessage, getApiStatus } from "@/lib/apiError";
-import { API_MAX_PAGE_SIZE } from "@/lib/constants";
+import { API_MAX_PAGE_SIZE, APP_ROUTES } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
 import {
   IconAlertTriangle,
-  IconAnchor,
   IconBolt,
   IconBoxSeam,
-  IconCategory,
-  IconCategory2,
   IconCircleCheck,
   IconClock,
   IconFlame,
@@ -25,7 +22,7 @@ import {
   IconTag,
 } from "@tabler/icons-react";
 import React, { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   useAnnounceProductAvailabilityMutation,
@@ -50,21 +47,11 @@ const productTabs = [
 
 const PS = MESSAGES.PRODUCTS.STATS;
 
-/**
- * Catalog scopes this list can serve. `marine_emergency` is deliberately absent:
- * `get-products/` 400s on it, since the emergency catalog has its own endpoint
- * and its own screen.
- */
-const catalogOptions = [
-  { value: "all", label: MESSAGES.PRODUCTS.ALL_CATALOGS },
-  { value: "regular", label: MESSAGES.COMMON.PRODUCT_PICKER.CATALOG_TYPE.regular },
-  { value: "express", label: MESSAGES.COMMON.PRODUCT_PICKER.CATALOG_TYPE.express },
-];
-
 const LIMIT = 10;
 
 export function ProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -89,7 +76,6 @@ export function ProductsPage() {
   const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
   const searchTerm = searchParams.get("search") ?? "";
   const categoryFilter = searchParams.get("category") ?? "all"; // category id, or "all"
-  const catalogFilter = searchParams.get("catalog") ?? ""; // "", "regular", "express"
   const statusFilter = searchParams.get("status") ?? ""; // "", "active", "inactive"
 
   const isActive =
@@ -100,18 +86,20 @@ export function ProductsPage() {
   const isTopRated = activeTab === "top_rated" ? true : undefined;
 
   /**
-   * All six filters the endpoint offers, in one object.
+   * The five filters this screen drives, in one object.
    *
    * They AND together server-side, and each is a no-op when blank — so "all"
-   * is expressed by omitting the key, never by sending an empty string. Bad
-   * input is a 400 rather than a silent fallback, which is why the two enum
-   * filters are driven by fixed option lists rather than free text.
+   * is expressed by omitting the key, never by sending an empty string.
+   *
+   * `catalogType` is deliberately not among them: the endpoint still accepts
+   * `?catalog_type=`, but the toolbar no longer offers it, so this list serves
+   * the general catalog whole. Express and marine-emergency products have their
+   * own screens, reachable from the stat cards above.
    */
   const listFilters = {
     search: searchTerm,
     isActive,
     category: categoryFilter !== "all" ? categoryFilter : undefined,
-    catalogType: catalogFilter || undefined,
     onDeal,
     isTopRated,
   };
@@ -407,6 +395,14 @@ export function ProductsPage() {
       value: productStats?.express ?? "-",
       icon: <IconBolt size={19} />,
       variant: "purple" as const,
+      /**
+       * Drills to the Express screen rather than filtering this table.
+       *
+       * Express products are managed on their own surface, so a `?catalog_type=`
+       * filter here would land the operator on a list they cannot act on in the
+       * way the card implies. Same reasoning for the emergency card below.
+       */
+      onClick: () => navigate(APP_ROUTES.EXPRESS),
     },
     {
       id: "emergency-products",
@@ -414,6 +410,7 @@ export function ProductsPage() {
       value: productStats?.emergency ?? "-",
       icon: <IconAlertTriangle size={19} />,
       variant: "red" as const,
+      onClick: () => navigate(APP_ROUTES.SPARES),
     },
     {
       id: "top-rated-products",
@@ -436,30 +433,6 @@ export function ProductsPage() {
       icon: <IconFlame size={19} />,
       variant: "amber" as const,
     },
-    {
-      id: "total-categories",
-      // The category **taxonomy**, not products — these three are the figures
-      // that do not follow the filter bar, because a product filter has no
-      // meaning for them. Labelled so numbers that stay put don't read as stuck.
-      label: PS.TOTAL_CATEGORIES,
-      value: productStats?.total_categories ?? categoriesData?.count ?? categories.length,
-      icon: <IconCategory size={19} />,
-      variant: "teal" as const,
-    },
-    {
-      id: "general-categories",
-      label: PS.GENERAL_CATEGORIES,
-      value: productStats?.general_categories ?? "-",
-      icon: <IconCategory2 size={19} />,
-      variant: "blue" as const,
-    },
-    {
-      id: "emergency-categories",
-      label: PS.EMERGENCY_CATEGORIES,
-      value: productStats?.marine_emergency_categories ?? "-",
-      icon: <IconAnchor size={19} />,
-      variant: "red" as const,
-    },
   ];
 
   return (
@@ -480,28 +453,10 @@ export function ProductsPage() {
                 placeholder: MESSAGES.PRODUCTS.ALL_CATEGORIES,
                 options: categoryOptions,
                 width: "160px",
-                // Both dropdowns say "not filtering" with "all", not "" — without
-                // this the Reset button would offer itself on a pristine toolbar.
+                // Says "not filtering" with "all", not "" — without this the
+                // Reset button would offer itself on a pristine toolbar.
                 emptyValue: "all",
                 onValueChange: (val) => setFilterParam("category", val === "all" ? "" : val),
-              },
-              {
-                /**
-                 * Catalog scope. The endpoint has always accepted
-                 * `?catalog_type=`; nothing sent it, so the Catalog column was
-                 * visible and unfilterable.
-                 *
-                 * Two values only — this list is the general catalog, and
-                 * `marine_emergency` is a 400 here rather than an empty page,
-                 * because those products are served by the Spares screen.
-                 */
-                id: "catalog",
-                value: catalogFilter || "all",
-                placeholder: MESSAGES.PRODUCTS.ALL_CATALOGS,
-                options: catalogOptions,
-                width: "140px",
-                emptyValue: "all",
-                onValueChange: (val) => setFilterParam("catalog", val === "all" ? "" : val),
               },
             ]}
             /**

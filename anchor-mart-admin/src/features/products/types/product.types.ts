@@ -152,7 +152,12 @@ export interface SetCatalogTypeResult {
 
 /**
  * Aggregate KPI counts for the products page from GET product-stats/.
- * Keys confirmed against a live response.
+ *
+ * **These eight and no others** — confirmed against a live response on
+ * 2026-08-17. The endpoint counts products only; it returns no category
+ * figures, so the taxonomy tiles that used to read `total_categories` /
+ * `general_categories` / `marine_emergency_categories` were rendering "-"
+ * against keys the response never carried.
  */
 export interface ProductStats {
   total: number;
@@ -163,9 +168,6 @@ export interface ProductStats {
   top_rated: number;
   on_deal: number;
   deal_of_the_day: number;
-  total_categories: number;
-  general_categories: number;
-  marine_emergency_categories: number;
 }
 
 /** Nested material composition inside a product's attributes. */

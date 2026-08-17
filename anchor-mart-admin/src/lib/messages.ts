@@ -1911,7 +1911,6 @@ export const MESSAGES = {
     /** `?search=` matches the product **name** only — not SKU, not description. */
     SEARCH_PLACEHOLDER: "Search by product name…",
     ALL_CATEGORIES: "All Categories",
-    ALL_CATALOGS: "All Catalogs",
     ADD_PRODUCT: "Add Product",
     FETCH_ERROR: "Failed to fetch products",
     EMPTY: "No products found.",
@@ -1948,10 +1947,6 @@ export const MESSAGES = {
        */
       ON_DEAL: "Products On Deal",
       DEAL_OF_THE_DAY: "Live Deals · one per variant",
-      /** The taxonomy — a product filter has no meaning for it, so it holds still. */
-      TOTAL_CATEGORIES: "Total Categories · all scopes",
-      GENERAL_CATEGORIES: "General Categories",
-      EMERGENCY_CATEGORIES: "Marine Emergency Categories",
     },
     /**
      * Table columns — one per field the list serializer actually returns, so
@@ -2525,23 +2520,13 @@ export const MESSAGES = {
   EXPRESS: {
     // Page chrome
     TITLE: "Express",
-    SUBTITLE: "Fast-delivery orders to vessels",
-    SEARCH_PLACEHOLDER: "Search express orders…",
-    FETCH_ERROR: "Failed to fetch express orders",
-    EMPTY: "No express orders found.",
     DASH: "—",
-    // Tabs — orders (post-payment) vs the express variant catalog
-    TABS: {
-      ORDERS: "Orders",
-      CATALOG: "Express Catalog",
-    },
     // KPI cards (express stats aggregates)
     STATS: {
       /**
-       * Labelled "All …" because `express/stats/` takes no filters by design —
-       * one call serves the catalog and orders tabs, so it cannot follow either
-       * one's table. Saying so keeps unchanged cards over a filtered table
-       * legible rather than looking stale.
+       * Labelled "All …" because `express/stats/` takes no filters by design,
+       * so the cards cannot follow the table below them. Saying so keeps
+       * unchanged cards over a filtered table legible rather than looking stale.
        */
       PRODUCTS: "All Express Products",
       // Plain footers are the loading state; the *_BREAKDOWN forms replace them
@@ -2557,16 +2542,6 @@ export const MESSAGES = {
       // Spelling out the AND rule: a variant is only orderable when both flags hold.
       SOURCEABLE_FOOTER: "Product and variant both flagged",
       SOURCEABLE_BREAKDOWN: (products: string) => `${products} sourceable products`,
-      ORDERS: "Express Orders",
-      ORDERS_FOOTER: "All statuses",
-      ORDERS_BREAKDOWN: (newCount: string, inProgress: string, delivered: string) =>
-        `${newCount} new · ${inProgress} in progress · ${delivered} delivered`,
-      // Express skips verification entirely, so a failed delivery is the first
-      // point where an express order needs a human — it earns its own card.
-      FAILED: "Failed Deliveries",
-      FAILED_FOOTER: "Needs intervention",
-      FAILED_BREAKDOWN: (cancelled: string, refunded: string) =>
-        `${cancelled} cancelled · ${refunded} refunded`,
     },
     // Express variant catalog tab
     CATALOG: {
@@ -2681,72 +2656,6 @@ export const MESSAGES = {
         "In an express product, but this variant is not flagged for express ordering.",
     },
     // Table
-    COLUMNS: {
-      ORDER: "Order",
-      CUSTOMER: "Customer",
-      LOCATION: "Port / Anchorage",
-      ITEMS: "Items",
-      AMOUNT: "Amount",
-      FLAGS: "Flags",
-      PARTNER: "Partner",
-      ARRIVAL: "Ship Arrival",
-      STATUS: "Status",
-    },
-    // The order status filter's labels now come from `lib/orderStatuses.ts`,
-    // the single source of truth for all 18 lifecycle statuses — the hand-written
-    // set that used to live here held four values `Order.Status` has never had,
-    // so choosing one returned 400 instead of filtering.
-    // Filter toolbar on the orders tab
-    ORDER_FILTERS: {
-      DATE_PLACEHOLDER: "Payment date",
-      PARTNER_ALL: "Any partner",
-      PARTNER_PLACEHOLDER: "Partner",
-    },
-    // Boolean flag badge labels
-    FLAGS: {
-      EXPRESS: "Express",
-      EMERGENCY: "Emergency",
-      FASTEST: "Fastest",
-      LOCATION_REQ: "Location Req.",
-    },
-    // Partner allocation
-    UNALLOCATED: "Unallocated",
-    // Flow 28 API 12 — partner assignment, from inside the order drawer.
-    ASSIGN: {
-      SECTION: "Assign Delivery Partner",
-      SECTION_REASSIGN: "Reassign Delivery Partner",
-      PARTNER_LABEL: "Delivery partner",
-      PARTNER_PLACEHOLDER: "Select a partner",
-      PARTNER_LOADING: "Loading partners…",
-      PARTNER_EMPTY: "No partners available",
-      REASSIGN_HINT: (current: string) =>
-        `Currently held by ${current || "another partner"} — assigning takes the order off them.`,
-      CONFIRM: "Assign Partner",
-      CONFIRM_REASSIGN: "Confirm Reassign",
-      ASSIGNING: "Assigning…",
-      SELECT_PARTNER: "Select a delivery partner first.",
-      ASSIGNED: (partner: string, order: string) => `${partner} assigned to ${order}.`,
-      REASSIGNED: (partner: string, order: string) => `${order} reassigned to ${partner}.`,
-      FAILED: "Could not assign the delivery partner. Please try again.",
-      /**
-       * A bare assign on an order someone already holds comes back 409
-       * `requires_confirmation`. The drawer stays open and the next click sends
-       * `confirm: true`, so this reads as a prompt rather than a dead end.
-       */
-      NEEDS_CONFIRM: "That order is already held by a partner — confirm again to reassign it.",
-    },
-    // Detail drawer
-    DRAWER: {
-      TITLE_FALLBACK: "Express Order",
-      CLOSE: "Close",
-      SECTIONS: {
-        OVERVIEW: "Overview",
-        CUSTOMER: "Customer",
-        DELIVERY: "Delivery",
-        TIMELINE: "Timeline",
-      },
-      ITEM_COUNT: (n: number) => `${n} item${n === 1 ? "" : "s"}`,
-    },
   },
   VERIFICATION: {
     // Page chrome

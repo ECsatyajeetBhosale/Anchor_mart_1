@@ -3,36 +3,9 @@ import { baseApi } from "@/lib/fetchUtils";
 import type {
   ExpressItem,
   ExpressItemListResult,
-  ExpressOrderListResponse,
   ExpressStats,
   GetExpressCatalogParams,
 } from "../types/expressItem.types";
-
-/**
- * Query parameters for the express **orders** list (Flow 09 API 2) — named for
- * the hook (`getExpressItems`) rather than the resource, unlike
- * `GetExpressCatalogParams` which covers `/express/items/`.
- *
- * This list shares `_apply_order_list_filters()` with the main Orders screen,
- * so it accepts the same set and validates identically.
- */
-export interface GetExpressItemsParams {
-  page?: number;
-  limit?: number;
-  // Free-text search term, sent to the backend as `?search=...`.
-  search?: string;
-  /**
-   * Order status filter, sent as `?status=<value>`. Omit for "all".
-   * **Post-payment statuses only** — a pre-payment value is a 400 with an
-   * explanatory message, not an empty 200.
-   */
-  status?: string;
-  /** `YYYY-MM-DD`, filtering on `payment_completed_at`. */
-  dateFrom?: string;
-  dateTo?: string;
-  /** UUID of the assigned delivery partner. */
-  partnerId?: string;
-}
 
 /** Safe property read off an unknown value. */
 function getProp(value: unknown, key: string): unknown {
@@ -119,30 +92,6 @@ function toExpressItem(raw: unknown, index: number): ExpressItem {
 
 export const expressApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getExpressItems: builder.query<ExpressOrderListResponse, GetExpressItemsParams>({
-      query: (params) => ({
-        url: EXPRESS_ENDPOINTS.GET_EXPRESS_ORDERS,
-        method: "GET",
-        // DRF pagination uses `page_size` (not `limit`); empty params are omitted.
-        params: {
-          page: params.page,
-          page_size: params.limit,
-          search: params.search || undefined,
-          status: params.status || undefined,
-          date_from: params.dateFrom || undefined,
-          date_to: params.dateTo || undefined,
-          partner_id: params.partnerId || undefined,
-        },
-      }),
-      providesTags: (result) =>
-        result?.results
-          ? [
-              ...result.results.map(({ id }) => ({ type: "ExpressItems" as const, id })),
-              { type: "ExpressItems", id: "PARTIAL-LIST" },
-            ]
-          : [{ type: "ExpressItems", id: "PARTIAL-LIST" }],
-    }),
-
     /**
      * Flow 09 API 3 — the express variant catalog. The response is
      * `{ message, data: [...] }` and paginated, so both that envelope and a bare
@@ -199,5 +148,4 @@ export const expressApi = baseApi.injectEndpoints({
   overrideExisting: false,
 });
 
-export const { useGetExpressItemsQuery, useGetExpressCatalogQuery, useGetExpressStatsQuery } =
-  expressApi;
+export const { useGetExpressCatalogQuery, useGetExpressStatsQuery } = expressApi;
