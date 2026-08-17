@@ -6,6 +6,7 @@ import type {
   Product,
   ProductListResponse,
   ProductStats,
+  SetCatalogTypeResult,
   UpdateProductPayload,
 } from "../types/product.types";
 
@@ -210,7 +211,7 @@ export const productsApi = baseApi.injectEndpoints({
      * must be omitted for `express`, so it is only attached when supplied.
      */
     setProductCatalogType: builder.mutation<
-      unknown,
+      SetCatalogTypeResult,
       { id: string; catalogType: string; category?: string }
     >({
       query: ({ id, catalogType, category }) => ({
@@ -225,6 +226,10 @@ export const productsApi = baseApi.injectEndpoints({
         { type: "Products", id: "STATS" },
         { type: "Spares", id: "PARTIAL-LIST" },
         { type: "ExpressItems", id: "CATALOG-LIST" },
+        // Leaving express clears `is_express` on every live variant, so the
+        // variant rows and the express counters both move with this write.
+        { type: "Variants", id: "PARTIAL-LIST" },
+        { type: "ExpressItems", id: "STATS" },
       ],
     }),
 

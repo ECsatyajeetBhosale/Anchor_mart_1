@@ -69,6 +69,16 @@ export interface Product {
    * boolean can set — the writers are under `promotion/deals/`.
    */
   on_deal?: boolean;
+  /**
+   * ISO timestamp when the running deal's window closes; `null` when not on
+   * deal. The **earliest** end when deals overlap.
+   *
+   * Machine-readable on purpose — its only job is arithmetic. `on_deal` changes
+   * when a clock passes, with no write to invalidate a cache against (C8), so
+   * this is what lets the screen schedule a single refetch at the boundary
+   * instead of polling or going stale.
+   */
+  deal_ends_at?: string | null;
   is_top_rated?: boolean;
   admin_sourceable?: boolean;
   /** List rows only; on the detail read, count `variants` instead. */
@@ -114,6 +124,31 @@ export type UpdateProductPayload = Partial<{
   is_active: boolean;
   is_top_rated: boolean;
 }>;
+
+/**
+ * Result of `POST set-catalog-type/{id}/`.
+ *
+ * **The express invariant is now maintained asymmetrically, by design** (C3):
+ *
+ * - **Leaving** express clears `is_express` on every live variant in the same
+ *   transaction. That kills both the stale per-variant label and the silent
+ *   resurrection that used to happen when a product was moved back onto the
+ *   express shelf and its old flags reappeared.
+ * - **Entering** express flags nothing — a machine cannot know which SKUs are
+ *   genuinely express-deliverable. Instead the response reports the counts, so
+ *   the stranded state (`flagged: 0` on an express product) is named at the
+ *   moment of the move rather than discovered later on the Express screen.
+ */
+export interface SetCatalogTypeResult {
+  message?: string;
+  express_variants?: {
+    /** Live variants currently flagged express — `0` here is the stranded state. */
+    flagged: number;
+    live_total: number;
+    /** How many this call un-flagged; non-zero only when leaving express. */
+    unflagged_by_this_call: number;
+  };
+}
 
 /**
  * Aggregate KPI counts for the products page from GET product-stats/.

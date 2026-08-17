@@ -182,6 +182,7 @@ export function SpareProductAddDrawer({ isOpen, onClose }: SpareProductAddDrawer
                 className="mono"
                 placeholder={F.SKU_PLACEHOLDER}
                 error={!!errors.sku}
+                maxLength={100}
                 {...register("sku")}
               />
             </FormField>

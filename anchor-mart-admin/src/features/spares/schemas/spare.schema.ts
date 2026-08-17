@@ -48,7 +48,11 @@ export const spareAddSchema = z.object({
    * Requiring it makes that state unreachable from this form. Existing
    * variant-less rows are flagged in the table instead.
    */
-  sku: z.string().trim().min(1, "SKU is required — it creates the spare's first variant"),
+  sku: z
+    .string()
+    .trim()
+    .min(1, "SKU is required — it creates the spare's first variant")
+    .max(100, "SKU must be 100 characters or fewer"),
 });
 
 export type SpareAddFormData = z.infer<typeof spareAddSchema>;

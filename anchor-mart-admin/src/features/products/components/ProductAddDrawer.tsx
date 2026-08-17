@@ -248,6 +248,7 @@ export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
                   className="mono"
                   placeholder="e.g. PANT10"
                   error={!!errors.sku}
+                  maxLength={100}
                   {...register("sku")}
                 />
               </FormField>

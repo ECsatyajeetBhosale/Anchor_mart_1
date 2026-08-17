@@ -1,6 +1,9 @@
 export { ProductsPage } from "./components/ProductsPage";
 export { SetCatalogTypeDialog } from "./components/SetCatalogTypeDialog";
 export { useProducts } from "./hooks/useProducts";
+// Schedules one refetch at a running deal's expiry — `on_deal` flips with the
+// clock and has no write to invalidate against (C8).
+export { useDealBoundaryRefetch } from "./hooks/useDealBoundaryRefetch";
 // The whole-catalog picker: `get-all-products/` + server-side search, type
 // chips and paging. Shared so no screen re-implements it against the
 // general-catalog-only list and loses the marine-emergency products.

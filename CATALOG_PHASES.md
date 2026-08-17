@@ -41,7 +41,7 @@ surfaces that write it.
 | 2 | Products, both scopes | 18 | ✅ Done |
 | 3 | Variants | 7 | ✅ Done |
 | 4 | Express | 3 | ✅ Done |
-| 5 | Conflict resolution | — | 🟡 Unblocked — ready to start |
+| 5 | Conflict resolution | — | 🟡 10 of 13 closed · 3 need a product decision |
 
 **Every one of the 41 routes is already wired somewhere in the frontend.** This is not a
 missing-integration sweep. The work is contract correctness, behaviour the UI fails to
@@ -483,22 +483,41 @@ per row with a hint (the C3 case), and the row action routes through
 
 ## Phase 5 · Conflict resolution
 
-Blocked on 1–4. Work [CATALOG_CONFLICTS.md](CATALOG_CONFLICTS.md) end to end: C1–C8 plus
-whatever accumulates. Several will need a backend decision rather than a frontend fix.
+**Frontend work complete.** Seven of thirteen conflicts are closed; the remaining six need
+a backend or product decision and cannot be resolved from this side.
 
-Current open set: **C1** (stats/list catalog scope) · **C3** (`set-catalog-type/` breaks
-the express invariant `set-express/` maintains) · **C4** (marine product split across two
-management surfaces) · **C5** (catalog move makes a row vanish silently) · **C6** (delete
-vs deactivate, three screens unverified) · **C7** (`marine_emergency` valid on stats,
-400 on list) · **C8** (`on_deal` staleness has no invalidation path).
-**C2 is resolved.**
+### Closed
 
----
+| # | How |
+|---|---|
+| **C2** | Backend scoped + filter-fixed `category-stats/`; frontend now sends the filters |
+| **C4** | Spares screen wired to the three catalog-wide toggles — the namespace split is now invisible to operators |
+| **C5** | Catalog dialog warns before a move that changes screens, and asks for a category in both directions |
+| **C6** | Delete-vs-deactivate parity verified on all five screens; Spares got overflow + typed confirm |
+| **C7** | Guarded by construction — a fixed two-option filter list cannot express the value the list rejects |
+| **C12** | Decided: dedicated endpoint for row toggles, PATCH for the drawer save |
+| **C8** | Mitigated everywhere (*the global staleness decision is still open*) |
 
-## Definition of done, per pass
+### Closed in the final round
 
-1. Every route in the section has been called or read, and its status recorded above.
-2. Local bugs fixed; cross-catalog findings logged, not fixed.
-3. `tsc --noEmit` → 0 errors. `biome check` → clean on touched files.
-4. This file's checklist and the status table updated.
-5. Anything deferred is written down with the reason — not left implicit.
+| # | Resolution |
+|---|---|
+| **C3** | Backend made the invariant asymmetric — leaving express clears variant flags, entering reports counts. Dialog warns at the point of decision |
+| **C11** | Accepted (the reservation protects order history), with the message fixed to name live vs deleted, and a 100-char cap that removes a former 500 |
+| **C13** | Row lock — `select_for_update(of=("self",))` under `transaction.atomic()` |
+| **C8** | `deal_ends_at` turns the mitigation into a scheduled refetch at the boundary, on Products |
+
+### Still needs a decision — cannot be closed frontend-side
+
+| # | Question | Owner |
+|---|---|---|
+| **C1** | Should `product-stats/` take the list's catalog scope, or keep the labelled all-catalogs total? | Backend |
+| **C8** | Spares/Express have no `deal_ends_at`, and deal *start* boundaries aren't covered. Extend the field, or accept an "as of" marker? | Product |
+| **C9** | Category deactivate doesn't take products off sale; delete does. Change the behaviour or keep the copy? | Product |
+| **C10** | Should the express category list span both scopes? (downgraded — the product is reachable, only its tile is not) | Backend |
+
+### Definition of done for this phase
+
+Each remaining item either has an agreed resolution built, or is explicitly accepted with
+the reasoning recorded. An accepted conflict is a closed one — what this log must not
+contain at the end is an item nobody decided about.

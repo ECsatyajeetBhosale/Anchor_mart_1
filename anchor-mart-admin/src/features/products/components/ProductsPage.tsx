@@ -36,6 +36,7 @@ import {
   useSetProductSourceableMutation,
   useSetProductTopRatedMutation,
 } from "../api/productApi";
+import { useDealBoundaryRefetch } from "../hooks/useDealBoundaryRefetch";
 import type { Product } from "../types/product.types";
 import { ProductFormModal } from "./ProductFormModal";
 import { SetCatalogTypeDialog } from "./SetCatalogTypeDialog";
@@ -154,6 +155,12 @@ export function ProductsPage() {
   );
 
   const productsData: Product[] = data?.results?.data ?? [];
+  /**
+   * Turns the C8 mitigation into an actual fix for the window it covers: one
+   * refetch scheduled at the moment the soonest deal on screen expires, rather
+   * than hoping the operator remounts the page.
+   */
+  useDealBoundaryRefetch(productsData, refetch);
   const totalCount = data?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / LIMIT));
 

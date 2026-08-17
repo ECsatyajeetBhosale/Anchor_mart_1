@@ -14,6 +14,8 @@ import { useCreateVariantMutation, useUpdateVariantMutation } from "../api/varia
 import type { ProductVariant, UpdateVariantPayload } from "../types/variant.types";
 
 const M = MESSAGES.VARIANTS;
+/** Matches the serializer's `max_length` on both add and update. */
+const SKU_MAX_LENGTH = 100;
 const F = M.FORM;
 const V = M.VALIDATION;
 
@@ -75,6 +77,7 @@ export function VariantForm({ productId, variant, onDone }: VariantFormProps) {
     const next: FieldErrors = {};
 
     if (!sku.trim()) next.sku = V.SKU_REQUIRED;
+    else if (sku.trim().length > SKU_MAX_LENGTH) next.sku = V.SKU_TOO_LONG(SKU_MAX_LENGTH);
 
     const priceValue = Number(price);
     // The serializer's floor is **0.01**, not 0 — identical to `base_price`
@@ -195,6 +198,9 @@ export function VariantForm({ productId, variant, onDone }: VariantFormProps) {
             <Input
               className="mono"
               value={sku}
+              // The column is 100 chars. An over-long SKU used to reach it and
+              // surface as a 500 rather than a validation error.
+              maxLength={SKU_MAX_LENGTH}
               placeholder={F.SKU_PLACEHOLDER}
               error={!!errors.sku}
               onChange={(e) => setSku(e.target.value)}

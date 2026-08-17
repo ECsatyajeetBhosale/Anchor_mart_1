@@ -80,6 +80,18 @@ export function SetCatalogTypeDialog({ product, isOpen, onClose }: SetCatalogTyp
   const isSameCatalog = catalogType === product?.catalog_type;
   const needsCategory = !!categoryScope && !isSameCatalog;
 
+  /**
+   * Whether the move takes the product off the screen it is being moved from.
+   *
+   * The general catalog (regular + express) and the marine catalog are served by
+   * different endpoints and different screens, so crossing that boundary makes
+   * the row vanish from the table underneath this dialog. Moving between regular
+   * and express does not — both live on the Products list.
+   */
+  const isMarine = (type?: string) => type === "marine_emergency";
+  const movesScreen = isMarine(catalogType) !== isMarine(product?.catalog_type);
+  const destinationScreen = isMarine(catalogType) ? M.SCREEN_SPARES : M.SCREEN_PRODUCTS;
+
   // Fetched from the target's own scope, so the picker never offers a category
   // the move would reject.
   const { data: categories = [] } = useGetCategoriesByCatalogTypeQuery(
@@ -101,14 +113,37 @@ export function SetCatalogTypeDialog({ product, isOpen, onClose }: SetCatalogTyp
       return;
     }
     try {
-      await setCatalog({
+      const res = await setCatalog({
         id: product.id,
         catalogType,
         // Sent whenever the target's scope differs from where the product sits;
         // omitted for express, which is valid alongside either scope.
         category: needsCategory ? category : undefined,
       }).unwrap();
-      toast.success(T.CATALOG_UPDATED);
+
+      /**
+       * The express invariant is maintained asymmetrically, so the outcome is
+       * reported rather than assumed (C3).
+       *
+       * **Leaving** express clears `is_express` on every live variant, which
+       * also prevents the old resurrection bug where moving a product back
+       * brought its stale flags with it — worth saying, because the operator
+       * changed one field and N variants moved.
+       *
+       * **Entering** express flags nothing, since no machine can know which SKUs
+       * are genuinely express-deliverable. A product that lands on the express
+       * shelf with `flagged: 0` is stranded — present in the admin, invisible to
+       * sailors — so that is warned about here, at the moment of the decision,
+       * instead of being discovered later on the Express screen.
+       */
+      const ev = res?.express_variants;
+      if (ev && ev.unflagged_by_this_call > 0) {
+        toast.success(T.CATALOG_UPDATED_UNFLAGGED(ev.unflagged_by_this_call));
+      } else if (ev && catalogType === "express" && ev.flagged === 0) {
+        toast.warning(T.CATALOG_UPDATED_NONE_FLAGGED(ev.live_total));
+      } else {
+        toast.success(getApiMessage(res) ?? T.CATALOG_UPDATED);
+      }
       onClose();
     } catch (err) {
       toast.error(getApiMessage(err) ?? T.CATALOG_ERROR);
@@ -126,6 +161,16 @@ export function SetCatalogTypeDialog({ product, isOpen, onClose }: SetCatalogTyp
         </DialogHeader>
 
         <div className="mt-3">
+          {/*
+            C5: a catalog move relocates the row to a **different screen**, and
+            the dialog used to close on a table the product had just left — which
+            reads as a failed save rather than a successful move. Only shown when
+            the destination actually changes screens: express and regular share
+            the Products list, so moving between them is invisible in this sense.
+          */}
+          {isSameCatalog ? null : movesScreen ? (
+            <p className="fg-hint mb-3">{M.MOVES_SCREEN(destinationScreen)}</p>
+          ) : null}
           <FormField label={M.CATALOG_LABEL}>
             <DropdownSelect
               value={catalogType}

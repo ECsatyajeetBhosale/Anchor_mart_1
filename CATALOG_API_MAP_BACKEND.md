@@ -149,8 +149,17 @@ Base: `/api/superadmin/product-variants/`
 | POST | `set-express/<uuid>/` | `SetVariantExpressView` |
 
 - Serves **all** catalog types — there is no marine/general split here.
-- `is_express` is **not** in `UpdateProductVariantSerializer.fields`; `set-express/` is its
-  only writer.
+- `is_express` is **not** in `UpdateProductVariantSerializer.fields`. `set-express/` is the only
+  endpoint that can turn it **on**; `products/set-catalog-type/` turns it **off** in bulk when a
+  product leaves the express shelf (see below).
+- `delete-product-variant/` returns `product_catalog_type` + `product_cascaded` — deleting the
+  last express variant demotes the product, so this call can change a second object.
+- Deleting a product's **only** variant is a 400. The guard reads the sibling count under a
+  `select_for_update` lock on the parent product, so concurrent deletes cannot strand it at zero.
+- **SKU uniqueness is global and includes soft-deleted rows** — the reservation is deliberate,
+  because `OrderItem.sku` is a permanent snapshot. A collision with a deleted variant returns
+  its own message (`ProductVariant.SKU_RESERVED_MESSAGE`) on all three write paths:
+  `add-product-variant/`, `update-product-variant/` and `add-product/`'s inline `sku`.
 - `add-product/` with an `sku` creates the first variant inline, so product creation and
   variant creation overlap.
 
@@ -186,7 +195,34 @@ liveness/sourceable gates (`catalog/views.py` — `ExpressProductListView.EXTRA_
 up-cascades its product to `catalog_type=express`; turning off the *last* express variant
 down-cascades the product back to `regular` (or `marine_emergency` per its category scope).
 
-`set-catalog-type/` does **not** — it writes `catalog_type` only. See the conflicts log.
+`set-catalog-type/` now holds the same invariant, **asymmetrically** (C3, 2026-08-17):
+
+* **Leaving express** → every live variant's `is_express` is cleared, in the same transaction.
+  Previously the flags survived the move, so a variant claimed "express-deliverable" under a
+  regular product, and moving the product back to express silently resurrected them.
+* **Entering express** → nothing is auto-flagged. Which SKUs are express-deliverable is a
+  per-SKU business fact an admin asserts; the endpoint reports counts instead so the caller can
+  warn at the moment of the move:
+
+```jsonc
+{ "message": "Product catalog type set to 'express'. All variants inherit it. No variants are
+              marked express-deliverable yet, so sailors will not see it …",
+  "express_variants": { "flagged": 0, "live_total": 3, "unflagged_by_this_call": 0 },
+  "data": { /* full product detail */ } }
+```
+
+`flagged: 0` while `catalog_type == "express"` is the stranded state — the product is on the
+express shelf and invisible to sailors. The variant rows report it as
+`sailor_visibility_blockers: ["not_flagged_express"]`.
+
+## Live-deal staleness
+
+`on_deal` is an `EXISTS` against a time window, so it flips when a clock passes with no write to
+invalidate against. `products/get-products/` rows therefore also carry **`deal_ends_at`** — an
+ISO timestamp (machine-readable by design, unlike the display timestamps), null when the row is
+not on deal, and the **earliest** end when several deals overlap. It is the next moment `on_deal`
+can change, so one scheduled refetch replaces polling. Deals are scheduled by calendar day, so
+in practice it is usually tonight's midnight and one timer covers the page.
 
 ---
 

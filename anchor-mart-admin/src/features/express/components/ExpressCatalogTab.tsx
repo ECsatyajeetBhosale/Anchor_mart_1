@@ -117,17 +117,28 @@ export function ExpressCatalogTab({
 }: ExpressCatalogTabProps) {
   const sortParams = splitSort(sort);
 
-  const { data, isLoading, isFetching, isError, error, refetch } = useGetExpressCatalogQuery({
-    page,
-    limit: LIMIT,
-    search,
-    adminSourceable: sourceable,
-    isActive: active,
-    isExpress: express,
-    sortByPrice: sortParams.price,
-    sortByPopularity: sortParams.popularity,
-    sortByRelevance: sortParams.relevance,
-  });
+  const { data, isLoading, isFetching, isError, error, refetch } = useGetExpressCatalogQuery(
+    {
+      page,
+      limit: LIMIT,
+      search,
+      adminSourceable: sourceable,
+      isActive: active,
+      isExpress: express,
+      sortByPrice: sortParams.price,
+      sortByPopularity: sortParams.popularity,
+      sortByRelevance: sortParams.relevance,
+    },
+    /**
+     * Rows here carry server-computed sailor visibility, which depends on
+     * product-level state this screen never writes — another admin deactivating
+     * the parent changes what these rows should say, with nothing local to
+     * invalidate. Re-fetching on mount is the same C8 mitigation the products
+     * and spares lists use, for the same reason: a stale answer to "can a sailor
+     * see this" is the one answer worth being sure of.
+     */
+    { refetchOnMountOrArgChange: true },
+  );
 
   // Flow 29a §6 — the variant-level express switch. Confirmed rather than
   // toggled inline because it cascades to the parent product (see the dialog).

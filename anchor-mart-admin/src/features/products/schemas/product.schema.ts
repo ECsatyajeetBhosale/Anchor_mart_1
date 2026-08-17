@@ -93,7 +93,12 @@ export const productAddSchema = z.object({
    * separately — so this form always sends it. Globally unique across all
    * variants; a collision comes back as a 400 on `sku`.
    */
-  sku: z.string().min(1, "SKU is required"),
+  sku: z
+    .string()
+    .trim()
+    .min(1, "SKU is required")
+    // Column is 100 chars; over-long values used to surface as a 500.
+    .max(100, "SKU must be 100 characters or fewer"),
   // Named catalog, not an express boolean — `is_express_item` was on neither
   // add-product nor any other endpoint in the products contract.
   catalog_type: z.string().min(1, "Catalog is required").default("regular"),

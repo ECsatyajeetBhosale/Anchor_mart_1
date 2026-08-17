@@ -1735,6 +1735,16 @@ export const MESSAGES = {
       CATEGORY_HINT: "Each catalog keeps its own categories, so this move needs a new one.",
       CATEGORY_PLACEHOLDER: "Select a category",
       CATEGORY_REQUIRED: "Pick a category from the catalog you're moving to.",
+      /**
+       * C5 — the general and marine catalogs are different screens, so crossing
+       * between them makes the row disappear from the table behind this dialog.
+       * Saying where it went turns a successful move that looks like a failed
+       * save into one that reads correctly.
+       */
+      MOVES_SCREEN: (screen: string) =>
+        `This moves the product to the ${screen} screen — it will no longer appear in this list.`,
+      SCREEN_SPARES: "Marine Emergency Spares",
+      SCREEN_PRODUCTS: "Products",
       CONFIRM: "Move product",
       CANCEL: "Cancel",
       OPTIONS: {
@@ -1757,6 +1767,21 @@ export const MESSAGES = {
     },
     TOAST: {
       CATALOG_UPDATED: "Catalog updated",
+      /**
+       * Leaving express un-flags every live variant in the same transaction, so
+       * one field change moved N rows. Reported because it is also what stops a
+       * later move *back* onto the express shelf resurrecting stale flags.
+       */
+      CATALOG_UPDATED_UNFLAGGED: (n: number) =>
+        `Catalog updated — express removed from ${n} variant${n === 1 ? "" : "s"}.`,
+      /**
+       * Entering express flags nothing: only a human knows which SKUs are
+       * genuinely express-deliverable. Landing on the shelf with none flagged is
+       * the stranded state — visible in the admin, invisible to sailors — so it
+       * is named here rather than found later.
+       */
+      CATALOG_UPDATED_NONE_FLAGGED: (liveTotal: number) =>
+        `Catalog updated, but no variants are flagged express — sailors cannot see this product yet. Flag at least one of its ${liveTotal} variant${liveTotal === 1 ? "" : "s"} to make it available.`,
       CATALOG_ERROR: "Failed to change the catalog",
       TOP_RATED_UPDATED: "Top-rated flag updated",
       TOP_RATED_ERROR: "Failed to update the top-rated flag",
@@ -1813,12 +1838,12 @@ export const MESSAGES = {
       SKU: "SKU",
       SKU_PLACEHOLDER: "e.g. SHIRT-RED-M",
       /**
-       * SKUs are unique across **all** variants, and the check does not exclude
-       * soft-deleted rows — so deleting a variant burns its SKU permanently. An
-       * admin re-creating one they just removed gets a conflict against a row
-       * they cannot see anywhere, which is worth naming before they hunt for it.
+       * The reservation is **accepted behaviour**, not a defect — it protects
+       * order history (C11). The server now classifies a collision as live vs
+       * deleted and says which, so this hint only has to set the expectation;
+       * the specific reason arrives field-keyed on the input.
        */
-      SKU_HINT: "Unique across all variants. A deleted variant keeps its SKU reserved.",
+      SKU_HINT: "Unique across all variants, including deleted ones.",
       PRICE: "Price",
       PRICE_PLACEHOLDER: "0.00",
       ATTRIBUTES: "Attributes (JSON)",
@@ -1831,6 +1856,7 @@ export const MESSAGES = {
       CANCEL: "Cancel",
     },
     VALIDATION: {
+      SKU_TOO_LONG: (max: number) => `SKU must be ${max} characters or fewer.`,
       SKU_REQUIRED: "SKU is required.",
       /** The serializer floor is 0.01 with 2 decimal places — same as `base_price`. */
       PRICE_INVALID: "Enter a price of at least 0.01, with at most 2 decimal places.",
@@ -3276,12 +3302,20 @@ export const MESSAGES = {
       UPDATING: "Updating…",
     },
     // Delete confirmation
+    /**
+     * Same terminal semantics as a product delete — a spare **is** a Product
+     * with `catalog_type=marine_emergency`. Soft-deleted with no restore
+     * endpoint, and every admin queryset filters deleted rows, so it removes
+     * itself from every screen that could show what happened. The Status switch
+     * is the reversible action; the copy points there.
+     */
     DELETE_DIALOG: {
       TITLE: "Delete this spare?",
       DESCRIPTION: (name: string) =>
-        `"${name}" will be removed from the marine emergency catalogue. This cannot be undone.`,
+        `“${name}” and all of its variants are removed from every admin screen, and this cannot be undone — there is no restore. To take it out of service but keep the record, switch it to inactive in the Status column instead.`,
       CONFIRM: "Delete",
       DELETING: "Deleting…",
+      PHRASE: "delete",
     },
     TOAST: {
       ADDED: "Spare added to the marine emergency catalogue",

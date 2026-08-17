@@ -18,6 +18,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { PageHeader } from "@/components/common/PageHeader";
 import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
+import { TableActions } from "@/components/common/TableActions";
 import { avatarColumn, textColumn } from "@/components/common/tableColumns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -120,11 +121,21 @@ export function SparesPage() {
     isActive: statusFilter === "all" ? undefined : statusFilter === "true",
   };
 
-  const { data, isLoading, isFetching, isError, error, refetch } = useGetSpareProductsQuery({
-    page,
-    limit: LIMIT,
-    ...listFilters,
-  });
+  const { data, isLoading, isFetching, isError, error, refetch } = useGetSpareProductsQuery(
+    {
+      page,
+      limit: LIMIT,
+      ...listFilters,
+    },
+    /**
+     * `on_deal` is an EXISTS against a deal's live start/end window, so a row can
+     * enter or leave it when a clock passes — with no write to the product and
+     * nothing for the cache to invalidate. Re-fetching on mount keeps a
+     * returning operator from acting on deal state that expired while they were
+     * away. Mitigation, not a fix: a tab left open still goes stale (C8).
+     */
+    { refetchOnMountOrArgChange: true },
+  );
 
   const products = data?.products ?? [];
   const totalCount = data?.count ?? 0;
@@ -156,7 +167,11 @@ export function SparesPage() {
   ];
 
   // Live KPI stats, scoped to marine and following the filters above.
-  const { data: stats, isLoading: statsLoading } = useGetSpareStatsQuery(listFilters);
+  const { data: stats, isLoading: statsLoading } = useGetSpareStatsQuery(listFilters, {
+    // Same live-deal reasoning as the list — the `on_deal` card is computed per
+    // request, so a cached one can outlive the window it counted.
+    refetchOnMountOrArgChange: true,
+  });
   const statItems = STAT_CONFIG.map((c) => ({
     id: c.id,
     label: c.label,
@@ -379,18 +394,29 @@ export function SparesPage() {
           >
             <IconEdit size={15} />
           </Button>
+          {/*
+            Delete sits behind the overflow menu here as it does on Products and
+            Categories — C6 parity. A spare is a Product, so the same terminal
+            soft-delete applies: no restore endpoint, and every admin queryset
+            filters deleted rows, so it hides its own evidence. The Status switch
+            beside it is the reversible action operators actually want.
+          */}
           {canManageCatalog && (
-            <Button
-              variant="ghost"
-              size="xs"
-              title={M.ACTIONS.DELETE}
-              onClick={(e) => {
-                e.stopPropagation();
-                setPendingDelete(r);
-              }}
-            >
-              <IconTrash size={15} className="text-[var(--danger-text)]" />
-            </Button>
+            <TableActions
+              row={r}
+              actions={[
+                {
+                  icon: <IconTrash size={15} />,
+                  title: M.ACTIONS.DELETE,
+                  variant: "danger",
+                  overflow: true,
+                  onClick: (e, row) => {
+                    e.stopPropagation();
+                    setPendingDelete(row);
+                  },
+                },
+              ]}
+            />
           )}
         </div>
       ),
@@ -477,6 +503,9 @@ export function SparesPage() {
         title={M.DELETE_DIALOG.TITLE}
         description={M.DELETE_DIALOG.DESCRIPTION(pendingDelete?.name ?? "")}
         confirmText={isDeleting ? M.DELETE_DIALOG.DELETING : M.DELETE_DIALOG.CONFIRM}
+        // Typed confirmation, as on Products and Categories: irreversible, and
+        // it cascades to every variant of the spare.
+        confirmPhrase={M.DELETE_DIALOG.PHRASE}
         isLoading={isDeleting}
       />
     </div>

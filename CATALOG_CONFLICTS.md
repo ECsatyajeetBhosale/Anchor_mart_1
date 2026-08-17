@@ -109,7 +109,29 @@ that no copy on either categories screen promises an all-scopes number.
 
 ## C3 · `set-catalog-type/` breaks the express invariant that `set-express/` maintains
 
-**Status:** OPEN — confirmed by backend · **Catalogs:** Products, Variants, Express items
+**Status:** ✅ **RESOLVED — asymmetrically, by design** (backend + frontend, pass 5) ·
+**Catalogs:** Products, Variants, Express items
+
+The resolution is deliberately **not** "make `set-catalog-type/` cascade like
+`set-express/`", because the two directions are not symmetrical problems:
+
+- **Leaving express** now clears `is_express` on every live variant, in the same
+  transaction as the `catalog_type` write. This kills two bugs at once: the stale
+  per-variant label, and the silent *resurrection* where moving a product back onto the
+  express shelf brought its old flags with it.
+- **Entering express** flags nothing, and should not — no machine knows which SKUs are
+  genuinely express-deliverable. Instead the response reports
+  `express_variants: { flagged, live_total, unflagged_by_this_call }`, so the stranded
+  state (`flagged: 0` on an express product) is **named at the point of decision** rather
+  than discovered later on the Express screen.
+
+Frontend: the catalog dialog reports the un-flag count when leaving, and warns explicitly
+when a move onto the express shelf leaves nothing flagged. The mutation also invalidates
+the variant and express caches, since one product-level write now moves N variant rows.
+
+Backing this up, pass 4 made the state independently visible: `is_sailor_visible` plus the
+`not_flagged_express` blocker surface it on both the Express and variants screens. So the
+gap is now caught at the move, and caught again if it is ever reached another way.
 
 **Answered 2026-08-17: the two express flags are not alternatives, they compose.**
 
@@ -153,7 +175,19 @@ and the variant-level one on the express endpoints.
 
 ## C4 · A marine emergency product is edited in one place and toggled in another
 
-**Status:** OPEN · **Catalogs:** Products, Marine emergency spares
+**Status:** ✅ **RESOLVED** (frontend, pass 2) · **Catalogs:** Products, Marine emergency
+spares
+
+The split is real server-side and is not going away — CRUD lives under
+`/emergency-spares/products/…` while the three toggles are catalog-wide under
+`/products/…`. But it was only a *conflict* because the Spares screen offered **none** of
+the toggles, so a spare's flags could only be reached from a different screen's endpoints
+with no UI at all.
+
+Pass 2 wired `set-top-rated/`, `set-admin-sourceable/` and `set-active/` onto the Spares
+rows, calling the catalog-wide routes with a marine id. The operator now sees one screen
+that manages the whole record; the two-namespace split stays a backend implementation
+detail, which is what it should have been all along.
 
 They are the same underlying model — `products/set-catalog-type/` moves a record
 between them — but:
@@ -171,7 +205,19 @@ screen currently offers those toggles at all is unverified.
 
 ## C5 · Moving a catalog makes a product vanish from the screen you moved it on
 
-**Status:** OPEN · **Catalogs:** Products, Marine emergency spares, Express items
+**Status:** ✅ **RESOLVED** (frontend, pass 5) · **Catalogs:** Products, Marine emergency
+spares, Express items
+
+The disappearance is correct behaviour — the two catalogs are different screens backed by
+different endpoints — so the fix was never to prevent it, only to stop it reading as a
+failed save. The dialog now says where the product is going *before* the move, and only
+when the destination actually changes screens: regular ↔ express share the Products list,
+so no warning fires there.
+
+The related 404-on-edit risk noted here is also gone: the products list, detail, update
+and delete views 404 on a marine record, and pass 2 made the dialog ask for a category in
+both directions, so the move that produced a stale row now completes correctly rather than
+half-failing.
 
 `set-catalog-type/` to `marine_emergency` removes the row from the Products table
 (scoped to regular + express) and inserts it into Spares. The dialog does not say so.
@@ -185,7 +231,18 @@ catalog changed underneath will therefore 404 on edit but succeed on toggle.
 
 ## C7 · `?catalog_type=marine_emergency` is a 400 on the list, valid on the stats
 
-**Status:** OPEN · **Catalogs:** Products, Marine emergency spares
+**Status:** ✅ **RESOLVED — guarded by construction** (frontend, pass 2) ·
+**Catalogs:** Products, Marine emergency spares
+
+The asymmetry is real and stays: `product-stats/` accepts all three catalog types,
+`get-products/` rejects the third. It cannot bite here because the Products filter bar is
+driven by a fixed two-option list that cannot express `marine_emergency`, and the same
+`listFilters` object feeds both calls — so the list and the stats can only ever be sent a
+value the list accepts.
+
+The marine list rejects `catalog_type` outright (it is forced), and the spares client
+never sends it. Documented on both param types so a future filter cannot reintroduce the
+gap by widening the options list alone.
 
 `get-products/` rejects `marine_emergency` (that catalog has its own endpoint), while
 `product-stats/` accepts all three values. The two endpoints therefore take *almost*
@@ -210,11 +267,23 @@ endpoints, so there are two spellings of one filter, and `is_express=false` mean
 the Deal Products tab when a clock passes, with no write to the product and nothing for
 RTK Query to invalidate.
 
-Mitigated on Products with `refetchOnMountOrArgChange` on both the list and the stats
-query, so returning to the screen re-reads it. **That is a mitigation, not a fix** — a
-tab left open still goes stale, and the same annotation presumably appears on any other
-screen that reads deal state. Worth deciding once, globally, rather than per screen:
-poll, accept staleness with a visible "as of" marker, or push.
+**Mitigated on every affected screen** (pass 5): `refetchOnMountOrArgChange` now covers
+the Products list and stats, the Spares list and stats, and the Express catalog. Express
+gets it for a second reason — its rows carry server-computed sailor visibility, which
+depends on product state that screen never writes, so another admin's edit changes what
+those rows should say with nothing local to invalidate.
+
+**Now a real fix on the products list** (pass 5). Backend added `deal_ends_at` to
+`get-products/` rows — an ISO timestamp, null when not on deal, the earliest window end
+when deals overlap. `useDealBoundaryRefetch` schedules **one** refetch at that instant: no
+polling, and no staleness inside the window, because by definition nothing changes until
+the boundary is crossed. It is deliberately machine-readable rather than a display string,
+so it pre-commits nothing about how the state is presented.
+
+**Still open elsewhere.** Spares and Express have no equivalent field, so both keep the
+`refetchOnMountOrArgChange` mitigation. And a "deal starting" boundary is not covered —
+only expiry. Whether the remaining screens get the same field, or the product prefers an
+"as of" marker or push, is still a product decision.
 
 ---
 
@@ -246,6 +315,102 @@ in origin — both come from `set-catalog-type/` — not in severity.
 **Candidate resolutions:** (a) the express category list spans both scopes; (b) moving to
 express from marine also asks for a general category; (c) accept it and surface the
 category gap on the Express screen. Lower priority than first recorded.
+
+---
+
+## C11 · A soft-deleted variant's SKU is burned permanently
+
+**Status:** ✅ **RESOLVED — accepted, with the message fixed** (backend + frontend, pass 5) ·
+**Catalogs:** Variants, Products, Marine emergency spares
+
+**The reservation stays: it protects order history.** That is the right call — releasing a
+SKU would let a new variant inherit the identity of one that appears on historical orders.
+What was actually broken was the *explanation*, not the behaviour.
+
+`ProductVariant.sku_conflict()` now classifies a collision as live / deleted / none, and
+all three write paths report the real reason — so "this SKU belonged to a deleted variant"
+is said out loud instead of presenting as a conflict against a row that appears on no
+screen.
+
+Backend found two things while fixing it: the update path could never have reached the new
+message, because DRF's auto-generated `UniqueValidator` is field-level and short-circuited
+`validate_sku` with its own generic wording; and an over-long SKU reached the column and
+surfaced as a **500**, now capped at `max_length=100` on both add and update.
+
+Frontend: the 100-character cap is enforced on all three SKU inputs (variant form, product
+add, spare add) so the former 500 is unreachable, and the hint is now just *"Unique across
+all variants, including deleted ones"* — the specific reason arrives field-keyed on the
+input.
+
+SKU uniqueness is global across all variants and the check **does not exclude
+soft-deleted rows** (the model column is `unique=True`). So deleting a variant reserves
+its SKU forever: re-creating `TWO-B` after deleting `TWO-B` is a 400.
+
+From the admin's side that is a conflict against a row that appears on no screen — every
+list, detail and stats queryset filters `is_deleted=False`. An operator tidying SKUs hits
+a phantom collision and has nowhere to look for the cause.
+
+**Handled in pass 3 by copy only**: the variant form's SKU hint says *"Unique across all
+variants. A deleted variant keeps its SKU reserved,"* and the delete confirm repeats it.
+That stops the surprise; it does not give the SKU back.
+
+Reaches products because `add-product/`'s inline `sku` hits the same global check, so the
+same phantom collision can block **product creation**, where the copy currently says only
+"Must be unique."
+
+**Candidate resolutions:** (a) exclude soft-deleted rows from the uniqueness check;
+(b) release the SKU on delete by suffixing the deleted row; (c) leave it and keep the
+copy. (a) and (b) are backend calls.
+
+---
+
+## C12 · `admin_sourceable` has two writers on variants — decided, not a defect
+
+**Status:** DECIDED · **Catalogs:** Variants
+
+`admin_sourceable` is both on `UpdateProductVariantSerializer.fields` and served by its
+own `set-admin-sourceable/` endpoint — the same dual-writer shape as products'
+`is_top_rated`, which was reviewed in the products pass and accepted.
+
+Recorded so it is not rediscovered as a bug in a later pass. The resolution is the same
+as products': **the dedicated endpoint for row toggles, the PATCH for the drawer's
+multi-field save.** The dedicated one writes a single column and returns a small
+response; it also carries the up-cascade reporting (`product_cascaded`) that the PATCH
+does not.
+
+Contrast `is_express`, which is **not** on the update serializer at all — `set-express/`
+is genuinely its only writer, which is what lets that cascade be a single source of truth.
+
+---
+
+## C13 · The only-variant delete guard is a count, not a constraint
+
+**Status:** ✅ **RESOLVED** (backend, pass 5) · **Catalogs:** Variants, Products
+
+`DeleteVariantView` now wraps the guard and the delete in `transaction.atomic()` and reads
+the sibling count under `select_for_update(of=("self",))` on the parent product, so two
+concurrent deletes of the last two variants can no longer both see a survivor.
+
+Worth recording for whoever meets it next: a bare `select_for_update()` fails on Postgres
+here — `Product.category` is nullable, so `select_related("category")` emits a LEFT OUTER
+JOIN and *"FOR UPDATE cannot be applied to the nullable side of an outer join"*.
+`of=("self",)` locks the product row only and keeps the join, which the demotion needs in
+order to pick the target shelf.
+
+The zero-variant badge added in pass 2 stays, but its meaning narrows: it now detects
+**legacy** rows rather than a state new work can still produce.
+
+Deleting a product's only variant is refused with a 400, which is what stops the delete
+path from producing a zero-variant, sailor-invisible product.
+
+But the guard is an **application-level count**, not a database constraint or a row lock.
+Two concurrent deletes of the last two variants can each see one surviving sibling and
+both proceed, leaving the product with none. This is the RC-4 pattern the codebase
+already tracks; backend added the note in place rather than fixing it, since the fix is a
+constraint or a lock.
+
+Nothing the frontend can do about it — recorded so the zero-variant badge added in pass 2
+is understood as a **detector for a state that is still reachable**, not a legacy display.
 
 ---
 
@@ -287,7 +452,21 @@ frontend one.
 
 ## C6 · `is_active` vs delete asymmetry — fixed for Products, unverified elsewhere
 
-**Status:** OPEN · **Catalogs:** all five
+**Status:** ✅ **RESOLVED** (frontend, passes 1–5) · **Catalogs:** all five
+
+Verified and brought to parity on every screen that deletes:
+
+| Screen | Row toggle | Delete behind overflow | Typed confirm |
+|---|---|---|---|
+| Products | ✅ pass 2 | ✅ | ✅ |
+| Categories (both doors) | ✅ pass 1 | ✅ | ✅ |
+| Marine spares | ✅ pass 2 | ✅ pass 5 | ✅ pass 5 |
+| Variants | active flag in form | — guarded server-side | — |
+| Express items | — read-only screen | — | — |
+
+Variants are the deliberate exception: deleting a product's only variant is refused with
+a 400, so the destructive path is already guarded where it matters, and the screen has no
+row-level delete to demote. Express writes nothing at all.
 
 For Products (resolved 2026-08-17): delete is a soft delete with **no restore
 endpoint** and every admin queryset filters deleted rows, so it is terminal and hides
@@ -338,6 +517,9 @@ the two numbers will legitimately disagree and look like a bug.
 | 2026-08-17 | C13 | **Added in pass 3.** The only-variant delete guard is an app-level count, so concurrent deletes can still strand a product at zero (RC-4) |
 | 2026-08-17 | C10 | **Downgraded in pass 4.** Backend verified the product *is* reachable by list and search — only its category tile is absent. Reworded and de-prioritised |
 | 2026-08-17 | C3 | **Now detectable in the UI.** `is_sailor_visible` + blockers surface the C3 state (`not_flagged_express`) on both the Express and variants screens |
+| 2026-08-17 | C11–C13 | Bodies restored — an earlier edit to C10 spanned and deleted them; only their changelog rows had survived |
+| 2026-08-17 | C4, C5, C6, C7 | **Pass 5: RESOLVED frontend-side.** Spares toggles (C4), cross-screen move warning (C5), delete parity on Spares (C6), filter guarded by construction (C7) |
+| 2026-08-17 | C8 | Mitigation extended to Spares and Express; the global staleness decision remains open |
 
 ---
 
