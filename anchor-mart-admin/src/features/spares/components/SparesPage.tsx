@@ -10,7 +10,7 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -18,11 +18,19 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { PageHeader } from "@/components/common/PageHeader";
 import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
-import { avatarColumn, statusColumn, textColumn } from "@/components/common/tableColumns";
+import { avatarColumn, textColumn } from "@/components/common/tableColumns";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
+import { Switch } from "@/components/ui/switch";
 import { useGetEmergencyCategoriesQuery } from "@/features/emergency-categories";
-import { getApiMessage } from "@/lib/apiError";
+import {
+  useSetProductActiveMutation,
+  useSetProductSourceableMutation,
+  useSetProductTopRatedMutation,
+} from "@/features/products";
+import { getApiMessage, getApiStatus } from "@/lib/apiError";
+import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
 import { clearParams } from "@/lib/utils";
@@ -101,27 +109,54 @@ export function SparesPage() {
   const statusRaw = searchParams.get("status") ?? "all";
   const statusFilter = statusRaw === "true" || statusRaw === "false" ? statusRaw : "all";
 
-  const { data, isLoading, isFetching, isError, refetch } = useGetSpareProductsQuery({
-    page,
-    limit: LIMIT,
+  /**
+   * The list's filters, in one object shared with the stats call so the cards
+   * cannot describe a different population than the table. Both run the same
+   * server-side filter function and both 400 on bad input.
+   */
+  const listFilters = {
     search,
     category: categoryFilter !== "all" ? categoryFilter : undefined,
     isActive: statusFilter === "all" ? undefined : statusFilter === "true",
+  };
+
+  const { data, isLoading, isFetching, isError, error, refetch } = useGetSpareProductsQuery({
+    page,
+    limit: LIMIT,
+    ...listFilters,
   });
 
   const products = data?.products ?? [];
   const totalCount = data?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / LIMIT));
 
-  // Category filter options — the marine-emergency categories these are filed under.
-  const { data: categoriesData } = useGetEmergencyCategoriesQuery({ limit: 100 });
+  /**
+   * A page past the end is a **404**, not an empty page — the same
+   * `CustomPagination` as every other catalog list, so the same recovery to
+   * page 1 rather than a permanent error with a Retry that cannot succeed.
+   */
+  const isPageOutOfRange = getApiStatus(error) === 404;
+  useEffect(() => {
+    if (!isPageOutOfRange || page === 1) return;
+    const next = new URLSearchParams(searchParams);
+    next.set("page", "1");
+    setSearchParams(next, { replace: true });
+  }, [isPageOutOfRange, page, searchParams, setSearchParams]);
+
+  /**
+   * Category filter options — the marine-emergency categories these are filed
+   * under. Capped at the server's own `page_size` ceiling: asking for more is
+   * silently clamped, so a larger number would just be a bigger lie about how
+   * many were fetched.
+   */
+  const { data: categoriesData } = useGetEmergencyCategoriesQuery({ limit: API_MAX_PAGE_SIZE });
   const categoryOptions = [
     { value: "all", label: M.ALL_CATEGORIES },
     ...(categoriesData?.results?.data ?? []).map((c) => ({ value: c.id, label: c.name })),
   ];
 
-  // Live KPI stats from the API; cards show "—" while loading and 0 when absent.
-  const { data: stats, isLoading: statsLoading } = useGetSpareStatsQuery();
+  // Live KPI stats, scoped to marine and following the filters above.
+  const { data: stats, isLoading: statsLoading } = useGetSpareStatsQuery(listFilters);
   const statItems = STAT_CONFIG.map((c) => ({
     id: c.id,
     label: c.label,
@@ -131,8 +166,47 @@ export function SparesPage() {
   }));
 
   const [deleteSpare, { isLoading: isDeleting }] = useDeleteSpareProductMutation();
+  /**
+   * The three row toggles, from the **products** feature.
+   *
+   * `set-top-rated/`, `set-admin-sourceable/` and `set-active/` are catalog-wide
+   * — the marine surface has no toggle routes of its own, and all three are
+   * confirmed reachable with a marine product id. This screen offered none of
+   * them until now, so a spare could only be activated or flagged by opening the
+   * edit form, while the general catalog did it in one click.
+   */
+  const [setTopRated] = useSetProductTopRatedMutation();
+  const [setSourceable] = useSetProductSourceableMutation();
+  const [setActive] = useSetProductActiveMutation();
   // Creating and deleting a spare is super-admin only; editing is not.
   const { canManageCatalog } = useAdminAccess();
+
+  const handleToggleActive = async (row: SpareProduct, next: boolean) => {
+    try {
+      const res = await setActive({ id: row.id, isActive: next }).unwrap();
+      toast.success(getApiMessage(res) ?? (next ? M.TOAST.ACTIVATED : M.TOAST.DEACTIVATED));
+    } catch (err) {
+      toast.error(getApiMessage(err) ?? M.TOAST.ACTIVE_ERROR);
+    }
+  };
+
+  const handleToggleTopRated = async (row: SpareProduct, next: boolean) => {
+    try {
+      await setTopRated({ id: row.id, isTopRated: next }).unwrap();
+      toast.success(MESSAGES.PRODUCT_FLAGS.TOAST.TOP_RATED_UPDATED);
+    } catch (err) {
+      toast.error(getApiMessage(err) ?? MESSAGES.PRODUCT_FLAGS.TOAST.TOP_RATED_ERROR);
+    }
+  };
+
+  const handleToggleSourceable = async (row: SpareProduct, next: boolean) => {
+    try {
+      await setSourceable({ id: row.id, adminSourceable: next }).unwrap();
+      toast.success(MESSAGES.PRODUCT_FLAGS.TOAST.SOURCEABLE_UPDATED);
+    } catch (err) {
+      toast.error(getApiMessage(err) ?? MESSAGES.PRODUCT_FLAGS.TOAST.SOURCEABLE_ERROR);
+    }
+  };
 
   const openDetail = (product: SpareProduct) => {
     setSelectedId(product.id);
@@ -210,13 +284,29 @@ export function SparesPage() {
       className: "td-m",
     }),
     textColumn({ id: "price", header: M.COLUMNS.PRICE, get: (r) => r.price, className: "td-p" }),
-    textColumn({
+    {
       id: "variants",
       header: M.COLUMNS.VARIANTS,
-      get: (r) => r.variants,
-      className: "td-m text-center",
+      /**
+       * Zero is the number that matters, so it gets a warning rather than a "0".
+       *
+       * `browsable_products_qs` requires at least one live variant, so a spare
+       * with none is not badly configured — it is **absent**: it never appears in
+       * any sailor-facing list, cannot be added to a cart, and produces no error
+       * anywhere. An admin sees it here and assumes the stock exists. This badge
+       * is the only signal that it does not.
+       */
+      cell: (r) =>
+        r.variantCount === 0 ? (
+          <Badge variant="warning" className="h-[22px] text-[10px]">
+            {M.NO_VARIANTS}
+          </Badge>
+        ) : (
+          <span className="td-m">{r.variantCount}</span>
+        ),
+      className: "text-center",
       headerClassName: "text-center",
-    }),
+    },
     textColumn({
       id: "rating",
       header: M.COLUMNS.RATING,
@@ -224,13 +314,42 @@ export function SparesPage() {
       className: "td-m text-center",
       headerClassName: "text-center",
     }),
-    statusColumn({
+    {
+      id: "topRated",
+      header: MESSAGES.PRODUCT_FLAGS.COLUMNS.TOP_RATED,
+      cell: (r) => (
+        <Switch
+          checked={r.isTopRated}
+          onCheckedChange={(next) => handleToggleTopRated(r, next)}
+          // The row opens the detail drawer — the toggle must not.
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+    },
+    {
+      id: "sourceable",
+      header: MESSAGES.PRODUCT_FLAGS.COLUMNS.SOURCEABLE,
+      cell: (r) => (
+        <Switch
+          checked={r.adminSourceable}
+          onCheckedChange={(next) => handleToggleSourceable(r, next)}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+    },
+    {
       id: "status",
       header: M.COLUMNS.STATUS,
-      get: (r) => r.active,
-      activeLabel: M.DETAIL.ACTIVE,
-      inactiveLabel: M.DETAIL.INACTIVE,
-    }),
+      // A switch, matching the products table: deactivating is the reversible
+      // action, and this screen previously offered no way to do it from the row.
+      cell: (r) => (
+        <Switch
+          checked={r.active}
+          onCheckedChange={(next) => handleToggleActive(r, next)}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+    },
     {
       id: "actions",
       header: M.COLUMNS.ACTIONS,

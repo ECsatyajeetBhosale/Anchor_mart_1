@@ -7,6 +7,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { useGetCategoriesQuery } from "@/features/catalog";
 import { ProductVariantsDrawer } from "@/features/variants";
 import { getApiMessage, getApiStatus } from "@/lib/apiError";
+import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
 import {
@@ -142,7 +143,7 @@ export function ProductsPage() {
   });
 
   // Category options for the filter dropdown (value = id, label = name).
-  const { data: categoriesData } = useGetCategoriesQuery({ limit: 100 });
+  const { data: categoriesData } = useGetCategoriesQuery({ limit: API_MAX_PAGE_SIZE });
   const categories = categoriesData?.results?.data ?? [];
   const categoryOptions = React.useMemo(
     () => [

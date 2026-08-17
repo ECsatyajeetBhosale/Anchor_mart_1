@@ -38,7 +38,7 @@ surfaces that write it.
 |---|---|---|---|
 | 0 | Setup | — | ✅ Done |
 | 1 | Categories, both scopes | 13 | ✅ Done |
-| 2 | Products, both scopes | 18 | 🟡 General done, marine + picker open |
+| 2 | Products, both scopes | 18 | ✅ Done |
 | 3 | Variants | 7 | ⬜ Not started |
 | 4 | Express | 3 | ⬜ Not started |
 | 5 | Conflict resolution | — | ⬜ Blocked on 1–4 |
@@ -213,17 +213,20 @@ Kept for reference; the fixes above are built on them.
 ### Routes — general (12): ✅ 11 done
 
 - [x] `GET get-products/` — all 6 filters wired, page-past-end 404 handled, `on_deal` staleness mitigated
-- [ ] `GET get-all-products/` — **not audited**; the picker endpoint, all three catalog types
+- [x] `GET get-all-products/` — picker now sends `is_active=true`; it excludes soft-deleted rows but **includes inactive ones**
 - [x] `GET get-product/<uuid>/` · [x] `GET product-stats/`
 - [x] `POST add-product/` · [x] `PATCH update-product/` · [x] `DELETE delete-product/`
 - [x] `POST set-top-rated/` · [x] `POST set-admin-sourceable/` · [x] `POST set-active/`
 - [x] `POST set-catalog-type/` — wired; see C3/C5 and the open question below
 - [x] `POST <uuid>/announce-availability/`
 
-### Routes — marine spares (6): ⬜ none audited
+### Routes — marine spares (6): ✅ all audited
 
-- [ ] `GET ` (list) · [ ] `GET stats/` · [ ] `GET <uuid>/`
-- [ ] `POST add/` · [ ] `PUT/PATCH <uuid>/update/` · [ ] `DELETE <uuid>/delete/`
+- [x] `GET ` (list) — 404 recovery; `on_deal`/`is_top_rated` filters wired; name-only placeholder
+- [x] `GET stats/` — **was called with no params**; now shares the list's filter object
+- [x] `GET <uuid>/` · [x] `DELETE <uuid>/delete/`
+- [x] `POST add/` — **`sku` added**; see below
+- [x] `PUT/PATCH <uuid>/update/` — dirty-only, narrowed to the eight keys
 
 ### Already fixed (general screen)
 
@@ -235,30 +238,37 @@ eight keys and sent dirty-only · `add-product` corrected to `catalog_type` +
 confirm · catalog filter + Reset · SKU-creates-first-variant hint · inherited-inactive
 hint on variants.
 
-### Known work
+### What changed
 
-- **Marine parity is the bulk of it.** Same serializer classes means the fixes above
-  *should* apply, but `src/features/spares/` is separate frontend code. Each needs
-  verifying there: dirty-only PATCH, `base_price` bounds, `is_active` toggle, overflow
-  delete + typed confirm, Record section, and no writes to `is_express` / `on_deal`.
-- **Marine has no toggle routes** — confirm Spares calls `products/set-top-rated/`,
-  `set-admin-sourceable/`, `set-active/` and not something local.
-- **`get-all-products/`** — same view family as `get-products/` with all three catalog
-  types and identical filters. Quick, but check the pickers handle a `marine_emergency`
-  row appearing in a list the management screens exclude.
-- **`add-product/` reaches into variants** — an `sku` creates the first variant inline.
-  Coordinate with phase 3 rather than duplicating the rules.
+| Fix | Why |
+|---|---|
+| **`sku` added to marine create** | Omitting it produced a spare with **zero variants** — invisible to every sailor, with no error. Made required here though the API allows its absence |
+| Zero-variant warning badge in the table | The only signal an admin gets for spares already in that state |
+| Three row toggles wired | `set-top-rated/`, `set-admin-sourceable/`, `set-active/` are catalog-wide; this screen offered **none** of them |
+| Stats now sends the list's filters | Third instance of this defect, after products and categories |
+| Dirty-only PATCH | Update is literally `UpdateProductSerializer` — same full-row `save()`, same silent drop |
+| `base_price` bounds (0.01 floor, 2 dp) | Same shared serializer, so the same validation as products |
+| `on_deal` / `is_top_rated` filters wired | Accepted by the marine list and never sent |
+| Page-past-end 404 recovery | Same pagination as every other catalog list |
+| Transform stopped discarding fields | `is_top_rated`, `admin_sourceable`, `on_deal`, `updated_at` all arrived and were dropped before the table |
+| Catalog-move dialog asks for a category **both** directions | marine → regular with no category is a 400; the dialog only asked when moving *into* marine |
+| Picker sends `is_active=true` | `get-all-products/` includes inactive products, so the picker offered unfulfillable order lines |
+| `limit: 100` → `API_MAX_PAGE_SIZE` in 5 places | The server clamps to 50, so those calls silently fetched fewer than they asked for |
 
-### Open questions
+### Not done deliberately
 
-- **Moving a marine product *out* of its catalog.** `SetCatalogTypeDialog` asks for a
-  category only when moving *into* `marine_emergency`. Moving a marine product to
-  regular/express sends no category, so it keeps a marine category FK while its
-  `catalog_type` becomes general — which contradicts the map's rule that `Category.scope`
-  must match `catalog_type`. Does the backend re-home it, 400, or produce an inconsistent
-  record? **Ask before touching the dialog.**
+- **`announce-availability/` is still not offered on the Spares screen.** All three
+  toggles are wired, but announcing broadcasts to **every customer**. Backend recommends
+  exposing it and notes it is guarded (explicit action, 120s dedupe, refuses anything not
+  actually orderable) — but flagged it as a product call, so it is left for one.
+- **One data row needs cleaning**: `'marine emergency product dumy 1'` (created
+  2026-08-04) has zero variants. Backend confirmed it is the only one in their
+  environment; **production has not been checked**.
 
----
+### Logged, not fixed
+
+**[C10](CATALOG_CONFLICTS.md)** — marine → express keeps a marine category, which the
+sailor-facing express category list can never show. Same class as C3; decide together.
 
 ## Phase 3 · Variants — 7 routes
 

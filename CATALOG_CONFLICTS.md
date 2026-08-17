@@ -218,6 +218,37 @@ poll, accept staleness with a visible "as of" marker, or push.
 
 ---
 
+## C10 · An express product on a marine category can never appear in express browse
+
+**Status:** OPEN — confirmed by backend · **Catalogs:** Products, Marine emergency spares,
+Express items, Categories
+
+Verified 2026-08-17 while auditing `set-catalog-type/`. The two directions out of the
+marine catalog behave differently, and the difference is deliberate:
+
+- **marine → regular** with no category is a **400**, with a message naming what to send.
+  Nothing changes. (Fixed in pass 2: the dialog now asks for a category in that direction
+  too, where it previously only asked when moving *into* marine.)
+- **marine → express** with no category is a **200**, leaving `catalog_type=express` on a
+  product whose category is still marine-scoped. That is allowed on purpose:
+  `allowed_category_scopes_for_catalog_type` treats express as an **operational overlay
+  valid for both scopes**.
+
+The consequence is downstream and invisible from the admin. The sailor-facing express
+**category** list filters `scope=GENERAL`, so a marine-category express product's category
+can never appear in express browse — the product is reachable only through the flat
+express product list. It is not a broken record, and no admin screen shows anything wrong.
+
+Related to [C3](#c3--set-catalog-type-breaks-the-express-invariant-that-set-express-maintains):
+both are cases where `set-catalog-type/` produces a product that looks correct in the
+admin and is partly unreachable for sailors.
+
+**Candidate resolutions:** (a) the express category list spans both scopes; (b) moving to
+express from marine also asks for a general category; (c) the admin warns on the move and
+the Express screen flags such rows. Decide alongside C3 — same dialog, same class of gap.
+
+---
+
 ## C9 · Category deactivation doesn't take products off sale — but deleting does
 
 **Status:** OPEN — confirmed by backend · **Catalogs:** Categories, Marine emergency
@@ -301,6 +332,7 @@ the two numbers will legitimately disagree and look like a bug.
 | 2026-08-17 | C2 | Backend shipped the scope + filter fix. DECIDED → **RESOLVED**; frontend verification deferred to pass 1 |
 | 2026-08-17 | C6 | Category delete semantics verified — cascades to products as a *deactivation*; the irreversible part is the category row, not the products |
 | 2026-08-17 | C9 | **Added in pass 1.** Category deactivate/delete have inverted blast radii — the safe action doesn't take products off sale, the irreversible one does |
+| 2026-08-17 | C10 | **Added in pass 2.** marine → express keeps a marine category, which the sailor-facing express category list can never show |
 
 ---
 

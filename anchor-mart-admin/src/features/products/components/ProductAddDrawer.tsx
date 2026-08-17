@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useGetCategoriesQuery } from "@/features/catalog";
 import { FILE_LOCATIONS, ImageListField } from "@/features/media";
 import { getApiMessage } from "@/lib/apiError";
+import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconBoxSeam, IconCheck } from "@tabler/icons-react";
@@ -96,7 +97,7 @@ const ADD_DEFAULTS: ProductAddFormData = {
 export function ProductAddDrawer({ isOpen, onClose }: ProductAddDrawerProps) {
   const [createProduct, { isLoading: isCreating }] = useCreateProductMutation();
 
-  const { data: categoriesData } = useGetCategoriesQuery({ limit: 100 });
+  const { data: categoriesData } = useGetCategoriesQuery({ limit: API_MAX_PAGE_SIZE });
   const categoryOptions = (categoriesData?.results?.data ?? []).map((c) => ({
     value: c.id,
     label: c.name,

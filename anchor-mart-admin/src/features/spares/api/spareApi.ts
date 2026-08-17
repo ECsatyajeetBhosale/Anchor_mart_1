@@ -3,6 +3,7 @@ import { baseApi } from "@/lib/fetchUtils";
 import type {
   AddSpareProductPayload,
   GetSpareProductsParams,
+  GetSpareStatsParams,
   SpareProduct,
   SpareProductApi,
   SpareProductDetail,
@@ -69,6 +70,13 @@ function toSpareProduct(row: SpareProductApi): SpareProduct {
     type: formatType(row.catalog_type),
     active: Boolean(row.is_active),
     created: dash(row.created_at),
+    // Kept raw alongside the display-guarded fields above: these drive the row
+    // toggles and the zero-variant warning, and a "-" cannot be compared.
+    variantCount: row.variant_count ?? 0,
+    isTopRated: Boolean(row.is_top_rated),
+    adminSourceable: row.admin_sourceable !== false,
+    onDeal: Boolean(row.on_deal),
+    updated: dash(row.updated_at),
   };
 }
 
@@ -95,13 +103,23 @@ export const spareApi = baseApi.injectEndpoints({
       query: (params) => ({
         url: SPARE_ENDPOINTS.GET_LIST,
         method: "GET",
-        // DRF pagination uses `page_size`; empty filters are omitted.
+        /**
+         * DRF pagination uses `page_size`; a raw `limit` is silently ignored and
+         * yields the default 10. Empty filters are omitted — the endpoint treats
+         * a blank value as "no filter", so an omitted key and an empty one mean
+         * the same thing.
+         *
+         * `catalog_type` is deliberately never sent: it is forced to
+         * `marine_emergency` here and any other value is a 400.
+         */
         params: {
           page: params.page,
           page_size: params.limit,
           search: params.search || undefined,
           category: params.category || undefined,
           is_active: params.isActive === undefined ? undefined : String(params.isActive),
+          on_deal: params.onDeal === undefined ? undefined : String(params.onDeal),
+          is_top_rated: params.isTopRated === undefined ? undefined : String(params.isTopRated),
         },
       }),
       transformResponse: (res: unknown): SpareProductListResult => {
@@ -117,8 +135,27 @@ export const spareApi = baseApi.injectEndpoints({
           : [{ type: "Spares", id: "PARTIAL-LIST" }],
     }),
 
-    getSpareStats: builder.query<SpareStats, void>({
-      query: () => ({ url: SPARE_ENDPOINTS.GET_STATS, method: "GET" }),
+    /**
+     * KPI counts, **given the table's own filters**.
+     *
+     * Sent none until 2026-08-17 — the third screen with this defect, after
+     * products and categories. The endpoint now runs the same
+     * `_apply_product_filters` over the same marine-scoped queryset as the list,
+     * so one filter object serves both and the cards cannot describe a different
+     * population than the table.
+     */
+    getSpareStats: builder.query<SpareStats, GetSpareStatsParams>({
+      query: (params) => ({
+        url: SPARE_ENDPOINTS.GET_STATS,
+        method: "GET",
+        params: {
+          search: params.search || undefined,
+          category: params.category || undefined,
+          is_active: params.isActive === undefined ? undefined : String(params.isActive),
+          on_deal: params.onDeal === undefined ? undefined : String(params.onDeal),
+          is_top_rated: params.isTopRated === undefined ? undefined : String(params.isTopRated),
+        },
+      }),
       transformResponse: (res: unknown): SpareStats => unwrap<SpareStats>(res) ?? {},
       providesTags: [{ type: "Spares", id: "STATS" }],
     }),

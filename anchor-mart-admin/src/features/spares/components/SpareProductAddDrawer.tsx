@@ -20,6 +20,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useGetEmergencyCategoriesQuery } from "@/features/emergency-categories";
 import { getApiMessage } from "@/lib/apiError";
+import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { useCreateSpareProductMutation } from "../api/spareApi";
 import { type SpareAddFormData, spareAddSchema } from "../schemas/spare.schema";
@@ -41,6 +42,7 @@ const ADD_DEFAULTS: SpareAddFormData = {
   images: [],
   admin_sourceable: true,
   is_top_rated: false,
+  sku: "",
 };
 
 /**
@@ -53,8 +55,10 @@ const ADD_DEFAULTS: SpareAddFormData = {
 export function SpareProductAddDrawer({ isOpen, onClose }: SpareProductAddDrawerProps) {
   const [createSpare, { isLoading: isCreating }] = useCreateSpareProductMutation();
 
+  // Capped at the server's own `page_size` ceiling — a larger number is
+  // silently clamped, so asking for one would only misstate what we fetched.
   const { data: categoriesData } = useGetEmergencyCategoriesQuery(
-    { limit: 100 },
+    { limit: API_MAX_PAGE_SIZE },
     { skip: !isOpen },
   );
   const categoryOptions = (categoriesData?.results?.data ?? [])
@@ -88,6 +92,9 @@ export function SpareProductAddDrawer({ isOpen, onClose }: SpareProductAddDrawer
       images: formData.images.filter((p) => p.trim() !== ""),
       admin_sourceable: formData.admin_sourceable,
       is_top_rated: formData.is_top_rated,
+      // Creates the spare's first variant in the same transaction. Omitting it
+      // produced a spare no sailor could ever see — see the schema.
+      sku: formData.sku,
     };
 
     try {
@@ -156,13 +163,28 @@ export function SpareProductAddDrawer({ isOpen, onClose }: SpareProductAddDrawer
                 <Input
                   type="number"
                   step="0.01"
-                  min="0"
+                  // The shared serializer's floor is 0.01, not 0 — a free spare
+                  // is a 400.
+                  min="0.01"
                   placeholder={F.BASE_PRICE_PLACEHOLDER}
                   error={!!errors.base_price}
                   {...register("base_price")}
                 />
               </FormField>
             </div>
+            {/*
+              Sending a SKU is what makes the spare exist for sailors: it creates
+              the first variant inline, and a spare with no variants is filtered
+              out of every customer-facing list.
+            */}
+            <FormField label={F.SKU} hint={F.SKU_HINT} error={errors.sku?.message}>
+              <Input
+                className="mono"
+                placeholder={F.SKU_PLACEHOLDER}
+                error={!!errors.sku}
+                {...register("sku")}
+              />
+            </FormField>
           </section>
 
           <section className="prod-tab">

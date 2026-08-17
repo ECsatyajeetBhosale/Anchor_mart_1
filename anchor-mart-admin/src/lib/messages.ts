@@ -1726,11 +1726,15 @@ export const MESSAGES = {
       DESCRIPTION: (name: string) => `Move “${name}” to a different catalog.`,
       CATALOG_LABEL: "Catalog",
       CATEGORY_LABEL: "Category",
-      // The emergency catalog keeps its own category set, so a move into it
-      // must pick one from that set — the general categories don't apply.
-      CATEGORY_HINT: "Marine emergency products must be filed under an emergency category.",
+      /**
+       * Required in **both** directions, not just into marine emergency: the
+       * two catalogs keep separate category sets, so a product crossing between
+       * them needs one from the target's set. Only express is exempt — it spans
+       * both scopes, so the existing category stays valid.
+       */
+      CATEGORY_HINT: "Each catalog keeps its own categories, so this move needs a new one.",
       CATEGORY_PLACEHOLDER: "Select a category",
-      CATEGORY_REQUIRED: "Pick a category for the marine emergency catalog.",
+      CATEGORY_REQUIRED: "Pick a category from the catalog you're moving to.",
       CONFIRM: "Move product",
       CANCEL: "Cancel",
       OPTIONS: {
@@ -3102,8 +3106,17 @@ export const MESSAGES = {
   SPARES: {
     // Page chrome
     TITLE: "Marine Emergency Spares",
-    SEARCH_PLACEHOLDER: "Search products...",
+    /** `?search=` matches the product **name** only — not description or SKU. */
+    SEARCH_PLACEHOLDER: "Search by product name…",
     EMPTY: "No marine emergency products match the current filters.",
+    /**
+     * A spare with no variants is not misconfigured — it is **invisible**.
+     * `browsable_products_qs` requires at least one live variant, so it never
+     * reaches a sailor-facing list, cannot be carted, and raises no error. The
+     * admin table is the only place it appears at all, which is why the count
+     * gets a warning here rather than a quiet "0".
+     */
+    NO_VARIANTS: "No variants — not visible to sailors",
     FETCH_ERROR: "Failed to load marine emergency products.",
     ADD_PRODUCT: "Add Spare",
     ALL_CATEGORIES: "All Categories",
@@ -3147,6 +3160,15 @@ export const MESSAGES = {
       CATEGORY_HINT: "Only marine emergency categories are accepted",
       BASE_PRICE: "Base Price *",
       BASE_PRICE_PLACEHOLDER: "0.00",
+      SKU: "SKU *",
+      SKU_PLACEHOLDER: "e.g. MAR-PUMP-001",
+      /**
+       * The consequence, not the mechanism. An admin who skips this does not get
+       * an error — they get a spare that no sailor can ever see, which for
+       * emergency stock is the failure that matters.
+       */
+      SKU_HINT:
+        "Creates the spare's first variant, priced at the base price. Without one the spare is invisible to sailors.",
       IMAGES: "Image Paths",
       IMAGES_HINT: "Stored image paths/keys (e.g. product_images/pump.png) — not file uploads.",
       IMAGE_PLACEHOLDER: "product_images/example.png",
@@ -3176,8 +3198,12 @@ export const MESSAGES = {
       ADD_ERROR: "Failed to add the spare",
       UPDATED: "Spare updated",
       UPDATE_ERROR: "Failed to update the spare",
+      NO_CHANGES: "No changes to save",
       DELETED: "Spare deleted",
       DELETE_ERROR: "Failed to delete the spare",
+      ACTIVATED: "Spare is now active",
+      DEACTIVATED: "Spare deactivated — it can no longer be ordered",
+      ACTIVE_ERROR: "Failed to change the spare's status",
     },
     // Table columns
     COLUMNS: {

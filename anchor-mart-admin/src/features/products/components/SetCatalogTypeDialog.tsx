@@ -28,8 +28,20 @@ const CATALOG_OPTIONS = [
   { value: "marine_emergency", label: M.OPTIONS.MARINE_EMERGENCY },
 ];
 
-/** Only the emergency catalog requires a category alongside the move. */
-const CATALOG_NEEDING_CATEGORY = "marine_emergency";
+/**
+ * Which catalog a category must come from for a given target — and therefore
+ * which `?catalog_type=` the category list is fetched with.
+ *
+ * `express` is deliberately absent, and that is not the same as "no category
+ * needed": express is an **operational overlay valid for both scopes**, so a
+ * product moving there keeps whatever category it has. Sending `express` to
+ * `get-categories-by-catalog-type/` is a 400 — there are two category buckets,
+ * not three.
+ */
+const CATEGORY_SCOPE_FOR_TARGET: Record<string, string> = {
+  regular: "regular",
+  marine_emergency: "marine_emergency",
+};
 
 export interface SetCatalogTypeDialogProps {
   product: Product | null;
@@ -49,11 +61,29 @@ export function SetCatalogTypeDialog({ product, isOpen, onClose }: SetCatalogTyp
 
   const [setCatalog, { isLoading }] = useSetProductCatalogTypeMutation();
 
-  const needsCategory = catalogType === CATALOG_NEEDING_CATEGORY;
+  /**
+   * A category is required whenever the product's current category cannot
+   * legally hold it after the move — which is **both directions**, not just into
+   * marine emergency.
+   *
+   * Moving marine → regular with no category is a 400: the record keeps its
+   * marine category, which is not valid for a general product. The dialog used
+   * to ask only when moving *into* marine, so that move failed with a raw server
+   * error and no field to fix it in.
+   *
+   * Moving to express asks for nothing, deliberately — express spans both
+   * scopes, so the existing category stays valid either way. (It does have a
+   * browse consequence for marine-category products; see C10 in the conflicts
+   * log.)
+   */
+  const categoryScope = CATEGORY_SCOPE_FOR_TARGET[catalogType];
+  const isSameCatalog = catalogType === product?.catalog_type;
+  const needsCategory = !!categoryScope && !isSameCatalog;
 
-  // Categories are only fetched for the catalog that actually needs one.
+  // Fetched from the target's own scope, so the picker never offers a category
+  // the move would reject.
   const { data: categories = [] } = useGetCategoriesByCatalogTypeQuery(
-    { catalogType },
+    { catalogType: categoryScope ?? "" },
     { skip: !isOpen || !needsCategory },
   );
 
@@ -74,7 +104,8 @@ export function SetCatalogTypeDialog({ product, isOpen, onClose }: SetCatalogTyp
       await setCatalog({
         id: product.id,
         catalogType,
-        // Sent only for marine emergency; the API rejects it for express.
+        // Sent whenever the target's scope differs from where the product sits;
+        // omitted for express, which is valid alongside either scope.
         category: needsCategory ? category : undefined,
       }).unwrap();
       toast.success(T.CATALOG_UPDATED);

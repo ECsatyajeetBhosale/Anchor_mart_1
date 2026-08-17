@@ -20,6 +20,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useGetEmergencyCategoriesQuery } from "@/features/emergency-categories";
 import { getApiMessage } from "@/lib/apiError";
+import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { useGetSpareProductQuery, useUpdateSpareProductMutation } from "../api/spareApi";
 import { type SpareUpdateFormData, spareUpdateSchema } from "../schemas/spare.schema";
@@ -53,8 +54,10 @@ export function SpareProductEditDrawer({
     skip: !isOpen || !productId,
   });
 
+  // Capped at the server's own `page_size` ceiling — asking for more is
+  // silently clamped, so a larger number would misstate what we fetched.
   const { data: categoriesData } = useGetEmergencyCategoriesQuery(
-    { limit: 100 },
+    { limit: API_MAX_PAGE_SIZE },
     { skip: !isOpen },
   );
   const categoryOptions = (categoriesData?.results?.data ?? [])
@@ -66,7 +69,8 @@ export function SpareProductEditDrawer({
     control,
     handleSubmit,
     reset,
-    formState: { errors },
+    // `dirtyFields` drives the PATCH body — see onSubmit.
+    formState: { errors, dirtyFields },
   } = useForm<SpareUpdateFormData>({
     resolver: zodResolver(spareUpdateSchema),
     defaultValues: {
@@ -99,16 +103,32 @@ export function SpareProductEditDrawer({
   }, [isOpen, detail, reset]);
 
   const onSubmit = async (formData: SpareUpdateFormData) => {
-    const payload: UpdateSpareProductPayload = {
-      category: formData.category,
-      name: formData.name,
-      description: formData.description,
-      base_price: formData.base_price,
-      images: formData.images.filter((p) => p.trim() !== ""),
-      admin_sourceable: formData.admin_sourceable,
-      is_top_rated: formData.is_top_rated,
-      is_active: formData.is_active,
-    };
+    /**
+     * **Only the fields actually changed.**
+     *
+     * This endpoint is literally `UpdateProductSerializer`, so it inherits the
+     * general catalog's semantics exactly: a true partial write, a full-row
+     * `save()` underneath, and unknown keys dropped without an error. A fixed
+     * body therefore asserted values for fields nobody touched, and nothing
+     * about the response would ever have revealed it.
+     */
+    const payload: UpdateSpareProductPayload = {};
+    if (dirtyFields.category) payload.category = formData.category;
+    if (dirtyFields.name) payload.name = formData.name;
+    if (dirtyFields.description) payload.description = formData.description;
+    if (dirtyFields.base_price) payload.base_price = formData.base_price;
+    if (dirtyFields.images) payload.images = formData.images.filter((p) => p.trim() !== "");
+    if (dirtyFields.admin_sourceable) payload.admin_sourceable = formData.admin_sourceable;
+    if (dirtyFields.is_top_rated) payload.is_top_rated = formData.is_top_rated;
+    if (dirtyFields.is_active) payload.is_active = formData.is_active;
+
+    // Nothing edited: an empty PATCH is a round trip that says nothing, and a
+    // success toast for a change that never happened.
+    if (Object.keys(payload).length === 0) {
+      toast.info(M.TOAST.NO_CHANGES);
+      onClose();
+      return;
+    }
 
     try {
       const response = await updateSpare({ id: productId, body: payload }).unwrap();

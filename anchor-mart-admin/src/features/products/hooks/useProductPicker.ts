@@ -43,6 +43,17 @@ export function useProductPicker(enabled = true) {
       limit: API_MAX_PAGE_SIZE,
       search: search || undefined,
       catalogType: catalogType || undefined,
+      /**
+       * **Live products only.** `get-all-products/` excludes soft-deleted rows
+       * but includes inactive ones, so without this the picker offered products
+       * that cannot be ordered — letting an admin build an order line that can
+       * never be fulfilled, with nothing on the row to say so.
+       *
+       * Sourceability is the other half of orderability and is not a filter
+       * here, so an unsourceable product can still be offered; that is a
+       * narrower gap than an inactive one and needs a backend filter to close.
+       */
+      isActive: true,
     },
     { skip: !enabled },
   );

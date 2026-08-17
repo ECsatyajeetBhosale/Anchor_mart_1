@@ -15,8 +15,11 @@ export {
   useUpdateProductMutation,
   useDeleteProductMutation,
   useSetProductCatalogTypeMutation,
+  // The three row toggles are **catalog-wide**: the marine spares screen has no
+  // toggle routes of its own and calls these with a marine product id.
   useSetProductTopRatedMutation,
   useSetProductSourceableMutation,
+  useSetProductActiveMutation,
   useAnnounceProductAvailabilityMutation,
 } from "./api/productApi";
 export type {
