@@ -8,12 +8,32 @@ import type {
   UpdateEmergencyCategoryPayload,
 } from "../types/emergencyCategory.types";
 
+/**
+ * Query params for the emergency categories list.
+ *
+ * **These four and no others** — no `parent`, `has_products` or `ordering`.
+ * Ordering is fixed **name ascending**. Pagination is the shared
+ * `CustomPagination`: default 10, `page_size` clamped to 50, junk falls back to
+ * 10, and a page past the end is a **404** `{"detail": "Invalid page."}`.
+ */
 export interface GetEmergencyCategoriesParams {
   page?: number;
   limit?: number;
+  /** Matches `name` only, case-insensitively — not `description`. */
   search?: string;
   isActive?: boolean;
 }
+
+/**
+ * Query params for the emergency `categories/stats/` — **exactly the list's two
+ * filters**, which it applies through the same shared function the list uses.
+ * A junk `is_active` 400s here as it does on the list, so both must be given the
+ * same validated values.
+ */
+export type GetEmergencyCategoryStatsParams = Pick<
+  GetEmergencyCategoriesParams,
+  "search" | "isActive"
+>;
 
 export const emergencyCategoryApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -54,8 +74,28 @@ export const emergencyCategoryApi = baseApi.injectEndpoints({
       providesTags: (_result, _error, id) => [{ type: "EmergencyCategories", id }],
     }),
 
-    getEmergencyCategoryStats: builder.query<EmergencyCategoryStats, void>({
-      query: () => ({ url: EMERGENCY_CATEGORY_ENDPOINTS.GET_STATS, method: "GET" }),
+    /**
+     * KPI counts, **given the table's own filters**.
+     *
+     * Took no arguments and sent none until 2026-08-17, so the cards described
+     * the whole marine taxonomy while the table showed a filtered slice. One
+     * filter object now serves the list and the cards, so they cannot disagree.
+     */
+    getEmergencyCategoryStats: builder.query<
+      EmergencyCategoryStats,
+      GetEmergencyCategoryStatsParams
+    >({
+      query: (params) => ({
+        url: EMERGENCY_CATEGORY_ENDPOINTS.GET_STATS,
+        method: "GET",
+        params: params
+          ? {
+              search: params.search || undefined,
+              is_active:
+                params.isActive === undefined ? undefined : params.isActive ? "True" : "False",
+            }
+          : undefined,
+      }),
       providesTags: [{ type: "EmergencyCategories", id: "STATS" }],
     }),
 

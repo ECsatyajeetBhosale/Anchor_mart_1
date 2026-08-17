@@ -2160,17 +2160,42 @@ export const MESSAGES = {
     // Page chrome
     TITLE: "Categories",
     SUBTITLE: "Organize your catalog into categories",
-    SEARCH_PLACEHOLDER: "Search categories…",
+    /** `?search=` matches the category **name** only — not the description. */
+    SEARCH_PLACEHOLDER: "Search by category name…",
     ADD_CATEGORY: "Add Category",
     FETCH_ERROR: "Failed to fetch categories",
     EMPTY: "No categories found.",
     IMAGE_ALT: "Category",
-    // KPI cards
+    /** Shown on a child whose parent has been deleted — see the Parent column. */
+    PARENT_DELETED: "Parent deleted",
+    PARENT_LABEL: "Parent Category",
+    NO_PARENT: "None — top level",
+    /**
+     * The hierarchy is writable and validated server-side (same scope, no self,
+     * no cycle, no soft-deleted parent) but nothing downstream reads it yet: the
+     * sailor's category list is flat. So it organises the admin view and changes
+     * nothing a customer sees — worth saying, so no one files products expecting
+     * a nested storefront.
+     */
+    PARENT_HINT: "Organises the admin list. Customers see a flat category list either way.",
+    ACTIVE_HINT:
+      "Hides the category from the customer's browse list. Its products stay on sale and remain findable by search.",
+    /**
+     * KPI cards. Scoped to this taxonomy and following the list's filters since
+     * 2026-08-17 — before that the endpoint was called with no params at all, so
+     * the cards described the whole taxonomy over a filtered table.
+     */
     STATS: {
       TOTAL_CATEGORIES: "Total Categories",
       ACTIVE_CATEGORIES: "Active",
       INACTIVE_CATEGORIES: "Inactive",
-      EMPTY_CATEGORIES: "Empty",
+      /**
+       * Counts **direct** assignments only, active or not — so a category can be
+       * "not empty" and still show a sailor nothing, and a parent whose products
+       * all sit in child categories counts as empty. Labelled for what it
+       * measures rather than the bare word.
+       */
+      EMPTY_CATEGORIES: "No Products Filed",
     },
     // Table
     COLUMNS: {
@@ -2203,15 +2228,40 @@ export const MESSAGES = {
       ADD_ERROR: "Failed to create category. Please try again.",
       UPDATE_SUCCESS: "Category updated successfully",
       UPDATE_ERROR: "Failed to update category. Please try again.",
+      NO_CHANGES: "No changes to save",
+      /**
+       * Deactivating a category is narrower than it sounds and the copy must not
+       * overstate it. The sailor's category list filters on `is_active`, so the
+       * tile disappears from browse — but their product list never joins category
+       * liveness, so those products stay visible and buyable through search,
+       * product listings and saved items. "Off sale" would be false. See C9.
+       */
+      DEACTIVATED: "Category hidden from browse — its products stay on sale",
+      ACTIVATED: "Category is visible in browse again",
+      ACTIVE_ERROR: "Failed to change the category's visibility",
     },
-    // Delete confirmation dialog
+    /**
+     * Delete confirmation.
+     *
+     * The weight goes on the **category**, not the product count. Each
+     * deactivated product can be switched back on individually; the category
+     * cannot be restored at all — there is no restore endpoint — so undoing means
+     * re-creating it and re-homing everything. The count is the recoverable half
+     * and the alarming-looking number, which is exactly why it comes second.
+     *
+     * "Up to" is load-bearing: `product_count` includes already-inactive
+     * products while the cascade only touches live ones, so the dialog's number
+     * is an upper bound and will legitimately exceed the toast's.
+     */
     DELETE_CONFIRM: {
       TITLE: "Delete Category",
-      // Names the cascade before it happens — it is reversible from the product
-      // screen, but only if the admin knows it occurred.
-      MESSAGE:
-        "Are you sure you want to delete this category? Any live products in it are deactivated and stop being orderable.",
+      MESSAGE: (name: string, productCount: number) =>
+        productCount > 0
+          ? `“${name}” cannot be restored — there is no undo, and recovering means re-creating it and re-homing its products. Up to ${productCount.toLocaleString("en-US")} product${productCount === 1 ? "" : "s"} will also be deactivated; those can each be switched back on afterwards.`
+          : `“${name}” cannot be restored — there is no undo. Nothing is filed under it, so no products are affected.`,
       CONFIRM: "Delete",
+      /** Typed to confirm — the category row is the irreversible part. */
+      PHRASE: "delete",
     },
     // Add drawer
     ADD: {
@@ -2242,17 +2292,26 @@ export const MESSAGES = {
     // Page chrome
     TITLE: "Emergency Categories",
     SUBTITLE: "Organize the marine emergency spares catalog into categories",
-    SEARCH_PLACEHOLDER: "Search emergency categories…",
+    /** `?search=` matches the category **name** only — not the description. */
+    SEARCH_PLACEHOLDER: "Search by category name…",
     ADD_CATEGORY: "Add Category",
     FETCH_ERROR: "Failed to fetch emergency categories",
     EMPTY: "No emergency categories found.",
     IMAGE_ALT: "Emergency category",
-    // KPI cards
+    /** Shown on a child whose parent has been deleted — see the Parent column. */
+    PARENT_DELETED: "Parent deleted",
+    PARENT_LABEL: "Parent Category",
+    NO_PARENT: "None — top level",
+    PARENT_HINT: "Organises the admin list. Customers see a flat category list either way.",
+    ACTIVE_HINT:
+      "Hides the category from the customer's browse list. Its spares stay on sale and remain findable by search.",
+    /** Scoped to the marine taxonomy and following the list's filters since 2026-08-17. */
     STATS: {
       TOTAL_CATEGORIES: "Total Categories",
       ACTIVE_CATEGORIES: "Active",
       INACTIVE_CATEGORIES: "Inactive",
-      EMPTY_CATEGORIES: "Empty",
+      /** Direct assignments only, active or not — see the general screen's note. */
+      EMPTY_CATEGORIES: "No Spares Filed",
     },
     // Table
     COLUMNS: {
@@ -2281,13 +2340,25 @@ export const MESSAGES = {
       ADD_ERROR: "Failed to create emergency category. Please try again.",
       UPDATE_SUCCESS: "Emergency category updated successfully",
       UPDATE_ERROR: "Failed to update emergency category. Please try again.",
+      NO_CHANGES: "No changes to save",
+      /** Same narrowness as the general screen — browse only, not sale. See C9. */
+      DEACTIVATED: "Category hidden from browse — its spares stay on sale",
+      ACTIVATED: "Category is visible in browse again",
+      ACTIVE_ERROR: "Failed to change the category's visibility",
     },
-    // Delete confirmation dialog
+    /**
+     * Delete confirmation. Weight on the category, which cannot be restored —
+     * the deactivated spares can each be switched back on. "Up to" because
+     * `product_count` includes already-inactive spares the cascade won't touch.
+     */
     DELETE_CONFIRM: {
       TITLE: "Delete Emergency Category",
-      MESSAGE:
-        "Are you sure you want to delete this emergency category? Any live spares in it are deactivated and stop being orderable.",
+      MESSAGE: (name: string, productCount: number) =>
+        productCount > 0
+          ? `“${name}” cannot be restored — there is no undo, and recovering means re-creating it and re-homing its spares. Up to ${productCount.toLocaleString("en-US")} spare${productCount === 1 ? "" : "s"} will also be deactivated; those can each be switched back on afterwards.`
+          : `“${name}” cannot be restored — there is no undo. Nothing is filed under it, so no spares are affected.`,
       CONFIRM: "Delete",
+      PHRASE: "delete",
     },
     // Add drawer
     ADD: {

@@ -37,10 +37,10 @@ is the mistake this list exists to prevent.
 
 ## Started
 
-2026-08-17. Pass order and scope are set by
-[CATALOG_API_MAP.md](CATALOG_API_MAP.md) — four passes, not five, because categories are
+2026-08-17. Pass order, scope and per-route status live in
+[CATALOG_PHASES.md](CATALOG_PHASES.md) — four passes, not five, because categories are
 one model with two doors and general/marine products are one view family with two
-`CATALOG_TYPES` tuples.
+`CATALOG_TYPES` tuples. Route inventory is [CATALOG_API_MAP.md](CATALOG_API_MAP.md).
 
 Products (general) is partially complete from the pre-plan work; the marine half of that
 pass, and all of the other three, have not started.
@@ -89,10 +89,21 @@ was fixed for on 2026-08-14 and the category twin was missed.
 and explicitly labelled per scope (`general_categories` / `marine_emergency_categories`).
 Only `category-stats/`'s unlabelled total on a scoped screen is wrong.
 
-**Resolution:** backend mirrors the `ProductStatsView` fix (~20 lines) before pass 1.
-Mildly breaking — `total` shrinks for anyone reading it as "all categories". Frontend
-work: confirm the cards follow the list's filters after the fix, and that no copy
-promises an all-scopes number.
+**RESOLVED backend-side 2026-08-17.** `BaseCategoryStatsView` now scopes to one `SCOPE`
+and runs `_apply_category_filters` — the *same* function the list runs, so one definition
+governs both and a filter cannot narrow the table while the cards describe a different
+population. The marine twin was a standalone copy that happened to be correct; it was
+collapsed into the same base class rather than left as a second implementation free to
+diverge again. Both stats endpoints now behave identically: scoped, filter-following, and
+400 on bad filter input exactly as the list is. Four tests added, including
+`test_stats_exclude_marine_categories` and a card-vs-table agreement test.
+
+`total` shrinks. For a whole-taxonomy figure use `products/product-stats/`, whose
+`general_categories` / `marine_emergency_categories` are deliberately global and labelled
+per scope.
+
+**Remaining frontend work (pass 1):** confirm the cards follow the list's filters, and
+that no copy on either categories screen promises an all-scopes number.
 
 ---
 
@@ -207,6 +218,42 @@ poll, accept staleness with a visible "as of" marker, or push.
 
 ---
 
+## C9 · Category deactivation doesn't take products off sale — but deleting does
+
+**Status:** OPEN — confirmed by backend · **Catalogs:** Categories, Marine emergency
+categories, Products, Marine emergency spares
+
+Verified 2026-08-17. The two category write paths have **inverted** blast radii relative
+to how safe they look:
+
+| Action | Cascades to products? | Reversible? | Actually takes the shelf down? |
+|---|---|---|---|
+| Deactivate | No | Yes, trivially | **No** |
+| Delete | Yes — deactivates every live product | **No** — no restore endpoint | Yes |
+
+Deactivating hides the tile: the sailor's category list filters `is_active=True`. But
+their **product** list never joins category liveness — `browsable_products_qs` filters
+`Product` fields only — so the products stay visible and purchasable through the product
+list, search and saved items. Backend verified a sailor still gets "Rice" back after its
+category was deactivated.
+
+So the safe, reversible, one-click action **does not do the thing an operator means by
+it**, and the irreversible one does. That is the exact inverse of the safe/dangerous
+framing built for products, where deactivate genuinely is the softer form of delete.
+
+**Handled in pass 1 by wording, not by behaviour**: the toggle's copy says *"hides this
+category from browse — its products stay on sale"*, and the drawer carries the same
+caveat. That stops the control lying; it does not give operators the action they want.
+
+**Candidate resolutions:** (a) the sailor's product list joins category liveness, making
+deactivate mean what it looks like — cleanest, but changes customer-visible behaviour and
+is the same shape as the GA4 hole the delete cascade's own docstring warns about;
+(b) an explicit "deactivate category and its products" action that does the cascade
+without the delete; (c) leave as-is and rely on copy. Needs a product decision, not a
+frontend one.
+
+---
+
 ## C6 · `is_active` vs delete asymmetry — fixed for Products, unverified elsewhere
 
 **Status:** OPEN · **Catalogs:** all five
@@ -217,10 +264,28 @@ its own evidence; it also runs with no check for open orders, carts or live deal
 Deactivating is the reversible action that actually stops sales.
 
 The fix there was a row-level Active toggle plus demoting delete behind an overflow
-menu with a typed confirm. **Whether Categories, Express items, Spares and Emergency
-categories have the same delete semantics — and the same missing guard — has not been
-checked.** If they do, they should get the same treatment rather than each screen
-inventing its own.
+menu with a typed confirm.
+
+**Categories: verified 2026-08-17, and the semantics differ enough to need their own
+copy.** Deleting a category does two things in one transaction — soft-deletes the
+category, and sets `is_active=False` on **every live product in it**. Products are
+deactivated, not deleted; nothing cascades to variants, orders, carts or deals, and
+products keep their FK pointing at the deleted category. Sailors stop seeing those
+products immediately.
+
+The danger is therefore **not** the products — it is the category row. Each product can
+be switched back on individually via `products/set-active/`, but **the category itself
+cannot be restored**, so undoing means re-creating it and re-homing everything. The copy
+must put the weight there, not on the product count. Backend chose cascade over a 409
+deliberately (2026-07-30): a hard block forced admins to re-home by hand before a routine
+reorg, which pushed people into bulk-reassigning to a placeholder category.
+
+Two details for the dialog: `deactivated_products` in the response is authoritative and
+belongs in the success toast; the pre-fill from `get-category/<uuid>/`'s `product_count`
+counts already-inactive products too, so it is an upper bound — word it *"up to N"* or
+the two numbers will legitimately disagree and look like a bug.
+
+**Still unverified: Express items, Spares, Emergency categories.**
 
 ---
 
@@ -233,6 +298,9 @@ inventing its own.
 | 2026-08-17 | C2 | Backend answered: one model, two scope-locked doors. Narrowed to a `CategoryStatsView` scope bug; backend fixing pre-pass-1. OPEN → DECIDED |
 | 2026-08-17 | C3 | Backend answered: the two express flags compose, neither is derived. Rewritten around the confirmed one-directional cascade gap in `set-catalog-type/` |
 | 2026-08-17 | — | Standing constraints added; [CATALOG_API_MAP.md](CATALOG_API_MAP.md) mirrored |
+| 2026-08-17 | C2 | Backend shipped the scope + filter fix. DECIDED → **RESOLVED**; frontend verification deferred to pass 1 |
+| 2026-08-17 | C6 | Category delete semantics verified — cascades to products as a *deactivation*; the irreversible part is the category row, not the products |
+| 2026-08-17 | C9 | **Added in pass 1.** Category deactivate/delete have inverted blast radii — the safe action doesn't take products off sale, the irreversible one does |
 
 ---
 

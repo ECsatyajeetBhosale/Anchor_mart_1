@@ -8,12 +8,34 @@ import type {
   UpdateCategoryPayload,
 } from "../types/category.types";
 
+/**
+ * Query params for `get-categories/`.
+ *
+ * **These four and no others** — there is no `parent`, `has_products` or
+ * `ordering` filter. Ordering is fixed **name ascending**, which differs from
+ * `get-products/`'s `-created_at`; do not assume a shared default.
+ *
+ * Pagination matches products exactly (same `CustomPagination`): default 10,
+ * `page_size` clamped to 50, junk or 0 falls back to 10, and a page past the end
+ * is a **404** `{"detail": "Invalid page."}` rather than an empty page.
+ */
 export interface GetCategoriesParams {
   page?: number;
   limit?: number;
+  /** Matches `name` only, case-insensitively — not `description`. */
   search?: string;
   isActive?: boolean;
 }
+
+/**
+ * Query params for `category-stats/` — **exactly the list's two filters**.
+ *
+ * Both endpoints call the same `_apply_category_filters`, so they cannot drift;
+ * the corollary is that a junk `is_active` 400s here just as it does on the
+ * list. Pass both the same validated values, or the cards will fail on a filter
+ * the table accepted.
+ */
+export type GetCategoryStatsParams = Pick<GetCategoriesParams, "search" | "isActive">;
 
 export const categoryApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -48,8 +70,28 @@ export const categoryApi = baseApi.injectEndpoints({
       providesTags: (_result, _error, id) => [{ type: "Categories", id }],
     }),
 
-    getCategoryStats: builder.query<CategoryStats, void>({
-      query: () => ({ url: CATEGORY_ENDPOINTS.GET_STATS, method: "GET" }),
+    /**
+     * KPI counts for the screen, **given the table's own filters**.
+     *
+     * This took no arguments until 2026-08-17 and sent none, so the cards
+     * described the whole taxonomy while the table showed a filtered slice —
+     * the same defect `product-stats/` had before it learned to filter, on this
+     * side rather than the backend's. Encoded the same way as products: one
+     * filter object serves the list and the cards, so they cannot disagree.
+     */
+    getCategoryStats: builder.query<CategoryStats, GetCategoryStatsParams>({
+      query: (params) => ({
+        url: CATEGORY_ENDPOINTS.GET_STATS,
+        method: "GET",
+        params: params
+          ? {
+              search: params.search || undefined,
+              // Same capitalised-boolean encoding as the list; omit for "all".
+              is_active:
+                params.isActive === undefined ? undefined : params.isActive ? "True" : "False",
+            }
+          : undefined,
+      }),
       providesTags: [{ type: "Categories", id: "STATS" }],
     }),
 

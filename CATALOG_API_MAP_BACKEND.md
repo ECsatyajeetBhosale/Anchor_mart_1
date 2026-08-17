@@ -1,12 +1,10 @@
 # Catalog API Map — definitive route inventory
 
-> **Mirror of the backend's `MD/CATALOG_API_MAP.md`, received 2026-08-17.**
-> Generated from the Django URL resolver, not from the Postman collection.
-> Do not hand-edit this copy — ask backend to regenerate and re-mirror it.
-> If a route is not in this file, it does not exist. If the frontend calls
-> something not listed here, it is calling a stale path.
+Generated from the Django URL resolver on 2026-08-17, not from the Postman collection.
+This is the complete admin catalog surface: **41 routes across 4 code surfaces**.
 
-**41 admin routes across 4 code surfaces**, plus 9 customer-facing routes.
+If a route is not in this file, it does not exist. If the frontend calls something not
+listed here, it is calling a stale path.
 
 ---
 
@@ -27,6 +25,28 @@ marine_emergency).
 
 ---
 
+## Global response conventions (apply to every route below)
+
+- **Field errors:** `{"field_name": ["message"]}`.
+- **Serializer-raised non-field errors:** `{"message": ["..."]}` — the project sets
+  `NON_FIELD_ERRORS_KEY = "message"` in `REST_FRAMEWORK`. **Not** `non_field_errors`, and
+  **not** `detail`.
+- **View-raised non-field errors:** `{"detail": "..."}` (CLAUDE.md §3). Both shapes exist;
+  handle both.
+- **Unknown request keys are silently dropped** on every serializer — DRF default, no strict
+  mode anywhere. A 200/201 never means "it accepted every key I sent". All create/update
+  endpoints return the full read serializer, so diff the response rather than trusting the
+  status.
+- **Update endpoints are always partial**, PUT and PATCH alike (CLAUDE.md §4a). Send
+  dirty-only: `update()` does a full-row `instance.save()`, so a full-object PUT writes back
+  every field and can clobber a concurrent row toggle.
+- **Pagination is uniform** (`CustomPagination`): `page_size` default 10, max 50 (over-max is
+  silently clamped, not a 400); `page_size=0`/junk falls back to 10; **page past the end is a
+  404** `{"detail": "Invalid page."}`. Response shape is
+  `{count, next, previous, results: {message, data: [...]}}` — rows at `results.data`.
+
+---
+
 ## 1. Categories — general scope (7 routes)
 
 Base: `/api/superadmin/categories/`
@@ -41,11 +61,20 @@ Base: `/api/superadmin/categories/`
 | PUT/PATCH | `update-category/<uuid>/` | `UpdateGeneralCategoryView` |
 | DELETE | `delete-category/<uuid>/` | `DeleteCategoryView` |
 
-- `get-categories-by-catalog-type/?catalog_type=` maps `regular` → general,
-  `express` → general, `marine_emergency` → marine. It is the one route that reaches
-  both scopes, by design — it answers "which categories may this product use?"
+- `get-categories-by-catalog-type/?catalog_type=` takes **`regular` | `marine_emergency`
+  only**. There are two category buckets, not three: express products use the general
+  bucket, so **send `regular` for an express product**. `?catalog_type=express` is a
+  deliberate **400** (locked by `test_categories.test_categories_by_catalog_type_validates`).
+  It is the one route that reaches both scopes, by design — it answers "which categories may
+  this product use?"
+  *(Corrected 2026-08-17: the first version of this file listed `express` as accepted,
+  copied from a stale comment in `category_urls.py`. That comment is now fixed too.)*
 - `scope` is not a writable field on create or update. A category cannot change taxonomy.
-- Delete is a soft-delete and **cascades** (see `BaseDeleteCategoryView`).
+- `category-stats/` is **general-scope only** and honours the list's `search` / `is_active`
+  filters (C2 fix, 2026-08-17). Its marine twin behaves identically. For a whole-taxonomy
+  figure use `products/product-stats/`, whose `general_categories` /
+  `marine_emergency_categories` are global and labelled per scope.
+- Delete is a soft-delete and **cascades to products** — see "Category delete blast radius".
 
 ## 2. Categories — marine-emergency scope (6 routes)
 
@@ -61,8 +90,8 @@ Base: `/api/superadmin/emergency-spares/categories/`
 | DELETE | `<uuid>/delete/` | `DeleteEmergencySpareCategoryView` |
 
 Same base classes as §1 with `SCOPE = marine_emergency`. Note the URL *shape* differs
-(`categories/add/` vs `add-category/`) — cosmetic drift between the two doors, not a
-behavioural difference.
+(`categories/add/` vs `add-category/`) — that is cosmetic drift between the two doors, not
+a behavioural difference.
 
 ## 3. Products — general (regular + express) (12 routes)
 
@@ -150,17 +179,49 @@ The two flags are **not** alternatives — they compose, hierarchically:
 | `ProductVariant.is_express` | variant | which of that product's variants are express-deliverable |
 
 A sailor sees an item in the express catalog iff **both** are true, plus the ordinary
-liveness/sourceable gates (`ExpressProductListView.EXTRA_VARIANT_FILTERS =
-{"is_express": True}` over `CATALOG_TYPES = (EXPRESS,)`). The express **category** list
-mirrors it exactly, so a product with no express variants does not hold its category open
-either.
+liveness/sourceable gates (`catalog/views.py` — `ExpressProductListView.EXTRA_VARIANT_FILTERS
+= {"is_express": True}` over `CATALOG_TYPES = (EXPRESS,)`).
 
 `set-express/` maintains the invariant in both directions: turning a variant express
 up-cascades its product to `catalog_type=express`; turning off the *last* express variant
 down-cascades the product back to `regular` (or `marine_emergency` per its category scope).
 
-`set-catalog-type/` does **not** — it writes `catalog_type` only. See C3 in the conflicts
-log.
+`set-catalog-type/` does **not** — it writes `catalog_type` only. See the conflicts log.
+
+---
+
+## Category delete blast radius
+
+`DELETE` on either category door does **two** things, in one transaction
+([`BaseDeleteCategoryView`](../backend/admin_panel/views/category_views.py)):
+
+1. soft-deletes the category (`is_deleted=True`, `is_active=False`);
+2. sets **`is_active=False` on every live product in it** — a deactivation, *not* a delete.
+
+It does **not** cascade to variants, orders, carts, or deals. Products keep their `category`
+FK pointing at the now-deleted category.
+
+```jsonc
+// 200
+{ "message": "Category deleted successfully. 12 products deactivated.",
+  "deactivated_products": 12 }
+```
+
+**For the confirm dialog:**
+
+- `deactivated_products` is authoritative — it is what the call actually changed. Show it in
+  the success toast.
+- To pre-fill the count, `get-category/<uuid>/` returns `product_count`, but it counts every
+  non-deleted product **including already-inactive ones**, while the cascade only touches
+  live ones. So `product_count >= deactivated_products`. Word the dialog as "up to N
+  products will be deactivated", or the two numbers will legitimately disagree and look
+  like a bug.
+- The reversal is **asymmetric**, and this is the part worth spelling out in the copy:
+  each product can be switched back on via `products/set-active/<id>/`, but **the category
+  itself cannot be restored** — there is no restore endpoint. Undoing a mistaken category
+  delete means re-creating the category and re-homing every product.
+- Products are deactivated, so sailors stop seeing them immediately (the variant-level
+  orderability gate reads `product.is_active`). Nothing is destroyed.
 
 ---
 

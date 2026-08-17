@@ -1,3 +1,4 @@
+import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { FormField } from "@/components/common/FormField";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,14 +12,18 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { FILE_LOCATIONS, ImageUploadField } from "@/features/media";
-import { getApiMessage } from "@/lib/apiError";
+import { getApiMessage, getFieldErrors } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconCategory, IconCheck } from "@tabler/icons-react";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { useGetCategoryQuery, useUpdateCategoryMutation } from "../api/categoryApi";
+import {
+  useGetCategoriesQuery,
+  useGetCategoryQuery,
+  useUpdateCategoryMutation,
+} from "../api/categoryApi";
 import { type CategoryUpdateFormData, categoryUpdateSchema } from "../schemas/category.schema";
 import type { Category, UpdateCategoryPayload } from "../types/category.types";
 
@@ -45,12 +50,32 @@ export function CategoryEditDrawer({ isOpen, onClose, category }: CategoryEditDr
   const { data: detail } = useGetCategoryQuery(category.id, { skip: !isOpen });
   const source = detail ?? category;
 
+  /**
+   * Parent options: every other live category in this taxonomy.
+   *
+   * Self is excluded because it is the one rule a picker can enforce honestly.
+   * The rest — no cycles, same scope, parent not soft-deleted — are enforced
+   * server-side and are the actual guarantee; a descendant left in this list is
+   * a 400 with a readable message, not a corrupt tree.
+   */
+  const { data: allCategoriesData } = useGetCategoriesQuery({ limit: 50 }, { skip: !isOpen });
+  const parentOptions = useMemo(
+    () => [
+      { value: "", label: MESSAGES.CATEGORIES.NO_PARENT },
+      ...(allCategoriesData?.results?.data ?? [])
+        .filter((c) => c.id !== category.id)
+        .map((c) => ({ value: c.id, label: c.name })),
+    ],
+    [allCategoriesData, category.id],
+  );
+
   const {
     register,
     control,
     handleSubmit,
     reset,
-    formState: { errors },
+    setError,
+    formState: { errors, dirtyFields },
   } = useForm<CategoryUpdateFormData>({
     resolver: zodResolver(categoryUpdateSchema),
   });
@@ -63,17 +88,32 @@ export function CategoryEditDrawer({ isOpen, onClose, category }: CategoryEditDr
       name: source.name ?? "",
       description: source.description ?? "",
       image: toImagePath(source.image),
+      parent: source.parent ?? "",
       is_active: source.is_active ?? true,
     });
   }, [isOpen, source, reset]);
 
   const onSubmit = async (formData: CategoryUpdateFormData) => {
-    const payload: UpdateCategoryPayload = {
-      name: formData.name,
-      description: formData.description,
-      image: formData.image,
-      is_active: formData.is_active,
-    };
+    /**
+     * Only the fields actually changed. `update()` writes just the keys present,
+     * the underlying `save()` is a full-row write, and unknown keys are dropped
+     * without an error — so over-sending is both unnecessary and invisible when
+     * wrong. Same reasoning as `update-product`.
+     */
+    const payload: UpdateCategoryPayload = {};
+    if (dirtyFields.name) payload.name = formData.name;
+    if (dirtyFields.description) payload.description = formData.description;
+    // "" clears the image server-side, which is the intended way to remove one.
+    if (dirtyFields.image) payload.image = formData.image;
+    // "" means top-level, and the API wants an explicit null for that.
+    if (dirtyFields.parent) payload.parent = formData.parent || null;
+    if (dirtyFields.is_active) payload.is_active = formData.is_active;
+
+    if (Object.keys(payload).length === 0) {
+      toast.info(MESSAGES.CATEGORIES.TOAST.NO_CHANGES);
+      onClose();
+      return;
+    }
 
     try {
       const response = await updateCategory({ id: category.id, body: payload }).unwrap();
@@ -81,8 +121,25 @@ export function CategoryEditDrawer({ isOpen, onClose, category }: CategoryEditDr
       onClose();
       toast.success(getApiMessage(response) ?? MESSAGES.CATEGORIES.TOAST.UPDATE_SUCCESS);
     } catch (error) {
+      /**
+       * Pin field-keyed errors to their inputs. The two that land here are a
+       * duplicate `(name, scope)` and an invalid `parent` — both come back
+       * field-keyed, so putting them on the input beats a toast that makes the
+       * operator hunt for which field the server meant.
+       */
+      const fieldErrors = getFieldErrors(error);
+      const known = ["name", "description", "image", "parent"] as const;
+      let pinned = false;
+      for (const field of known) {
+        if (fieldErrors[field]) {
+          setError(field, { type: "server", message: fieldErrors[field] });
+          pinned = true;
+        }
+      }
       // Failure: keep the drawer open so the user can fix and retry, then notify.
-      toast.error(getApiMessage(error) ?? MESSAGES.CATEGORIES.TOAST.UPDATE_ERROR);
+      if (!pinned) {
+        toast.error(getApiMessage(error) ?? MESSAGES.CATEGORIES.TOAST.UPDATE_ERROR);
+      }
     }
   };
 
@@ -118,6 +175,32 @@ export function CategoryEditDrawer({ isOpen, onClose, category }: CategoryEditDr
                 className="h-24"
                 error={!!errors.description}
                 {...register("description")}
+              />
+            </FormField>
+            {/*
+              `parent` has always been writable on this endpoint and had no
+              control — the field was read-only in the UI and fully editable in
+              the API. Server-side validation covers same-scope, no-self,
+              no-cycle and no-deleted-parent, so this picker is a convenience
+              over a guarantee rather than the guard itself.
+            */}
+            <FormField
+              label={MESSAGES.CATEGORIES.PARENT_LABEL}
+              hint={MESSAGES.CATEGORIES.PARENT_HINT}
+              error={errors.parent?.message}
+            >
+              <Controller
+                control={control}
+                name="parent"
+                render={({ field }) => (
+                  <DropdownSelect
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    options={parentOptions}
+                    placeholder={MESSAGES.CATEGORIES.NO_PARENT}
+                    width="100%"
+                  />
+                )}
               />
             </FormField>
           </section>
@@ -163,6 +246,9 @@ export function CategoryEditDrawer({ isOpen, onClose, category }: CategoryEditDr
                 {MESSAGES.CATEGORIES.TOGGLES.ACTIVE}
               </label>
             </div>
+            {/* Says what deactivating actually does — the sailor's product list
+                does not join category liveness, so the products stay buyable. */}
+            <p className="fg-hint mt-2">{MESSAGES.CATEGORIES.ACTIVE_HINT}</p>
           </section>
         </div>
 

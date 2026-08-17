@@ -36,30 +36,69 @@ export interface CategoryListResponse {
 }
 
 /**
- * Aggregate KPI counts for the categories page.
- * Plain object (not the DRF wrapped envelope), e.g.
- * `{ total: 26, active: 25, inactive: 1, empty: 8 }`.
+ * Aggregate KPI counts for the categories page, e.g.
+ * `{ total: 26, active: 25, inactive: 1, empty: 8 }`. Plain object, not the DRF
+ * wrapped envelope.
+ *
+ * **Scoped to this screen's taxonomy and follows the list's filters** — the
+ * endpoint runs the same `_apply_category_filters` the list does, so the two
+ * cannot drift. It accepts exactly `search` + `is_active`, and 400s on a junk
+ * boolean exactly as the list does: pass both the same validated values or the
+ * cards will error on a filter the table accepted.
  */
 export interface CategoryStats {
   total: number;
   active: number;
   inactive: number;
-  /** Categories that have no products assigned. */
+  /**
+   * Categories with **no products directly assigned**. Counts a product whether
+   * or not it is active, and ignores soft-deleted ones — so "empty" means
+   * nothing is filed here, not "nothing here is on sale". Products in a *child*
+   * category do not count towards the parent.
+   */
   empty: number;
 }
 
-/** Request body for POST /superadmin/catalog/add-category/. */
+/**
+ * Request body for `POST add-category/`.
+ *
+ * **Only `name` is required.** `scope` is never writable — posting one is
+ * silently ignored and the category is born in the endpoint's own taxonomy — and
+ * `is_active` is not on the create serializer at all, so every category is born
+ * active.
+ *
+ * Unknown keys are dropped without an error, so a 201 does not mean the body was
+ * understood. The response is the full category; diff it if a field matters.
+ */
 export interface AddCategoryPayload {
   name: string;
-  description: string;
-  /** Stored image path/key (e.g. "category_images/example.jpg"), not a file upload. */
-  image: string;
+  description?: string;
+  /** Stored image path/key — must start `category_images/`, enforced server-side. */
+  image?: string;
+  /**
+   * Parent category id, or null for top-level. Validated server-side: same
+   * scope, not itself, and no cycle. A soft-deleted parent is rejected; an
+   * inactive one is accepted deliberately, since deactivation is reversible and
+   * must not dissolve a tree.
+   */
+  parent?: string | null;
 }
 
-/** Request body for PATCH /superadmin/catalog/update-category/{id}/ (partial). */
-export interface UpdateCategoryPayload {
+/**
+ * Request body for `PATCH update-category/{id}/`.
+ *
+ * A true partial — `update()` writes only the keys present — so **only changed
+ * fields are sent**. Same reasoning as `update-product`: the underlying `save()`
+ * is a full-row write, and unknown keys are dropped silently, so neither
+ * over-sending nor an unsupported key would surface as an error.
+ *
+ * `scope` is absent because a category cannot change taxonomy.
+ */
+export type UpdateCategoryPayload = Partial<{
   name: string;
   description: string;
-  image: string;
+  /** Sending `null` or `""` clears the image. */
+  image: string | null;
+  parent: string | null;
   is_active: boolean;
-}
+}>;

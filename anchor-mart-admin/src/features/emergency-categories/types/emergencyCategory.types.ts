@@ -38,30 +38,61 @@ export interface EmergencyCategoryListResponse {
 }
 
 /**
- * Aggregate KPI counts for the emergency categories page.
- * Plain object (not the DRF wrapped envelope), e.g.
- * `{ total: 26, active: 25, inactive: 1, empty: 8 }`.
+ * Aggregate KPI counts for the emergency categories page, e.g.
+ * `{ total: 26, active: 25, inactive: 1, empty: 8 }`. Plain object, not the DRF
+ * wrapped envelope.
+ *
+ * **Scoped to the marine taxonomy and follows the list's filters.** This door and
+ * the general one now share one `BaseCategoryStatsView` running the same
+ * `_apply_category_filters` as their lists — they were two implementations until
+ * 2026-08-17, and the general one was the broken copy. Accepts exactly `search`
+ * + `is_active`, and 400s on a junk boolean as the list does.
  */
 export interface EmergencyCategoryStats {
   total: number;
   active: number;
   inactive: number;
-  /** Categories that have no products assigned. */
+  /**
+   * Categories with **no products directly assigned** — counting inactive ones,
+   * ignoring soft-deleted ones, and not counting products filed in a child.
+   */
   empty: number;
 }
 
-/** Request body for POST /superadmin/emergency-spares/categories/add/. */
+/**
+ * Request body for `POST emergency-spares/categories/add/`.
+ *
+ * **Only `name` is required.** `scope` is never writable — this door always
+ * creates in the marine taxonomy — and `is_active` is not on the create
+ * serializer, so every category is born active. Unknown keys are dropped
+ * silently, so a 201 does not mean the body was understood.
+ */
 export interface AddEmergencyCategoryPayload {
   name: string;
-  description: string;
-  /** Stored image path/key (e.g. "category_images/example.jpg"), not a file upload. */
-  image: string;
+  description?: string;
+  /** Stored image path/key — must start `category_images/`, enforced server-side. */
+  image?: string;
+  /**
+   * Parent category id, or null for top-level. Validated server-side: same
+   * scope, not itself, no cycle, and not soft-deleted. An inactive parent is
+   * accepted deliberately — deactivation is reversible and must not dissolve a
+   * tree.
+   */
+  parent?: string | null;
 }
 
-/** Request body for PATCH /superadmin/emergency-spares/categories/{id}/update/. */
-export interface UpdateEmergencyCategoryPayload {
+/**
+ * Request body for `PATCH emergency-spares/categories/{id}/update/`.
+ *
+ * A true partial, so **only changed fields are sent** — the underlying `save()`
+ * is a full-row write and unknown keys are dropped without error, so neither
+ * over-sending nor an unsupported key would surface as a failure.
+ */
+export type UpdateEmergencyCategoryPayload = Partial<{
   name: string;
   description: string;
-  image: string;
+  /** Sending `null` or `""` clears the image. */
+  image: string | null;
+  parent: string | null;
   is_active: boolean;
-}
+}>;

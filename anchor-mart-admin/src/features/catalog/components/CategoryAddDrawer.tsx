@@ -1,3 +1,4 @@
+import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { FormField } from "@/components/common/FormField";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,14 +11,14 @@ import {
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { FILE_LOCATIONS, ImageUploadField } from "@/features/media";
-import { getApiMessage } from "@/lib/apiError";
+import { getApiMessage, getFieldErrors } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconCategory, IconCheck } from "@tabler/icons-react";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { useCreateCategoryMutation } from "../api/categoryApi";
+import { useCreateCategoryMutation, useGetCategoriesQuery } from "../api/categoryApi";
 import { type CategoryAddFormData, categoryAddSchema } from "../schemas/category.schema";
 import type { AddCategoryPayload } from "../types/category.types";
 
@@ -30,16 +31,29 @@ const ADD_DEFAULTS: CategoryAddFormData = {
   name: "",
   description: "",
   image: "",
+  parent: "",
 };
 
 export function CategoryAddDrawer({ isOpen, onClose }: CategoryAddDrawerProps) {
   const [createCategory, { isLoading: isCreating }] = useCreateCategoryMutation();
+
+  // Parent options — every live category in this taxonomy. No self to exclude
+  // here, since the category being created does not exist yet.
+  const { data: allCategoriesData } = useGetCategoriesQuery({ limit: 50 }, { skip: !isOpen });
+  const parentOptions = useMemo(
+    () => [
+      { value: "", label: MESSAGES.CATEGORIES.NO_PARENT },
+      ...(allCategoriesData?.results?.data ?? []).map((c) => ({ value: c.id, label: c.name })),
+    ],
+    [allCategoriesData],
+  );
 
   const {
     register,
     control,
     handleSubmit,
     reset,
+    setError,
     formState: { errors },
   } = useForm<CategoryAddFormData>({
     resolver: zodResolver(categoryAddSchema),
@@ -57,6 +71,8 @@ export function CategoryAddDrawer({ isOpen, onClose }: CategoryAddDrawerProps) {
       name: formData.name,
       description: formData.description,
       image: formData.image,
+      // "" is top-level; the API wants an explicit null rather than a blank id.
+      parent: formData.parent || null,
     };
 
     try {
@@ -65,8 +81,22 @@ export function CategoryAddDrawer({ isOpen, onClose }: CategoryAddDrawerProps) {
       onClose();
       toast.success(getApiMessage(response) ?? MESSAGES.CATEGORIES.TOAST.ADD_SUCCESS);
     } catch (error) {
+      // Duplicate `(name, scope)` and invalid `parent` both come back
+      // field-keyed — pin them to the input rather than making the operator
+      // work out which field a toast meant.
+      const fieldErrors = getFieldErrors(error);
+      const known = ["name", "description", "image", "parent"] as const;
+      let pinned = false;
+      for (const field of known) {
+        if (fieldErrors[field]) {
+          setError(field, { type: "server", message: fieldErrors[field] });
+          pinned = true;
+        }
+      }
       // Failure: keep the drawer open (data preserved) so the user can retry.
-      toast.error(getApiMessage(error) ?? MESSAGES.CATEGORIES.TOAST.ADD_ERROR);
+      if (!pinned) {
+        toast.error(getApiMessage(error) ?? MESSAGES.CATEGORIES.TOAST.ADD_ERROR);
+      }
     }
   };
 
@@ -102,6 +132,26 @@ export function CategoryAddDrawer({ isOpen, onClose }: CategoryAddDrawerProps) {
                 className="h-24"
                 error={!!errors.description}
                 {...register("description")}
+              />
+            </FormField>
+            {/* `parent` is accepted on create and had no control here either. */}
+            <FormField
+              label={MESSAGES.CATEGORIES.PARENT_LABEL}
+              hint={MESSAGES.CATEGORIES.PARENT_HINT}
+              error={errors.parent?.message}
+            >
+              <Controller
+                control={control}
+                name="parent"
+                render={({ field }) => (
+                  <DropdownSelect
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    options={parentOptions}
+                    placeholder={MESSAGES.CATEGORIES.NO_PARENT}
+                    width="100%"
+                  />
+                )}
               />
             </FormField>
           </section>
