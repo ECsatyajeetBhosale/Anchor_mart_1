@@ -4,8 +4,10 @@ import { baseApi } from "@/lib/fetchUtils";
 import { primaryImageUrl } from "../lib/variantImage";
 import type {
   AddVariantPayload,
+  DeleteVariantResult,
   GetVariantsParams,
   ProductVariant,
+  SetVariantExpressResult,
   SetVariantSourceableResult,
   UpdateVariantPayload,
   VariantListResult,
@@ -70,6 +72,13 @@ function toVariant(raw: unknown, index: number): ProductVariant {
     isActive: getProp(raw, "is_active") !== false,
     isExpress: getProp(raw, "is_express") === true,
     adminSourceable: getProp(raw, "admin_sourceable") !== false,
+    // Inherited from the parent and read-only. Kept because both `set-express/`
+    // and deleting the last express variant rewrite it — this is where a variant
+    // toggle moving its product between shelves becomes visible.
+    catalogType: pick(raw, "catalog_type"),
+    aboutProduct: pick(raw, "about_product"),
+    createdAt: pick(raw, "created_at"),
+    updatedAt: pick(raw, "updated_at"),
   };
 }
 
@@ -92,11 +101,16 @@ export const variantApi = baseApi.injectEndpoints({
       query: (params) => ({
         url: VARIANT_ENDPOINTS.GET_VARIANTS,
         method: "GET",
+        // `page_size`, not `limit` — a raw `limit` is silently ignored and
+        // yields the default 10. `admin_sourceable` is deliberately never sent:
+        // the endpoint ignores it rather than rejecting it, so it would look
+        // like a working filter while returning everything.
         params: {
           page: params.page,
           page_size: params.limit,
           search: params.search || undefined,
           product: params.productId || undefined,
+          is_active: params.isActive === undefined ? undefined : String(params.isActive),
         },
       }),
       transformResponse: (res: unknown): VariantListResult => {
@@ -151,28 +165,88 @@ export const variantApi = baseApi.injectEndpoints({
       ],
     }),
 
-    deleteVariant: builder.mutation<unknown, string>({
+    /**
+     * Soft-deletes a variant (`is_deleted`, `is_active=False`, stamped).
+     *
+     * **Guarded**: deleting a product's only variant is a 400 — "Add another
+     * variant first, or delete the product." That guard is what stops the delete
+     * path from producing a zero-variant product, which would vanish from every
+     * sailor-facing list. It is an app-level count rather than a DB constraint,
+     * so two concurrent deletes of the last two variants can both see a sibling
+     * and both proceed (the RC-4 pattern; logged, not fixed here).
+     *
+     * **Also demotes the product's catalog** when the variant deleted was the
+     * last express one — the same invariant `set-express/` maintains, which this
+     * path did not honour until 2026-08-17. Hence the cascade fields on the
+     * response and the Products invalidation below.
+     *
+     * No guard for open orders, carts or live deals: a deal on the deleted
+     * variant silently drops out of `on_deal`, and cart rows survive but stop
+     * being orderable.
+     */
+    deleteVariant: builder.mutation<DeleteVariantResult, string>({
       query: (id) => ({ url: VARIANT_ENDPOINTS.DELETE_VARIANT(id), method: "DELETE" }),
+      transformResponse: (res: unknown): DeleteVariantResult => ({
+        message: pick(res, "message"),
+        productCatalogType: pick(res, "product_catalog_type") || null,
+        productCascaded: getProp(res, "product_cascaded") === true,
+      }),
       invalidatesTags: (_r, _e, id) => [
         { type: "Variants", id },
         { type: "Variants", id: "PARTIAL-LIST" },
         { type: "Products", id: "PARTIAL-LIST" },
         { type: "Products", id: "STATS" },
+        // The product may have just been demoted off the express shelf.
+        { type: "ExpressItems", id: "CATALOG-LIST" },
+        { type: "ExpressItems", id: "STATS" },
       ],
     }),
 
-    /** Variant-level express flag. Also moves the express catalog counts. */
-    setVariantExpress: builder.mutation<unknown, { id: string; isExpress: boolean }>({
+    /**
+     * Variant-level express flag — **and the product's catalog with it**.
+     *
+     * Flagging a variant express up-cascades its product to
+     * `catalog_type=express`; un-flagging the last express variant demotes the
+     * product back to `regular` or `marine_emergency`, per its category scope.
+     * So this is a product-level write wearing a variant-level name, and the
+     * response reports the resulting `product_catalog_type` plus whether this
+     * call is what moved it.
+     *
+     * The Products caches were **not** invalidated here until 2026-08-17, so the
+     * products list and stats went stale behind every express toggle. The
+     * sourceable mutation below always got this right, which is what made the
+     * omission findable.
+     */
+    setVariantExpress: builder.mutation<
+      SetVariantExpressResult,
+      { id: string; isExpress: boolean }
+    >({
       query: ({ id, isExpress }) => ({
         url: VARIANT_ENDPOINTS.SET_EXPRESS(id),
         method: "POST",
         body: { is_express: isExpress },
+      }),
+      transformResponse: (res: unknown, _meta, { isExpress }): SetVariantExpressResult => ({
+        message: pick(res, "message"),
+        // Fall back to what was requested so an older deployment still yields a
+        // usable result rather than a silent `false`.
+        isExpress:
+          typeof getProp(res, "is_express") === "boolean"
+            ? (getProp(res, "is_express") as boolean)
+            : isExpress,
+        // Null rather than "" when absent — "the API didn't say" is not a catalog.
+        productCatalogType: pick(res, "product_catalog_type") || null,
+        productCascaded: getProp(res, "product_cascaded") === true,
       }),
       invalidatesTags: (_r, _e, { id }) => [
         { type: "Variants", id },
         { type: "Variants", id: "PARTIAL-LIST" },
         { type: "ExpressItems", id: "CATALOG-LIST" },
         { type: "ExpressItems", id: "STATS" },
+        // This write can change `product.catalog_type`, which moves the product
+        // between the catalog filters and the per-type stat cards.
+        { type: "Products", id: "PARTIAL-LIST" },
+        { type: "Products", id: "STATS" },
       ],
     }),
 

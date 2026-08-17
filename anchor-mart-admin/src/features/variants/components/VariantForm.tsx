@@ -11,7 +11,7 @@ import { FILE_LOCATIONS, ImageListField } from "@/features/media";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { useCreateVariantMutation, useUpdateVariantMutation } from "../api/variantApi";
-import type { ProductVariant } from "../types/variant.types";
+import type { ProductVariant, UpdateVariantPayload } from "../types/variant.types";
 
 const M = MESSAGES.VARIANTS;
 const F = M.FORM;
@@ -77,7 +77,12 @@ export function VariantForm({ productId, variant, onDone }: VariantFormProps) {
     if (!sku.trim()) next.sku = V.SKU_REQUIRED;
 
     const priceValue = Number(price);
-    if (price.trim() === "" || !Number.isFinite(priceValue) || priceValue < 0) {
+    // The serializer's floor is **0.01**, not 0 — identical to `base_price`
+    // (`DecimalField(max_digits=12, decimal_places=2, min_value=0.01)`), so a
+    // price of 0 was a guaranteed 400 that only surfaced on submit. More than
+    // two decimal places is rejected the same way.
+    const centsOff = Math.abs(priceValue * 100 - Math.round(priceValue * 100)) >= 1e-9;
+    if (price.trim() === "" || !Number.isFinite(priceValue) || priceValue < 0.01 || centsOff) {
       next.price = V.PRICE_INVALID;
     }
 
@@ -108,17 +113,42 @@ export function VariantForm({ productId, variant, onDone }: VariantFormProps) {
 
     try {
       if (isEdit && variant) {
-        await updateVariant({
-          id: variant.id,
-          body: {
-            sku: sku.trim(),
-            price: Number(price),
-            attributes: result.attributes,
-            images: cleanImages,
-            is_active: isActive,
-          },
-        }).unwrap();
-        toast.success(M.TOAST.UPDATED(sku.trim()));
+        /**
+         * **Only the fields actually changed.**
+         *
+         * The endpoint is a true partial that silently drops unknown keys, so a
+         * fixed body is both unnecessary and invisible when wrong — the same
+         * reasoning as every other write in this sweep. It matters more here:
+         * **price changes are audited**, recording both sides, so re-sending an
+         * unchanged price writes a phantom `PRICE_CHANGED` row claiming an edit
+         * that never happened.
+         *
+         * `product` is deliberately never sent. The serializer accepts it and
+         * would reparent the variant to another product — with no catalog-type
+         * check, so a regular SKU could land under a marine product. Far too
+         * heavy to ride along with an ordinary field edit.
+         */
+        const body: UpdateVariantPayload = {};
+        const nextSku = sku.trim();
+        const nextPrice = Number(price);
+        if (nextSku !== variant.sku) body.sku = nextSku;
+        if (nextPrice !== variant.price) body.price = nextPrice;
+        if (JSON.stringify(result.attributes) !== JSON.stringify(variant.attributes)) {
+          body.attributes = result.attributes;
+        }
+        if (JSON.stringify(cleanImages) !== JSON.stringify(variant.images)) {
+          body.images = cleanImages;
+        }
+        if (isActive !== variant.isActive) body.is_active = isActive;
+
+        if (Object.keys(body).length === 0) {
+          toast.info(M.TOAST.NO_CHANGES);
+          onDone();
+          return;
+        }
+
+        await updateVariant({ id: variant.id, body }).unwrap();
+        toast.success(M.TOAST.UPDATED(nextSku));
       } else {
         await createVariant({
           product: productId,
@@ -155,8 +185,15 @@ export function VariantForm({ productId, variant, onDone }: VariantFormProps) {
 
       <div className="p-5">
         <div className="form-row">
-          <FormField label={F.SKU} error={errors.sku}>
+          {/*
+            SKUs are unique across every variant, and the uniqueness check does
+            not exclude soft-deleted rows — so a deleted variant's SKU stays
+            reserved forever. Without saying so, re-creating a SKU you just
+            deleted returns a conflict against a row that appears nowhere.
+          */}
+          <FormField label={F.SKU} hint={F.SKU_HINT} error={errors.sku}>
             <Input
+              className="mono"
               value={sku}
               placeholder={F.SKU_PLACEHOLDER}
               error={!!errors.sku}
@@ -166,7 +203,7 @@ export function VariantForm({ productId, variant, onDone }: VariantFormProps) {
           <FormField label={F.PRICE} error={errors.price}>
             <Input
               type="number"
-              min="0"
+              min="0.01"
               step="0.01"
               value={price}
               placeholder={F.PRICE_PLACEHOLDER}

@@ -555,6 +555,10 @@ export function ProductsPage() {
       <ProductVariantsDrawer
         productId={variantsProduct?.id ?? null}
         productName={variantsProduct?.name ?? ""}
+        // Lets the drawer mark a sourceable variant that the product still
+        // blocks — the two create paths disagree on inheritance, so that pairing
+        // is legitimate and needs saying rather than looking like a bug.
+        productAdminSourceable={variantsProduct?.admin_sourceable !== false}
         isOpen={!!variantsProduct}
         onClose={() => setVariantsProduct(null)}
       />

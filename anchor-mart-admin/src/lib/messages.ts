@@ -1792,6 +1792,15 @@ export const MESSAGES = {
     // AnchorMart holds no stock count — orderability is these two flags, and the
     // product-level switch overrides the variant one.
     SOURCEABLE_HINT: "A variant is only orderable when both it and its product are sourceable.",
+    /** The parent product's catalog, shown in the drawer header. */
+    PRODUCT_CATALOG: "Product catalog:",
+    /**
+     * A variant added here starts sourceable even under a non-sourceable product
+     * (`add-product-variant/` takes the model default rather than inheriting, unlike
+     * the inline variant `add-product/` creates). So an on switch under an off master
+     * is correct, and this line is what stops it reading as a bug.
+     */
+    BLOCKED_BY_PRODUCT: "Blocked by the product's sourceable switch",
     ACTIONS: {
       EDIT: "Edit variant",
       DELETE: "Delete variant",
@@ -1803,6 +1812,13 @@ export const MESSAGES = {
       EDIT_TITLE: "Edit Variant",
       SKU: "SKU",
       SKU_PLACEHOLDER: "e.g. SHIRT-RED-M",
+      /**
+       * SKUs are unique across **all** variants, and the check does not exclude
+       * soft-deleted rows — so deleting a variant burns its SKU permanently. An
+       * admin re-creating one they just removed gets a conflict against a row
+       * they cannot see anywhere, which is worth naming before they hunt for it.
+       */
+      SKU_HINT: "Unique across all variants. A deleted variant keeps its SKU reserved.",
       PRICE: "Price",
       PRICE_PLACEHOLDER: "0.00",
       ATTRIBUTES: "Attributes (JSON)",
@@ -1816,7 +1832,8 @@ export const MESSAGES = {
     },
     VALIDATION: {
       SKU_REQUIRED: "SKU is required.",
-      PRICE_INVALID: "Enter a price of 0 or more.",
+      /** The serializer floor is 0.01 with 2 decimal places — same as `base_price`. */
+      PRICE_INVALID: "Enter a price of at least 0.01, with at most 2 decimal places.",
       ATTRIBUTES_INVALID: "Attributes must be valid JSON (a plain object).",
     },
     TOAST: {
@@ -1826,16 +1843,39 @@ export const MESSAGES = {
       UPDATE_ERROR: "Failed to update the variant",
       DELETED: (sku: string) => `Variant ${sku} deleted`,
       DELETE_ERROR: "Failed to delete the variant",
+      NO_CHANGES: "No changes to save",
       FLAG_UPDATED: "Variant updated",
       FLAG_ERROR: "Failed to update the variant",
       // Setting a variant sourceable turns the product's master switch on when
       // it was off (Flow 29a §5, up-cascade). Say so — the admin changed one
       // SKU and a second, product-level flag moved with it.
       SOURCEABLE_CASCADED: "Variant is now sourceable — the product was switched on with it.",
+      /**
+       * `set-express/` writes the variant flag **and** the product's catalog:
+       * flagging one SKU express moves the product onto the express shelf,
+       * un-flagging the last one moves it off. The destination is decided
+       * server-side from the product's category scope, so it is reported rather
+       * than guessed.
+       */
+      EXPRESS_CASCADED: (product: string, catalog: string) =>
+        `Variant updated — “${product}” moved to the ${catalog} catalog.`,
+      /** Deleting the last express variant demotes the product the same way. */
+      DELETED_CASCADED: (sku: string, product: string, catalog: string) =>
+        `Variant ${sku} deleted — “${product}” moved to the ${catalog} catalog.`,
     },
+    /**
+     * Delete confirmation.
+     *
+     * Deliberately does *not* warn about leaving the product variant-less: the
+     * backend refuses to delete a product's only variant (400, with a sentence
+     * saying what to do instead), so that state is unreachable from here. It does
+     * name the two consequences that are real — the SKU stays reserved, and a
+     * live deal on this variant quietly stops applying.
+     */
     CONFIRM_DELETE: {
       TITLE: "Delete variant?",
-      MESSAGE: (sku: string) => `${sku} will be removed from this product. This cannot be undone.`,
+      MESSAGE: (sku: string) =>
+        `${sku} will be removed from this product. This cannot be undone, and the SKU stays reserved — it cannot be reused for a new variant. Any live deal on it stops applying.`,
       CONFIRM: "Delete",
     },
   },

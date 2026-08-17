@@ -39,7 +39,7 @@ surfaces that write it.
 | 0 | Setup | — | ✅ Done |
 | 1 | Categories, both scopes | 13 | ✅ Done |
 | 2 | Products, both scopes | 18 | ✅ Done |
-| 3 | Variants | 7 | ⬜ Not started |
+| 3 | Variants | 7 | ✅ Done |
 | 4 | Express | 3 | ⬜ Not started |
 | 5 | Conflict resolution | — | ⬜ Blocked on 1–4 |
 
@@ -274,26 +274,109 @@ sailor-facing express category list can never show. Same class as C3; decide tog
 
 **Frontend:** `src/features/variants/` (3 files)
 
-### Routes
+### Routes — all 7 audited ✅
 
-- [ ] `GET get-product-variants/`
-- [ ] `GET product-variant/` — **query-param lookup, not a path id**
-- [ ] `POST add-product-variant/`
-- [ ] `PUT/PATCH update-product-variant/<uuid>/`
-- [ ] `DELETE delete-product-variant/<uuid>/`
-- [ ] `POST set-admin-sourceable/<uuid>/`
-- [ ] `POST set-express/<uuid>/`
+- [x] `GET get-product-variants/` — `is_active` filter wired; search is **SKU or product name**, unlike every other list
+- [x] `GET product-variant/` — query-param lookup confirmed correct
+- [x] `POST add-product-variant/` — payload already exact; SKU-reservation copy added
+- [x] `PUT/PATCH update-product-variant/<uuid>/` — dirty-only; `product` deliberately never sent
+- [x] `DELETE delete-product-variant/<uuid>/` — cascade reported; only-variant 400 surfaced verbatim
+- [x] `POST set-admin-sourceable/<uuid>/` — already correct; inherited state now rendered
+- [x] `POST set-express/<uuid>/` — cascade named in the toast; Products caches invalidated
 
-### Known work
+### What changed
 
-- **`set-express/` moves the parent product between catalogs, in both directions.**
-  Flagging a variant express up-cascades the product to `catalog_type=express`;
-  un-flagging the *last* one down-cascades it back to regular (or marine per its category
-  scope). A variant toggle therefore silently relocates its product, and the UI currently
-  says nothing. This is the single most important thing in this pass.
-- **`is_express` is not in `UpdateProductVariantSerializer.fields`** — `set-express/` is
-  its only writer. No dual-write problem here, unlike products.
-- Serves all catalog types; there is no marine/general split at the variant level.
+| Fix | Why |
+|---|---|
+| Express toast names the cascade | One SKU toggle moves the **product** between catalogs; the toast said "Variant updated" |
+| Products caches invalidated on `set-express/` **and** delete | Both write `product.catalog_type`; neither invalidated Products, so the list and stats went stale |
+| Delete toast + confirm copy | Deleting the last express variant now demotes the product too (backend fixed this pass) |
+| Dirty-only PATCH | Price changes are **audited**, so re-sending an unchanged price wrote a phantom `PRICE_CHANGED` row |
+| `product` kept out of the edit form | It is writable and reparents the variant across products with no catalog check |
+| Price floor 0.01 + 2 dp | Same `DecimalField` as `base_price`; `0` was a guaranteed 400 that only appeared on submit |
+| Parent catalog shown in the drawer header | Read off the rows, so it visibly changes when a toggle cascades |
+| Inherited-sourceable note | A new variant does **not** inherit `admin_sourceable`, so on-under-off is legitimate |
+| SKU reservation hint | A deleted variant's SKU is burned; the collision is against a row no screen shows |
+| Transform keeps `catalog_type`, `about_product`, timestamps | All arrived and were discarded |
+
+### Logged, not fixed
+
+**[C11](CATALOG_CONFLICTS.md)** burned SKUs · **[C12](CATALOG_CONFLICTS.md)** dual
+`admin_sourceable` writers (DECIDED, matches products' top-rated) ·
+**[C13](CATALOG_CONFLICTS.md)** the only-variant guard is a count, not a constraint (RC-4).
+
+### D10 closed before it was opened
+
+The escalated question — whether deleting the last variant makes the product invisible —
+is guarded server-side with a 400. The zero-variant-by-delete path does not exist, so the
+pass-2 `sku` finding was already covered from this end. The zero-variant badge added in
+pass 2 remains a live detector because of C13.
+
+### Frontend gaps found in the pre-pass survey — disclose up front
+
+1. **The express toggle never mentions the cascade.** `set-express/` moves the parent
+   product between catalogs in both directions, and our handler toasts a generic
+   "Variant updated". An operator flips one SKU and the product silently changes shelf.
+2. **`setVariantExpress` does not invalidate the Products caches** — only `Variants` and
+   `ExpressItems`. Since it writes `product.catalog_type`, the products list and stats go
+   stale behind it. `setVariantSourceable` gets this right, which is what makes the
+   omission visible.
+3. **`UpdateVariantPayload` is a fixed full body** — the same over-send removed from
+   products, spares and categories.
+4. **The transform drops fields** — `catalog_type`, `about_product`, `created_at` and
+   `updated_at` all arrive (the serializer uses `exclude`) and never reach the UI.
+5. **Variant price validates `>= 0`**, the same wrong floor products and spares had before
+   their real bound (0.01) was confirmed.
+
+### Open questions for backend
+
+**A · The `set-express/` cascade — the headline**
+1. Does the response report the product's **resulting `catalog_type`**? The down-cascade
+   target depends on the product's category scope (regular vs marine), which the frontend
+   cannot predict — so to say "this also moved *X* to Express" or "…back to Regular" we
+   need the server to tell us, or we re-fetch the product on every toggle.
+2. Is there a flag indicating the cascade actually fired, like `product_cascaded` on
+   `set-admin-sourceable/`?
+3. Can turning the *last* express variant off ever fail — a product mid-order, on a live
+   deal — or is it unconditional?
+
+**B · Variant update contract**
+4. Exact `UpdateProductVariantSerializer.fields`. We send
+   `{sku, price, attributes, images, is_active}`. Is `admin_sourceable` accepted there too,
+   or is its endpoint the only writer as with `is_express`? What about `about_product`?
+5. Partial semantics and silent drop of unknown keys, same as products and categories?
+
+**C · Variant create contract**
+6. Exact `AddProductVariantSerializer.fields`. We send
+   `{product, sku, price, attributes, images}`. Does it accept `is_express`,
+   `admin_sourceable`, `is_active`, `about_product`? Is `set-express/` the only writer of
+   `is_express` **including** at create time?
+7. Is `sku` globally unique here too, with the same field-keyed 400?
+8. Does a variant created here inherit `admin_sourceable` from its product, the way
+   `add-product/`'s inline variant does?
+
+**D · Variant delete — the mirror of the Phase 2 finding**
+9. Soft or hard? Any guard for open orders, carts or live deals?
+10. **Does deleting the last variant make the product invisible?** Phase 2 established that
+    `browsable_products_qs` requires at least one live variant. If so, deleting the last
+    SKU silently removes the *product* from every sailor-facing list — the exact mirror of
+    the zero-variant spare, and the confirm dialog has to say so.
+11. Does deleting the last *express* variant down-cascade `catalog_type` the way
+    `set-express/` does, or does it leave the product in the express catalog with nothing
+    express under it?
+
+**E · `get-product-variants/`**
+12. Full accepted filter set? We send `page`, `page_size`, `search`, `product`. Does it
+    take `is_active`, `is_express`, `admin_sourceable`, `catalog_type`?
+13. Does `search` match SKU, product name, or both?
+14. Same pagination — default 10, clamp 50, page past end → 404?
+
+**F · Fields and validation**
+15. Is variant `price` the same `DecimalField(max_digits=12, decimal_places=2,
+    min_value=0.01)` as `base_price`? Our form currently allows 0.
+16. `ProductVariantSerializer` uses `exclude`, so a row carries more than we render. Of
+    `catalog_type`, `about_product`, `created_at`, `updated_at` — which are worth showing,
+    and is anything on there that should **not** be rendered in an admin table?
 
 ---
 

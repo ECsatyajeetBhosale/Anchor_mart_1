@@ -16,6 +16,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
+import { catalogTypeLabel } from "@/features/products";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import {
@@ -34,6 +35,16 @@ export interface ProductVariantsDrawerProps {
   /** Product whose variants are listed; null when nothing is selected. */
   productId: string | null;
   productName: string;
+  /**
+   * The parent's sourceable master switch, for rendering inherited state.
+   *
+   * A variant created here does **not** inherit it — `add-product-variant/`
+   * takes the model default `true` even under a non-sourceable product, while
+   * `add-product/`'s inline variant explicitly passes it down. So the table can
+   * legitimately show a sourceable variant under a product that blocks it, and
+   * without this it looks like a bug rather than the AND rule working.
+   */
+  productAdminSourceable?: boolean;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -53,6 +64,7 @@ function formatAttributes(attributes: Record<string, unknown>): string {
 export function ProductVariantsDrawer({
   productId,
   productName,
+  productAdminSourceable = true,
   isOpen,
   onClose,
 }: ProductVariantsDrawerProps) {
@@ -87,6 +99,13 @@ export function ProductVariantsDrawer({
 
   const variants = data?.variants ?? [];
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / LIMIT));
+  /**
+   * The parent's catalog, taken off any row — the serializer sources it from the
+   * product, so every variant of one product reports the same value. Read from
+   * the rows rather than passed in, so it re-renders from the invalidated list
+   * after a cascade instead of from a prop the caller would have to refresh.
+   */
+  const productCatalogType = variants[0]?.catalogType ?? "";
 
   const openAdd = () => {
     setEditing(null);
@@ -98,10 +117,32 @@ export function ProductVariantsDrawer({
     setFormOpen(true);
   };
 
+  /**
+   * The express flag is variant-level; the catalog it implies is product-level,
+   * and one call writes both.
+   *
+   * Flagging a SKU express moves the whole product onto the express shelf;
+   * un-flagging the last one moves it off. This reported a flat "Variant
+   * updated" for both, so an operator toggling one SKU relocated the product
+   * with nothing on screen saying so. The response carries the resulting
+   * catalog and whether *this* call moved it, so the toast can name the
+   * consequence without tracking prior state or re-fetching.
+   */
   const toggleExpress = async (variant: ProductVariant, next: boolean) => {
     try {
-      await setExpress({ id: variant.id, isExpress: next }).unwrap();
-      toast.success(M.TOAST.FLAG_UPDATED);
+      const result = await setExpress({ id: variant.id, isExpress: next }).unwrap();
+      if (result.productCascaded) {
+        toast.success(
+          M.TOAST.EXPRESS_CASCADED(
+            productName,
+            catalogTypeLabel(result.productCatalogType ?? undefined) ??
+              result.productCatalogType ??
+              "",
+          ),
+        );
+      } else {
+        toast.success(result.message || M.TOAST.FLAG_UPDATED);
+      }
     } catch (err) {
       toast.error(getApiMessage(err) ?? M.TOAST.FLAG_ERROR);
     }
@@ -122,11 +163,30 @@ export function ProductVariantsDrawer({
     }
   };
 
+  /**
+   * Deleting carries the same catalog demotion as un-flagging express — removing
+   * the last express variant moves the product off the express shelf — so the
+   * success copy names it the same way.
+   *
+   * The only-variant case is a **400** with the server's own sentence, which
+   * says what to do instead; `getApiMessage` surfaces it verbatim rather than
+   * flattening it to "Failed to delete".
+   */
   const confirmDelete = async () => {
     if (!toDelete) return;
     try {
-      await deleteVariant(toDelete.id).unwrap();
-      toast.success(M.TOAST.DELETED(toDelete.sku));
+      const result = await deleteVariant(toDelete.id).unwrap();
+      toast.success(
+        result.productCascaded
+          ? M.TOAST.DELETED_CASCADED(
+              toDelete.sku,
+              productName,
+              catalogTypeLabel(result.productCatalogType ?? undefined) ??
+                result.productCatalogType ??
+                "",
+            )
+          : M.TOAST.DELETED(toDelete.sku),
+      );
       setToDelete(null);
     } catch (err) {
       toast.error(getApiMessage(err) ?? M.TOAST.DELETE_ERROR);
@@ -168,8 +228,23 @@ export function ProductVariantsDrawer({
     {
       id: "sourceable",
       header: M.COLUMNS.SOURCEABLE,
+      /**
+       * Only half the rule. Orderability is `variant AND product`, and a variant
+       * added here starts sourceable **even under a non-sourceable product** —
+       * `add-product-variant/` takes the model default rather than inheriting,
+       * unlike the inline variant `add-product/` creates. So an on switch under
+       * an off master is correct and misleading at once; the note says which.
+       */
       cell: (v) => (
-        <Switch checked={v.adminSourceable} onCheckedChange={(next) => toggleSourceable(v, next)} />
+        <div>
+          <Switch
+            checked={v.adminSourceable}
+            onCheckedChange={(next) => toggleSourceable(v, next)}
+          />
+          {v.adminSourceable && !productAdminSourceable && (
+            <div className="fg-hint mt-1">{M.BLOCKED_BY_PRODUCT}</div>
+          )}
+        </div>
       ),
     },
     {
@@ -220,6 +295,26 @@ export function ProductVariantsDrawer({
                 <SheetDescription className="text-[12.5px] text-[var(--t3)]">
                   {M.SUBTITLE(productName)}
                 </SheetDescription>
+                {/*
+                  The product's current catalog, read off the rows (it is
+                  inherited state, identical on all of them).
+
+                  Shown here rather than as a column because it is a property of
+                  the product, not of any SKU — and because it is the thing the
+                  express toggle silently moves. Watching it change is the
+                  clearest evidence that a variant-level switch had a
+                  product-level effect.
+                */}
+                {productCatalogType && (
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <span className="text-[11.5px] font-semibold text-[var(--t4)]">
+                      {M.PRODUCT_CATALOG}
+                    </span>
+                    <Badge variant="neutral" className="h-[20px] px-1.5 text-[9.5px]">
+                      {catalogTypeLabel(productCatalogType) ?? productCatalogType}
+                    </Badge>
+                  </div>
+                )}
               </div>
               <Button variant="primary" size="sm" onClick={openAdd} disabled={!productId}>
                 <IconPlus size={15} className="mr-1" />
