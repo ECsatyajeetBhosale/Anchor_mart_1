@@ -5,20 +5,27 @@ import type { UserRole } from "../types/user.types";
  * The five roles `create-user` accepts. Order runs from the most commonly
  * created (sailors) to the most privileged (super admin).
  */
+/**
+ * ⚠️ The two admin tiers are **named differently to the operator than they are
+ * stored** (product decision, 2026-08-18): `super_admin` shows as "Admin" and
+ * `admin` shows as "Operator". The `value` is what the API takes and what every
+ * permission check reads — only the `label` changed. See `roleLabel` in
+ * `@/lib/roles`, which does the same for the sidebar.
+ */
 export const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: "customer", label: "Sailor (Customer)" },
   { value: "delivery_partner", label: "Delivery Partner" },
   { value: "seller", label: "Seller" },
-  { value: "admin", label: "Admin" },
-  { value: "super_admin", label: "Super Admin" },
+  { value: "admin", label: "Operator" },
+  { value: "super_admin", label: "Admin" },
 ];
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   customer: "Sailor (Customer)",
   delivery_partner: "Delivery Partner",
   seller: "Seller",
-  admin: "Admin",
-  super_admin: "Super Admin",
+  admin: "Operator",
+  super_admin: "Admin",
 };
 
 /**
@@ -35,7 +42,8 @@ export const ROLE_NOTES: Record<UserRole, string> = {
     "Creates the partner account and profile. Order assignments are made from the Delivery Partners screen.",
   seller: "Creates the login only. Approval is handled from the Seller Requests screen.",
   admin: "Full console access. Manage the account afterwards on the Admin Users tab.",
-  super_admin: "Highest privilege level, and the only tier that can create another admin.",
+  super_admin:
+    "Highest privilege level, and the only tier that can create another admin or operator.",
 };
 
 /** The Admin Users tab of this same page — where both admin tiers are managed. */

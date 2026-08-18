@@ -799,7 +799,7 @@ export const MESSAGES = {
       // Why the footer actions are disabled
       CLAIM_FIRST: "Claim this order before responding to the intent.",
       OWNED_BY_OTHER: (name: string) => `${name} owns this order — ask them to hand it over.`,
-      SUPER_ADMIN_OVERRIDE: "Super admin — you can act on this order without claiming it.",
+      SUPER_ADMIN_OVERRIDE: "Admin — you can act on this order without claiming it.",
       /**
        * Handover — reassign to another admin, or release back to the pool.
        *
@@ -813,7 +813,7 @@ export const MESSAGES = {
         SUBTITLE: (ref: string) => `Change who is accountable for ${ref}.`,
         REASSIGN_SECTION: "Reassign to another admin",
         REASSIGN_HINT:
-          "The new owner can perform every gated write on this order. You lose that access unless you are a super admin.",
+          "The new owner can perform every gated write on this order. You lose that access unless you are an admin.",
         PICKER_LABEL: "New Owner",
         PICKER_PLACEHOLDER: "Select an admin…",
         SEARCH_PLACEHOLDER: "Search admins by name or email…",
@@ -835,7 +835,7 @@ export const MESSAGES = {
           "It returns to the unassigned pool and nobody is accountable for it until an admin claims it. Any admin can pick it up, including you.",
         // Reassign is the owner-or-super-admin rule, which is narrower than the
         // write gate — say which one is missing rather than "not allowed".
-        NOT_OWNER: "Only the current owner or a super admin can hand this order over.",
+        NOT_OWNER: "Only the current owner or an admin can hand this order over.",
         UNASSIGNED_NOTICE:
           "This order is unassigned — there is nothing to hand over. Claim it first.",
       },
@@ -3781,7 +3781,7 @@ export const MESSAGES = {
     },
     ORDER: {
       TITLE: "Order Chats",
-      SUBTITLE: "Queries about a specific order. You see the orders you own; super admins see all.",
+      SUBTITLE: "Queries about a specific order. You see the orders you own; admins see all.",
       SEARCH_PLACEHOLDER: "Search order threads…",
       EMPTY: "No order threads yet.",
       CATEGORY_ALL: "Both sides",
@@ -4004,8 +4004,9 @@ export const MESSAGES = {
       customer: "Sailors (customers)",
       delivery_partner: "Delivery partners",
       seller: "Sellers",
-      admin: "Admins",
-      super_admin: "Super admins",
+      // Display names, not stored values — see `roleLabel` in lib/roles.
+      admin: "Operators",
+      super_admin: "Admins",
     } as Record<string, string>,
     TYPE_LABELS: {
       order_update: "Order update",
@@ -4141,7 +4142,7 @@ export const MESSAGES = {
     },
     /** Shown when a sub-admin reaches the admin directory by URL. */
     ADMINS_SUPER_ONLY:
-      "Admin accounts are managed by super admins only. This screen has nothing for your tier — the server refuses the underlying calls regardless of what is shown here.",
+      "Admin accounts are managed by admins only. This screen has nothing for your tier — the server refuses the underlying calls regardless of what is shown here.",
     /**
      * Admin-tier user administration.
      *
@@ -4161,7 +4162,7 @@ export const MESSAGES = {
       // SEC-1, and offering management of accounts they cannot create reads as
       // a permission they do not have.
       SUPER_ADMIN_ONLY:
-        "Only a super admin can manage admin accounts. Ask one to add, edit or remove an operator.",
+        "Only an admin can manage these accounts. Ask one to add, edit or remove an operator.",
       STATUS: {
         ACTIVE: "Active",
         INACTIVE: "Deactivated",
@@ -4263,7 +4264,7 @@ export const MESSAGES = {
       // Admin-tier creation is super-admin only (SEC-1). Shown in place of the
       // two locked options so the restriction is explained, not just enforced.
       ADMIN_TIER_LOCKED:
-        "Only a super admin can create admin accounts. Ask one to add another operator.",
+        "Only an admin can create these accounts. Ask one to add another operator.",
       MANAGED_AT: "Managed at",
       SECTIONS: {
         ROLE: "Role",
@@ -4379,8 +4380,9 @@ export const MESSAGES = {
       customer: "Sailor",
       delivery_partner: "Delivery partner",
       seller: "Seller",
-      admin: "Admin",
-      super_admin: "Super admin",
+      // Display names, not stored values — see `roleLabel` in lib/roles.
+      admin: "Operator",
+      super_admin: "Admin",
     } as Record<string, string>,
   },
   /** Flow 34 — Audit Trail & Tamper-Evidence. */
@@ -4428,7 +4430,7 @@ export const MESSAGES = {
      * so up front rather than letting them pick a filter that 403s.
      */
     SUBADMIN_NOTICE:
-      "You're signed in as a sub-admin, so this trail shows order entries only. Operational entries and chain verification are restricted to super admins.",
+      "You're signed in as an operator, so this trail shows order entries only. Operational entries and chain verification are restricted to admins.",
     DETAIL: {
       TITLE: "Audit Entry",
       WHAT_HAPPENED: "What Happened",
@@ -4476,7 +4478,7 @@ export const MESSAGES = {
       // The endpoint answers 200 even for a broken chain, so the UI must read
       // `verified`, never the status code.
       RESULT_HINT: "A broken chain still answers 200 — the verdict is in the payload.",
-      SUPER_ADMIN_ONLY: "Chain verification is restricted to super admins.",
+      SUPER_ADMIN_ONLY: "Chain verification is restricted to admins.",
     },
   },
   /** Flow 22 §3.1–3.2 — the outbound email / WhatsApp delivery ledger. */
@@ -4655,7 +4657,7 @@ export const MESSAGES = {
     // Shown on the disabled create button and in place of a delete action, so
     // the operator learns why the affordance is missing rather than assuming
     // the screen is broken.
-    CATALOG_CREATE_DENIED: "Only a super admin can create catalog entries.",
-    CATALOG_DELETE_DENIED: "Only a super admin can delete catalog entries.",
+    CATALOG_CREATE_DENIED: "Only an admin can create catalog entries.",
+    CATALOG_DELETE_DENIED: "Only an admin can delete catalog entries.",
   },
 } as const;

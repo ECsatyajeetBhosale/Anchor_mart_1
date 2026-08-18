@@ -62,7 +62,17 @@ export function toAdminUser(row: AdminUserApi): AdminUser {
     name,
     email,
     role,
-    roleLabel: asString(row.role_display).trim() || A.ROLE_LABELS[role] || role || FALLBACK,
+    /**
+     * **Our label wins over the server's `role_display`.**
+     *
+     * The two admin tiers are named differently to the operator than they are
+     * stored (`super_admin` → "Admin", `admin` → "Operator"), and that rename is
+     * a frontend product decision the API knows nothing about — it still sends
+     * "Super Admin". Preferring `role_display` would have quietly reverted the
+     * rename on the one screen that lists admins. The server string is kept as
+     * the fallback for any role this map does not cover.
+     */
+    roleLabel: A.ROLE_LABELS[role] || asString(row.role_display).trim() || role || FALLBACK,
     contact: joinPhone(row.country_code, row.whatsapp_number) || dash(row.contact_no),
     joined: dash(row.joined ?? row.date_joined ?? row.created_at),
     lastLogin: dash(row.last_login),

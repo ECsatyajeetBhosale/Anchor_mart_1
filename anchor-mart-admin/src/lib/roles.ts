@@ -19,6 +19,34 @@ export function normaliseRole(role: string | null | undefined): string {
 }
 
 /** True only for `super_admin`. Anything unrecognised is treated as the lower tier. */
+/**
+ * How an admin tier is **named to the operator**, which is not what it is called
+ * in the data (product decision, 2026-08-18):
+ *
+ * | stored value  | shown as   |
+ * |---------------|------------|
+ * | `super_admin` | "Admin"    |
+ * | `admin`       | "Operator" |
+ *
+ * Display only. Every permission check, every request and every role sent to the
+ * API still uses the stored value — `super_admin` remains the tier that grants
+ * `catalog.manage`, and renaming the label must never rename the check. Anything
+ * comparing against a role reads the value; anything showing one reads this.
+ */
+const ADMIN_ROLE_LABELS: Record<string, string> = {
+  super_admin: "Admin",
+  admin: "Operator",
+};
+
+/**
+ * The operator-facing name for a role, falling back to the raw value so an
+ * unmapped role (a seller, a partner) still renders as itself rather than blank.
+ */
+export function roleLabel(role: string | null | undefined): string {
+  const key = normaliseRole(role);
+  return ADMIN_ROLE_LABELS[key] ?? role ?? "";
+}
+
 export function isSuperAdminRole(role: string | null | undefined): boolean {
   return normaliseRole(role) === SUPER_ADMIN_ROLE;
 }

@@ -3,7 +3,7 @@ import { logout } from "@/features/auth/slice/authSlice";
 import { useAppDispatch, useAppSelector } from "@/hooks/useAppDispatch";
 import { APP_ROUTES } from "@/lib/constants";
 import { NAV_SECTIONS } from "@/lib/navigation";
-import { useAdminAccess } from "@/lib/roles";
+import { roleLabel, useAdminAccess } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import { IconChevronLeft, IconChevronRight, IconLogout } from "@tabler/icons-react";
 import { Fragment } from "react";
@@ -168,7 +168,8 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
             <div className="sb-uname" title={user?.email ?? "Admin"}>
               {user?.email ?? "Admin"}
             </div>
-            <div className="sb-urole">{user?.role ?? "Admin"}</div>
+            {/* The tier as the operator knows it, not the stored value. */}
+            <div className="sb-urole">{roleLabel(user?.role) || "Admin"}</div>
           </div>
           <div className="sb-logout" onClick={handleLogout} title="Sign out">
             <IconLogout size={17} />
