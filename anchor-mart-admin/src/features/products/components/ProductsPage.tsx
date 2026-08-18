@@ -77,13 +77,27 @@ export function ProductsPage() {
   const searchTerm = searchParams.get("search") ?? "";
   const categoryFilter = searchParams.get("category") ?? "all"; // category id, or "all"
   const statusFilter = searchParams.get("status") ?? ""; // "", "active", "inactive"
+  const topRatedFilter = searchParams.get("top_rated") ?? ""; // "", "true", "false"
+  const sourceableFilter = searchParams.get("sourceable") ?? ""; // "", "true", "false"
 
   const isActive =
     statusFilter === "active" ? true : statusFilter === "inactive" ? false : undefined;
 
   // The "deal"/"top_rated" tabs are server-side filters (on_deal / is_top_rated).
   const onDeal = activeTab === "deal" ? true : undefined;
-  const isTopRated = activeTab === "top_rated" ? true : undefined;
+  /**
+   * The Top Rated **tab** and the Top Rated **column filter** drive one param,
+   * so the tab wins while it is open — it is the coarser control, and letting
+   * the column contradict it would show an empty "Top Rated" tab whenever the
+   * header said "Not top rated". Everywhere else the column decides.
+   */
+  const isTopRated =
+    activeTab === "top_rated"
+      ? true
+      : topRatedFilter === ""
+        ? undefined
+        : topRatedFilter === "true";
+  const adminSourceable = sourceableFilter === "" ? undefined : sourceableFilter === "true";
 
   /**
    * The five filters this screen drives, in one object.
@@ -102,6 +116,7 @@ export function ProductsPage() {
     category: categoryFilter !== "all" ? categoryFilter : undefined,
     onDeal,
     isTopRated,
+    adminSourceable,
   };
   const { data, isLoading, isError, error, refetch } = useGetProductsQuery(
     {
@@ -324,6 +339,10 @@ export function ProductsPage() {
   const columns = useProductColumns({
     statusFilter,
     onStatusFilter: (value) => setFilterParam("status", value),
+    topRatedFilter,
+    onTopRatedFilter: (value) => setFilterParam("top_rated", value),
+    sourceableFilter,
+    onSourceableFilter: (value) => setFilterParam("sourceable", value),
     onEdit: handleEdit,
     onDelete: handleDeleteClick,
     onManageVariants: (e, product) => {
@@ -363,11 +382,13 @@ export function ProductsPage() {
     {
       id: "total-products",
       /**
-       * **This total spans all three catalogs; the table below serves two.**
-       * Unfiltered it reads 50 over a list of 36 — the 14 marine-emergency
-       * products have their own screen and their own endpoint. The three
-       * catalog-type cards below say where the difference goes; hiding it by
-       * narrowing the count would under-report the catalog.
+       * **This total spans all three catalogs; the table below serves one.**
+       * Unfiltered it reads 50 over a list of 28 — `get-products/` narrowed to
+       * regular-only on 2026-08-17, so express (8) and marine emergency (14)
+       * now each have their own endpoint *and* their own screen. The three
+       * catalog-type cards below say where the difference goes, and Express and
+       * Emergency link to it; hiding it by narrowing the count would
+       * under-report the catalog.
        */
       label: PS.TOTAL_PRODUCTS,
       // Prefer the stats API total; fall back to the paginated list count.

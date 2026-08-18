@@ -16,18 +16,19 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useGetCategoriesQuery } from "@/features/catalog";
+import { useGetEmergencyCategoriesQuery } from "@/features/emergency-categories";
 import { FILE_LOCATIONS, ImageListField, toStoredPath } from "@/features/media";
+import { useGetSpareProductQuery, useUpdateSpareProductMutation } from "@/features/spares";
 import { allImageUrls, primaryImageUrl } from "@/features/variants";
-import { getApiMessage } from "@/lib/apiError";
+import { getApiMessage, getFieldErrors } from "@/lib/apiError";
 import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { IconBoxSeam, IconCheck, IconPackage, IconPhoto } from "@tabler/icons-react";
+import { IconBoxSeam, IconCheck, IconPackage } from "@tabler/icons-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useGetProductQuery, useUpdateProductMutation } from "../api/productApi";
-import { CATALOG_BADGE_VARIANT, catalogTypeLabel } from "../lib/catalogTypeFilters";
 import { type ProductUpdateFormData, productUpdateSchema } from "../schemas/product.schema";
 import type {
   Product,
@@ -44,29 +45,7 @@ export interface ProductEditDrawerProps {
 
 // Static option lists for the read-only/decorative selects (not part of the
 // update contract — shown for UI consistency only).
-const CURRENCY_OPTIONS = [
-  { value: "USD", label: "USD ($)" },
-  { value: "SGD", label: "SGD (S$)" },
-  { value: "EUR", label: "EUR (€)" },
-];
-const TAX_CLASS_OPTIONS = [
-  { value: "Standard", label: "Standard" },
-  { value: "Reduced", label: "Reduced" },
-  { value: "Zero-rated", label: "Zero-rated" },
-];
-const WEIGHT_UNIT_OPTIONS = [
-  { value: "kg", label: "kg" },
-  { value: "g", label: "g" },
-  { value: "lb", label: "lb" },
-];
-const PACKAGE_TYPE_OPTIONS = [
-  { value: "Box", label: "Box" },
-  { value: "Envelope", label: "Envelope" },
-  { value: "Custom", label: "Custom" },
-];
 const VT = MESSAGES.PRODUCTS.VARIANTS_TAB;
-const PR = MESSAGES.PRODUCTS.RECORD;
-const DASH = MESSAGES.PRODUCTS.DASH;
 
 /** Extract the stored relative path (e.g. "product_images/x.png") from an image. */
 function toImagePath(img: ProductImage | string): string {
@@ -105,13 +84,38 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
   const [activeTab, setActiveTab] = useState("pt-basic");
   /** Which variant row is expanded; one at a time, null when none. */
   const [openVariantId, setOpenVariantId] = useState<string | null>(null);
-  const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
+  /**
+   * Marine spares are a **different endpoint**, not a different form.
+   *
+   * All three catalogs share one serializer, so the body and the editable list
+   * are identical — but the marine routes are scope-partitioned: a marine id is
+   * a **404** on the general detail/update routes and vice versa. So the drawer
+   * switches which pair it talks to and changes nothing else, beyond hiding the
+   * express price a marine product cannot have.
+   */
+  const isMarine = product.catalog_type === "marine_emergency";
+
+  const [updateProduct, { isLoading: isUpdatingGeneral }] = useUpdateProductMutation();
+  const [updateSpare, { isLoading: isUpdatingSpare }] = useUpdateSpareProductMutation();
+  const isUpdating = isMarine ? isUpdatingSpare : isUpdatingGeneral;
 
   // The list serializer omits description/images, so load the full record.
   // Fall back to the row while the detail request is in flight.
-  const { data: detail, isFetching: isLoadingDetail } = useGetProductQuery(product.id, {
-    skip: !isOpen,
+  const { data: generalDetail, isFetching: isLoadingGeneral } = useGetProductQuery(product.id, {
+    skip: !isOpen || isMarine,
   });
+  const { data: marineDetail, isFetching: isLoadingMarine } = useGetSpareProductQuery(product.id, {
+    skip: !isOpen || !isMarine,
+  });
+  /**
+   * Both endpoints return `ProductDetailSerializer` — the marine one is
+   * documented as "the same payload as create", `catalog_type` fixed and
+   * `express_base_price: null`. `SpareProductDetail` is a looser hand-written
+   * mirror of that same shape (nullable where this one is not), so it is read
+   * through the general type rather than branching every field below.
+   */
+  const detail = (isMarine ? marineDetail : generalDetail) as Product | undefined;
+  const isLoadingDetail = isMarine ? isLoadingMarine : isLoadingGeneral;
   /**
    * The list row and the detail merged, the detail winning on every key it
    * actually sends.
@@ -133,7 +137,19 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
   const variants: ProductDetailVariant[] = detail?.variants ?? [];
 
   // Category options for the editable category dropdown (value = UUID).
-  const { data: categoriesData } = useGetCategoriesQuery({ limit: API_MAX_PAGE_SIZE });
+  /**
+   * The category picker follows the product's catalog: a marine product must
+   * keep a marine-scoped category, and a general one is a 400 on `category`.
+   */
+  const { data: generalCategories } = useGetCategoriesQuery(
+    { limit: API_MAX_PAGE_SIZE },
+    { skip: isMarine },
+  );
+  const { data: marineCategories } = useGetEmergencyCategoriesQuery(
+    { limit: API_MAX_PAGE_SIZE },
+    { skip: !isMarine },
+  );
+  const categoriesData = isMarine ? marineCategories : generalCategories;
   const categories = categoriesData?.results?.data ?? [];
   const categoryOptions = categories.map((c) => ({ value: c.id, label: c.name }));
 
@@ -142,6 +158,7 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
     control,
     handleSubmit,
     reset,
+    setError,
     watch,
     setValue,
     // `dirtyFields` drives the PATCH body — see onSubmit.
@@ -165,6 +182,9 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
       name: source.name ?? "",
       description: source.description ?? "",
       base_price: Number(source.base_price) || 0,
+      // The server's own name for it on read. 0 = none, which only a regular
+      // product legitimately has.
+      express_price: Number(source.express_base_price) || 0,
       images: rawImages.map(toImagePath).filter(Boolean),
       // The three writable flags. `is_express` and `on_deal` are not among them
       // — both are computed server-side and have no write path here.
@@ -173,6 +193,29 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
       admin_sourceable: source.admin_sourceable ?? true,
     });
   }, [isOpen, source, categoriesData, reset]);
+
+  /** The shelf decides whether Express Price applies; this endpoint cannot move it. */
+  const isExpress = (source.catalog_type ?? "") === "express";
+
+  /**
+   * Stored path → viewable URL, so the images already on the product are shown
+   * rather than listed as filenames.
+   *
+   * The detail response carries both halves — an absolute `image` URL per row,
+   * which `toImagePath` reduces to the path the write side takes. Pairing them
+   * here is what lets the field render a thumbnail for an image nobody has
+   * re-uploaded this session.
+   */
+  const imagePreviewUrls = useMemo(() => {
+    const rows = (source.images ?? []) as unknown as (ProductImage | string)[];
+    const map: Record<string, string> = {};
+    for (const row of rows) {
+      const url = typeof row === "string" ? row : (row?.image ?? "");
+      const path = toImagePath(row);
+      if (url && path && url !== path) map[path] = url;
+    }
+    return map;
+  }, [source.images]);
 
   const images = watch("images") ?? [];
   const setImages = (next: string[]) => setValue("images", next, { shouldDirty: true });
@@ -194,6 +237,14 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
     if (dirtyFields.name) payload.name = formData.name;
     if (dirtyFields.description) payload.description = formData.description;
     if (dirtyFields.base_price) payload.base_price = formData.base_price;
+    /**
+     * Express-only, and only when actually edited.
+     *
+     * Sending it on a regular product is a 400 pointing at `set-catalog-type/`,
+     * and clearing it on an express one is a 400 the other way — so it is gated
+     * on the product's current shelf, which this endpoint cannot change.
+     */
+    if (isExpress && dirtyFields.express_price) payload.express_price = formData.express_price;
     if (dirtyFields.images) payload.images = formData.images.filter(Boolean);
     if (dirtyFields.is_active) payload.is_active = formData.is_active;
     if (dirtyFields.is_top_rated) payload.is_top_rated = formData.is_top_rated;
@@ -208,11 +259,37 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
     }
 
     try {
-      const response = await updateProduct({ id: product.id, body: payload }).unwrap();
+      const response = await (isMarine
+        ? updateSpare({ id: product.id, body: payload })
+        : updateProduct({ id: product.id, body: payload })
+      ).unwrap();
       // Success: close the drawer first, then notify.
       onClose();
       toast.success(getApiMessage(response) ?? MESSAGES.PRODUCTS.TOAST.UPDATE_SUCCESS);
     } catch (error) {
+      /**
+       * Pin field-keyed errors to their inputs. `express_base_price` is the
+       * server's key for what this form calls `express_price` — it reports on
+       * that name whichever the body used.
+       */
+      const fieldErrors = getFieldErrors(error);
+      const known: Record<string, keyof ProductUpdateFormData> = {
+        category: "category",
+        name: "name",
+        description: "description",
+        base_price: "base_price",
+        express_base_price: "express_price",
+        express_price: "express_price",
+        images: "images",
+      };
+      let pinned = false;
+      for (const [key, field] of Object.entries(known)) {
+        if (fieldErrors[key]) {
+          setError(field, { type: "server", message: fieldErrors[key] });
+          pinned = true;
+        }
+      }
+      if (pinned) return;
       // Failure: keep the drawer open so the user can fix and retry, then notify.
       toast.error(getApiMessage(error) ?? MESSAGES.PRODUCTS.TOAST.UPDATE_ERROR);
     }
@@ -242,10 +319,10 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
           <div className="sticky top-0 bg-[var(--surface)] z-10 mb-[18px] pt-[10px]">
             <DynamicTabs
               tabs={[
+                // Two tabs: what this endpoint writes, and what the variant
+                // endpoints do. Media / Pricing / Shipping were panels of
+                // read-only decoration over fields the contract has no place for.
                 { label: MESSAGES.PRODUCTS.EDIT.TABS.BASIC, value: "pt-basic" },
-                { label: MESSAGES.PRODUCTS.EDIT.TABS.MEDIA, value: "pt-media" },
-                { label: MESSAGES.PRODUCTS.EDIT.TABS.PRICING, value: "pt-pricing" },
-                { label: MESSAGES.PRODUCTS.EDIT.TABS.SHIPPING, value: "pt-shipping" },
                 { label: MESSAGES.PRODUCTS.EDIT.TABS.VARIANTS, value: "pt-variants" },
               ]}
               value={activeTab}
@@ -253,44 +330,18 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
             />
           </div>
 
-          {/* Basic Info Tab */}
+          {/* Basic Info — exactly the nine keys update-product accepts. */}
           {activeTab === "pt-basic" && (
             <div className="prod-tab mt-4">
               <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.DETAILS}</div>
               <FormRow>
-                <FormField label="Product Title *" error={errors.name?.message}>
+                <FormField label="Product Name *" error={errors.name?.message}>
                   <Input
-                    placeholder="Enter product name"
                     error={!!errors.name}
+                    // 255 in the database, uncapped in the serializer.
+                    maxLength={255}
                     {...register("name")}
                   />
-                </FormField>
-                <FormField label="Product Subtitle" hint="Read-only — not sent on update">
-                  <Input placeholder="Short product tagline" disabled />
-                </FormField>
-              </FormRow>
-              <FormField label="Product Slug / URL Handle" hint="Read-only — not sent on update">
-                <Input className="mono" placeholder="auto-generated-from-title" disabled />
-              </FormField>
-              <FormField label="Product Description *" error={errors.description?.message}>
-                <Textarea
-                  placeholder="Enter a detailed description for this product..."
-                  className="h-[120px]"
-                  error={!!errors.description}
-                  {...register("description")}
-                />
-              </FormField>
-              <FormField label="Short Description" hint="Read-only — not sent on update">
-                <Textarea
-                  maxLength={250}
-                  placeholder="Brief summary (max 250 characters)"
-                  className="h-16"
-                  disabled
-                />
-              </FormField>
-              <FormRow>
-                <FormField label="Brand" hint="Read-only — not sent on update">
-                  <Input placeholder="Search or add brand…" disabled />
                 </FormField>
                 <FormField label="Category *" error={errors.category?.message}>
                   <Controller
@@ -308,277 +359,141 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                   />
                 </FormField>
               </FormRow>
-              <div className="sec-label mt-2">{MESSAGES.PRODUCTS.SECTIONS.FLAGS}</div>
-              <div className="grid grid-cols-2 gap-3">
-                <Controller
-                  control={control}
-                  name="admin_sourceable"
-                  render={({ field }) => (
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        id="pf-admin-sourceable"
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                      <label
-                        htmlFor="pf-admin-sourceable"
-                        className="text-[13px] font-semibold text-[var(--t2)]"
-                      >
-                        {MESSAGES.PRODUCTS.TOGGLES.ADMIN_SOURCEABLE}
-                      </label>
-                    </div>
-                  )}
+
+              <FormField label="Description *" error={errors.description?.message}>
+                <Textarea
+                  className="h-28"
+                  error={!!errors.description}
+                  {...register("description")}
                 />
+              </FormField>
+
+              <div className="sec-label mt-2">{MESSAGES.PRODUCTS.SECTIONS.PRICING}</div>
+              <FormRow>
+                <FormField
+                  label="Base Price *"
+                  hint="A display 'from' figure — it does not change any variant's price."
+                  error={errors.base_price?.message}
+                >
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    error={!!errors.base_price}
+                    {...register("base_price")}
+                  />
+                </FormField>
                 {/*
-                  `is_active` replaces the Express and On Deal switches that used
-                  to sit here. Neither of those was writable — Express is a
-                  serializer alias for the catalog type and On Deal is a live
-                  annotation over the promotion module — and update-product drops
-                  unknown keys without complaint, so both switches moved, saved,
-                  reported success and changed nothing.
-
-                  `is_active` is on the update contract and had no control at all,
-                  which left deactivating a product impossible from the admin: the
-                  only other route was delete, which is terminal.
+                  Express products only, and required while the product is one —
+                  this endpoint cannot move it between shelves, so its current
+                  type decides. Unlike Base Price it **cascades to the primary
+                  variant**, which is what the sailor is actually charged.
                 */}
-                <Controller
-                  control={control}
-                  name="is_active"
-                  render={({ field }) => (
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        id="pf-is-active"
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                      <label
-                        htmlFor="pf-is-active"
-                        className="text-[13px] font-semibold text-[var(--t2)]"
-                      >
-                        {MESSAGES.PRODUCTS.TOGGLES.ACTIVE}
-                      </label>
-                    </div>
-                  )}
-                />
-                <Controller
-                  control={control}
-                  name="is_top_rated"
-                  render={({ field }) => (
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        id="pf-top-rated"
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                      <label
-                        htmlFor="pf-top-rated"
-                        className="text-[13px] font-semibold text-[var(--t2)]"
-                      >
-                        {MESSAGES.PRODUCTS.TOGGLES.TOP_RATED}
-                      </label>
-                    </div>
-                  )}
-                />
-              </div>
-
-              {/*
-                The system-set half of the record: everything `get-product/` sends
-                that the update contract will not take back. Read-only by nature,
-                not by omission — the hint says which, so a figure that cannot be
-                typed over doesn't read as a broken field.
-
-                It replaces a "Status" dropdown that was pinned to the literal
-                "Active" for every product, inactive ones included, and offered
-                Draft/Archived states this API has no concept of.
-              */}
-              <div className="sec-label mt-2">{PR.TITLE}</div>
-              <div className="detail-kv">
-                <div className="detail-k">{PR.CATALOG_TYPE}</div>
-                <div className="detail-v">
-                  <Badge
-                    variant={CATALOG_BADGE_VARIANT[source.catalog_type ?? ""] ?? "neutral"}
-                    className="text-[10px] h-[22px]"
+                {isExpress && (
+                  <FormField
+                    label="Express Price *"
+                    hint="Also updates the primary variant's express price."
+                    error={errors.express_price?.message}
                   >
-                    {catalogTypeLabel(source.catalog_type) ?? DASH}
-                  </Badge>
-                </div>
-              </div>
-              {/*
-                Deals are variant-level and live: this says whether any variant
-                has a running one right now, which is why it can be true for a
-                product whose other SKUs are at full price. Shown, never edited —
-                a deal carries a price and a window that a switch cannot express.
-              */}
-              <div className="detail-kv">
-                <div className="detail-k">{PR.ON_DEAL}</div>
-                <div className="detail-v">
-                  {source.on_deal ? (
-                    <Badge variant="amber" className="text-[10px] h-[22px]">
-                      {MESSAGES.PRODUCTS.DEAL_YES}
-                    </Badge>
-                  ) : (
-                    PR.NO_DEAL
-                  )}
-                  <div className="fg-hint mt-1">{PR.DEAL_HINT}</div>
-                </div>
-              </div>
-              <div className="detail-kv">
-                <div className="detail-k">{PR.RATING}</div>
-                {/* 0 is "no ratings yet", not a score — saying so beats "0.0". */}
-                <div className="detail-v">
-                  {Number(source.average_rating) > 0
-                    ? Number(source.average_rating).toFixed(1)
-                    : PR.UNRATED}
-                </div>
-              </div>
-              <div className="detail-kv">
-                <div className="detail-k">{PR.PURCHASES}</div>
-                <div className="detail-v">{source.purchase_count ?? 0}</div>
-              </div>
-              <div className="detail-kv">
-                <div className="detail-k">{PR.VARIANTS}</div>
-                {/* Count the nested array once the detail lands; until then the
-                    row's own `variant_count` is the only figure available. */}
-                <div className="detail-v">
-                  {detail ? variants.length : (source.variant_count ?? 0)}
-                </div>
-              </div>
-              <div className="detail-kv">
-                <div className="detail-k">{PR.INTERNAL}</div>
-                <div className="detail-v">
-                  {source.is_internal ? PR.INTERNAL_YES : PR.INTERNAL_NO}
-                </div>
-              </div>
-              <div className="detail-kv">
-                <div className="detail-k">{PR.CREATED}</div>
-                <div className="detail-v">{source.created_at ?? DASH}</div>
-              </div>
-              <div className="detail-kv">
-                <div className="detail-k">{PR.UPDATED}</div>
-                <div className="detail-v">{source.updated_at ?? DASH}</div>
-              </div>
-              <p className="fg-hint mt-2">{PR.HINT}</p>
-            </div>
-          )}
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      error={!!errors.express_price}
+                      {...register("express_price")}
+                    />
+                  </FormField>
+                )}
+              </FormRow>
 
-          {/* Media Tab */}
-          {activeTab === "pt-media" && (
-            <div className="prod-tab mt-4">
-              <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.MEDIA}</div>
+              <div className="sec-label mt-2">{MESSAGES.PRODUCTS.SECTIONS.MEDIA}</div>
               <FormField
                 label="Product Images"
-                hint="Upload files, or paste a stored path (e.g. product_images/example.png)."
+                hint="Sending images replaces the whole set — the first is the primary. Leave alone to keep them."
+                error={errors.images?.message}
               >
                 <ImageListField
                   values={images}
                   onChange={setImages}
                   fileLocation={FILE_LOCATIONS.PRODUCT_IMAGES}
+                  previewUrls={imagePreviewUrls}
                 />
               </FormField>
 
-              <FormField label="Thumbnail Image" hint="Read-only — not sent on update">
-                <div className="flex items-center gap-[14px]">
-                  <button type="button" className="btn btn-secondary btn-sm" disabled>
-                    <IconPhoto size={16} /> Pick Thumbnail
-                  </button>
-                </div>
-              </FormField>
-            </div>
-          )}
-
-          {/* Pricing Tab */}
-          {activeTab === "pt-pricing" && (
-            <div className="prod-tab mt-4">
-              <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.PRICING}</div>
-              <FormRow>
-                <FormField label="Base Price *" error={errors.base_price?.message}>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    // The API's floor is 0.01, not 0 — a free product is a 400.
-                    min="0.01"
-                    placeholder="0.00"
-                    error={!!errors.base_price}
-                    {...register("base_price")}
-                  />
-                </FormField>
-                <FormField label="Currency" hint="Read-only — not sent on update">
-                  <DropdownSelect options={CURRENCY_OPTIONS} value="USD" width="100%" disabled />
-                </FormField>
-              </FormRow>
-              <FormRow>
-                <FormField label="Tax Class" hint="Read-only — not sent on update">
-                  <DropdownSelect
-                    options={TAX_CLASS_OPTIONS}
-                    value="Standard"
-                    width="100%"
-                    disabled
-                  />
-                </FormField>
-                <FormField label="Unit Price" hint="Read-only — not sent on update">
-                  <Input placeholder="e.g. $2.00 / 100ml" disabled />
-                </FormField>
-              </FormRow>
-              <FormRow className="mb-0">
+              <div className="sec-label mt-2">{MESSAGES.PRODUCTS.SECTIONS.FLAGS}</div>
+              <div className="flex items-center gap-8 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <Switch id="sw-taxable" defaultChecked disabled />
+                  <Controller
+                    control={control}
+                    name="is_active"
+                    render={({ field }) => (
+                      <Switch
+                        id="edit-product-active"
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    )}
+                  />
                   <label
-                    htmlFor="sw-taxable"
+                    htmlFor="edit-product-active"
                     className="text-[13px] font-semibold text-[var(--t2)]"
                   >
-                    {MESSAGES.PRODUCTS.TOGGLES.TAXABLE}
-                  </label>
-                </div>
-              </FormRow>
-            </div>
-          )}
-
-          {/* Shipping Tab — all read-only (not part of the update contract) */}
-          {activeTab === "pt-shipping" && (
-            <div className="prod-tab mt-4">
-              <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.SHIPPING}</div>
-              <FormRow className="mb-[14px]">
-                <div className="flex items-center gap-2">
-                  <Switch id="sw-physical" defaultChecked disabled />
-                  <label
-                    htmlFor="sw-physical"
-                    className="text-[13px] font-semibold text-[var(--t2)]"
-                  >
-                    {MESSAGES.PRODUCTS.TOGGLES.PHYSICAL}
+                    {MESSAGES.PRODUCTS.COLUMNS.STATUS}
                   </label>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Switch id="sw-free-ship" disabled />
+                  <Controller
+                    control={control}
+                    name="admin_sourceable"
+                    render={({ field }) => (
+                      <Switch
+                        id="edit-product-sourceable"
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    )}
+                  />
                   <label
-                    htmlFor="sw-free-ship"
+                    htmlFor="edit-product-sourceable"
                     className="text-[13px] font-semibold text-[var(--t2)]"
                   >
-                    {MESSAGES.PRODUCTS.TOGGLES.FREE_SHIPPING}
+                    {MESSAGES.PRODUCT_FLAGS.COLUMNS.SOURCEABLE}
                   </label>
                 </div>
-              </FormRow>
-              <FormRow columns={3}>
-                <FormField label="Weight">
-                  <Input type="number" placeholder="0" disabled />
-                </FormField>
-                <FormField label="Weight Unit">
-                  <DropdownSelect options={WEIGHT_UNIT_OPTIONS} value="kg" width="100%" disabled />
-                </FormField>
-                <FormField label="Package Type">
-                  <DropdownSelect
-                    options={PACKAGE_TYPE_OPTIONS}
-                    value="Box"
-                    width="100%"
-                    disabled
+                <div className="flex items-center gap-2">
+                  <Controller
+                    control={control}
+                    name="is_top_rated"
+                    render={({ field }) => (
+                      <Switch
+                        id="edit-product-top-rated"
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    )}
                   />
-                </FormField>
-              </FormRow>
+                  <label
+                    htmlFor="edit-product-top-rated"
+                    className="text-[13px] font-semibold text-[var(--t2)]"
+                  >
+                    {MESSAGES.PRODUCT_FLAGS.COLUMNS.TOP_RATED}
+                  </label>
+                </div>
+              </div>
+
+              {/*
+                Catalog type, SKU, variant prices and attributes are **not**
+                editable here — the endpoint ignores them silently rather than
+                rejecting them, so offering an input would have looked like it
+                worked. Catalog moves go through set-catalog-type/, everything
+                per-SKU through the Variants tab.
+              */}
+              <p className="fg-hint mt-4">{MESSAGES.PRODUCTS.EDIT.NOT_EDITABLE_HINT}</p>
             </div>
           )}
 
-          {/* Variants Tab — read-only. Variants are not part of the
-              update-product contract; they have their own endpoints and are
-              edited from the Products list (row menu → Manage variants). */}
+          {/* Read-only here: variants carry their own contract and are edited
+              from the Products list (row menu → Manage variants). */}
           {activeTab === "pt-variants" && (
             <div className="prod-tab mt-4">
               <div className="sec-label">

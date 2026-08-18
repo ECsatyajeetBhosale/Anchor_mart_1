@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import type { Column } from "@/components/ui/data-table";
 import { Switch } from "@/components/ui/switch";
 import { MESSAGES } from "@/lib/messages";
-import { IconDeviceSpeaker, IconStar, IconTag } from "@tabler/icons-react";
+import { IconDeviceSpeaker, IconTag } from "@tabler/icons-react";
 import type React from "react";
 import { CATALOG_BADGE_VARIANT, catalogTypeLabel } from "../lib/catalogTypeFilters";
 import type { Product } from "../types/product.types";
@@ -17,6 +17,21 @@ import type { Product } from "../types/product.types";
 const STATUS_FILTER_OPTIONS = [
   { label: MESSAGES.PRODUCTS.STATUS_FILTER.ACTIVE, value: "active" },
   { label: MESSAGES.PRODUCTS.STATUS_FILTER.INACTIVE, value: "inactive" },
+];
+
+/**
+ * The two flag columns filter server-side, same as Status: `?is_top_rated=` and
+ * `?admin_sourceable=`, both accepted by all three product catalogs since
+ * 2026-08-17. `"true"` / `"false"`; `""` is "not filtering".
+ */
+const TOP_RATED_FILTER_OPTIONS = [
+  { label: MESSAGES.PRODUCT_FLAGS.FILTERS.TOP_RATED_YES, value: "true" },
+  { label: MESSAGES.PRODUCT_FLAGS.FILTERS.TOP_RATED_NO, value: "false" },
+];
+
+const SOURCEABLE_FILTER_OPTIONS = [
+  { label: MESSAGES.PRODUCT_FLAGS.FILTERS.SOURCEABLE_YES, value: "true" },
+  { label: MESSAGES.PRODUCT_FLAGS.FILTERS.SOURCEABLE_NO, value: "false" },
 ];
 
 const DASH = MESSAGES.PRODUCTS.DASH;
@@ -40,6 +55,12 @@ export interface UseProductColumnsOptions {
   /** Current status filter value ("", "active", "inactive") for the header dropdown. */
   statusFilter: string;
   onStatusFilter: (value: string) => void;
+  /** `""` | `"true"` | `"false"` — the Top Rated header dropdown. */
+  topRatedFilter?: string;
+  onTopRatedFilter?: (value: string) => void;
+  /** `""` | `"true"` | `"false"` — the Sourceable header dropdown. */
+  sourceableFilter?: string;
+  onSourceableFilter?: (value: string) => void;
   onEdit: (e: React.MouseEvent, product: Product) => void;
   onDelete: (e: React.MouseEvent, id: string) => void;
   /**
@@ -52,8 +73,15 @@ export interface UseProductColumnsOptions {
   onManageVariants: (e: React.MouseEvent, product: Product) => void;
   /** Opens the catalog-move dialog. */
   onChangeCatalog: (e: React.MouseEvent, product: Product) => void;
-  /** Opens the availability-broadcast confirmation. */
-  onAnnounce: (e: React.MouseEvent, product: Product) => void;
+  /**
+   * Opens the availability-broadcast confirmation.
+   *
+   * Optional because `announce-availability/` sits on the **general** products
+   * base, and the map does not put it among the catalog-wide toggles the marine
+   * surface borrows. A catalog that cannot reach it omits the handler and the
+   * action is not rendered — better than a button that 404s.
+   */
+  onAnnounce?: (e: React.MouseEvent, product: Product) => void;
   /** Flips the merchandising top-rated flag. */
   onToggleTopRated: (product: Product, next: boolean) => void;
   /** Flips the product-level sourceable master switch. */
@@ -73,6 +101,10 @@ export interface UseProductColumnsOptions {
 export function useProductColumns({
   statusFilter,
   onStatusFilter,
+  topRatedFilter = "",
+  onTopRatedFilter,
+  sourceableFilter = "",
+  onSourceableFilter,
   onEdit,
   onDelete,
   onManageVariants,
@@ -152,34 +184,6 @@ export function useProductColumns({
       headerClassName: "text-center",
     },
     {
-      id: "rating",
-      header: MESSAGES.PRODUCTS.COLUMNS.RATING,
-      /**
-       * Replaces the old Featured column, which read `is_featured || rating >=
-       * 4.5` — but `is_featured` is not on the list payload, so the pill turned
-       * on the rating alone and every row without one showed a dash that looked
-       * like a flag being off. The number is the honest version of the same
-       * signal; it still goes amber past the 4.5 the pill used, and an unrated
-       * product shows a dash rather than 0.0, which would read as "rated badly".
-       */
-      cell: (row) => {
-        const rating = Number(row.average_rating ?? 0);
-        if (!rating) return <span className="td-m">{DASH}</span>;
-        return (
-          <span
-            className={`td-p inline-flex items-center gap-1 tabular-nums ${
-              rating >= 4.5 ? "text-[var(--amber-700)]" : ""
-            }`}
-          >
-            <IconStar size={12} fill="currentColor" />
-            {rating.toFixed(1)}
-          </span>
-        );
-      },
-      className: "text-center",
-      headerClassName: "text-center",
-    },
-    {
       id: "deal",
       header: MESSAGES.PRODUCTS.COLUMNS.DEAL,
       // Read-only: the flag is part of the update contract, so it is edited in
@@ -205,6 +209,16 @@ export function useProductColumns({
           onClick={(e) => e.stopPropagation()}
         />
       ),
+      ...(onTopRatedFilter
+        ? {
+            filter: {
+              value: topRatedFilter,
+              options: TOP_RATED_FILTER_OPTIONS,
+              onChange: onTopRatedFilter,
+              allLabel: MESSAGES.PRODUCT_FLAGS.FILTERS.TOP_RATED_ALL,
+            },
+          }
+        : {}),
     },
     {
       id: "sourceable",
@@ -216,6 +230,16 @@ export function useProductColumns({
           onClick={(e) => e.stopPropagation()}
         />
       ),
+      ...(onSourceableFilter
+        ? {
+            filter: {
+              value: sourceableFilter,
+              options: SOURCEABLE_FILTER_OPTIONS,
+              onChange: onSourceableFilter,
+              allLabel: MESSAGES.PRODUCT_FLAGS.FILTERS.SOURCEABLE_ALL,
+            },
+          }
+        : {}),
     },
     {
       id: "status",
@@ -248,6 +272,9 @@ export function useProductColumns({
     },
     actionsColumn({
       header: MESSAGES.PRODUCTS.COLUMNS.ACTIONS,
+      // Up to five inline icons now that delete left the overflow menu — the
+      // default `w-24` was sized for a couple of buttons and a "…".
+      className: "w-44 text-right",
       actions: () => ({
         edit: {
           title: MESSAGES.PRODUCTS.ACTION_EDIT,
@@ -255,15 +282,16 @@ export function useProductColumns({
         },
         variants: { onClick: (e, r) => onManageVariants(e, r) },
         catalog: { onClick: (e, r) => onChangeCatalog(e, r) },
-        announce: { onClick: (e, r) => onAnnounce(e, r) },
+        ...(onAnnounce ? { announce: { onClick: onAnnounce } } : {}),
         ...(canDelete
           ? {
               delete: {
                 title: MESSAGES.PRODUCTS.ACTION_REMOVE,
-                // Behind the overflow menu: irreversible, unguarded server-side
-                // (no check for open orders, carts or running deals), and almost
-                // never the intent — the Active switch is.
-                overflow: true,
+                // Inline red trash rather than the overflow menu (product
+                // decision) — the same call the category tables made. The delete
+                // is still irreversible and unguarded server-side (no check for
+                // open orders, carts or running deals), so the typed confirm
+                // stays as the thing standing between a click and a cascade.
                 onClick: (e: React.MouseEvent, r: Product) => onDelete(e, r.id),
               },
             }

@@ -263,7 +263,13 @@ export const SAILOR_ENDPOINTS = {
 };
 
 export const EXPRESS_ENDPOINTS = {
-  // Flow 09 API 2 — the post-payment orders list, pre-scoped to `is_express=True`.
+  /**
+   * Flow 09 API 2 — every express order, pre-scoped to `is_express=True`.
+   *
+   * **Both sides of payment**, unlike `orders/orders/`. Express is direct-pay
+   * with no intent funnel behind it, so since the 2026-08-17 order split this is
+   * the only screen an unpaid express order appears on; unpaid rows sort first.
+   */
   GET_EXPRESS_ORDERS: "/superadmin/express/orders/",
   /**
    * Flow 09 API 3 — the express **variant** catalog. Filters are validated up
@@ -272,7 +278,26 @@ export const EXPRESS_ENDPOINTS = {
    * (and `newest_first` / `oldest_first` for relevance).
    */
   GET_EXPRESS_ITEMS: "/superadmin/express/items/",
-  // Flow 09 API 4 — product, variant and order-volume aggregates in one call. No params.
+  /**
+   * Express catalog at **product** level — the same base view class as
+   * `products/get-products/` and `emergency-spares/products/`, so an identical
+   * row shape, filter set, ordering and envelope.
+   *
+   * It does **not** replace `express/items/`: this lists products, that lists
+   * variants. Only the variant list can show an *unflagged* SKU, which is
+   * exactly the set no sailor can see — so it stays the flagging surface.
+   *
+   * Read-only. Detail, update, delete and the three `set-*` toggles are
+   * catalog-wide on `products/`, and still accept an express id.
+   */
+  GET_EXPRESS_PRODUCTS: "/superadmin/express/products/",
+  /**
+   * Flow 09 API 4 — product, variant and order-volume aggregates in one call.
+   *
+   * Takes the **items** filter set since 2026-08-17 (it read no params before),
+   * so the `items` half narrows with the catalog table. The `orders` half never
+   * narrows — item filters have no meaning for an order count.
+   */
   GET_EXPRESS_STATS: "/superadmin/express/stats/",
 };
 

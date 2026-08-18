@@ -4,74 +4,6 @@ import type { BadgeProps } from "@/components/ui/badge";
 export type SpareProductBadgeVariant = NonNullable<BadgeProps["variant"]>;
 
 /**
- * UI row model consumed by the marine-emergency products table. Built from a
- * `SpareProductApi` row by the API transform; display strings are already
- * "-"-guarded so columns render the raw value directly.
- */
-export interface SpareProduct {
-  /** Product id (UUID). */
-  id: string;
-  /** Product name. */
-  name: string;
-  /** Product image URL (empty string when none). */
-  image: string;
-  /** Category display name. */
-  category: string;
-  /** Formatted base price (e.g. "$4750.00"), or "-" when absent. */
-  price: string;
-  /** Number of variants (number, or "-" when absent). */
-  variants: number | string;
-  /** Average rating (number, or "-" when absent). */
-  rating: number | string;
-  /** Catalog type label (e.g. "Marine Emergency"). */
-  type: string;
-  /** Whether the product is active. */
-  active: boolean;
-  /** Created-at label. */
-  created: string;
-  /**
-   * Raw variant count, unformatted — `variants` above is display-guarded to "-"
-   * and cannot be compared. Needed because **zero** is the signal that matters:
-   * a spare with no variants is invisible to sailors, and the count is the only
-   * place that shows.
-   */
-  variantCount: number;
-  /**
-   * Flags the API sends on every row and the transform used to discard, so the
-   * table could not show them and the row toggles had nothing to bind to.
-   */
-  isTopRated: boolean;
-  adminSourceable: boolean;
-  onDeal: boolean;
-  /** Last-updated label. */
-  updated: string;
-}
-
-/**
- * Raw marine-emergency product row from
- * `GET /superadmin/emergency-spares/products/` (`results.data[]`). Fields are
- * optional/nullable so a partial payload degrades gracefully to "-".
- */
-export interface SpareProductApi {
-  id: string;
-  name?: string | null;
-  image?: string | null;
-  category?: string | null;
-  category_name?: string | null;
-  base_price?: string | number | null;
-  variant_count?: number | null;
-  catalog_type?: string | null;
-  is_express?: boolean | null;
-  on_deal?: boolean | null;
-  is_top_rated?: boolean | null;
-  average_rating?: number | null;
-  admin_sourceable?: boolean | null;
-  is_active?: boolean | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-}
-
-/**
  * Query params for the marine products list (empty filters are omitted).
  *
  * The endpoint takes the **same filter set as the general list**. Two of them
@@ -97,6 +29,8 @@ export interface GetSpareProductsParams {
   /** Live-deal filter — computed per request, same as the general list. */
   onDeal?: boolean;
   isTopRated?: boolean;
+  /** The product-level sourceable master switch (`?admin_sourceable=`). */
+  adminSourceable?: boolean;
 }
 
 /**
@@ -205,12 +139,6 @@ export type UpdateSpareProductPayload = Partial<{
   is_active: boolean;
   is_top_rated: boolean;
 }>;
-
-/** Transformed list result the page consumes: total count + UI rows. */
-export interface SpareProductListResult {
-  count: number;
-  products: SpareProduct[];
-}
 
 /**
  * Marine-emergency statistics from `GET …/products/stats/`.

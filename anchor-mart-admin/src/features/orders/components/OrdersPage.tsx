@@ -211,19 +211,22 @@ const STAT_CONFIG: {
 ];
 
 /**
- * Order-type filter. Each option is a query, **not** a slice of a partition:
- * `is_express` and `is_emergency` are independent booleans and an order may be
- * both, so the four counts deliberately do not sum to the total (129 + 49 + 546
- * = 724 against 715, the difference being the 9 orders that are both).
+ * Order-type filter — a **clean partition** since 2026-08-17: `regular +
+ * emergency == all`, so the chips sum to the total.
  *
- * "Regular" is the complement — neither flag — expressed as `false` on both
- * rather than as a value the API knows about.
+ * They did not before. Express used to be a third overlapping option, and an
+ * order could be express *and* emergency, so the four counts needed
+ * inclusion-exclusion to reconcile. Express orders now have their own screen
+ * (`express/orders/`) and no longer reach this endpoint at all, which leaves one
+ * boolean and two sides of it.
+ *
+ * "Regular" is the complement of emergency, expressed as `false` rather than as
+ * a value the API knows about.
  */
 const ORDER_TYPE_QUERY = {
   all: {},
-  express: { isExpress: true },
   emergency: { isEmergency: true },
-  regular: { isExpress: false, isEmergency: false },
+  regular: { isEmergency: false },
 } as const;
 
 type OrderTypeFilter = keyof typeof ORDER_TYPE_QUERY;
@@ -237,10 +240,9 @@ const ORDER_TYPE_CONFIG: {
   value: OrderTypeFilter;
   label: string;
   /** Which `type_counts` field carries this option's count. */
-  countKey: "all" | "express" | "emergency" | "regular";
+  countKey: "all" | "emergency" | "regular";
 }[] = [
   { value: "all", label: M.TYPE_FILTER.ALL, countKey: "all" },
-  { value: "express", label: M.TYPE_FILTER.EXPRESS, countKey: "express" },
   { value: "emergency", label: M.TYPE_FILTER.EMERGENCY, countKey: "emergency" },
   { value: "regular", label: M.TYPE_FILTER.REGULAR, countKey: "regular" },
 ];

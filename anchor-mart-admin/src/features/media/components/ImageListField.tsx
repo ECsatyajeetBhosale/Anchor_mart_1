@@ -1,6 +1,6 @@
 import { Input } from "@/components/ui/input";
-import { IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
-import { useRef } from "react";
+import { IconPhoto, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
+import { useRef, useState } from "react";
 import type { FileLocation } from "../types/media.types";
 import { useMediaUpload } from "./useMediaUpload";
 
@@ -12,6 +12,17 @@ export interface ImageListFieldProps {
   placeholder?: string;
   emptyHint?: string;
   disabled?: boolean;
+  /**
+   * Viewable URL for each stored path, so existing images can be **seen** and
+   * not just read as a filename.
+   *
+   * Paths and URLs are asymmetric here (Flow 26): a write takes
+   * `product_images/x.jpg`, a read hands back the absolute CloudFront URL. The
+   * field holds paths because that is what submits, so the caller supplies the
+   * read side from whatever the detail response returned. Freshly uploaded
+   * images fill themselves in — the presign slip carries their future URL.
+   */
+  previewUrls?: Record<string, string>;
 }
 
 /**
@@ -30,9 +41,17 @@ export function ImageListField({
   placeholder,
   emptyHint = "No images yet — upload one or add a stored path.",
   disabled,
+  previewUrls,
 }: ImageListFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { upload, isUploading, error } = useMediaUpload();
+  /**
+   * Preview URLs for images uploaded in this session. The presign slip already
+   * carries `file_future_url`; it used to be discarded, so a just-uploaded image
+   * showed as a path with no way to check you had picked the right file.
+   */
+  const [uploadedUrls, setUploadedUrls] = useState<Record<string, string>>({});
+  const previewFor = (path: string) => uploadedUrls[path] ?? previewUrls?.[path];
 
   const updateAt = (index: number, value: string) =>
     onChange(values.map((v, i) => (i === index ? value : v)));
@@ -46,6 +65,9 @@ export function ImageListField({
       // successful ones so far are still kept.
       if (!result) break;
       uploaded.push(result.path);
+      if (result.previewUrl) {
+        setUploadedUrls((prev) => ({ ...prev, [result.path]: result.previewUrl }));
+      }
     }
     if (uploaded.length > 0) onChange([...values, ...uploaded]);
     if (inputRef.current) inputRef.current.value = "";
@@ -58,6 +80,31 @@ export function ImageListField({
       {values.map((value, index) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: ordered editable list, values may repeat
         <div key={index} className="flex items-center gap-2">
+          {/*
+            A real thumbnail, not just the filename. Opens full size in a new
+            tab, because "is this the right photo" is often not answerable at
+            thumbnail scale.
+          */}
+          {previewFor(value) ? (
+            <a
+              href={previewFor(value)}
+              target="_blank"
+              rel="noreferrer"
+              className="shrink-0 rounded border border-[var(--border-sm)] overflow-hidden"
+              title="Open full size"
+            >
+              <img
+                src={previewFor(value)}
+                alt={value}
+                className="h-14 w-14 object-cover"
+                loading="lazy"
+              />
+            </a>
+          ) : (
+            <div className="shrink-0 h-14 w-14 rounded border border-dashed border-[var(--border-sm)] grid place-items-center text-[var(--t4)]">
+              <IconPhoto size={18} />
+            </div>
+          )}
           <Input
             className="mono text-[12px]"
             placeholder={placeholder ?? `${fileLocation}example.jpg`}

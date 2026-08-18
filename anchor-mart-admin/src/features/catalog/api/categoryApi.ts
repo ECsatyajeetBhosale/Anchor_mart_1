@@ -13,9 +13,13 @@ import type {
  *
  * **These four and no others** — there is no `has_products` or `ordering`
  * filter, and no `catalog_type` / `scope` either: catalog filtering lives on the
- * separate `get-categories-by-catalog-type/` route. Ordering is fixed **name
- * ascending**, which differs from `get-products/`'s `-created_at`; do not assume
- * a shared default.
+ * separate `get-categories-by-catalog-type/` route.
+ *
+ * Ordering is fixed **most-recently-touched first** (`-updated_at`,
+ * `-created_at`, `name`) as of 2026-08-17 — it was alphabetical before, so a
+ * category you just added or edited now sits at the top of page 1 instead of
+ * wherever its name falls. The by-catalog-type route stays A–Z: it feeds the
+ * product form's dropdown, where you arrive knowing the name.
  *
  * Pagination matches products exactly (same `CustomPagination`): default 10,
  * `page_size` clamped to 50, junk or 0 falls back to 10, and a page past the end
@@ -109,18 +113,73 @@ export const categoryApi = baseApi.injectEndpoints({
       ],
     }),
 
-    updateCategory: builder.mutation<unknown, { id: string; body: UpdateCategoryPayload }>({
+    /**
+     * Returns the **full updated row**, which is why this does not invalidate
+     * the list.
+     *
+     * The table sorts `-updated_at` first (2026-08-17), and `is_active` is an
+     * ordinary update — so refetching after the row toggle would jump the row
+     * you just touched to the top of page 1, mid-task, every time. Backend
+     * confirmed that ordering is intended and pointed at the fix: the response
+     * already carries the new row, so write it in and skip the round-trip. The
+     * reorder then shows on the next genuine load, which is when it is useful
+     * ("where did the one I just edited go?").
+     *
+     * This is the same reason the drawer save does not invalidate either — a
+     * renamed category updates in place rather than resorting under the cursor.
+     *
+     * `STATS` **is** still invalidated: activating or deactivating moves a
+     * category between the active and inactive cards, and no patched row can
+     * tell those counters about it.
+     */
+    updateCategory: builder.mutation<Category, { id: string; body: UpdateCategoryPayload }>({
       query: ({ id, body }) => ({
         url: CATEGORY_ENDPOINTS.UPDATE_CATEGORY(id),
         method: "PATCH",
         body,
       }),
 
-      invalidatesTags: (_result, _error, { id }) => [
-        { type: "Categories", id },
-        { type: "Categories", id: "PARTIAL-LIST" },
-        { type: "Categories", id: "STATS" },
-      ],
+      async onQueryStarted({ id }, { dispatch, queryFulfilled, getState }) {
+        try {
+          const { data: updated } = await queryFulfilled;
+          if (!updated?.id) return;
+
+          /**
+           * The detail cache too, and for the same reason the list gets it: the
+           * drawer prefers `getCategory` over the table row, so leaving it on
+           * the pre-edit values would reopen the form showing what the user just
+           * changed away from. Dropping the `{Categories, id}` invalidation is
+           * only safe because this writes the fresh row in its place.
+           */
+          dispatch(
+            categoryApi.util.updateQueryData("getCategory", id, (draft) => {
+              Object.assign(draft, updated);
+            }),
+          );
+
+          /**
+           * Every cached page/filter combination, not just the visible one —
+           * the same category can sit in several cache entries (page 1 and a
+           * searched view, say), and patching only one leaves the others stale.
+           */
+          for (const args of categoryApi.util.selectCachedArgsForQuery(
+            getState(),
+            "getCategories",
+          )) {
+            dispatch(
+              categoryApi.util.updateQueryData("getCategories", args, (draft) => {
+                const row = draft.results?.data?.find((c) => c.id === id);
+                if (row) Object.assign(row, updated);
+              }),
+            );
+          }
+        } catch {
+          // A failed PATCH changed nothing, so there is nothing to patch and
+          // nothing to roll back — the caller surfaces the error.
+        }
+      },
+
+      invalidatesTags: [{ type: "Categories", id: "STATS" }],
     }),
 
     /**

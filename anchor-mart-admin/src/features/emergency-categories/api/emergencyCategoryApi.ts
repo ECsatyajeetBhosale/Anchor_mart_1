@@ -12,7 +12,8 @@ import type {
  * Query params for the emergency categories list.
  *
  * **These four and no others** — no `has_products`, `ordering` or `scope`.
- * Ordering is fixed **name ascending**. Pagination is the shared
+ * Ordering is **most-recently-touched first** since 2026-08-17 (`-updated_at`,
+ * `-created_at`, `name`), matching the general door. Pagination is the shared
  * `CustomPagination`: default 10, `page_size` clamped to 50, junk falls back to
  * 10, and a page past the end is a **404** `{"detail": "Invalid page."}`.
  */
@@ -111,8 +112,14 @@ export const emergencyCategoryApi = baseApi.injectEndpoints({
       ],
     }),
 
+    /**
+     * Patches the cached row from the response instead of refetching the list —
+     * the general door's `updateCategory` carries the full reasoning, and both
+     * doors sort `-updated_at` first off the same `BaseListCategoriesView`, so
+     * they must behave identically here.
+     */
     updateEmergencyCategory: builder.mutation<
-      unknown,
+      EmergencyCategory,
       { id: string; body: UpdateEmergencyCategoryPayload }
     >({
       query: ({ id, body }) => ({
@@ -120,11 +127,39 @@ export const emergencyCategoryApi = baseApi.injectEndpoints({
         method: "PATCH",
         body,
       }),
-      invalidatesTags: (_result, _error, { id }) => [
-        { type: "EmergencyCategories", id },
-        { type: "EmergencyCategories", id: "PARTIAL-LIST" },
-        { type: "EmergencyCategories", id: "STATS" },
-      ],
+
+      async onQueryStarted({ id }, { dispatch, queryFulfilled, getState }) {
+        try {
+          const { data: updated } = await queryFulfilled;
+          if (!updated?.id) return;
+
+          // The drawer reads the detail over the table row, so it needs the
+          // fresh values too — see the general door.
+          dispatch(
+            emergencyCategoryApi.util.updateQueryData("getEmergencyCategory", id, (draft) => {
+              Object.assign(draft, updated);
+            }),
+          );
+
+          for (const args of emergencyCategoryApi.util.selectCachedArgsForQuery(
+            getState(),
+            "getEmergencyCategories",
+          )) {
+            dispatch(
+              emergencyCategoryApi.util.updateQueryData("getEmergencyCategories", args, (draft) => {
+                const row = draft.results?.data?.find((c) => c.id === id);
+                if (row) Object.assign(row, updated);
+              }),
+            );
+          }
+        } catch {
+          // Nothing changed server-side, so nothing to patch or roll back.
+        }
+      },
+
+      // Activating / deactivating moves the row between the KPI cards, and no
+      // patched row can tell those counters about it.
+      invalidatesTags: [{ type: "EmergencyCategories", id: "STATS" }],
     }),
 
     /**

@@ -1765,6 +1765,19 @@ export const MESSAGES = {
       TOP_RATED: "Top Rated",
       SOURCEABLE: "Sourceable",
     },
+    /**
+     * Header-dropdown filters for the two flag columns, server-side via
+     * `?is_top_rated=` and `?admin_sourceable=`. `ColumnFilterHeader` supplies
+     * the "all" entry from `allLabel`, so neither list carries one.
+     */
+    FILTERS: {
+      TOP_RATED_ALL: "Any",
+      TOP_RATED_YES: "Top rated",
+      TOP_RATED_NO: "Not top rated",
+      SOURCEABLE_ALL: "Any",
+      SOURCEABLE_YES: "Sourceable",
+      SOURCEABLE_NO: "Not sourceable",
+    },
     TOAST: {
       CATALOG_UPDATED: "Catalog updated",
       /**
@@ -1912,6 +1925,11 @@ export const MESSAGES = {
     SEARCH_PLACEHOLDER: "Search by product name…",
     ALL_CATEGORIES: "All Categories",
     ADD_PRODUCT: "Add Product",
+    /** Free-form key/value on the product's first variant — no fixed field set. */
+    ATTRIBUTES_HINT:
+      "Anything worth recording against this SKU — size, grade, pack, length. Names are yours to choose.",
+    ATTRIBUTE_ADD: "Add attribute",
+    ATTRIBUTE_REMOVE: "Remove attribute",
     FETCH_ERROR: "Failed to fetch products",
     EMPTY: "No products found.",
     // Filter tabs
@@ -1960,7 +1978,6 @@ export const MESSAGES = {
       CATALOG: "Catalog",
       PRICE: "Price",
       VARIANTS: "Variants",
-      RATING: "Rating",
       PURCHASES: "Purchases",
       DEAL: "Deal",
       STATUS: "Status",
@@ -2013,8 +2030,17 @@ export const MESSAGES = {
     ADD: {
       TITLE: "Add New Product",
       SUBTITLE: "Create a new product for your catalog",
+      /**
+       * The shelf is fixed by the screen the form was opened from, so the header
+       * states it rather than the form offering a picker.
+       */
+      TITLE_EXPRESS: "Add Express Product",
+      SUBTITLE_EXPRESS: "Create a product on the express catalog",
+      TITLE_MARINE: "Add Marine Emergency Spare",
+      SUBTITLE_MARINE: "Create a spare on the marine emergency catalog",
       SUBMIT: "Add Product",
       SAVING: "Saving…",
+      CANCEL: "Cancel",
     },
     // Edit drawer
     EDIT: {
@@ -2022,13 +2048,19 @@ export const MESSAGES = {
       SUBTITLE: "Update your product details",
       SUBMIT: "Save Changes",
       SAVING: "Saving…",
+      /**
+       * Two tabs: what `update-product/` writes, and what the variant endpoints
+       * do. Media / Pricing / Shipping were panels of read-only decoration —
+       * subtitle, slug, tax class, weight, package type — over fields the update
+       * contract has no place for.
+       */
       TABS: {
         BASIC: "Basic Info",
-        MEDIA: "Media",
-        PRICING: "Pricing",
-        SHIPPING: "Shipping",
         VARIANTS: "Variants",
       },
+      /** Says where the things this form does not write are actually changed. */
+      NOT_EDITABLE_HINT:
+        "Catalog type, SKU, variant prices and attributes are not edited here — use Change catalog for the shelf, and the Variants tab for anything per-SKU.",
     },
     // Drawer section headings
     // Variants tab on the edit drawer — read-only, since variants are not part
@@ -2098,9 +2130,6 @@ export const MESSAGES = {
       ON_DEAL: "On Deal",
       NO_DEAL: "No running deal",
       DEAL_HINT: "Deals are set per variant on the Deals screen, with a price and a time window.",
-      RATING: "Average Rating",
-      /** A rating of 0 means unrated, not badly rated — never shown as "0.0". */
-      UNRATED: "Not yet rated",
       PURCHASES: "Purchases",
       VARIANTS: "Variants",
       INTERNAL: "Internal Product",
@@ -2114,8 +2143,6 @@ export const MESSAGES = {
       MEDIA: "Product Media",
       INVENTORY_PRICING: "Inventory & Pricing",
       ATTRIBUTES: "Product Attributes",
-      MATERIAL: "Material Details",
-      PRICE: "Price Details",
       ADDITIONAL: "Additional Settings",
       DETAILS: "Product Details",
       PRICING: "Pricing",
@@ -2520,30 +2547,119 @@ export const MESSAGES = {
   EXPRESS: {
     // Page chrome
     TITLE: "Express",
+    /**
+     * The two grains of the express catalog. Products leads — it is the unit the
+     * rest of Catalog works in; Items is the SKU view beneath it, and the only
+     * one that can show an unflagged variant.
+     */
+    TABS: {
+      PRODUCTS: "Express Products",
+      ITEMS: "Express Items",
+    },
+    /** The orders screen's own title — `TITLE` names the catalog screen. */
+    ORDERS_TITLE: "Express Orders",
+    SEARCH_PLACEHOLDER: "Search express orders…",
+    FETCH_ERROR: "Failed to fetch express orders",
+    EMPTY: "No express orders found.",
     DASH: "—",
     // KPI cards (express stats aggregates)
     STATS: {
       /**
-       * Labelled "All …" because `express/stats/` takes no filters by design,
-       * so the cards cannot follow the table below them. Saying so keeps
-       * unchanged cards over a filtered table legible rather than looking stale.
+       * The "All …" prefix these carried was dropped on 2026-08-17, when
+       * `express/stats/` started honouring the items filter bar. It explained
+       * cards that could not follow the table; they follow it now, so the word
+       * would be a claim the number no longer makes.
        */
-      PRODUCTS: "All Express Products",
+      PRODUCTS: "Express Products",
       // Plain footers are the loading state; the *_BREAKDOWN forms replace them
       // once the counts arrive, so each card carries its own secondary figures
       // instead of the payload needing a card per field.
       PRODUCTS_FOOTER: "In the express catalog",
       PRODUCTS_BREAKDOWN: (active: string, topRated: string, onDeal: string) =>
         `${active} active · ${topRated} top-rated · ${onDeal} on deal`,
-      VARIANTS: "All Express Variants",
+      VARIANTS: "Express Variants",
       VARIANTS_FOOTER: "Across all products",
       VARIANTS_BREAKDOWN: (active: string) => `${active} active`,
       SOURCEABLE: "Sourceable Variants",
       // Spelling out the AND rule: a variant is only orderable when both flags hold.
       SOURCEABLE_FOOTER: "Product and variant both flagged",
       SOURCEABLE_BREAKDOWN: (products: string) => `${products} sourceable products`,
+      ORDERS: "Express Orders",
+      /**
+       * Unpaid express orders. Express is direct-pay, so these are waiting on
+       * Stripe rather than on an admin — but they reach no other screen now, so
+       * this is the only place the number surfaces.
+       */
+      AWAITING_PAYMENT: "Awaiting Payment",
+      FAILED: "Failed Deliveries",
     },
     // Express variant catalog tab
+    COLUMNS: {
+      ORDER: "Order",
+      CUSTOMER: "Customer",
+      LOCATION: "Port / Anchorage",
+      ITEMS: "Items",
+      AMOUNT: "Amount",
+      FLAGS: "Flags",
+      PARTNER: "Partner",
+      ARRIVAL: "Ship Arrival",
+      STATUS: "Status",
+    },
+    // The order status filter's labels now come from `lib/orderStatuses.ts`,
+    // the single source of truth for all 18 lifecycle statuses — the hand-written
+    // set that used to live here held four values `Order.Status` has never had,
+    // so choosing one returned 400 instead of filtering.
+    // Filter toolbar on the orders tab
+    ORDER_FILTERS: {
+      DATE_PLACEHOLDER: "Payment date",
+      PARTNER_ALL: "Any partner",
+      PARTNER_PLACEHOLDER: "Partner",
+    },
+    // Boolean flag badge labels
+    FLAGS: {
+      EXPRESS: "Express",
+      EMERGENCY: "Emergency",
+      FASTEST: "Fastest",
+      LOCATION_REQ: "Location Req.",
+    },
+    // Partner allocation
+    UNALLOCATED: "Unallocated",
+    // Flow 28 API 12 — partner assignment, from inside the order drawer.
+    ASSIGN: {
+      SECTION: "Assign Delivery Partner",
+      SECTION_REASSIGN: "Reassign Delivery Partner",
+      PARTNER_LABEL: "Delivery partner",
+      PARTNER_PLACEHOLDER: "Select a partner",
+      PARTNER_LOADING: "Loading partners…",
+      PARTNER_EMPTY: "No partners available",
+      REASSIGN_HINT: (current: string) =>
+        `Currently held by ${current || "another partner"} — assigning takes the order off them.`,
+      CONFIRM: "Assign Partner",
+      CONFIRM_REASSIGN: "Confirm Reassign",
+      ASSIGNING: "Assigning…",
+      SELECT_PARTNER: "Select a delivery partner first.",
+      ASSIGNED: (partner: string, order: string) => `${partner} assigned to ${order}.`,
+      REASSIGNED: (partner: string, order: string) => `${order} reassigned to ${partner}.`,
+      FAILED: "Could not assign the delivery partner. Please try again.",
+      /**
+       * A bare assign on an order someone already holds comes back 409
+       * `requires_confirmation`. The drawer stays open and the next click sends
+       * `confirm: true`, so this reads as a prompt rather than a dead end.
+       */
+      NEEDS_CONFIRM: "That order is already held by a partner — confirm again to reassign it.",
+    },
+    // Detail drawer
+    DRAWER: {
+      TITLE_FALLBACK: "Express Order",
+      CLOSE: "Close",
+      SECTIONS: {
+        OVERVIEW: "Overview",
+        CUSTOMER: "Customer",
+        DELIVERY: "Delivery",
+        TIMELINE: "Timeline",
+      },
+      ITEM_COUNT: (n: number) => `${n} item${n === 1 ? "" : "s"}`,
+    },
     CATALOG: {
       /**
        * Why a row is invisible to sailors. Keys come from
@@ -3125,11 +3241,6 @@ export const MESSAGES = {
     FETCH_ERROR: "Failed to load marine emergency products.",
     ADD_PRODUCT: "Add Spare",
     ALL_CATEGORIES: "All Categories",
-    ALL_STATUS: "All Status",
-    STATUS_FILTER: {
-      ACTIVE: "Active",
-      INACTIVE: "Inactive",
-    },
     // KPI cards — one per field on the emergency-spare stats response.
     STATS: {
       TOTAL: "Total Products",
@@ -3224,7 +3335,6 @@ export const MESSAGES = {
       CATEGORY: "Category",
       PRICE: "Base Price",
       VARIANTS: "Variants",
-      RATING: "Rating",
       TYPE: "Type",
       STATUS: "Status",
       ACTIONS: "Actions",
@@ -3244,7 +3354,6 @@ export const MESSAGES = {
       DESCRIPTION: "Description",
       PRICE: "Base Price",
       VARIANTS: "Variants",
-      RATING: "Rating",
       PURCHASES: "Purchases",
       TYPE: "Catalog Type",
       STATUS: "Status",

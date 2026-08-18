@@ -1,4 +1,42 @@
 /**
+ * An express order row as returned by GET /superadmin/express/orders/.
+ * Dates arrive pre-formatted from the backend (e.g. "June 23, 2026, 02:18 AM").
+ */
+export interface ExpressOrder {
+  id: string;
+  order_number: string;
+  /** Machine status, e.g. "delivered". */
+  status: string;
+  /** Human status label, e.g. "Delivered". */
+  status_display: string;
+  customer_name: string;
+  customer_email: string;
+  /** Decimal string, e.g. "2027.42". */
+  total_amount: string;
+  item_count: number;
+  port_name: string | null;
+  anchorage_name: string | null;
+  /** Pre-formatted timestamp, e.g. "June 23, 2026, 02:18 AM". */
+  ship_arrival_date: string | null;
+  payment_completed_at: string | null;
+  is_fastest_delivery: boolean;
+  is_express: boolean;
+  is_emergency: boolean;
+  partner_allocated: boolean;
+  partner_name: string | null;
+  has_location_request: boolean;
+  created_at: string | null;
+}
+
+/** DRF paginated envelope for the express orders list (plain `results` array). */
+export interface ExpressOrderListResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: ExpressOrder[];
+}
+
+/**
  * A row of the express variant catalog (`GET /superadmin/express/items/`).
  * The endpoint returns `ProductVariantSerializer` records under `data`, so the
  * flat shape below is produced by the API transform.
@@ -115,6 +153,41 @@ export interface GetExpressCatalogParams {
 }
 
 /**
+ * Query params for `express/stats/` — the **narrowing** subset of
+ * {@link GetExpressCatalogParams}.
+ *
+ * Backend confirmed (2026-08-17) this is exactly the `express/items/` set: both
+ * halves run the *same* filter function over the same queryset, so a param
+ * cannot be honoured by the table and ignored by the cards. Unknown names are
+ * dropped by both alike, and a malformed value of a known one is a 400 on both —
+ * so the two can't silently disagree in either direction.
+ *
+ * Paging and sorting are absent on purpose: neither changes an aggregate, and
+ * sending them would imply the cards follow a page.
+ *
+ * ⚠️ `items.total_products` counts express products **represented in the
+ * filtered variant table**, so it is bounded by `total_variants` — a product
+ * with no live variant is absent here, and equally unreachable from the table.
+ * The unbounded product-level figure lives on `express/products/`.
+ */
+export type GetExpressStatsParams = Pick<
+  GetExpressCatalogParams,
+  | "search"
+  | "categoryId"
+  | "productId"
+  | "minPrice"
+  | "maxPrice"
+  | "adminSourceable"
+  | "isActive"
+  | "isExpress"
+> & {
+  /** Per **variant** here — a SKU whose sibling is on deal does not match. */
+  onDeal?: string;
+  /** Read through the parent product, which is where the flag lives. */
+  isTopRated?: string;
+};
+
+/**
  * Catalog half of the express stats payload — **exactly these eight keys**,
  * pinned by a backend test. The flow doc describes products and variants as two
  * separate aggregates; the API returns them flattened into one object, so they
@@ -151,6 +224,12 @@ export interface ExpressItemStats {
  */
 export interface ExpressOrderStats {
   total_orders?: number;
+  /**
+   * Unpaid express orders. Added 2026-08-17 with the order split: this screen
+   * is now the only place an unpaid express order appears, so the count needed
+   * somewhere to live. The intents screen no longer carries express at all.
+   */
+  awaiting_payment?: number;
   /** Paid but not yet worked — the head of the express queue. */
   new?: number;
   in_progress?: number;
@@ -176,4 +255,37 @@ export interface ExpressOrderStats {
 export interface ExpressStats {
   items?: ExpressItemStats;
   orders?: ExpressOrderStats;
+}
+
+/**
+ * Query params for `express/products/` (§2.2) — the vocabulary shared by all
+ * three product catalogs (`get-products/`, `express/products/`,
+ * `emergency-spares/products/`).
+ *
+ * No `catalog_type` / `is_express`: those are only accepted where a surface
+ * serves more than one type, and this one is already scoped to express.
+ *
+ * Default order is `-created_at`, which also tiebreaks `sortByPrice`.
+ */
+export interface GetExpressProductsParams {
+  page?: number;
+  limit?: number;
+  /** Name **or** description **or** the SKU of any live variant. */
+  search?: string;
+  /** Category UUID; a malformed one is a 400, not an empty list. */
+  category?: string;
+  isActive?: boolean;
+  /** The product-level sourceable master switch. */
+  adminSourceable?: boolean;
+  onDeal?: boolean;
+  isTopRated?: boolean;
+  /**
+   * Bounds read the **variants'** price, never `base_price` — that is a display
+   * "from" figure, not what anyone is charged. `min > max` is a 400, as is a
+   * non-numeric bound; neither degrades to an empty list.
+   */
+  minPrice?: string;
+  maxPrice?: string;
+  /** "low to high" | "high to low"; sorts on the cheapest live variant. */
+  sortByPrice?: string;
 }

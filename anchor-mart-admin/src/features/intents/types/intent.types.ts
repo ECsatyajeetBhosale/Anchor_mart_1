@@ -373,11 +373,10 @@ export interface IntentStats {
 }
 
 /** Chip counts. `express` and `emergency` overlap; `both` is that overlap. */
+/** A clean partition since 2026-08-17: `regular + emergency == all`. */
 export interface IntentTypeCounts {
   all?: number;
-  express?: number;
   emergency?: number;
-  both?: number;
   regular?: number;
 }
 

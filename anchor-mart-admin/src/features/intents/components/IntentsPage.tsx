@@ -164,16 +164,16 @@ const CLOSED_STAT_CONFIG: typeof FUNNEL_STAT_CONFIG = [
 ];
 
 /**
- * Order-type filter, identical in behaviour to the orders screen. Each option is
- * a query, not a slice of a partition: `is_express` and `is_emergency` are
- * independent and an order may be both, so the counts do not sum to the total.
- * "Regular" is the complement — `false` on both.
+ * Order-type filter, identical in behaviour to the orders screen — and since
+ * 2026-08-17 a clean partition there and here: `regular + emergency == all`.
+ * Express intents moved to `express/orders/` and no longer reach this endpoint,
+ * which removed the third overlapping option. "Regular" is the complement of
+ * emergency.
  */
 const INTENT_TYPE_QUERY = {
   all: {},
-  express: { isExpress: true },
   emergency: { isEmergency: true },
-  regular: { isExpress: false, isEmergency: false },
+  regular: { isEmergency: false },
 } as const;
 
 type IntentTypeFilter = keyof typeof INTENT_TYPE_QUERY;
@@ -186,10 +186,9 @@ function asIntentType(value: string | null): IntentTypeFilter {
 const INTENT_TYPE_CONFIG: {
   value: IntentTypeFilter;
   label: string;
-  countKey: "all" | "express" | "emergency" | "regular";
+  countKey: "all" | "emergency" | "regular";
 }[] = [
   { value: "all", label: M.TYPE_FILTER.ALL, countKey: "all" },
-  { value: "express", label: M.TYPE_FILTER.EXPRESS, countKey: "express" },
   { value: "emergency", label: M.TYPE_FILTER.EMERGENCY, countKey: "emergency" },
   { value: "regular", label: M.TYPE_FILTER.REGULAR, countKey: "regular" },
 ];

@@ -1,5 +1,9 @@
 export { ProductsPage } from "./components/ProductsPage";
 export { SetCatalogTypeDialog } from "./components/SetCatalogTypeDialog";
+// Shared with the express product catalog, which is the same view class with a
+// different catalog type and therefore the same rows, form and actions.
+export { ProductFormModal } from "./components/ProductFormModal";
+export { useProductColumns } from "./components/productColumns";
 export { useProducts } from "./hooks/useProducts";
 // Schedules one refetch at a running deal's expiry — `on_deal` flips with the
 // clock and has no write to invalidate against (C8).
@@ -27,6 +31,7 @@ export {
 } from "./api/productApi";
 export type {
   AddProductPayload,
+  ProductListResponse,
   Product,
   ProductStats,
   UpdateProductPayload,

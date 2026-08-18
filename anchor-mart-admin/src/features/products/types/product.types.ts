@@ -42,6 +42,11 @@ export interface Product {
   category_name: string;
   base_price: number;
   average_rating: number;
+  /**
+   * The express shelf's price, product level. Present only on an express
+   * product — the write side calls it `express_price`, reads call it this.
+   */
+  express_base_price?: string | number | null;
   is_active: boolean;
   created_at: string;
   updated_at?: string;
@@ -115,6 +120,11 @@ export interface ProductListResponseData {
  * - `shop` — not part of the contract per the Postman collection.
  */
 export type UpdateProductPayload = Partial<{
+  /**
+   * Express products only. Cascades to the **primary variant's** `express_price`
+   * — errors come back keyed `express_base_price` whichever name was sent.
+   */
+  express_price: number;
   category: string;
   name: string;
   description: string;
@@ -170,40 +180,6 @@ export interface ProductStats {
   deal_of_the_day: number;
 }
 
-/** Nested material composition inside a product's attributes. */
-export interface ProductMaterial {
-  primary: string;
-  secondary: string;
-  elastane: string;
-}
-
-/** Nested price details inside a product's attributes. */
-export interface ProductPriceDetails {
-  amount: number;
-  currency: string;
-  discounted: boolean;
-}
-
-/** Rich, denormalized product attributes (sent as a nested object). */
-export interface ProductAttributes {
-  id: string;
-  product_name: string;
-  category: string;
-  subcategory: string;
-  gender: string;
-  brand: string;
-  color: string;
-  material: ProductMaterial;
-  fit: string;
-  rise: string;
-  length: string;
-  closure_type: string;
-  pockets: string[];
-  care_instructions: string;
-  season: string;
-  price: ProductPriceDetails;
-}
-
 /** Payload contract for POST add-product/. */
 /**
  * Payload contract for POST add-product/.
@@ -220,10 +196,22 @@ export interface AddProductPayload {
   images: string[];
   base_price: number;
   catalog_type: string;
+  /**
+   * The express shelf's own price. **Required iff `catalog_type === "express"`,
+   * and a 400 on a regular product** — so it is omitted rather than sent as 0.
+   *
+   * The server reports both halves of that rule on the key
+   * `express_base_price`, whichever name the body used.
+   */
+  express_price?: number;
   admin_sourceable: boolean;
   is_top_rated: boolean;
   sku: string;
-  attributes: ProductAttributes;
+  /**
+   * Free-form key/value for the first variant, e.g. `{"diameter": "24mm"}`.
+   * Ignored by the endpoint unless `sku` is also sent.
+   */
+  attributes: Record<string, string>;
 }
 
 export interface ProductListResponse {

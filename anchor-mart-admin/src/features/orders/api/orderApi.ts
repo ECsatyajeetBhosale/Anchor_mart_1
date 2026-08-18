@@ -94,13 +94,16 @@ export interface OrderStats {
   [key: string]: number | OrderTypeCounts | undefined;
 }
 
-/** The order-type chip counts. `express` and `emergency` are NOT disjoint. */
+/**
+ * The order-type chip counts — a clean partition: `regular + emergency == all`.
+ *
+ * `express` and `both` were removed on 2026-08-17 when express orders moved to
+ * their own endpoint. Until then the buckets overlapped and needed
+ * inclusion-exclusion to reconcile against the total.
+ */
 export interface OrderTypeCounts {
   all?: number;
-  express?: number;
   emergency?: number;
-  /** Orders that are express AND emergency — the reason the four do not sum. */
-  both?: number;
   regular?: number;
 }
 

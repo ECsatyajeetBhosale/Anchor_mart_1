@@ -1,36 +1,14 @@
+import type { ProductListResponse } from "@/features/products";
 import { SPARE_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
 import type {
   AddSpareProductPayload,
   GetSpareProductsParams,
   GetSpareStatsParams,
-  SpareProduct,
-  SpareProductApi,
   SpareProductDetail,
-  SpareProductListResult,
   SpareStats,
   UpdateSpareProductPayload,
 } from "../types/spare.types";
-
-/** Placeholder shown for any null/undefined/blank value. */
-const FALLBACK = "-";
-
-/** Returns a trimmed string, or "-" when the value is null/undefined/blank. */
-function dash(value: unknown): string {
-  if (value === null || value === undefined) return FALLBACK;
-  const s = String(value).trim();
-  return s === "" ? FALLBACK : s;
-}
-
-/** Safe property read off an unknown value. */
-function getProp(value: unknown, key: string): unknown {
-  return value && typeof value === "object" ? (value as Record<string, unknown>)[key] : undefined;
-}
-
-/** Returns the value when it's an array, otherwise null. */
-function asArray(value: unknown): unknown[] | null {
-  return Array.isArray(value) ? value : null;
-}
 
 /** Unwraps a `{ data }` envelope used by some stats responses. */
 function unwrap<T>(res: unknown): T {
@@ -40,66 +18,19 @@ function unwrap<T>(res: unknown): T {
   return res as T;
 }
 
-/** Formats the base price as "$<amount>", or "-" when absent/non-numeric. */
-function formatPrice(value: SpareProductApi["base_price"]): string {
-  if (value === null || value === undefined || value === "") return FALLBACK;
-  const num = Number(value);
-  return Number.isNaN(num) ? FALLBACK : `$${num.toFixed(2)}`;
-}
-
-/** Turns a catalog type token ("marine_emergency") into a label ("Marine Emergency"). */
-function formatType(value: SpareProductApi["catalog_type"]): string {
-  const raw = value ? String(value).trim() : "";
-  if (!raw) return FALLBACK;
-  return raw
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
-
-/** Maps a raw API product row into the flat UI row the table columns render. */
-function toSpareProduct(row: SpareProductApi): SpareProduct {
-  return {
-    id: row.id ? String(row.id) : "",
-    name: dash(row.name),
-    image: row.image ? String(row.image) : "",
-    category: dash(row.category_name ?? row.category),
-    price: formatPrice(row.base_price),
-    variants: row.variant_count ?? FALLBACK,
-    rating: row.average_rating ?? FALLBACK,
-    type: formatType(row.catalog_type),
-    active: Boolean(row.is_active),
-    created: dash(row.created_at),
-    // Kept raw alongside the display-guarded fields above: these drive the row
-    // toggles and the zero-variant warning, and a "-" cannot be compared.
-    variantCount: row.variant_count ?? 0,
-    isTopRated: Boolean(row.is_top_rated),
-    adminSourceable: row.admin_sourceable !== false,
-    onDeal: Boolean(row.on_deal),
-    updated: dash(row.updated_at),
-  };
-}
-
-/**
- * Extracts the rows + total from the list envelope
- * (`{ count, results: { message, data: [...] } }`), staying defensive about variants.
- */
-function extractList(res: unknown): { count: number; rows: SpareProductApi[] } {
-  const results = getProp(res, "results");
-  const rows =
-    asArray(getProp(results, "data")) ??
-    asArray(results) ??
-    asArray(getProp(res, "data")) ??
-    asArray(res) ??
-    [];
-  const countRaw = getProp(res, "count") ?? getProp(results, "count");
-  const count = typeof countRaw === "number" ? countRaw : rows.length;
-  return { count, rows: rows as SpareProductApi[] };
-}
-
 export const spareApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getSpareProducts: builder.query<SpareProductListResult, GetSpareProductsParams>({
+    /**
+     * Marine-emergency products. The backend shares a view *and serializer*
+     * class with `get-products/`, so the rows arrive in the exact `Product`
+     * shape and are handed to the products feature's own columns untransformed.
+     *
+     * There used to be a `toSpareProduct` mapper here producing a display-ready
+     * row (`price: "$4750.00"`, category as a name). It was dropped so this
+     * screen renders through the same columns as Products rather than a
+     * parallel set that could drift from them.
+     */
+    getSpareProducts: builder.query<ProductListResponse, GetSpareProductsParams>({
       query: (params) => ({
         url: SPARE_ENDPOINTS.GET_LIST,
         method: "GET",
@@ -120,19 +51,35 @@ export const spareApi = baseApi.injectEndpoints({
           is_active: params.isActive === undefined ? undefined : String(params.isActive),
           on_deal: params.onDeal === undefined ? undefined : String(params.onDeal),
           is_top_rated: params.isTopRated === undefined ? undefined : String(params.isTopRated),
+          admin_sourceable:
+            params.adminSourceable === undefined ? undefined : String(params.adminSourceable),
         },
       }),
-      transformResponse: (res: unknown): SpareProductListResult => {
-        const { count, rows } = extractList(res);
-        return { count, products: rows.map(toSpareProduct) };
-      },
+      /**
+       * Provides **both** tag families, because two sets of writes reach these
+       * rows and each invalidates only its own.
+       *
+       * `Spares` covers this feature's scope-partitioned create / update /
+       * delete. `Products` covers the three catalog-wide row toggles
+       * (`set-top-rated/`, `set-admin-sourceable/`, `set-active/`), which the
+       * marine surface borrows and which invalidate `Products` alone — so
+       * before this the toggles reported success and the row never changed
+       * until something else refetched.
+       */
       providesTags: (result) =>
-        result?.products
+        result?.results?.data
           ? [
-              ...result.products.map(({ id }) => ({ type: "Spares" as const, id })),
+              ...result.results.data.flatMap(({ id }) => [
+                { type: "Spares" as const, id },
+                { type: "Products" as const, id },
+              ]),
               { type: "Spares", id: "PARTIAL-LIST" },
+              { type: "Products", id: "PARTIAL-LIST" },
             ]
-          : [{ type: "Spares", id: "PARTIAL-LIST" }],
+          : [
+              { type: "Spares", id: "PARTIAL-LIST" },
+              { type: "Products", id: "PARTIAL-LIST" },
+            ],
     }),
 
     /**
@@ -154,6 +101,8 @@ export const spareApi = baseApi.injectEndpoints({
           is_active: params.isActive === undefined ? undefined : String(params.isActive),
           on_deal: params.onDeal === undefined ? undefined : String(params.onDeal),
           is_top_rated: params.isTopRated === undefined ? undefined : String(params.isTopRated),
+          admin_sourceable:
+            params.adminSourceable === undefined ? undefined : String(params.adminSourceable),
         },
       }),
       transformResponse: (res: unknown): SpareStats => unwrap<SpareStats>(res) ?? {},

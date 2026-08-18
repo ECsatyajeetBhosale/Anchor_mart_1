@@ -46,6 +46,8 @@ export interface GetProductsParams {
   onDeal?: boolean;
   // "Top rated" filter, sent as `?is_top_rated=True|False`. Omit for "all".
   isTopRated?: boolean;
+  /** The product-level sourceable master switch (`?admin_sourceable=`). */
+  adminSourceable?: boolean;
 }
 
 /**
@@ -106,6 +108,13 @@ export const productsApi = baseApi.injectEndpoints({
             on_deal: params.onDeal === undefined ? undefined : params.onDeal ? "True" : "False",
             is_top_rated:
               params.isTopRated === undefined ? undefined : params.isTopRated ? "True" : "False",
+            // The product-level master switch, filterable since 2026-08-17.
+            admin_sourceable:
+              params.adminSourceable === undefined
+                ? undefined
+                : params.adminSourceable
+                  ? "True"
+                  : "False",
           },
         };
       },

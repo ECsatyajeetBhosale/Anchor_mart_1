@@ -1,9 +1,7 @@
 // Public API for the marine-emergency spares feature — import only from here.
+// Add and edit now go through the products feature's shared ProductFormModal
+// with `catalogType="marine_emergency"` — same serializer, marine routes.
 export { SparesPage } from "./components/SparesPage";
-export { SpareProductDetailDrawer } from "./components/SpareProductDetailDrawer";
-export { SpareProductFormModal } from "./components/SpareProductFormModal";
-export { SpareProductAddDrawer } from "./components/SpareProductAddDrawer";
-export { SpareProductEditDrawer } from "./components/SpareProductEditDrawer";
 export {
   useGetSpareProductsQuery,
   useGetSpareStatsQuery,
@@ -12,15 +10,10 @@ export {
   useUpdateSpareProductMutation,
   useDeleteSpareProductMutation,
 } from "./api/spareApi";
-export { spareAddSchema, spareUpdateSchema } from "./schemas/spare.schema";
-export type { SpareAddFormData, SpareUpdateFormData } from "./schemas/spare.schema";
 export type {
-  SpareProduct,
-  SpareProductApi,
   SpareProductDetail,
   SpareProductImage,
   SpareStats,
-  SpareProductListResult,
   GetSpareProductsParams,
   AddSpareProductPayload,
   UpdateSpareProductPayload,

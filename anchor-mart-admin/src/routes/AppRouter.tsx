@@ -16,6 +16,7 @@ import { DealsPage } from "@/features/rewards";
 // themselves are untouched; uncomment the import and its <Route> below (and the
 // matching entry in `lib/navigation.ts`) to bring one back.
 // import { AssignmentsPage } from "@/pages/AssignmentsPage";
+import { ExpressOrdersPage } from "@/pages/ExpressOrdersPage";
 import { ExpressPage } from "@/pages/ExpressPage";
 import { IntentsPage } from "@/pages/IntentsPage";
 import { OrdersPage } from "@/pages/OrdersPage";
@@ -103,6 +104,7 @@ export function AppRouter() {
             <Route path={APP_ROUTES.EMERGENCY_CATEGORIES} element={<EmergencyCategoriesPage />} />
             <Route path={APP_ROUTES.SHIP_AGENTS} element={<ShipAgentsPage />} />
             <Route path={APP_ROUTES.EXPRESS} element={<ExpressPage />} />
+            <Route path={APP_ROUTES.EXPRESS_ORDERS} element={<ExpressOrdersPage />} />
             <Route path={APP_ROUTES.PORTS} element={<PortsPage />} />
             <Route path={APP_ROUTES.REWARDS} element={<RewardsPage />} />
             <Route path={APP_ROUTES.DEALS} element={<DealsPage />} />

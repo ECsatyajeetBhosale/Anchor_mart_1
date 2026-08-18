@@ -1,7 +1,4 @@
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
-import { PageHeader } from "@/components/common/PageHeader";
-import { SearchFilters } from "@/components/common/SearchFilters";
-import { StatsGrid } from "@/components/common/StatsGrid";
 import { TableActions } from "@/components/common/TableActions";
 import { Thumbnail } from "@/components/common/Thumbnail";
 import { idColumn, textColumn, truncatedColumn } from "@/components/common/tableColumns";
@@ -10,14 +7,13 @@ import { type Column, DataTable } from "@/components/ui/data-table";
 import { useSetVariantExpressMutation } from "@/features/variants";
 import { getApiMessage, getApiStatus } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
-import { IconBolt, IconBoltOff, IconPackage, IconStack2 } from "@tabler/icons-react";
+import { IconBolt, IconBoltOff, IconPackage } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { useGetExpressCatalogQuery, useGetExpressStatsQuery } from "../api/expressApi";
+import { useGetExpressCatalogQuery } from "../api/expressApi";
 import type { ExpressItem } from "../types/expressItem.types";
 
-const M = MESSAGES.EXPRESS;
 const C = MESSAGES.EXPRESS.CATALOG;
 const LIMIT = 10;
 
@@ -60,15 +56,20 @@ function splitSort(sort: string): { price?: string; popularity?: string; relevan
   return { relevance: phrase };
 }
 
+/**
+ * The three boolean filters live on their own column headers, not in the
+ * toolbar — each one narrows exactly the column it sits above, so the control
+ * belongs there. `ColumnFilterHeader` prepends its own "all" entry from
+ * `allLabel`, which is why none of these lists carries one.
+ */
+
 /** Effective sourceable — product AND variant, per Flow 09 API 3. */
 const SOURCEABLE_OPTIONS = [
-  { value: "", label: C.FILTERS.SOURCEABLE_ALL },
   { value: "true", label: C.FILTERS.SOURCEABLE_YES },
   { value: "false", label: C.FILTERS.SOURCEABLE_NO },
 ];
 
 const ACTIVE_OPTIONS = [
-  { value: "", label: C.FILTERS.ACTIVE_ALL },
   { value: "true", label: C.FILTERS.ACTIVE_YES },
   { value: "false", label: C.FILTERS.ACTIVE_NO },
 ];
@@ -79,26 +80,22 @@ const ACTIVE_OPTIONS = [
  * actionable worklist for a screen whose job is enabling express.
  */
 const EXPRESS_OPTIONS = [
-  { value: "", label: C.FILTERS.EXPRESS_ALL },
   { value: "true", label: C.FILTERS.EXPRESS_YES },
   { value: "false", label: C.FILTERS.EXPRESS_NO },
 ];
 
-/** Thousands-separated count; `undefined` degrades to 0, not a blank card. */
-function count(value: number | undefined): string {
-  return (value ?? 0).toLocaleString();
-}
-
 /**
- * The express **variant** catalog (Flow 09 API 3) — what sailors can actually
- * buy on the express surface.
+ * The express **variant** catalog (Flow 09 API 3) — the SKU-level view beneath
+ * Express Products.
  *
- * Laid out like Products and every other catalog screen: filters in the page
- * header beside the title, KPI cards under it, then the table. Express orders
- * used to sit here behind a second tab; they were a second view of records the
- * Orders screen already owns, so this screen answers one question now.
+ * It is the only surface that can show an *unflagged* variant of an express
+ * product, which is exactly the set no sailor can see — so it stays the flagging
+ * screen even though the product list now sits above it.
+ *
+ * Reads its filters straight from the URL: the toolbar lives in the parent's
+ * page header (matching Products) and writes the same params this reads.
  */
-export function ExpressItemsPage() {
+export function ExpressItemsTab() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // URL-driven state (shareable, refresh-safe).
@@ -112,7 +109,7 @@ export function ExpressItemsPage() {
 
   const sortParams = splitSort(sort);
 
-  const { data, isLoading, isFetching, isError, error, refetch } = useGetExpressCatalogQuery(
+  const { data, isLoading, isError, error, refetch } = useGetExpressCatalogQuery(
     {
       page,
       limit: LIMIT,
@@ -134,9 +131,6 @@ export function ExpressItemsPage() {
      */
     { refetchOnMountOrArgChange: true },
   );
-
-  const { data: stats, isLoading: statsLoading } = useGetExpressStatsQuery();
-  const statsItems = stats?.items;
 
   // Flow 29a §6 — the variant-level express switch. Confirmed rather than
   // toggled inline because it cascades to the parent product (see the dialog).
@@ -176,36 +170,6 @@ export function ExpressItemsPage() {
     next.set("page", "1");
     setSearchParams(next, { replace: true });
   }, [isPageOutOfRange, page, searchParams, setSearchParams]);
-
-  /**
-   * **Whole-catalog figures, not the filtered table's.** `express/stats/`
-   * deliberately takes no query params, so the cards cannot follow the toolbar
-   * below them. The labels say "All …" so unchanged cards over a filtered table
-   * read as intended rather than stale.
-   */
-  const statItems = [
-    {
-      id: "products",
-      label: M.STATS.PRODUCTS,
-      value: statsLoading ? M.DASH : count(statsItems?.total_products),
-      icon: <IconPackage size={19} />,
-      variant: "navy" as const,
-    },
-    {
-      id: "variants",
-      label: M.STATS.VARIANTS,
-      value: statsLoading ? M.DASH : count(statsItems?.total_variants),
-      icon: <IconStack2 size={19} />,
-      variant: "purple" as const,
-    },
-    {
-      id: "sourceable",
-      label: M.STATS.SOURCEABLE,
-      value: statsLoading ? M.DASH : count(statsItems?.sourceable_variants),
-      icon: <IconBolt size={19} />,
-      variant: "teal" as const,
-    },
-  ];
 
   /**
    * Flip the variant's express flag. The cascade is the reason this confirms:
@@ -270,6 +234,14 @@ export function ExpressItemsPage() {
           {r.isExpress ? C.EXPRESS_ON : C.EXPRESS_OFF}
         </Badge>
       ),
+      // Server-side, via `?is_express=` — the variant's own flag, not the
+      // parent's catalog type. "Product only" is the actionable view.
+      filter: {
+        value: express,
+        options: EXPRESS_OPTIONS,
+        onChange: (value) => setFilterParam("express", value),
+        allLabel: C.FILTERS.EXPRESS_ALL,
+      },
     },
     {
       id: "visibility",
@@ -319,6 +291,14 @@ export function ExpressItemsPage() {
           {r.adminSourceable ? C.YES : C.NO}
         </Badge>
       ),
+      // Filters on the **effective** value (product AND variant), matching what
+      // the cell renders — so "No" here means "either flag is off".
+      filter: {
+        value: sourceable,
+        options: SOURCEABLE_OPTIONS,
+        onChange: (value) => setFilterParam("sourceable", value),
+        allLabel: C.FILTERS.SOURCEABLE_ALL,
+      },
     },
     {
       id: "active",
@@ -328,6 +308,12 @@ export function ExpressItemsPage() {
           {r.isActive ? C.ACTIVE : C.INACTIVE}
         </Badge>
       ),
+      filter: {
+        value: active,
+        options: ACTIVE_OPTIONS,
+        onChange: (value) => setFilterParam("active", value),
+        allLabel: C.FILTERS.ACTIVE_ALL,
+      },
     },
     {
       id: "actions",
@@ -355,55 +341,6 @@ export function ExpressItemsPage() {
 
   return (
     <>
-      <PageHeader
-        title={M.TITLE}
-        actions={
-          <SearchFilters
-            searchValue={search}
-            onSearchChange={(val) => setFilterParam("search", val)}
-            searchPlaceholder={C.SEARCH_PLACEHOLDER}
-            searchDebounceMs={300}
-            searchLoading={isFetching}
-            filters={[
-              {
-                id: "sourceable",
-                value: sourceable,
-                placeholder: C.FILTERS.SOURCEABLE_ALL,
-                options: SOURCEABLE_OPTIONS,
-                width: "175px",
-                onValueChange: (val) => setFilterParam("sourceable", val),
-              },
-              {
-                id: "active",
-                value: active,
-                placeholder: C.FILTERS.ACTIVE_ALL,
-                options: ACTIVE_OPTIONS,
-                width: "150px",
-                onValueChange: (val) => setFilterParam("active", val),
-              },
-              {
-                id: "express",
-                value: express,
-                placeholder: C.FILTERS.EXPRESS_ALL,
-                options: EXPRESS_OPTIONS,
-                width: "180px",
-                onValueChange: (val) => setFilterParam("express", val),
-              },
-              {
-                id: "sort",
-                value: sort,
-                placeholder: C.SORT_PLACEHOLDER,
-                options: SORT_OPTIONS,
-                width: "190px",
-                onValueChange: (val) => setFilterParam("sort", val),
-              },
-            ]}
-          />
-        }
-      />
-
-      <StatsGrid items={statItems} className="cols-4" />
-
       <DataTable
         columns={columns}
         data={items}

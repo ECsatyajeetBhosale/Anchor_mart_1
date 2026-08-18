@@ -111,12 +111,23 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    // The order funnel and nothing else: three queues of work an admin actions.
+    // The order funnel and nothing else: four queues of work an admin actions.
     // Sailors and Delivery Partners used to sit here too, which mixed two jobs
     // — working a queue and looking someone up — under one heading. They live in
     // Account Management now.
+    //
+    // Ordered along the funnel rather than by traffic: Intents is where an order
+    // starts (pre-payment), Orders is where it continues (post-payment), and the
+    // two share that funnel. Express skips it entirely and Special Requests sits
+    // outside it, so both follow the pair they are the exception to.
     label: "Orders & Delivery",
     items: [
+      {
+        key: "intents",
+        label: "Intents",
+        icon: IconFileInvoice,
+        path: APP_ROUTES.INTENTS,
+      },
       {
         key: "orders",
         label: "Orders",
@@ -124,10 +135,19 @@ export const NAV_SECTIONS: NavSection[] = [
         path: APP_ROUTES.ORDERS,
       },
       {
-        key: "intents",
-        label: "Intents",
-        icon: IconFileInvoice,
-        path: APP_ROUTES.INTENTS,
+        /**
+         * Express orders, split out on 2026-08-17.
+         *
+         * The two entries above are the two halves of that funnel, both regular
+         * + marine;
+         * express is direct-pay and skips it, so it no longer appears on either.
+         * It sits here rather than under Catalog because this is an order queue
+         * — Catalog's "Express Products" is the catalog itself, a different job.
+         */
+        key: "express-orders",
+        label: "Express Orders",
+        icon: IconBolt,
+        path: APP_ROUTES.EXPRESS_ORDERS,
       },
       {
         key: "requests",
@@ -234,8 +254,14 @@ export const NAV_SECTIONS: NavSection[] = [
         path: APP_ROUTES.PRODUCTS,
       },
       {
+        /**
+         * Named for the unit it opens on. Catalog works in products, so the
+         * screen leads with `express/products/`; the SKU-level Items view is a
+         * tab inside it rather than a sibling entry, because it is the same
+         * catalog at a finer grain, not a second one.
+         */
         key: "express",
-        label: "Express Items",
+        label: "Express Products",
         icon: IconBolt,
         path: APP_ROUTES.EXPRESS,
       },

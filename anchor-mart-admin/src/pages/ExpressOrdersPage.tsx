@@ -1,2 +1,2 @@
 // Thin route-level wrapper — the implementation lives in the express feature.
-export { ExpressPage } from "@/features/express";
+export { ExpressOrdersPage } from "@/features/express";

@@ -10,6 +10,14 @@ export const APP_ROUTES = {
   SAILORS: "/sailors",
   ORDERS: "/orders",
   INTENTS: "/intents",
+  /**
+   * Express orders — their own screen since the 2026-08-17 order split.
+   *
+   * `/express` is the express **catalog**; this is the order queue. They are
+   * separate screens in separate sidebar sections because they answer different
+   * questions, and express orders reach no other list.
+   */
+  EXPRESS_ORDERS: "/express-orders",
   PRODUCTS: "/products",
   CATEGORIES: "/categories",
   EMERGENCY_CATEGORIES: "/emergency-categories",
