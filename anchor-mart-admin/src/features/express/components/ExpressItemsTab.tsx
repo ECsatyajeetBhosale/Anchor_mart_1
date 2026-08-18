@@ -1,16 +1,14 @@
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { TableActions } from "@/components/common/TableActions";
 import { Thumbnail } from "@/components/common/Thumbnail";
-import { idColumn, textColumn, truncatedColumn } from "@/components/common/tableColumns";
+import { textColumn, truncatedColumn } from "@/components/common/tableColumns";
 import { Badge } from "@/components/ui/badge";
 import { type Column, DataTable } from "@/components/ui/data-table";
-import { useSetVariantExpressMutation } from "@/features/variants";
-import { getApiMessage, getApiStatus } from "@/lib/apiError";
+import { SetVariantExpressDialog } from "@/features/variants";
+import { getApiStatus } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { IconBolt, IconBoltOff, IconPackage } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { toast } from "sonner";
 import { useGetExpressCatalogQuery } from "../api/expressApi";
 import type { ExpressItem } from "../types/expressItem.types";
 
@@ -132,9 +130,8 @@ export function ExpressItemsTab() {
     { refetchOnMountOrArgChange: true },
   );
 
-  // Flow 29a §6 — the variant-level express switch. Confirmed rather than
-  // toggled inline because it cascades to the parent product (see the dialog).
-  const [setExpress, { isLoading: isTogglingExpress }] = useSetVariantExpressMutation();
+  // Flow 29a §6 — the variant-level express switch. Opens a form, not a
+  // confirmation: the express price travels with the flag.
   const [expressTarget, setExpressTarget] = useState<ExpressItem | null>(null);
 
   const items = data?.items ?? [];
@@ -171,30 +168,6 @@ export function ExpressItemsTab() {
     setSearchParams(next, { replace: true });
   }, [isPageOutOfRange, page, searchParams, setSearchParams]);
 
-  /**
-   * Flip the variant's express flag. The cascade is the reason this confirms:
-   * turning it **on** moves the parent product into the express catalog if it
-   * isn't already there, and turning off the **last** express variant moves the
-   * product back out — to `marine_emergency` or `regular`, derived from its
-   * category. The response reports where the product landed, so the toast says
-   * so rather than leaving the admin to re-read the list.
-   */
-  const confirmExpressToggle = async () => {
-    if (!expressTarget) return;
-    const next = !expressTarget.isExpress;
-    try {
-      const res = await setExpress({ id: expressTarget.id, isExpress: next }).unwrap();
-      toast.success(
-        res.productCascaded
-          ? C.EXPRESS_TOGGLE.DONE(expressTarget.sku, next, res.productCatalogType ?? "")
-          : C.EXPRESS_TOGGLE.DONE_NO_MOVE(expressTarget.sku, next),
-      );
-      setExpressTarget(null);
-    } catch (err) {
-      toast.error(getApiMessage(err) ?? C.EXPRESS_TOGGLE.FAILED);
-    }
-  };
-
   const columns: Column<ExpressItem>[] = [
     {
       id: "name",
@@ -220,20 +193,53 @@ export function ExpressItemsTab() {
         </div>
       ),
     },
-    idColumn({ id: "sku", header: C.COLUMNS.SKU, get: (r) => r.sku }),
+    {
+      id: "sku",
+      header: C.COLUMNS.SKU,
+      // The primary is the SKU a product-level express-price edit writes to, so
+      // it is worth knowing which one you are looking at.
+      cell: (r) => (
+        <div className="flex flex-col gap-0.5">
+          <span className="mono text-[12px]">{r.sku}</span>
+          {r.isPrimary && (
+            <Badge variant="neutral" className="w-fit">
+              {C.PRIMARY}
+            </Badge>
+          )}
+        </div>
+      ),
+    },
     truncatedColumn({ id: "attributes", header: C.COLUMNS.ATTRIBUTES, get: (r) => r.attributes }),
     textColumn({ id: "price", header: C.COLUMNS.PRICE, get: (r) => r.price, className: "td-p" }),
     {
       id: "express",
       header: C.COLUMNS.EXPRESS,
-      cell: (r) => (
-        <Badge
-          variant={r.isExpress ? "success" : "neutral"}
-          title={r.isExpress ? undefined : C.EXPRESS_OFF_HINT}
-        >
-          {r.isExpress ? C.EXPRESS_ON : C.EXPRESS_OFF}
-        </Badge>
-      ),
+      /**
+       * Three states, not two — express became a second price list on
+       * 2026-08-18.
+       *
+       * **Ready** = flagged *and* priced: the only combination a sailor can buy,
+       * and the express price is what they are charged. **Pending** = flagged
+       * with no price, or on an express product and never flagged: on the shelf,
+       * refused by the express cart and again at the till. Collapsing the two
+       * into one "Express" badge would call an unsellable SKU sold.
+       */
+      cell: (r) => {
+        const isReady = r.isExpress && r.expressPrice !== null;
+        if (isReady) {
+          return (
+            <div className="flex flex-col gap-0.5">
+              <Badge variant="success">{C.EXPRESS_ON}</Badge>
+              <span className="td-m tabular-nums">{C.EXPRESS_PRICE(r.expressPrice ?? 0)}</span>
+            </div>
+          );
+        }
+        return (
+          <Badge variant="warning" title={C.EXPRESS_PENDING_HINT}>
+            {C.EXPRESS_PENDING}
+          </Badge>
+        );
+      },
       // Server-side, via `?is_express=` — the variant's own flag, not the
       // parent's catalog type. "Product only" is the actionable view.
       filter: {
@@ -356,21 +362,15 @@ export function ExpressItemsTab() {
         emptyMessage={C.EMPTY}
       />
 
-      {/* Flow 29a §6 — the cascade is spelled out because a variant-level
-          switch here can move the parent product between catalogs. */}
-      <ConfirmDialog
+      {/*
+        Flagging a SKU carries its price, so this is a form rather than a
+        confirmation — see the dialog. Un-flagging warns that it clears the
+        price and may take the product off the express shelf.
+      */}
+      <SetVariantExpressDialog
         isOpen={!!expressTarget}
         onClose={() => setExpressTarget(null)}
-        onConfirm={confirmExpressToggle}
-        title={expressTarget?.isExpress ? C.EXPRESS_TOGGLE.OFF_TITLE : C.EXPRESS_TOGGLE.ON_TITLE}
-        description={
-          expressTarget?.isExpress
-            ? C.EXPRESS_TOGGLE.OFF_DESCRIPTION(expressTarget?.sku ?? "")
-            : C.EXPRESS_TOGGLE.ON_DESCRIPTION(expressTarget?.sku ?? "")
-        }
-        confirmText={expressTarget?.isExpress ? C.EXPRESS_TOGGLE.OFF : C.EXPRESS_TOGGLE.ON}
-        loadingText={C.EXPRESS_TOGGLE.SAVING}
-        isLoading={isTogglingExpress}
+        variant={expressTarget}
       />
     </>
   );

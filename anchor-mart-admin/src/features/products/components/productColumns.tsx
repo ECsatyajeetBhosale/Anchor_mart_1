@@ -61,6 +61,15 @@ export interface UseProductColumnsOptions {
   /** `""` | `"true"` | `"false"` — the Sourceable header dropdown. */
   sourceableFilter?: string;
   onSourceableFilter?: (value: string) => void;
+  /**
+   * Show the product's express price beside its regular one.
+   *
+   * Express is a **second price list**, not a surcharge: `base_price` is the
+   * regular-flow figure and `express_base_price` is what the express shelf
+   * shows. Only the express catalog has both, so the column is opt-in — on
+   * Products and Spares it would be a column of dashes.
+   */
+  showExpressPrice?: boolean;
   onEdit: (e: React.MouseEvent, product: Product) => void;
   onDelete: (e: React.MouseEvent, id: string) => void;
   /**
@@ -105,6 +114,7 @@ export function useProductColumns({
   onTopRatedFilter,
   sourceableFilter = "",
   onSourceableFilter,
+  showExpressPrice = false,
   onEdit,
   onDelete,
   onManageVariants,
@@ -168,6 +178,32 @@ export function useProductColumns({
       header: MESSAGES.PRODUCTS.COLUMNS.PRICE,
       get: (row) => row.base_price,
     }),
+    ...(showExpressPrice
+      ? [
+          {
+            id: "expressPrice",
+            header: MESSAGES.PRODUCTS.COLUMNS.EXPRESS_PRICE,
+            className: "td-p",
+            /**
+             * The product-level express figure — the "from" price the express
+             * catalog shows. What a sailor is actually charged is the
+             * **variant's** `express_price`, which this one seeds on the primary
+             * SKU; per-SKU figures live on the Express Items tab.
+             *
+             * A dash means the product carries no express price at all, which on
+             * this screen is worth seeing: it is the express catalog.
+             */
+            cell: (row: Product) => {
+              const value = Number(row.express_base_price);
+              return row.express_base_price == null || !Number.isFinite(value) ? (
+                <span className="td-m">{DASH}</span>
+              ) : (
+                <span className="td-p tabular-nums">{`$${value.toFixed(2)}`}</span>
+              );
+            },
+          },
+        ]
+      : []),
     {
       id: "variants",
       header: MESSAGES.PRODUCTS.COLUMNS.VARIANTS,

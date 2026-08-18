@@ -176,6 +176,9 @@ export function ExpressProductsTab() {
     onTopRatedFilter: (value) => setFilterParam("top_rated", value),
     sourceableFilter,
     onSourceableFilter: (value) => setFilterParam("sourceable", value),
+    // This is the express catalog, so both prices are meaningful here — and a
+    // product with no express price is exactly what needs finding.
+    showExpressPrice: true,
     onEdit: (e, product) => {
       e.stopPropagation();
       setEditingProduct(product);

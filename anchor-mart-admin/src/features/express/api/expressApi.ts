@@ -109,6 +109,12 @@ function toExpressItem(raw: unknown, index: number): ExpressItem {
     // Defaults to false, unlike the two flags above: absent must not read as
     // "express" on the one column whose whole job is to flag the exceptions.
     isExpress: getProp(raw, "is_express") === true,
+    // Nullable on purpose: `null` is "pending", 0 would read as free.
+    expressPrice:
+      getProp(raw, "express_price") === null || getProp(raw, "express_price") === undefined
+        ? null
+        : Number(getProp(raw, "express_price")),
+    isPrimary: getProp(raw, "is_primary") === true,
     isActive: getProp(raw, "is_active") !== false,
     /**
      * Server-computed sailor visibility. Defaults to **true** when absent so a

@@ -71,6 +71,14 @@ export interface ExpressItem {
    * product but is not express-orderable on its own.
    */
   isExpress: boolean;
+  /**
+   * The SKU's express charge. `null` = **pending**: on an express product but
+   * not sellable as express — refused by the express cart and again at the till.
+   * `isExpress && expressPrice !== null` is the only Express-ready combination.
+   */
+  expressPrice: number | null;
+  /** The product's default SKU — what a product-level express-price edit writes to. */
+  isPrimary: boolean;
   isActive: boolean;
   /**
    * Whether a sailor can actually **see** this row in the express catalog.

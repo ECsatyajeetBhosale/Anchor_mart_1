@@ -1,4 +1,11 @@
-import { IconEdit, IconPhotoOff, IconPlus, IconStack2, IconTrash } from "@tabler/icons-react";
+import {
+  IconEdit,
+  IconPhotoOff,
+  IconPlus,
+  IconStack2,
+  IconStar,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -22,10 +29,11 @@ import { MESSAGES } from "@/lib/messages";
 import {
   useDeleteVariantMutation,
   useGetVariantsQuery,
-  useSetVariantExpressMutation,
   useSetVariantSourceableMutation,
+  useUpdateVariantMutation,
 } from "../api/variantApi";
 import type { ProductVariant } from "../types/variant.types";
+import { SetVariantExpressDialog } from "./SetVariantExpressDialog";
 import { VariantForm } from "./VariantForm";
 
 const M = MESSAGES.VARIANTS;
@@ -100,7 +108,7 @@ export function ProductVariantsDrawer({
   );
 
   const [deleteVariant, { isLoading: isDeleting }] = useDeleteVariantMutation();
-  const [setExpress] = useSetVariantExpressMutation();
+  const [updateVariant] = useUpdateVariantMutation();
   const [setSourceable] = useSetVariantSourceableMutation();
 
   const variants = data?.variants ?? [];
@@ -124,33 +132,26 @@ export function ProductVariantsDrawer({
   };
 
   /**
-   * The express flag is variant-level; the catalog it implies is product-level,
-   * and one call writes both.
+   * The express switch opens a dialog rather than writing inline.
    *
-   * Flagging a SKU express moves the whole product onto the express shelf;
-   * un-flagging the last one moves it off. This reported a flat "Variant
-   * updated" for both, so an operator toggling one SKU relocated the product
-   * with nothing on screen saying so. The response carries the resulting
-   * catalog and whether *this* call moved it, so the toast can name the
-   * consequence without tracking prior state or re-fetching.
+   * Express became a second price list on 2026-08-18: the flag alone leaves the
+   * SKU *pending* — on the shelf and refused by the express cart — so the price
+   * has to travel with it, and a switch has nowhere to put one. Un-flagging goes
+   * through the same dialog, which warns that it clears the price and may take
+   * the product off the express shelf.
    */
-  const toggleExpress = async (variant: ProductVariant, next: boolean) => {
+  const [expressTarget, setExpressTarget] = useState<ProductVariant | null>(null);
+
+  /**
+   * Promotes a SKU to the product's default. The incumbent is demoted in the
+   * same call — `is_primary: false` is refused, because a product must have one.
+   */
+  const promotePrimary = async (variant: ProductVariant) => {
     try {
-      const result = await setExpress({ id: variant.id, isExpress: next }).unwrap();
-      if (result.productCascaded) {
-        toast.success(
-          M.TOAST.EXPRESS_CASCADED(
-            productName,
-            catalogTypeLabel(result.productCatalogType ?? undefined) ??
-              result.productCatalogType ??
-              "",
-          ),
-        );
-      } else {
-        toast.success(result.message || M.TOAST.FLAG_UPDATED);
-      }
+      await updateVariant({ id: variant.id, body: { is_primary: true } }).unwrap();
+      toast.success(M.TOAST.PRIMARY_SET(variant.sku));
     } catch (err) {
-      toast.error(getApiMessage(err) ?? M.TOAST.FLAG_ERROR);
+      toast.error(getApiMessage(err) ?? M.TOAST.PRIMARY_ERROR);
     }
   };
 
@@ -211,7 +212,19 @@ export function ProductVariantsDrawer({
         <Thumbnail src={v.imageUrl} alt={v.sku} placeholder={<IconPhotoOff size={15} />} />
       ),
     },
-    { id: "sku", header: M.COLUMNS.SKU, className: "td-id", cell: (v) => v.sku },
+    {
+      id: "sku",
+      header: M.COLUMNS.SKU,
+      className: "td-id",
+      // The primary is what a product-level price edit writes to, so which SKU
+      // holds it is worth seeing without opening anything.
+      cell: (v) => (
+        <div className="flex aic g8">
+          <span>{v.sku}</span>
+          {v.isPrimary && <Badge variant="neutral">{M.EXPRESS.PRIMARY}</Badge>}
+        </div>
+      ),
+    },
     {
       id: "price",
       header: M.COLUMNS.PRICE,
@@ -227,9 +240,29 @@ export function ProductVariantsDrawer({
     {
       id: "express",
       header: M.COLUMNS.EXPRESS,
-      cell: (v) => (
-        <Switch checked={v.isExpress} onCheckedChange={(next) => toggleExpress(v, next)} />
-      ),
+      /**
+       * Three states. **Ready** = flagged and priced, the only one a sailor can
+       * buy. **Pending** = flagged with no price, or unflagged on an express
+       * product: visible here, refused at the cart and again at the till. A
+       * plain on/off switch would call the middle state sold.
+       */
+      cell: (v) => {
+        const isReady = v.isExpress && v.expressPrice !== null;
+        return (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => setExpressTarget(v)}
+            title={isReady ? M.EXPRESS.RETITLE : M.EXPRESS.SET_TITLE}
+          >
+            {isReady ? (
+              <span className="td-p tabular-nums">${v.expressPrice?.toFixed(2)}</span>
+            ) : (
+              <Badge variant="warning">{M.EXPRESS.PENDING}</Badge>
+            )}
+          </button>
+        );
+      },
     },
     {
       id: "sourceable",
@@ -311,6 +344,18 @@ export function ProductVariantsDrawer({
           <Button variant="ghost" size="xs" title={M.ACTIONS.EDIT} onClick={() => openEdit(v)}>
             <IconEdit size={15} />
           </Button>
+          {/* Demotes the incumbent in the same call; `false` is refused, so the
+              action is absent on the SKU that already holds it. */}
+          {!v.isPrimary && (
+            <Button
+              variant="ghost"
+              size="xs"
+              title={M.ACTIONS.MAKE_PRIMARY}
+              onClick={() => promotePrimary(v)}
+            >
+              <IconStar size={15} />
+            </Button>
+          )}
           <Button variant="ghost" size="xs" title={M.ACTIONS.DELETE} onClick={() => setToDelete(v)}>
             <IconTrash size={15} />
           </Button>
@@ -391,6 +436,9 @@ export function ProductVariantsDrawer({
                 <VariantForm
                   productId={productId}
                   variant={editing}
+                  // Taken off any row — the serializer sources it from the
+                  // parent, so every variant reports the same value.
+                  productCatalogType={productCatalogType}
                   onDone={() => {
                     setFormOpen(false);
                     setEditing(null);
@@ -405,6 +453,12 @@ export function ProductVariantsDrawer({
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      <SetVariantExpressDialog
+        isOpen={!!expressTarget}
+        onClose={() => setExpressTarget(null)}
+        variant={expressTarget}
+      />
 
       <ConfirmDialog
         isOpen={!!toDelete}

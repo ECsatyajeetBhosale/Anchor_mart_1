@@ -221,12 +221,36 @@ export const productsApi = baseApi.injectEndpoints({
      */
     setProductCatalogType: builder.mutation<
       SetCatalogTypeResult,
-      { id: string; catalogType: string; category?: string }
+      {
+        id: string;
+        catalogType: string;
+        category?: string;
+        /**
+         * **Required moving TO express**, and a 400 moving away. The
+         * product-level figure; it prices the **primary** variant and nothing
+         * else — one number cannot price a variant list.
+         */
+        expressPrice?: string;
+        /**
+         * Optional per-SKU prices, `{variant_id: "3200.00"}`. Anything not named
+         * here and not already Express-ready lands **pending**: on the shelf,
+         * refused by the cart. Deriving the others by ratio was rejected —
+         * express pricing is a commercial decision, not arithmetic.
+         */
+        expressPrices?: Record<string, string>;
+      }
     >({
-      query: ({ id, catalogType, category }) => ({
+      query: ({ id, catalogType, category, expressPrice, expressPrices }) => ({
         url: PRODUCT_ENDPOINTS.SET_CATALOG_TYPE(id),
         method: "POST",
-        body: { catalog_type: catalogType, ...(category ? { category } : {}) },
+        body: {
+          catalog_type: catalogType,
+          ...(category ? { category } : {}),
+          ...(expressPrice ? { express_price: expressPrice } : {}),
+          ...(expressPrices && Object.keys(expressPrices).length > 0
+            ? { express_prices: expressPrices }
+            : {}),
+        },
       }),
       // Catalog moves shift the per-catalog stat counts and the emergency lists.
       invalidatesTags: (_r, _e, { id }) => [

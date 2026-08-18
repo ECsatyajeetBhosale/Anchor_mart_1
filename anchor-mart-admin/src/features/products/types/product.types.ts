@@ -149,15 +149,43 @@ export type UpdateProductPayload = Partial<{
  *   the stranded state (`flagged: 0` on an express product) is named at the
  *   moment of the move rather than discovered later on the Express screen.
  */
+/** One SKU this call priced, or one still waiting for a price. */
+export interface ExpressVariantRow {
+  variant_id: string;
+  sku: string;
+  /** Present on `priced_by_this_call`. */
+  express_price?: string;
+  /**
+   * Present on `awaiting_express_price`. **Context for pricing the SKU — not a
+   * proposed express price**, and not a sign the SKU is sellable. Nothing in
+   * that list can be bought as express.
+   */
+  regular_price?: string;
+}
+
 export interface SetCatalogTypeResult {
   message?: string;
+  /**
+   * The outcome of the move, per SKU.
+   *
+   * `flagged` was replaced by `ready` / `pending_price` on 2026-08-18, when
+   * express became a second price list: a flag alone no longer means sellable.
+   * **Ready** = flagged *and* priced — the only SKUs a sailor can buy.
+   * **Pending** = on an express product with no express price: hidden from the
+   * shelf and refused by the express cart and the order.
+   */
   express_variants?: {
-    /** Live variants currently flagged express — `0` here is the stranded state. */
-    flagged: number;
     live_total: number;
+    /** Flagged AND priced. */
+    ready: number;
+    /** On the shelf but unbuyable until someone quotes them. */
+    pending_price: number;
     /** How many this call un-flagged; non-zero only when leaving express. */
     unflagged_by_this_call: number;
   };
+  priced_by_this_call?: ExpressVariantRow[];
+  awaiting_express_price?: ExpressVariantRow[];
+  data?: unknown;
 }
 
 /**

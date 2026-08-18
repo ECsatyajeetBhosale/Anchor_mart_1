@@ -1733,6 +1733,29 @@ export const MESSAGES = {
        * both scopes, so the existing category stays valid.
        */
       CATEGORY_HINT: "Each catalog keeps its own categories, so this move needs a new one.",
+      /**
+       * Leaving express: the product already holds a real-scope category, so the
+       * usual case carries over untouched and the picker is an override.
+       */
+      CATEGORY_LABEL_OPTIONAL: "Category (optional)",
+      CATEGORY_HINT_OPTIONAL:
+        "Leave blank to keep the product's current category. Pick one only if you want to move it.",
+      /** Express is a second price list, not a delivery option on the regular price. */
+      EXPRESS_PRICE_LABEL: "Express price *",
+      EXPRESS_PRICE_HINT:
+        "What the express shelf charges. This prices the product's primary SKU — the others are priced below.",
+      EXPRESS_PRICE_REQUIRED: "An express product needs an express price.",
+      EXPRESS_PRICE_PLACEHOLDER: "Express price",
+      EXPRESS_SKUS_LABEL: "SKU prices",
+      /** A ready SKU keeps its price unless this call names one. */
+      SKU_READY: (price: number) => `Express ${price} — leave blank to keep`,
+      EXPRESS_PRICE_KEEP: "Keep",
+      EXPRESS_SKUS_HINT:
+        "An unpriced SKU stays pending — on the express shelf, but refused by the express cart until someone quotes it. Already-priced SKUs keep their price unless you enter a new one.",
+      /** Context for quoting, never a suggestion — see the dialog. */
+      REGULAR_PRICE: (price: number) => `Regular ${price}`,
+      LEAVING_EXPRESS:
+        "Leaving express clears every SKU's express price and flag. Coming back means quoting them again.",
       CATEGORY_PLACEHOLDER: "Select a category",
       CATEGORY_REQUIRED: "Pick a category from the catalog you're moving to.",
       /**
@@ -1781,20 +1804,19 @@ export const MESSAGES = {
     TOAST: {
       CATALOG_UPDATED: "Catalog updated",
       /**
+       * Deliberately a warning, not a success: a pending SKU is on the express
+       * shelf and **refused** by the express cart and at the till, so the move
+       * left the product part-sellable rather than done.
+       */
+      CATALOG_UPDATED_PENDING: (ready: number, total: number, pending: number) =>
+        `Moved to Express. ${ready} of ${total} ${total === 1 ? "variant is" : "variants are"} Express-ready — ${pending} still ${pending === 1 ? "needs" : "need"} an express price before ${pending === 1 ? "it" : "they"} can be sold.`,
+      /**
        * Leaving express un-flags every live variant in the same transaction, so
        * one field change moved N rows. Reported because it is also what stops a
        * later move *back* onto the express shelf resurrecting stale flags.
        */
       CATALOG_UPDATED_UNFLAGGED: (n: number) =>
         `Catalog updated — express removed from ${n} variant${n === 1 ? "" : "s"}.`,
-      /**
-       * Entering express flags nothing: only a human knows which SKUs are
-       * genuinely express-deliverable. Landing on the shelf with none flagged is
-       * the stranded state — visible in the admin, invisible to sailors — so it
-       * is named here rather than found later.
-       */
-      CATALOG_UPDATED_NONE_FLAGGED: (liveTotal: number) =>
-        `Catalog updated, but no variants are flagged express — sailors cannot see this product yet. Flag at least one of its ${liveTotal} variant${liveTotal === 1 ? "" : "s"} to make it available.`,
       CATALOG_ERROR: "Failed to change the catalog",
       TOP_RATED_UPDATED: "Top-rated flag updated",
       TOP_RATED_ERROR: "Failed to update the top-rated flag",
@@ -1812,6 +1834,38 @@ export const MESSAGES = {
   },
   // Product variants — the sellable SKUs beneath a product.
   VARIANTS: {
+    /**
+     * `set-express/` — the only path that makes a SKU sellable as express.
+     * Express is a second price list, so the price travels with the flag.
+     */
+    /** Shared by the variants drawer's express column. */
+    EXPRESS: {
+      PENDING: "Pending price",
+      SET_TITLE: "Set an express price",
+      RETITLE: "Change the express price",
+      PRIMARY: "Primary",
+    },
+    EXPRESS_DIALOG: {
+      ON_TITLE: "Sell this SKU as express?",
+      ON_DESCRIPTION: (sku: string) => `${sku} will be sellable on the express shelf.`,
+      OFF_TITLE: "Take this SKU off express?",
+      OFF_DESCRIPTION: (sku: string) => `${sku} will no longer be sold as express.`,
+      OFF_WARNING:
+        "This clears the SKU's express price — putting it back means quoting it again. If it is the product's last express SKU, the product leaves the express shelf too.",
+      PRICE_LABEL: "Express price *",
+      PRICE_HINT: "What the express shelf charges for this SKU. Separate from its regular price.",
+      PRICE_REQUIRED: "An express SKU needs an express price.",
+      ON_CONFIRM: "Make express",
+      OFF_CONFIRM: "Remove from express",
+      CANCEL: "Cancel",
+      DONE: (sku: string, on: boolean) =>
+        on ? `${sku} is now sellable as express.` : `${sku} is no longer sold as express.`,
+      DONE_CASCADED: (sku: string, on: boolean, catalog: string) =>
+        on
+          ? `${sku} is now express — its product joined the express shelf.`
+          : `${sku} is no longer express — its product moved to the ${catalog} catalog.`,
+      FAILED: "Could not change the express setting. Please try again.",
+    },
     TITLE: "Variants",
     SUBTITLE: (product: string) => `SKUs under ${product}`,
     ADD: "Add Variant",
@@ -1842,7 +1896,7 @@ export const MESSAGES = {
     ACTIONS: {
       EDIT: "Edit variant",
       DELETE: "Delete variant",
-      TOGGLE_EXPRESS: "Toggle express",
+      MAKE_PRIMARY: "Make this the primary SKU",
       TOGGLE_SOURCEABLE: "Toggle sourceable",
     },
     FORM: {
@@ -1857,6 +1911,11 @@ export const MESSAGES = {
        * the specific reason arrives field-keyed on the input.
        */
       SKU_HINT: "Unique across all variants, including deleted ones.",
+      /** Express is a second price list, not a surcharge on `price`. */
+      EXPRESS_PRICE: "Express price",
+      EXPRESS_PRICE_HINT_ADD:
+        "What the express shelf charges. Leave blank to file this SKU as pending — not sellable as express until priced.",
+      EXPRESS_PRICE_HINT_EDIT: "What the express shelf charges for this SKU.",
       PRICE: "Price",
       PRICE_PLACEHOLDER: "0.00",
       ATTRIBUTES: "Attributes (JSON)",
@@ -1877,7 +1936,12 @@ export const MESSAGES = {
     },
     TOAST: {
       CREATED: (sku: string) => `Variant ${sku} created`,
+      /** Created without an express price on an express product — see the form. */
+      CREATED_PENDING: (sku: string) =>
+        `${sku} created — pending an express price, so it is not yet sellable as express.`,
       CREATE_ERROR: "Failed to create the variant",
+      PRIMARY_SET: (sku: string) => `${sku} is now this product's primary SKU.`,
+      PRIMARY_ERROR: "Could not change the primary SKU",
       UPDATED: (sku: string) => `Variant ${sku} updated`,
       UPDATE_ERROR: "Failed to update the variant",
       DELETED: (sku: string) => `Variant ${sku} deleted`,
@@ -1889,15 +1953,6 @@ export const MESSAGES = {
       // it was off (Flow 29a §5, up-cascade). Say so — the admin changed one
       // SKU and a second, product-level flag moved with it.
       SOURCEABLE_CASCADED: "Variant is now sourceable — the product was switched on with it.",
-      /**
-       * `set-express/` writes the variant flag **and** the product's catalog:
-       * flagging one SKU express moves the product onto the express shelf,
-       * un-flagging the last one moves it off. The destination is decided
-       * server-side from the product's category scope, so it is reported rather
-       * than guessed.
-       */
-      EXPRESS_CASCADED: (product: string, catalog: string) =>
-        `Variant updated — “${product}” moved to the ${catalog} catalog.`,
       /** Deleting the last express variant demotes the product the same way. */
       DELETED_CASCADED: (sku: string, product: string, catalog: string) =>
         `Variant ${sku} deleted — “${product}” moved to the ${catalog} catalog.`,
@@ -1977,6 +2032,8 @@ export const MESSAGES = {
       CATEGORY: "Category",
       CATALOG: "Catalog",
       PRICE: "Price",
+      /** The express shelf's own figure — a second price list, not a surcharge. */
+      EXPRESS_PRICE: "Express Price",
       VARIANTS: "Variants",
       PURCHASES: "Purchases",
       DEAL: "Deal",
@@ -2673,6 +2730,13 @@ export const MESSAGES = {
         product_inactive: "Product is inactive",
         product_internal: "Internal product — never shown to sailors",
         not_flagged_express: "Not flagged express",
+        /**
+         * Distinct from the line above on purpose: different cause, different
+         * fix. Not flagged = nobody marked the SKU; no price = someone did, but
+         * never quoted it. Both are fixed with `set-express/`, but only one is a
+         * half-finished job.
+         */
+        no_express_price: "No express price yet",
       } as Record<string, string>,
       VISIBLE: "Visible",
       NOT_VISIBLE: "Not visible",
@@ -2766,8 +2830,15 @@ export const MESSAGES = {
        * product's catalog type, so a row can sit in the express catalog without
        * being express-orderable itself — this column is what makes that visible.
        */
-      EXPRESS_ON: "Express",
+      EXPRESS_ON: "Express-ready",
       EXPRESS_OFF: "Product only",
+      /** Flagged but unpriced, or never flagged — either way, unsellable. */
+      EXPRESS_PENDING: "Pending price",
+      EXPRESS_PENDING_HINT:
+        "On the express shelf but not sellable: the express cart refuses it until it has an express price.",
+      EXPRESS_PRICE: (price: number) => `Express ${price}`,
+      /** The product's default SKU — the target of a product-level price edit. */
+      PRIMARY: "Primary",
       EXPRESS_OFF_HINT:
         "In an express product, but this variant is not flagged for express ordering.",
     },

@@ -63,6 +63,16 @@ function toVariant(raw: unknown, index: number): ProductVariant {
     productName: pick(raw, "product_name") || pick(product, "name") || "-",
     sku: pick(raw, "sku") || "-",
     price: Number(getProp(raw, "price") ?? 0),
+    /**
+     * Kept nullable rather than coerced to 0: `null` means "not sold as
+     * express", and 0 would read as free. The floor is 0.01, so the two can
+     * never be confused downstream.
+     */
+    expressPrice:
+      getProp(raw, "express_price") === null || getProp(raw, "express_price") === undefined
+        ? null
+        : Number(getProp(raw, "express_price")),
+    isPrimary: getProp(raw, "is_primary") === true,
     attributes:
       attrs && typeof attrs === "object" && !Array.isArray(attrs)
         ? (attrs as Record<string, unknown>)
@@ -224,14 +234,27 @@ export const variantApi = baseApi.injectEndpoints({
      * sourceable mutation below always got this right, which is what made the
      * omission findable.
      */
+    /**
+     * The **only** way to make a SKU sellable as express — the price travels
+     * with the flag.
+     *
+     * Flagging on needs an `expressPrice` unless the SKU already carries one
+     * (re-send it to change the price). Un-flagging **clears** the price, so a
+     * price must not be sent with `false` — that is its own 400 — and
+     * re-enabling later means quoting it again.
+     */
     setVariantExpress: builder.mutation<
       SetVariantExpressResult,
-      { id: string; isExpress: boolean }
+      { id: string; isExpress: boolean; expressPrice?: string }
     >({
-      query: ({ id, isExpress }) => ({
+      query: ({ id, isExpress, expressPrice }) => ({
         url: VARIANT_ENDPOINTS.SET_EXPRESS(id),
         method: "POST",
-        body: { is_express: isExpress },
+        body: {
+          is_express: isExpress,
+          // Only ever alongside `true`; with `false` it is a 400.
+          ...(isExpress && expressPrice ? { express_price: expressPrice } : {}),
+        },
       }),
       transformResponse: (res: unknown, _meta, { isExpress }): SetVariantExpressResult => ({
         message: pick(res, "message"),
@@ -241,8 +264,17 @@ export const variantApi = baseApi.injectEndpoints({
           typeof getProp(res, "is_express") === "boolean"
             ? (getProp(res, "is_express") as boolean)
             : isExpress,
+        expressPrice:
+          getProp(res, "express_price") === null || getProp(res, "express_price") === undefined
+            ? null
+            : Number(getProp(res, "express_price")),
         // Null rather than "" when absent — "the API didn't say" is not a catalog.
         productCatalogType: pick(res, "product_catalog_type") || null,
+        productExpressBasePrice:
+          getProp(res, "product_express_base_price") === null ||
+          getProp(res, "product_express_base_price") === undefined
+            ? null
+            : Number(getProp(res, "product_express_base_price")),
         productCascaded: getProp(res, "product_cascaded") === true,
       }),
       invalidatesTags: (_r, _e, { id }) => [

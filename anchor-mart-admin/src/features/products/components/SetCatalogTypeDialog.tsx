@@ -12,8 +12,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { useGetCategoriesByCatalogTypeQuery } from "@/features/catalog";
-import { getApiMessage } from "@/lib/apiError";
+import { useGetVariantsQuery } from "@/features/variants";
+import { getApiMessage, getFieldErrors } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { useSetProductCatalogTypeMutation } from "../api/productApi";
 import type { Product } from "../types/product.types";
@@ -58,6 +60,11 @@ export function SetCatalogTypeDialog({ product, isOpen, onClose }: SetCatalogTyp
   const [catalogType, setCatalogType] = useState<string>("regular");
   const [category, setCategory] = useState<string>("");
   const [categoryError, setCategoryError] = useState<string>("");
+  /** The product-level express figure — required moving TO express. */
+  const [expressPrice, setExpressPrice] = useState<string>("");
+  const [expressPriceError, setExpressPriceError] = useState<string>("");
+  /** Per-SKU express prices, keyed by variant id. Blank = leave it pending. */
+  const [variantPrices, setVariantPrices] = useState<Record<string, string>>({});
 
   const [setCatalog, { isLoading }] = useSetProductCatalogTypeMutation();
 
@@ -78,7 +85,49 @@ export function SetCatalogTypeDialog({ product, isOpen, onClose }: SetCatalogTyp
    */
   const categoryScope = CATEGORY_SCOPE_FOR_TARGET[catalogType];
   const isSameCatalog = catalogType === product?.catalog_type;
-  const needsCategory = !!categoryScope && !isSameCatalog;
+
+  const movingToExpress = catalogType === "express" && product?.catalog_type !== "express";
+  const leavingExpress = product?.catalog_type === "express" && catalogType !== "express";
+
+  /**
+   * The picker is offered whenever the destination has its own category set —
+   * but it is only **required** when the category demonstrably cannot carry
+   * over.
+   *
+   * Leaving express is the case that is not: express is an overlay, so the
+   * product already holds a category from one of the two real scopes, and in the
+   * usual case (a general category returning to regular) it stays valid. Forcing
+   * a re-pick there made a no-op field mandatory.
+   *
+   * It is offered rather than hidden because the exception exists: a product put
+   * on the express shelf while holding a *marine* category cannot return to
+   * regular with it. That case is a 400 on `category`, pinned to this field —
+   * the server knows the current category's scope and the dialog does not, so
+   * this is one to let the API decide rather than guess at.
+   */
+  const showCategory = !!categoryScope && !isSameCatalog;
+  const requiresCategory = showCategory && !leavingExpress;
+
+  /**
+   * Every live SKU, so the move can price them in one pass.
+   *
+   * The product-level figure only reaches the **primary** variant; anything else
+   * left unpriced lands *pending* — on the express shelf and refused by the
+   * express cart and the order. So the dialog asks for the whole list rather
+   * than leaving an operator to discover the gap on another screen.
+   *
+   * **Every live SKU is listed, ready ones included** (confirmed 2026-08-18):
+   * `express_prices` re-prices whatever it names. The precedence is
+   * *named here* → *else a ready SKU is left untouched* → *else the primary
+   * takes the product-level figure* → *else pending*. So "untouched" describes
+   * only the SKUs nobody names, which makes a blank row meaningful rather than
+   * a gap in the form.
+   */
+  const { data: variantData } = useGetVariantsQuery(
+    { productId: product?.id ?? "", limit: 50 },
+    { skip: !isOpen || !product?.id || catalogType !== "express" },
+  );
+  const variants = variantData?.variants ?? [];
 
   /**
    * Whether the move takes the product off the screen it is being moved from.
@@ -96,7 +145,7 @@ export function SetCatalogTypeDialog({ product, isOpen, onClose }: SetCatalogTyp
   // the move would reject.
   const { data: categories = [] } = useGetCategoriesByCatalogTypeQuery(
     { catalogType: categoryScope ?? "" },
-    { skip: !isOpen || !needsCategory },
+    { skip: !isOpen || !showCategory },
   );
 
   useEffect(() => {
@@ -104,12 +153,24 @@ export function SetCatalogTypeDialog({ product, isOpen, onClose }: SetCatalogTyp
     setCatalogType(product?.catalog_type || "regular");
     setCategory("");
     setCategoryError("");
+    setExpressPrice("");
+    setExpressPriceError("");
+    setVariantPrices({});
   }, [isOpen, product]);
 
   const handleConfirm = async () => {
     if (!product) return;
-    if (needsCategory && !category) {
+    if (requiresCategory && !category) {
       setCategoryError(M.CATEGORY_REQUIRED);
+      return;
+    }
+    /**
+     * Required only when the product is *arriving* on the express shelf.
+     * Re-saving one that is already express may omit it and keeps every per-SKU
+     * price as it is; sending one while leaving express is a 400.
+     */
+    if (movingToExpress && !(Number(expressPrice) > 0)) {
+      setExpressPriceError(M.EXPRESS_PRICE_REQUIRED);
       return;
     }
     try {
@@ -118,7 +179,14 @@ export function SetCatalogTypeDialog({ product, isOpen, onClose }: SetCatalogTyp
         catalogType,
         // Sent whenever the target's scope differs from where the product sits;
         // omitted for express, which is valid alongside either scope.
-        category: needsCategory ? category : undefined,
+        // Omitted when left blank — the product keeps the category it has.
+        category: showCategory && category ? category : undefined,
+        expressPrice: movingToExpress ? expressPrice : undefined,
+        // Only the SKUs actually quoted. A blank row is a deliberate "leave it
+        // pending", not a zero.
+        expressPrices: Object.fromEntries(
+          Object.entries(variantPrices).filter(([, value]) => Number(value) > 0),
+        ),
       }).unwrap();
 
       /**
@@ -139,13 +207,25 @@ export function SetCatalogTypeDialog({ product, isOpen, onClose }: SetCatalogTyp
       const ev = res?.express_variants;
       if (ev && ev.unflagged_by_this_call > 0) {
         toast.success(T.CATALOG_UPDATED_UNFLAGGED(ev.unflagged_by_this_call));
-      } else if (ev && catalogType === "express" && ev.flagged === 0) {
-        toast.warning(T.CATALOG_UPDATED_NONE_FLAGGED(ev.live_total));
+      } else if (ev && catalogType === "express" && ev.pending_price > 0) {
+        // Not a success: those SKUs are on the shelf and cannot be bought.
+        toast.warning(T.CATALOG_UPDATED_PENDING(ev.ready, ev.live_total, ev.pending_price));
       } else {
         toast.success(getApiMessage(res) ?? T.CATALOG_UPDATED);
       }
       onClose();
     } catch (err) {
+      /**
+       * The one case the dialog cannot predict: an express product holding a
+       * marine category cannot return to regular with it. The server knows the
+       * current category's scope, so its sentence goes on the field the operator
+       * has to act in rather than into a toast that names no input.
+       */
+      const fieldErrors = getFieldErrors(err);
+      if (fieldErrors.category) {
+        setCategoryError(fieldErrors.category);
+        return;
+      }
       toast.error(getApiMessage(err) ?? T.CATALOG_ERROR);
     }
   };
@@ -184,8 +264,92 @@ export function SetCatalogTypeDialog({ product, isOpen, onClose }: SetCatalogTyp
             />
           </FormField>
 
-          {needsCategory && (
-            <FormField label={M.CATEGORY_LABEL} hint={M.CATEGORY_HINT} error={categoryError}>
+          {/*
+            Required on arrival at the express shelf. It reaches the **primary**
+            variant only — the per-SKU list below is what keeps the rest
+            sellable.
+          */}
+          {movingToExpress && (
+            <FormField
+              label={M.EXPRESS_PRICE_LABEL}
+              hint={M.EXPRESS_PRICE_HINT}
+              error={expressPriceError}
+            >
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                placeholder="0.00"
+                value={expressPrice}
+                error={!!expressPriceError}
+                onChange={(e) => {
+                  setExpressPrice(e.target.value);
+                  setExpressPriceError("");
+                }}
+              />
+            </FormField>
+          )}
+
+          {/*
+            Every other SKU, priced in the same call.
+
+            A blank row is a deliberate "leave it pending", not a zero — but
+            pending now means the SKU is refused by the express cart and at the
+            till, so the consequence is stated rather than left to be found.
+
+            `regular_price` is shown as **context for quoting**, never seeded
+            into the input: one product's SKUs can be a 20 L drum and a 208 L
+            barrel, and copying one figure across sells the barrel at the drum's
+            price.
+          */}
+          {catalogType === "express" && variants.length > 0 && (
+            <div className="mt-3">
+              <div className="sec-label">{M.EXPRESS_SKUS_LABEL}</div>
+              <p className="fg-hint mb-2">{M.EXPRESS_SKUS_HINT}</p>
+              <div className="flex flex-col gap-2">
+                {variants.map((v) => {
+                  // Ready = flagged AND priced. Naming one here re-prices it;
+                  // leaving it blank leaves it alone, per the precedence rule.
+                  const isReady = v.isExpress && v.expressPrice !== null;
+                  return (
+                    <div key={v.id} className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="mono text-[12px] trunc">{v.sku}</div>
+                        <div className="fg-hint">
+                          {isReady ? M.SKU_READY(v.expressPrice ?? 0) : M.REGULAR_PRICE(v.price)}
+                        </div>
+                      </div>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        placeholder={isReady ? M.EXPRESS_PRICE_KEEP : M.EXPRESS_PRICE_PLACEHOLDER}
+                        className="w-32"
+                        value={variantPrices[v.id] ?? ""}
+                        onChange={(e) =>
+                          setVariantPrices((prev) => ({ ...prev, [v.id]: e.target.value }))
+                        }
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Irreversible in one direction: leaving clears every express price. */}
+          {leavingExpress && (
+            <p className="fg-hint mt-3" style={{ color: "var(--amber-700)" }}>
+              {M.LEAVING_EXPRESS}
+            </p>
+          )}
+
+          {showCategory && (
+            <FormField
+              label={requiresCategory ? M.CATEGORY_LABEL : M.CATEGORY_LABEL_OPTIONAL}
+              hint={requiresCategory ? M.CATEGORY_HINT : M.CATEGORY_HINT_OPTIONAL}
+              error={categoryError}
+            >
               <DropdownSelect
                 value={category}
                 onValueChange={(val) => {

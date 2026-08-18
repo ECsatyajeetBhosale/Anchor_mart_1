@@ -29,6 +29,27 @@ export interface ProductVariant {
   isActive: boolean;
   /** Variant-level express flag (`set-express`). */
   isExpress: boolean;
+  /**
+   * **The authoritative express charge for this SKU** — what the express cart
+   * shows and the express order bills. `null` when the SKU is not sold as
+   * express.
+   *
+   * Express is a second price list, not a delivery option on `price`: a SKU on
+   * an express product with no express price is **pending** — hidden from the
+   * express shelf and refused by the express cart *and* again at the till. So
+   * `isExpress && expressPrice` is the only combination a sailor can buy, and
+   * the flag alone means nothing.
+   */
+  expressPrice: number | null;
+  /**
+   * The product's **default SKU** — the one a product-level price edit writes
+   * to. Exactly one live variant per product carries it.
+   *
+   * Set automatically on a product's first variant, moved with
+   * `update-product-variant/ {is_primary: true}` (which demotes the incumbent in
+   * the same call), and re-pointed by the backend when the primary is deleted.
+   */
+  isPrimary: boolean;
   /** Variant-level sourceability — only half of the effective rule. */
   adminSourceable: boolean;
   /**
@@ -116,6 +137,16 @@ export interface AddVariantPayload {
   price: number;
   attributes: Record<string, unknown>;
   images: string[];
+  /**
+   * **Express parents only, and its presence is the decision**: with it the SKU
+   * is created Express-ready (`is_express` derived from the price, never sent);
+   * without it the SKU is created **pending** — on the shelf and refused by the
+   * express cart until someone quotes it.
+   *
+   * Sending it under a regular or marine parent is a 400: an express price with
+   * no shelf to belong to.
+   */
+  express_price?: number;
 }
 
 /**
@@ -142,6 +173,18 @@ export type UpdateVariantPayload = Partial<{
   admin_sourceable: boolean;
   about_product: string;
   is_active: boolean;
+  /**
+   * Re-prices an **already-flagged** SKU. A 400 on an unflagged one, pointing at
+   * `set-express/` — so this is the re-pricing path, never the enabling one.
+   * Audited like `price`.
+   */
+  express_price: number;
+  /**
+   * Promotes this SKU to the product's default, demoting the incumbent in the
+   * same call. **`false` is refused** — a product must have a primary, so the
+   * way to clear one is to promote another.
+   */
+  is_primary: boolean;
 }>;
 
 /**
@@ -159,8 +202,18 @@ export interface SetVariantExpressResult {
   message: string;
   /** The variant's resulting flag — what was just set. */
   isExpress: boolean;
+  /** The SKU's resulting express price. `null` after un-flagging, which clears it. */
+  expressPrice: number | null;
   /** The **product's** catalog after the write. Null when the response omits it. */
   productCatalogType: string | null;
+  /**
+   * The product's express "from" figure after the write.
+   *
+   * The up-cascade fills it from this SKU's price when the product has none, so
+   * a product can never end up express-but-unpriced. Cleared when the last
+   * Express-ready SKU is un-flagged.
+   */
+  productExpressBasePrice: number | null;
   /** True only when *this* call moved the product between catalogs. */
   productCascaded: boolean;
 }

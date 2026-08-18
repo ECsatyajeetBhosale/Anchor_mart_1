@@ -24,6 +24,12 @@ export interface VariantFormProps {
   productId: string;
   /** The variant being edited, or null to create a new one. */
   variant: ProductVariant | null;
+  /**
+   * The parent product's catalog. Express parents get an express price field —
+   * on create it decides whether the SKU is born Express-ready or pending, and
+   * on edit it re-prices an already-flagged one.
+   */
+  productCatalogType?: string;
   /** Called after a successful save, and when the user cancels. */
   onDone: () => void;
 }
@@ -31,6 +37,7 @@ export interface VariantFormProps {
 interface FieldErrors {
   sku?: string;
   price?: string;
+  expressPrice?: string;
   attributes?: string;
 }
 
@@ -47,11 +54,20 @@ interface FieldErrors {
  * edited as raw JSON and validated before submit — a typed form would have to
  * invent fields the API does not define.
  */
-export function VariantForm({ productId, variant, onDone }: VariantFormProps) {
+export function VariantForm({ productId, variant, productCatalogType, onDone }: VariantFormProps) {
   const isEdit = Boolean(variant);
+  const isExpressParent = productCatalogType === "express";
+  /**
+   * On edit this field re-prices an **already-flagged** SKU — a price sent for
+   * an unflagged one is a 400 pointing at `set-express/`, which is the only way
+   * to enable express. So a pending SKU gets no field here; it gets the express
+   * toggle instead.
+   */
+  const canPriceExpress = isExpressParent && (!isEdit || variant?.isExpress === true);
 
   const [sku, setSku] = useState("");
   const [price, setPrice] = useState("");
+  const [expressPrice, setExpressPrice] = useState("");
   const [attributesText, setAttributesText] = useState("{}");
   const [images, setImages] = useState<string[]>([]);
   const [isActive, setIsActive] = useState(true);
@@ -66,6 +82,7 @@ export function VariantForm({ productId, variant, onDone }: VariantFormProps) {
   useEffect(() => {
     setSku(variant?.sku && variant.sku !== "-" ? variant.sku : "");
     setPrice(variant ? String(variant.price) : "");
+    setExpressPrice(variant?.expressPrice != null ? String(variant.expressPrice) : "");
     setAttributesText(JSON.stringify(variant?.attributes ?? {}, null, 2));
     setImages(variant?.images ?? []);
     setIsActive(variant?.isActive ?? true);
@@ -143,6 +160,16 @@ export function VariantForm({ productId, variant, onDone }: VariantFormProps) {
           body.images = cleanImages;
         }
         if (isActive !== variant.isActive) body.is_active = isActive;
+        /**
+         * Audited like `price`, so only sent when it actually moved — an
+         * unchanged re-send would write a phantom price-change row.
+         */
+        if (canPriceExpress) {
+          const nextExpress = Number(expressPrice);
+          if (expressPrice.trim() !== "" && nextExpress !== variant.expressPrice) {
+            body.express_price = nextExpress;
+          }
+        }
 
         if (Object.keys(body).length === 0) {
           toast.info(M.TOAST.NO_CHANGES);
@@ -159,8 +186,17 @@ export function VariantForm({ productId, variant, onDone }: VariantFormProps) {
           price: Number(price),
           attributes: result.attributes,
           images: cleanImages,
+          // Its presence is the decision: with it the SKU is born Express-ready,
+          // without it, pending. Never sent under a non-express parent (400).
+          ...(canPriceExpress && expressPrice.trim() !== ""
+            ? { express_price: Number(expressPrice) }
+            : {}),
         }).unwrap();
-        toast.success(M.TOAST.CREATED(sku.trim()));
+        toast.success(
+          canPriceExpress && expressPrice.trim() === ""
+            ? M.TOAST.CREATED_PENDING(sku.trim())
+            : M.TOAST.CREATED(sku.trim()),
+        );
       }
       onDone();
     } catch (err) {
@@ -218,6 +254,33 @@ export function VariantForm({ productId, variant, onDone }: VariantFormProps) {
             />
           </FormField>
         </div>
+
+        {/*
+          Express is a second price list, so this is a separate charge — not a
+          surcharge on the regular price above.
+
+          On create, leaving it blank is a deliberate choice: the SKU is filed
+          **pending**, on the shelf but refused by the express cart until someone
+          quotes it. On edit it only appears for a SKU already flagged express;
+          enabling express is `set-express/`, which takes the price with it.
+        */}
+        {canPriceExpress && (
+          <FormField
+            label={F.EXPRESS_PRICE}
+            hint={isEdit ? F.EXPRESS_PRICE_HINT_EDIT : F.EXPRESS_PRICE_HINT_ADD}
+            error={errors.expressPrice}
+          >
+            <Input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={expressPrice}
+              placeholder={F.PRICE_PLACEHOLDER}
+              error={!!errors.expressPrice}
+              onChange={(e) => setExpressPrice(e.target.value)}
+            />
+          </FormField>
+        )}
 
         <FormField label={F.ATTRIBUTES} hint={F.ATTRIBUTES_HINT} error={errors.attributes}>
           <Textarea
