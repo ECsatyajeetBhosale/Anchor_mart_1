@@ -1,5 +1,5 @@
-import * as React from "react";
 import { cn } from "@/lib/utils";
+import * as React from "react";
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "secondary" | "teal" | "danger" | "ghost" | "link";
@@ -8,14 +8,21 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = "primary", size = "default", loading, children, disabled, ...props }, ref) => {
+  (
+    { className, variant = "primary", size = "default", loading, children, disabled, ...props },
+    ref,
+  ) => {
     // Mapping button variant classes from design system CSS
     const variantClasses = {
-      primary: "bg-[var(--navy-900)] text-white hover:bg-[var(--navy-800)] hover:-translate-y-px hover:shadow-[var(--shadow-md)] active:translate-y-0 active:shadow-none",
-      secondary: "bg-[var(--surface)] border border-[var(--border-md)] text-[var(--t2)] hover:bg-[var(--surface-alt)] hover:border-[var(--border-lg)] hover:text-[var(--t1)]",
+      primary:
+        "bg-[var(--navy-900)] text-white hover:bg-[var(--navy-800)] hover:-translate-y-px hover:shadow-[var(--shadow-md)] active:translate-y-0 active:shadow-none",
+      secondary:
+        "bg-[var(--surface)] border border-[var(--border-md)] text-[var(--t2)] hover:bg-[var(--surface-alt)] hover:border-[var(--border-lg)] hover:text-[var(--t1)]",
       teal: "bg-[var(--teal-600)] text-white hover:bg-[var(--teal-500)] hover:-translate-y-px hover:shadow-[var(--shadow-md)] active:translate-y-0 active:shadow-none",
-      danger: "bg-[var(--danger-bg)] border border-[var(--danger-border)] text-[var(--danger-text)] hover:bg-[#fee2e2] hover:border-[var(--danger-icon)]",
-      ghost: "bg-transparent text-[var(--t2)] hover:bg-[var(--surface-hover)] hover:text-[var(--t1)]",
+      danger:
+        "bg-[var(--danger-bg)] border border-[var(--danger-border)] text-[var(--danger-text)] hover:bg-[#fee2e2] hover:border-[var(--danger-icon)]",
+      ghost:
+        "bg-transparent text-[var(--t2)] hover:bg-[var(--surface-hover)] hover:text-[var(--t1)]",
       link: "bg-transparent text-[var(--teal-600)] underline-offset-4 hover:underline",
     };
 
@@ -35,7 +42,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           variantClasses[variant],
           sizeClasses[size],
           loading && "relative text-transparent hover:text-transparent",
-          className
+          className,
         )}
         {...props}
       >
@@ -67,7 +74,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {children}
       </button>
     );
-  }
+  },
 );
 
 Button.displayName = "Button";

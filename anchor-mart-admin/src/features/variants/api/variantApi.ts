@@ -10,6 +10,7 @@ import type {
   SetVariantExpressResult,
   SetVariantSourceableResult,
   UpdateVariantPayload,
+  UpdateVariantResult,
   VariantListResult,
 } from "../types/variant.types";
 
@@ -169,12 +170,34 @@ export const variantApi = baseApi.injectEndpoints({
       ],
     }),
 
-    updateVariant: builder.mutation<unknown, { id: string; body: UpdateVariantPayload }>({
+    updateVariant: builder.mutation<
+      UpdateVariantResult,
+      { id: string; body: UpdateVariantPayload }
+    >({
       query: ({ id, body }) => ({
         url: VARIANT_ENDPOINTS.UPDATE_VARIANT(id),
         method: "PATCH",
         body,
       }),
+      /**
+       * Read for its `cascades` block: this endpoint can move a *second* object
+       * (deactivating the last express-ready SKU demotes its product), and until
+       * 2026-08-18 the response was the variant alone, so that went unreported.
+       */
+      transformResponse: (res: unknown): UpdateVariantResult => {
+        const c = getProp(res, "cascades");
+        return {
+          cascades: {
+            productId: pick(c, "product_id") || null,
+            productCatalogType: pick(c, "product_catalog_type") || null,
+            productCascaded: getProp(c, "product_cascaded") === true,
+            sourceProductId: pick(c, "source_product_id") || null,
+            sourceProductCatalogType: pick(c, "source_product_catalog_type") || null,
+            sourceProductCascaded: getProp(c, "source_product_cascaded") === true,
+            sourceNewPrimaryVariantId: pick(c, "source_new_primary_variant_id") || null,
+          },
+        };
+      },
       invalidatesTags: (_r, _e, { id }) => [
         { type: "Variants", id },
         { type: "Variants", id: "PARTIAL-LIST" },
@@ -207,6 +230,7 @@ export const variantApi = baseApi.injectEndpoints({
         message: pick(res, "message"),
         productCatalogType: pick(res, "product_catalog_type") || null,
         productCascaded: getProp(res, "product_cascaded") === true,
+        newPrimaryVariantId: pick(res, "new_primary_variant_id") || null,
       }),
       invalidatesTags: (_r, _e, id) => [
         { type: "Variants", id },

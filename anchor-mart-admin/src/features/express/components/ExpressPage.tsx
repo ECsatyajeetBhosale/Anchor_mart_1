@@ -8,7 +8,7 @@ import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
 import { IconBolt, IconPackage, IconPlus, IconStack2 } from "@tabler/icons-react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useGetExpressStatsQuery } from "../api/expressApi";
 import { ExpressItemsTab } from "./ExpressItemsTab";
@@ -58,6 +58,16 @@ export function ExpressPage() {
    * the two are never open together.
    */
   const [isAddOpen, setIsAddOpen] = useState(false);
+  /**
+   * The Products tab's own row count, reported up from the list.
+   *
+   * The card used to read `stats.items.total_products`, which counts the
+   * distinct products of the filtered **variant** rows — so it tracks the Items
+   * tab, and a product created without a SKU is missing from it while sitting
+   * right there in the products table. Sourcing it from the list is right by
+   * construction: that count already reflects this tab's own filter bar.
+   */
+  const [productsCount, setProductsCount] = useState<number | undefined>(undefined);
   // Creating a product is super-admin only; editing is not.
   const { canManageCatalog } = useAdminAccess();
 
@@ -74,6 +84,9 @@ export function ExpressPage() {
   const sourceable = searchParams.get("sourceable") ?? "";
   const active = searchParams.get("active") ?? "";
   const express = searchParams.get("express") ?? "";
+
+  // Stable, so the tab's effect does not re-fire on every parent render.
+  const handleProductsCount = useCallback((n: number) => setProductsCount(n), []);
 
   const setFilterParam = (key: string, value: string) => {
     const next = new URLSearchParams(searchParams);
@@ -118,9 +131,15 @@ export function ExpressPage() {
    * One stats call for both tabs.
    *
    * `express/stats/` takes the **items** filter set, so the cards narrow with
-   * the items table. On the products tab only `search` is shared vocabulary, so
-   * that alone is passed and the rest of the cards read whole-catalog — which is
-   * the honest reading, since a product filter has no items equivalent.
+   * the items table. On the products tab only `search` is passed.
+   *
+   * ⚠️ The products bar's filters are deliberately **not** forwarded, even
+   * though most share a name. Two of them mean different things on the two
+   * sides: `is_express` is the legacy "the product is express" alias on the
+   * product list but the SKU's own flag here, and the products bar's
+   * `sourceable` is the product master while `admin_sourceable` here is the
+   * effective product-AND-variant rule. Passing either would silently narrow the
+   * variant cards to a different population than the one the operator filtered.
    */
   const { data: stats, isLoading: statsLoading } = useGetExpressStatsQuery(
     isItems
@@ -139,7 +158,13 @@ export function ExpressPage() {
        * variant is absent from both. The unbounded figure is the row count on
        * the Products tab, which comes from `express/products/`.
        */
-      value: statsLoading ? M.DASH : count(items?.total_products),
+      value: isItems
+        ? statsLoading
+          ? M.DASH
+          : count(items?.total_products)
+        : productsCount === undefined
+          ? M.DASH
+          : count(productsCount),
       icon: <IconPackage size={19} />,
       variant: "navy" as const,
     },
@@ -221,7 +246,11 @@ export function ExpressPage() {
         value={tab}
         onTabChange={handleTabChange}
         tabs={[
-          { value: TAB_PRODUCTS, label: M.TABS.PRODUCTS, content: <ExpressProductsTab /> },
+          {
+            value: TAB_PRODUCTS,
+            label: M.TABS.PRODUCTS,
+            content: <ExpressProductsTab onCountChange={handleProductsCount} />,
+          },
           { value: TAB_ITEMS, label: M.TABS.ITEMS, content: <ExpressItemsTab /> },
         ]}
       />

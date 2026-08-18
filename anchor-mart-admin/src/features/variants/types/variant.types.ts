@@ -228,10 +228,50 @@ export interface SetVariantExpressResult {
  * — invisible on both shelves, since express browse needs a qualifying variant
  * and the regular shelf never had it.
  */
+/**
+ * The `cascades` block on `update-product-variant/` — always present.
+ *
+ * Three writable fields on that endpoint move a **second** object: deactivating
+ * the last express-ready SKU demotes its product off the express shelf, and a
+ * re-parent can demote *and* re-primary the SKU's former product. Without this
+ * the form could move a product between catalogs while reporting only "Variant
+ * updated".
+ *
+ * Nested rather than flattened because the response is the variant object, and a
+ * bare `product_catalog_type` beside the variant's own `catalogType` would read
+ * as a field of the SKU.
+ */
+export interface VariantUpdateCascades {
+  /** The variant's parent **after** the write. */
+  productId: string | null;
+  productCatalogType: string | null;
+  /** This call moved that product's shelf. */
+  productCascaded: boolean;
+  /** Re-parent only — null when the SKU did not move. */
+  sourceProductId: string | null;
+  sourceProductCatalogType: string | null;
+  sourceProductCascaded: boolean;
+  /** The SKU promoted in the *former* product when the mover was its primary. */
+  sourceNewPrimaryVariantId: string | null;
+}
+
+export interface UpdateVariantResult {
+  cascades: VariantUpdateCascades;
+}
+
 export interface DeleteVariantResult {
   message: string;
   productCatalogType: string | null;
   productCascaded: boolean;
+  /**
+   * The SKU promoted in place of the deleted one, when the deleted SKU was the
+   * product's **primary**. `null` otherwise.
+   *
+   * Worth reporting rather than absorbing: the primary is what a product-level
+   * express-price edit writes to, so one delete silently re-pointed where a
+   * later edit will land.
+   */
+  newPrimaryVariantId: string | null;
 }
 
 /**

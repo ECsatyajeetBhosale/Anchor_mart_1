@@ -18,6 +18,15 @@ const M = MESSAGES.EXPRESS;
  * existed, so picking any of the other four returned 400 instead of filtering.
  */
 const STATUS_FILTER_OPTIONS = [
+  /**
+   * **This screen is the only one that offers `payment_pending`.**
+   *
+   * Express is direct-pay with no intent funnel, so `express/orders/` spans both
+   * sides of payment and unpaid express orders appear nowhere else — the main
+   * Orders screen is post-payment only and 400s on this value. Omitting it left
+   * the "Awaiting Payment" card counting rows the filter bar could not reach.
+   */
+  "payment_pending",
   "order_confirmed",
   "partner_assigned",
   "items_collected",
@@ -28,6 +37,14 @@ const STATUS_FILTER_OPTIONS = [
   "cancelled",
   "refunded",
 ].map((value) => ({ value, label: ORDER_STATUS_BY_KEY[value].label }));
+
+/**
+ * `in_progress` is a **derived** filter value, not an `Order.Status` — the
+ * endpoint expands it across partner_assigned → partially_delivered. It has no
+ * entry in the canonical status map for that reason, so its label is written
+ * here rather than looked up.
+ */
+STATUS_FILTER_OPTIONS.push({ value: "in_progress", label: MESSAGES.EXPRESS.STATUS_IN_PROGRESS });
 
 const DASH = M.DASH;
 

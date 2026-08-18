@@ -1,4 +1,4 @@
-import { IconX } from "@tabler/icons-react";
+import { IconPlus, IconTrash, IconX } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -6,7 +6,6 @@ import { FormField } from "@/components/common/FormField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import { FILE_LOCATIONS, ImageListField } from "@/features/media";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
@@ -68,7 +67,18 @@ export function VariantForm({ productId, variant, productCatalogType, onDone }: 
   const [sku, setSku] = useState("");
   const [price, setPrice] = useState("");
   const [expressPrice, setExpressPrice] = useState("");
-  const [attributesText, setAttributesText] = useState("{}");
+  /**
+   * Attributes as **rows**, matching the product form.
+   *
+   * This was a raw JSON textarea — defensible when the map has no fixed schema,
+   * but it made a free-form field a typing exercise: a missing brace or a
+   * trailing comma failed the whole save, and nothing about `{"size": "L"}`
+   * needs an operator to know JSON. Rows are flattened to the same object on
+   * submit.
+   */
+  const [attributeRows, setAttributeRows] = useState<{ key: string; value: string }[]>([
+    { key: "", value: "" },
+  ]);
   const [images, setImages] = useState<string[]>([]);
   const [isActive, setIsActive] = useState(true);
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -83,7 +93,14 @@ export function VariantForm({ productId, variant, productCatalogType, onDone }: 
     setSku(variant?.sku && variant.sku !== "-" ? variant.sku : "");
     setPrice(variant ? String(variant.price) : "");
     setExpressPrice(variant?.expressPrice != null ? String(variant.expressPrice) : "");
-    setAttributesText(JSON.stringify(variant?.attributes ?? {}, null, 2));
+    // An existing map becomes one row per pair; a new SKU gets a single blank
+    // row so the section reads as editable rather than absent.
+    const entries = Object.entries(variant?.attributes ?? {});
+    setAttributeRows(
+      entries.length > 0
+        ? entries.map(([key, value]) => ({ key, value: value == null ? "" : String(value) }))
+        : [{ key: "", value: "" }],
+    );
     setImages(variant?.images ?? []);
     setIsActive(variant?.isActive ?? true);
     setErrors({});
@@ -106,18 +123,21 @@ export function VariantForm({ productId, variant, productCatalogType, onDone }: 
       next.price = V.PRICE_INVALID;
     }
 
-    let attributes: Record<string, unknown> = {};
-    try {
-      const parsed = JSON.parse(attributesText || "{}");
-      // Arrays and primitives are valid JSON but not a valid attribute map.
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        next.attributes = V.ATTRIBUTES_INVALID;
-      } else {
-        attributes = parsed as Record<string, unknown>;
-      }
-    } catch {
-      next.attributes = V.ATTRIBUTES_INVALID;
+    /**
+     * Rows → the object the API takes. A row with a blank key is dropped rather
+     * than sent under an empty name; duplicates are rejected, because they would
+     * silently collapse with whichever row happened to be last.
+     */
+    const named = attributeRows.filter((row) => row.key.trim());
+    const seen = new Set<string>();
+    for (const row of named) {
+      const k = row.key.trim().toLowerCase();
+      if (seen.has(k)) next.attributes = V.ATTRIBUTES_DUPLICATE;
+      seen.add(k);
     }
+    const attributes: Record<string, unknown> = Object.fromEntries(
+      named.map((row) => [row.key.trim(), row.value]),
+    );
 
     setErrors(next);
     if (Object.keys(next).length > 0) return { ok: false };
@@ -177,8 +197,20 @@ export function VariantForm({ productId, variant, productCatalogType, onDone }: 
           return;
         }
 
-        await updateVariant({ id: variant.id, body }).unwrap();
-        toast.success(M.TOAST.UPDATED(nextSku));
+        const updated = await updateVariant({ id: variant.id, body }).unwrap();
+        /**
+         * One field edit can move the **product**: deactivating the last
+         * express-ready SKU takes it off the express shelf. Reported rather than
+         * absorbed into "Variant updated", because the operator changed a switch
+         * on this row and a different record moved.
+         */
+        if (updated?.cascades?.productCascaded) {
+          toast.success(
+            M.TOAST.UPDATED_CASCADED(nextSku, updated.cascades.productCatalogType ?? ""),
+          );
+        } else {
+          toast.success(M.TOAST.UPDATED(nextSku));
+        }
       } else {
         await createVariant({
           product: productId,
@@ -283,13 +315,52 @@ export function VariantForm({ productId, variant, productCatalogType, onDone }: 
         )}
 
         <FormField label={F.ATTRIBUTES} hint={F.ATTRIBUTES_HINT} error={errors.attributes}>
-          <Textarea
-            className="mono h-32 min-h-0"
-            value={attributesText}
-            placeholder={F.ATTRIBUTES_PLACEHOLDER}
-            error={!!errors.attributes}
-            onChange={(e) => setAttributesText(e.target.value)}
-          />
+          <div className="flex flex-col gap-2">
+            {attributeRows.map((row, index) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: ordered editable rows, keys may repeat while typing
+              <div key={index} className="flex items-start gap-2">
+                <Input
+                  className="flex-1"
+                  placeholder={F.ATTRIBUTE_KEY_PLACEHOLDER}
+                  value={row.key}
+                  onChange={(e) =>
+                    setAttributeRows((prev) =>
+                      prev.map((r, i) => (i === index ? { ...r, key: e.target.value } : r)),
+                    )
+                  }
+                />
+                <Input
+                  className="flex-1"
+                  placeholder={F.ATTRIBUTE_VALUE_PLACEHOLDER}
+                  value={row.value}
+                  onChange={(e) =>
+                    setAttributeRows((prev) =>
+                      prev.map((r, i) => (i === index ? { ...r, value: e.target.value } : r)),
+                    )
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  title={F.ATTRIBUTE_REMOVE}
+                  onClick={() => setAttributeRows((prev) => prev.filter((_, i) => i !== index))}
+                >
+                  <IconTrash size={15} />
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              className="w-fit"
+              onClick={() => setAttributeRows((prev) => [...prev, { key: "", value: "" }])}
+            >
+              <IconPlus size={15} className="mr-1" />
+              {F.ATTRIBUTE_ADD}
+            </Button>
+          </div>
         </FormField>
 
         <FormField label={F.IMAGES}>

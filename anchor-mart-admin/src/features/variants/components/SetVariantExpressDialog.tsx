@@ -22,6 +22,15 @@ export interface SetVariantExpressDialogProps {
   onClose: () => void;
   /** The SKU being flagged or un-flagged; `null` closes the dialog. */
   variant: { id: string; sku: string; isExpress: boolean; expressPrice: number | null } | null;
+  /**
+   * Called when the write moved the **product** between catalogs.
+   *
+   * Flagging the first SKU puts its product on the express shelf; un-flagging
+   * the last takes it off. Either way the product has left the list the caller
+   * is showing, so whatever is open on top of that list is now describing a row
+   * that is no longer there.
+   */
+  onCascade?: () => void;
 }
 
 /**
@@ -41,6 +50,7 @@ export function SetVariantExpressDialog({
   isOpen,
   onClose,
   variant,
+  onCascade,
 }: SetVariantExpressDialogProps) {
   const [setExpress, { isLoading }] = useSetVariantExpressMutation();
   const [price, setPrice] = useState("");
@@ -87,6 +97,9 @@ export function SetVariantExpressDialog({
         toast.success(M.DONE(variant.sku, res.isExpress));
       }
       onClose();
+      // The product changed shelf, so the surface underneath is stale — the
+      // caller decides what that means (the variants drawer closes itself).
+      if (res.productCascaded) onCascade?.();
     } catch (err) {
       toast.error(getApiMessage(err) ?? M.FAILED);
     }

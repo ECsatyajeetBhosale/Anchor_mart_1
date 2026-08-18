@@ -1841,6 +1841,11 @@ export const MESSAGES = {
     /** Shared by the variants drawer's express column. */
     EXPRESS: {
       PENDING: "Pending price",
+      /**
+       * Under a non-express parent there is no shelf to be pending for, so this
+       * is an ordinary state rather than the warning `PENDING` names.
+       */
+      NOT_EXPRESS: "Not express",
       SET_TITLE: "Set an express price",
       RETITLE: "Change the express price",
       PRIMARY: "Primary",
@@ -1916,11 +1921,15 @@ export const MESSAGES = {
       EXPRESS_PRICE_HINT_ADD:
         "What the express shelf charges. Leave blank to file this SKU as pending — not sellable as express until priced.",
       EXPRESS_PRICE_HINT_EDIT: "What the express shelf charges for this SKU.",
+      ATTRIBUTE_KEY_PLACEHOLDER: "Name — e.g. size",
+      ATTRIBUTE_VALUE_PLACEHOLDER: "Value — e.g. L",
+      ATTRIBUTE_ADD: "Add attribute",
+      ATTRIBUTE_REMOVE: "Remove attribute",
       PRICE: "Price",
       PRICE_PLACEHOLDER: "0.00",
       ATTRIBUTES: "Attributes (JSON)",
-      ATTRIBUTES_PLACEHOLDER: '{ "color": "red", "size": "M" }',
-      ATTRIBUTES_HINT: "A flat key/value object, e.g. colour and size.",
+      ATTRIBUTES_HINT:
+        "Anything worth recording against this SKU — size, grade, pack. Names are yours to choose.",
       IMAGES: "Image paths",
       IMAGES_PLACEHOLDER: "variant_images/example.png",
       ACTIVE: "Active",
@@ -1932,7 +1941,8 @@ export const MESSAGES = {
       SKU_REQUIRED: "SKU is required.",
       /** The serializer floor is 0.01 with 2 decimal places — same as `base_price`. */
       PRICE_INVALID: "Enter a price of at least 0.01, with at most 2 decimal places.",
-      ATTRIBUTES_INVALID: "Attributes must be valid JSON (a plain object).",
+      /** Two rows naming the same attribute would collapse silently in the object. */
+      ATTRIBUTES_DUPLICATE: "Duplicate attribute name",
     },
     TOAST: {
       CREATED: (sku: string) => `Variant ${sku} created`,
@@ -1940,6 +1950,9 @@ export const MESSAGES = {
       CREATED_PENDING: (sku: string) =>
         `${sku} created — pending an express price, so it is not yet sellable as express.`,
       CREATE_ERROR: "Failed to create the variant",
+      /** A field edit that also moved the product between catalogs. */
+      UPDATED_CASCADED: (sku: string, catalog: string) =>
+        `${sku} updated — it was the last express SKU, so its product moved to the ${catalog} catalog.`,
       PRIMARY_SET: (sku: string) => `${sku} is now this product's primary SKU.`,
       PRIMARY_ERROR: "Could not change the primary SKU",
       UPDATED: (sku: string) => `Variant ${sku} updated`,
@@ -1953,6 +1966,9 @@ export const MESSAGES = {
       // it was off (Flow 29a §5, up-cascade). Say so — the admin changed one
       // SKU and a second, product-level flag moved with it.
       SOURCEABLE_CASCADED: "Variant is now sourceable — the product was switched on with it.",
+      /** The deleted SKU was the primary, so another was promoted in its place. */
+      DELETED_NEW_PRIMARY: (sku: string) =>
+        `Variant ${sku} deleted — it was the primary SKU, so another is now the product's default.`,
       /** Deleting the last express variant demotes the product the same way. */
       DELETED_CASCADED: (sku: string, product: string, catalog: string) =>
         `Variant ${sku} deleted — “${product}” moved to the ${catalog} catalog.`,
@@ -2615,6 +2631,8 @@ export const MESSAGES = {
     },
     /** The orders screen's own title — `TITLE` names the catalog screen. */
     ORDERS_TITLE: "Express Orders",
+    /** Server-side shorthand spanning partner_assigned → partially_delivered. */
+    STATUS_IN_PROGRESS: "In Progress",
     SEARCH_PLACEHOLDER: "Search express orders…",
     FETCH_ERROR: "Failed to fetch express orders",
     EMPTY: "No express orders found.",
@@ -2731,12 +2749,16 @@ export const MESSAGES = {
         product_internal: "Internal product — never shown to sailors",
         not_flagged_express: "Not flagged express",
         /**
-         * Distinct from the line above on purpose: different cause, different
-         * fix. Not flagged = nobody marked the SKU; no price = someone did, but
-         * never quoted it. Both are fixed with `set-express/`, but only one is a
-         * half-finished job.
+         * **Not reachable through the API** (confirmed 2026-08-18): flagging
+         * requires a price and un-flagging clears it, on every route. A row in
+         * this state was written around the API — a shell, a fixture, a seed, a
+         * bulk `.update()` — so it is a data anomaly rather than a step in
+         * anyone's flow, and the copy says so instead of implying a to-do.
+         *
+         * `not_flagged_express` above is the one an admin actually produces, by
+         * un-flagging a SKU.
          */
-        no_express_price: "No express price yet",
+        no_express_price: "Flagged express but unpriced — needs investigating",
       } as Record<string, string>,
       VISIBLE: "Visible",
       NOT_VISIBLE: "Not visible",
@@ -2836,7 +2858,9 @@ export const MESSAGES = {
       EXPRESS_PENDING: "Pending price",
       EXPRESS_PENDING_HINT:
         "On the express shelf but not sellable: the express cart refuses it until it has an express price.",
-      EXPRESS_PRICE: (price: number) => `Express ${price}`,
+      EXPRESS_PRICE: (price: number) => `$${price.toFixed(2)}`,
+      EXPRESS_SET_TITLE: "Set an express price",
+      EXPRESS_RETITLE: "Change the express price",
       /** The product's default SKU — the target of a product-level price edit. */
       PRIMARY: "Primary",
       EXPRESS_OFF_HINT:

@@ -1,104 +1,52 @@
-import { cn } from "@/lib/utils";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import * as React from "react";
 
-const DialogContext = React.createContext<{
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}>({ open: false, onOpenChange: () => {} });
+import { cn } from "@/lib/utils";
 
-export function Dialog({
-  open,
-  onOpenChange,
-  children,
-}: {
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-  children: React.ReactNode;
-}) {
-  const [internalOpen, setInternalOpen] = React.useState(false);
-  const isControlled = open !== undefined;
-  const currentOpen = isControlled ? open : internalOpen;
+/**
+ * Built on Radix's dialog primitive — the same one `Sheet` uses.
+ *
+ * It used to be hand-rolled: a context plus a `fixed inset-0 z-[100]` div
+ * rendered inline. That worked standalone and failed in exactly one place, the
+ * one that matters most — **a dialog opened from inside a drawer**:
+ *
+ * 1. Inline, its `z-[100]` was scoped to whatever stacking context an ancestor
+ *    created, so it painted *underneath* the drawer.
+ * 2. Portalled to `body` to fix that, it then landed under the drawer's modal
+ *    lock: Radix sets `pointer-events: none` on `body` and traps focus inside
+ *    the open sheet, so the dialog rendered correctly and was **completely
+ *    inert** — visible, unclickable, its inputs unfocusable, until the drawer
+ *    behind it was dismissed.
+ *
+ * Neither is fixable from outside Radix's layer stack, because the lock is the
+ * point of a modal. Joining the stack is: Radix nests dialogs properly,
+ * handing pointer-events and focus to the topmost layer and restoring them on
+ * close. The exported API is unchanged, so all 17 call sites are untouched.
+ */
+const Dialog = DialogPrimitive.Root;
+const DialogTrigger = DialogPrimitive.Trigger;
 
-  const handleOpenChange = (val: boolean) => {
-    if (!isControlled) setInternalOpen(val);
-    if (onOpenChange) onOpenChange(val);
-  };
+export { Dialog, DialogTrigger };
 
-  return (
-    <DialogContext.Provider value={{ open: !!currentOpen, onOpenChange: handleOpenChange }}>
+export const DialogContent = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
+>(({ className, children, ...props }, ref) => (
+  <DialogPrimitive.Portal>
+    <DialogPrimitive.Overlay className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+    <DialogPrimitive.Content
+      ref={ref}
+      className={cn(
+        "fixed left-1/2 top-1/2 z-[100] grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 border border-[var(--border-md)] bg-[var(--surface)] p-6 shadow-xl duration-200 sm:rounded-xl",
+        className,
+      )}
+      {...props}
+    >
       {children}
-    </DialogContext.Provider>
-  );
-}
-
-export function DialogTrigger({
-  children,
-  asChild,
-}: {
-  children: React.ReactNode;
-  asChild?: boolean;
-}) {
-  const { open, onOpenChange } = React.useContext(DialogContext);
-
-  if (asChild && React.isValidElement(children)) {
-    const child = children as React.ReactElement<{ onClick?: (e: React.MouseEvent) => void }>;
-    return React.cloneElement(child, {
-      onClick: (e: React.MouseEvent) => {
-        child.props.onClick?.(e);
-        onOpenChange(!open);
-      },
-    });
-  }
-
-  return (
-    <button type="button" onClick={() => onOpenChange(!open)} className="inline-block">
-      {children}
-    </button>
-  );
-}
-
-export function DialogContent({
-  className,
-  children,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
-  const { open, onOpenChange } = React.useContext(DialogContext);
-
-  // Close on Escape while the dialog is open.
-  React.useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onOpenChange(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onOpenChange]);
-
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      <button
-        type="button"
-        aria-label="Close dialog"
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
-        onClick={() => onOpenChange(false)}
-      />
-      {/* biome-ignore lint/a11y/useSemanticElements: controlled modal pattern, not the native <dialog> element */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        className={cn(
-          "relative z-[100] grid w-full max-w-lg gap-4 border border-[var(--border-md)] bg-[var(--surface)] p-6 shadow-xl duration-200 sm:rounded-xl",
-          className,
-        )}
-        {...props}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
+    </DialogPrimitive.Content>
+  </DialogPrimitive.Portal>
+));
+DialogContent.displayName = "DialogContent";
 
 export function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (

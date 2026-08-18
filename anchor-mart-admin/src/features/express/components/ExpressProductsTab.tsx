@@ -42,7 +42,21 @@ const LIMIT = 10;
  * the parent's page header (so the layout matches Products) and writes the same
  * params this reads.
  */
-export function ExpressProductsTab() {
+export interface ExpressProductsTabProps {
+  /**
+   * Reports this list's total upward, so the EXPRESS PRODUCTS card can show the
+   * count of the table beneath it rather than the stats endpoint's figure.
+   *
+   * They are different questions. `express/stats/` counts the distinct products
+   * of the filtered **variant** rows, so it tracks the Items tab — a product
+   * with no SKU yet is absent from it and present here. `add-product/` without a
+   * `sku` is a legal call, so any admin who creates a product and adds variants
+   * afterwards produces that divergence.
+   */
+  onCountChange?: (count: number) => void;
+}
+
+export function ExpressProductsTab({ onCountChange }: ExpressProductsTabProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -89,6 +103,10 @@ export function ExpressProductsTab() {
   const categories = categoriesData?.results?.data ?? [];
 
   const products: Product[] = data?.results?.data ?? [];
+  const listCount = data?.count;
+  React.useEffect(() => {
+    if (listCount !== undefined) onCountChange?.(listCount);
+  }, [listCount, onCountChange]);
   // One refetch scheduled at the moment the soonest deal on screen expires —
   // `on_deal` flips with the clock and has no write to invalidate against (C8).
   useDealBoundaryRefetch(products, refetch);

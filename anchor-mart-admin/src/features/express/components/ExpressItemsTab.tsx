@@ -6,7 +6,7 @@ import { type Column, DataTable } from "@/components/ui/data-table";
 import { SetVariantExpressDialog } from "@/features/variants";
 import { getApiStatus } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
-import { IconBolt, IconBoltOff, IconPackage } from "@tabler/icons-react";
+import { IconBolt, IconBoltOff, IconPackage, IconPencil } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useGetExpressCatalogQuery } from "../api/expressApi";
@@ -224,20 +224,31 @@ export function ExpressItemsTab() {
        * refused by the express cart and again at the till. Collapsing the two
        * into one "Express" badge would call an unsellable SKU sold.
        */
+      // Clickable here too, and styled to say so — this is the screen where a
+      // pending SKU gets priced, so the badge is the fix as well as the symptom.
       cell: (r) => {
         const isReady = r.isExpress && r.expressPrice !== null;
-        if (isReady) {
-          return (
-            <div className="flex flex-col gap-0.5">
-              <Badge variant="success">{C.EXPRESS_ON}</Badge>
-              <span className="td-m tabular-nums">{C.EXPRESS_PRICE(r.expressPrice ?? 0)}</span>
-            </div>
-          );
-        }
         return (
-          <Badge variant="warning" title={C.EXPRESS_PENDING_HINT}>
-            {C.EXPRESS_PENDING}
-          </Badge>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm inline-flex items-center gap-1.5"
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpressTarget(r);
+            }}
+            title={isReady ? C.EXPRESS_RETITLE : C.EXPRESS_SET_TITLE}
+          >
+            {isReady ? (
+              <span className="tabular-nums font-semibold">
+                {C.EXPRESS_PRICE(r.expressPrice ?? 0)}
+              </span>
+            ) : (
+              <Badge variant="warning" title={C.EXPRESS_PENDING_HINT}>
+                {C.EXPRESS_PENDING}
+              </Badge>
+            )}
+            <IconPencil size={13} style={{ color: "var(--t4)" }} />
+          </button>
         );
       },
       // Server-side, via `?is_express=` — the variant's own flag, not the

@@ -99,6 +99,13 @@ export function ExpressOrdersPage() {
       value: statsLoading ? M.DASH : count(orderStats?.awaiting_payment),
       icon: <IconClockDollar size={19} />,
       variant: "amber" as const,
+      /**
+       * Drills to the rows it counts. `payment_pending` is valid **here only** —
+       * the main Orders screen 400s on it — so this card was naming a set that
+       * had no other route to it.
+       */
+      onClick: () => setFilterParam("status", "payment_pending"),
+      active: statusFilter === "payment_pending",
     },
     {
       id: "failed",

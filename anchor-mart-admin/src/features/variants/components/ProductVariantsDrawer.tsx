@@ -1,5 +1,6 @@
 import {
   IconEdit,
+  IconPencil,
   IconPhotoOff,
   IconPlus,
   IconStack2,
@@ -183,17 +184,27 @@ export function ProductVariantsDrawer({
     if (!toDelete) return;
     try {
       const result = await deleteVariant(toDelete.id).unwrap();
-      toast.success(
-        result.productCascaded
-          ? M.TOAST.DELETED_CASCADED(
-              toDelete.sku,
-              productName,
-              catalogTypeLabel(result.productCatalogType ?? undefined) ??
-                result.productCatalogType ??
-                "",
-            )
-          : M.TOAST.DELETED(toDelete.sku),
-      );
+      /**
+       * Two cascades can ride on one delete, so the toast names whichever fired.
+       * Demotion off the express shelf is the louder one; a re-pointed primary
+       * is quieter but still a change nobody asked for — it moves where a
+       * product-level express-price edit will land.
+       */
+      if (result.productCascaded) {
+        toast.success(
+          M.TOAST.DELETED_CASCADED(
+            toDelete.sku,
+            productName,
+            catalogTypeLabel(result.productCatalogType ?? undefined) ??
+              result.productCatalogType ??
+              "",
+          ),
+        );
+      } else if (result.newPrimaryVariantId) {
+        toast.success(M.TOAST.DELETED_NEW_PRIMARY(toDelete.sku));
+      } else {
+        toast.success(M.TOAST.DELETED(toDelete.sku));
+      }
       setToDelete(null);
     } catch (err) {
       toast.error(getApiMessage(err) ?? M.TOAST.DELETE_ERROR);
@@ -241,25 +252,45 @@ export function ProductVariantsDrawer({
       id: "express",
       header: M.COLUMNS.EXPRESS,
       /**
-       * Three states. **Ready** = flagged and priced, the only one a sailor can
-       * buy. **Pending** = flagged with no price, or unflagged on an express
-       * product: visible here, refused at the cart and again at the till. A
-       * plain on/off switch would call the middle state sold.
+       * Three states, and the third depends on the **parent's** catalog.
+       *
+       * **Ready** (flagged and priced) is the only one a sailor can buy.
+       * **Pending** is a real problem — but only on an express product, where
+       * the SKU sits on the shelf and is refused at the cart and again at the
+       * till. Under a regular or marine parent there is no express shelf to be
+       * pending for, so the same unflagged SKU is simply *not express*: an
+       * ordinary state, not a warning.
+       *
+       * Flagging one there is still offered, because `set-express/` on a regular
+       * product's SKU is what moves the **product** onto the express shelf — the
+       * dialog reports that cascade.
        */
       cell: (v) => {
         const isReady = v.isExpress && v.expressPrice !== null;
+        const parentIsExpress = v.catalogType === "express";
+        /**
+         * Styled as an actual control.
+         *
+         * It was a bare `btn-ghost` wrapping the price, which rendered as plain
+         * text beside a column of plain text — nothing said the number was the
+         * way to change it. A bordered button with a pencil reads as editable
+         * without needing a separate action column.
+         */
         return (
           <button
             type="button"
-            className="btn btn-ghost btn-sm"
+            className="btn btn-secondary btn-sm inline-flex items-center gap-1.5"
             onClick={() => setExpressTarget(v)}
             title={isReady ? M.EXPRESS.RETITLE : M.EXPRESS.SET_TITLE}
           >
             {isReady ? (
-              <span className="td-p tabular-nums">${v.expressPrice?.toFixed(2)}</span>
-            ) : (
+              <span className="tabular-nums font-semibold">${v.expressPrice?.toFixed(2)}</span>
+            ) : parentIsExpress ? (
               <Badge variant="warning">{M.EXPRESS.PENDING}</Badge>
+            ) : (
+              <span className="td-m">{M.EXPRESS.NOT_EXPRESS}</span>
             )}
+            <IconPencil size={13} style={{ color: "var(--t4)" }} />
           </button>
         );
       },
@@ -454,10 +485,20 @@ export function ProductVariantsDrawer({
         </SheetContent>
       </Sheet>
 
+      {/*
+        Closes the drawer when the write moves the product's catalog.
+
+        Un-flagging the last express SKU sends the product back to regular — so
+        the list behind this drawer no longer contains it, and the drawer's own
+        header ("Product catalog: EXPRESS") has just become false. Leaving it
+        open showed a product that had left the screen, which reads as the write
+        not having taken.
+      */}
       <SetVariantExpressDialog
         isOpen={!!expressTarget}
         onClose={() => setExpressTarget(null)}
         variant={expressTarget}
+        onCascade={onClose}
       />
 
       <ConfirmDialog
