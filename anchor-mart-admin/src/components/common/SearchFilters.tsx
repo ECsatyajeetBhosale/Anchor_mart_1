@@ -10,6 +10,9 @@ export interface FilterConfig {
   placeholder: string;
   options: DropdownOption[];
   width?: string;
+  /** Adds a filter box inside the dropdown — for lists long enough to scroll. */
+  searchable?: boolean;
+  searchPlaceholder?: string;
   onValueChange: (value: string) => void;
   /**
    * Value that counts as "not filtering". Most filters use `""`, but some use
@@ -75,6 +78,8 @@ export function SearchFilters({
           placeholder={filter.placeholder}
           options={filter.options}
           width={filter.width}
+          searchable={filter.searchable}
+          searchPlaceholder={filter.searchPlaceholder}
           onValueChange={filter.onValueChange}
         />
       ))}

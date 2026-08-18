@@ -288,6 +288,18 @@ export function DashboardPage() {
     },
   ];
 
+  /**
+   * Regrouped from the two unlabelled rows by what a number is **for**, not by
+   * which endpoint returned it.
+   *
+   * `row2` mixed four queues with two catalog counts (Express Items, Rewards),
+   * so neither row had a heading it could honestly carry. Split here rather than
+   * at the definitions above, so each tile keeps its own click-through and copy.
+   */
+  const CATALOG_IDS = new Set(["express", "rewards"]);
+  const workItems = row2.filter((item) => !CATALOG_IDS.has(item.id));
+  const catalogItems = [...row1, ...row2.filter((item) => CATALOG_IDS.has(item.id))];
+
   return (
     <div className="page-enter">
       {/* ── Welcome hero ──────────────────────────────── */}
@@ -346,24 +358,45 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Stat cards (2 rows of 6) ──────────────────── */}
-      {/* The three tiles the toggle above actually moves, directly beneath the
-          note that names them. */}
+      {/*
+        Four labelled groups, every one four-across.
+
+        It was three unlabelled runs at three different widths — five, six, then
+        four — which is what made a screen of ordinary numbers look disordered:
+        nothing lined up, and nothing said where one group ended. `cols-4`
+        everywhere gives every tile one width and lets a group wrap predictably
+        (the reason that class exists — see index.css).
+
+        The order is the change that matters. "Needs Attention" used to be last,
+        after fourteen reference counts, on the screen whose banner opens with
+        "1 verification to review, 3 pending intents". Work that is waiting now
+        sits directly under the period tiles the toggle moves; counts that are
+        merely true sit below it.
+      */}
       <div>
         <div className="sec-label">{M.PERIOD_GROUP}</div>
-        <StatsGrid items={periodItems} className="cols-4" />
+        {/* Three tiles, three across — no trailing gap. */}
+        <StatsGrid items={periodItems} className="fill cols-3" />
       </div>
 
-      {/* Snapshots — "right now" regardless of the selected period. */}
-      <StatsGrid items={row1} />
-      <StatsGrid items={row2} />
-
-      {/* Exception work — items an admin has to act on, as opposed to the
-          inventory counters above. Kept in its own row because that is the
-          distinction that matters when you open this screen. */}
       <div>
-        <div className="sec-label">{"Needs Attention"}</div>
-        <StatsGrid items={exceptions} className="cols-4" />
+        <div className="sec-label">{M.ATTENTION_GROUP}</div>
+        {/* Five tiles wrap 3 + 2, both rows flush. */}
+        <StatsGrid items={exceptions} className="fill cols-3" />
+      </div>
+
+      {/* Queues with something in them to work through. */}
+      <div>
+        <div className="sec-label">{M.WORK_GROUP}</div>
+        <StatsGrid items={workItems} className="fill" />
+      </div>
+
+      {/* Reference counts — true, rarely actionable, and the reason the board
+          needed a hierarchy in the first place. */}
+      <div>
+        <div className="sec-label">{M.CATALOG_GROUP}</div>
+        {/* Seven tiles wrap 4 + 3; the trailing three widen to fill. */}
+        <StatsGrid items={catalogItems} className="fill" />
       </div>
     </div>
   );

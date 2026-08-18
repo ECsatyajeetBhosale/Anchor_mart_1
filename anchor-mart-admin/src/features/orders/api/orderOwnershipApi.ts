@@ -47,6 +47,16 @@ export const orderOwnershipApi = baseApi.injectEndpoints({
         { type: "Intents", id: "PARTIAL-LIST" },
         { type: "Orders", id: orderId },
         { type: "Orders", id: "PARTIAL-LIST" },
+        /**
+         * Order chat visibility derives from `assigned_admin` **live**, not from
+         * a snapshot — so ownership *is* thread access. A hand-over shows the
+         * thread to the new owner and hides it from the previous one
+         * immediately, and while an order is unassigned only an admin tier sees
+         * it at all. Without this the Order Chats list keeps showing a thread
+         * whose every action now 403s, and the new owner does not see the one
+         * they just inherited.
+         */
+        { type: "Chats", id: "ORDER-LIST" },
       ],
     }),
 
@@ -72,6 +82,16 @@ export const orderOwnershipApi = baseApi.injectEndpoints({
         { type: "Intents", id: "PARTIAL-LIST" },
         { type: "Orders", id: orderId },
         { type: "Orders", id: "PARTIAL-LIST" },
+        /**
+         * Order chat visibility derives from `assigned_admin` **live**, not from
+         * a snapshot — so ownership *is* thread access. A hand-over shows the
+         * thread to the new owner and hides it from the previous one
+         * immediately, and while an order is unassigned only an admin tier sees
+         * it at all. Without this the Order Chats list keeps showing a thread
+         * whose every action now 403s, and the new owner does not see the one
+         * they just inherited.
+         */
+        { type: "Chats", id: "ORDER-LIST" },
       ],
     }),
 
@@ -90,6 +110,16 @@ export const orderOwnershipApi = baseApi.injectEndpoints({
         { type: "Intents", id: "PARTIAL-LIST" },
         { type: "Orders", id: orderId },
         { type: "Orders", id: "PARTIAL-LIST" },
+        /**
+         * Order chat visibility derives from `assigned_admin` **live**, not from
+         * a snapshot — so ownership *is* thread access. A hand-over shows the
+         * thread to the new owner and hides it from the previous one
+         * immediately, and while an order is unassigned only an admin tier sees
+         * it at all. Without this the Order Chats list keeps showing a thread
+         * whose every action now 403s, and the new owner does not see the one
+         * they just inherited.
+         */
+        { type: "Chats", id: "ORDER-LIST" },
       ],
     }),
 

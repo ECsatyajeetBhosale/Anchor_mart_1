@@ -99,6 +99,15 @@ export const MESSAGES = {
       "Orders, Cancelled and Refunded follow this period — every other tile is live now.",
     /** Heading over the three tiles the period toggle moves. */
     PERIOD_GROUP: "This Period",
+    /**
+     * The board is grouped by **what you do with a number**, not by which
+     * endpoint returned it. Seventeen equally-weighted tiles in three unlabelled
+     * runs read as one wall; these say which run is which, and the order puts
+     * work that is waiting above counts that are merely true.
+     */
+    ATTENTION_GROUP: "Needs Attention",
+    WORK_GROUP: "Open Queues",
+    CATALOG_GROUP: "Catalog & People",
     // KPI stat-card labels
     STATS: {
       TOTAL_SAILORS: "Total Sailors",
@@ -499,7 +508,9 @@ export const MESSAGES = {
       COUPON: "Coupon",
       TOTAL: "Total",
       STATUS: "Status",
-      OWNER: "Owner",
+      // The column shows which admin is accountable for the row, so it is
+      // named for the relationship rather than for possession.
+      OWNER: "Managed By",
       ACTIONS: "Actions",
     },
     ACTIONS: {
@@ -619,6 +630,8 @@ export const MESSAGES = {
     // Flow 28 · APIs 11–12 — assign (or reassign) a delivery partner to a paid
     // order. Assignment moves the order to `partner_assigned`.
     ASSIGN_PARTNER: {
+      /** Filter box inside the partner picker — shared with the intents review. */
+      PARTNER_SEARCH: "Search partners…",
       SECTION: "Delivery Partner",
       NONE: "No delivery partner assigned",
       // The partner's own account of a failed delivery, shown beside them.
@@ -781,7 +794,9 @@ export const MESSAGES = {
       DEPARTURE: "Departure",
       SUBMITTED: "Submitted",
       STATUS: "Status",
-      OWNER: "Owner",
+      // The column shows which admin is accountable for the row, so it is
+      // named for the relationship rather than for possession.
+      OWNER: "Managed By",
       ACTIONS: "Actions",
     },
     // Order ownership (Flow 27) — claiming is the precondition for any write
@@ -823,21 +838,61 @@ export const MESSAGES = {
         REASSIGNING: "Reassigning…",
         REASSIGNED: (name: string) => `Order reassigned to ${name}.`,
         REASSIGN_FAILED: "Could not reassign this order.",
+        /**
+         * The unassigned wording. Same dialog, same endpoint — but with no
+         * current owner the action is not a *hand over*, and calling it one
+         * asks the reader to picture a transfer from nobody.
+         */
+        /** Tooltip on the Unassigned chip in the table. */
+        ASSIGN_TITLE: "Assign this order to an operator",
+        ASSIGN_DIALOG_TITLE: "Assign Order",
+        ASSIGN_SUBTITLE: (ref: string) => `Choose who is accountable for ${ref}.`,
+        ASSIGN_SECTION: "Assign to an operator",
+        ASSIGN_HINT:
+          "Nobody is accountable for this order yet. Whoever you pick becomes its owner and can perform every gated write on it.",
+        ASSIGN_PICKER_LABEL: "Managed By",
+        ASSIGN: "Assign",
+        ASSIGNING: "Assigning…",
+        ASSIGNED: (name: string) => `Order assigned to ${name}.`,
+        ASSIGN_FAILED: "Could not assign this order.",
         RELEASE_SECTION: "Release to the unassigned pool",
         RELEASE_HINT:
-          "Nobody is accountable until another admin claims it. Use this when you picked it up by mistake.",
+          "The undo for picking up an order by mistake. Nobody is accountable until another admin claims it.",
         RELEASE: "Release Order",
         RELEASING: "Releasing…",
-        RELEASED: "Order released. It is unassigned again.",
+        RELEASED: "Order released. It is unassigned, and its chat is with the admins.",
+        /**
+         * The picker clamps at the paginator's own ceiling of 50 and DRF clamps
+         * silently above it, so a larger roster would truncate with no sign.
+         * `count` reports the true total, which is what makes the gap visible
+         * without a second request.
+         */
+        PICKER_TRUNCATED: (shown: number, total: number) =>
+          `Showing ${shown} of ${total} admins — search to narrow the list.`,
         RELEASE_FAILED: "Could not release this order.",
         CONFIRM_RELEASE_TITLE: "Release this order?",
+        /**
+         * Names the chat consequence, which is the part that surprises people.
+         *
+         * Releasing does not merely drop accountability — order-chat access
+         * derives from `assigned_admin` live, so an unassigned order's thread is
+         * visible to **admins only**. The releaser loses sight of it too, and a
+         * sailor writing in notifies every active admin. That makes release an
+         * escalation rather than a tidy-up, and it is worth saying before the
+         * click rather than discovering it from a thread that vanished.
+         */
         CONFIRM_RELEASE_MESSAGE:
-          "It returns to the unassigned pool and nobody is accountable for it until an admin claims it. Any admin can pick it up, including you.",
+          "It returns to the unassigned pool and nobody is accountable for it until an admin claims it — any admin can, including you. Its order chat goes with it: while unassigned, only admins can see the thread, so you will stop seeing it too.",
         // Reassign is the owner-or-super-admin rule, which is narrower than the
         // write gate — say which one is missing rather than "not allowed".
         NOT_OWNER: "Only the current owner or an admin can hand this order over.",
+        /**
+         * Only an Operator reaches this — an Admin may assign any order, so for
+         * them the picker renders instead. Reassign needs a current owner to
+         * match the caller against, and an unassigned order has none.
+         */
         UNASSIGNED_NOTICE:
-          "This order is unassigned — there is nothing to hand over. Claim it first.",
+          "This order is unassigned, so there is no owner to hand it over from. Claim it to take it on yourself.",
       },
     },
     // Review modal
@@ -2631,6 +2686,9 @@ export const MESSAGES = {
     },
     /** The orders screen's own title — `TITLE` names the catalog screen. */
     ORDERS_TITLE: "Express Orders",
+    /** Express is direct-pay, so payment is a two-state fact, not a funnel. */
+    PAYMENT_PAID: "Paid",
+    PAYMENT_PENDING: "Awaiting payment",
     /** Server-side shorthand spanning partner_assigned → partially_delivered. */
     STATUS_IN_PROGRESS: "In Progress",
     SEARCH_PLACEHOLDER: "Search express orders…",
@@ -2666,7 +2724,21 @@ export const MESSAGES = {
        * this is the only place the number surfaces.
        */
       AWAITING_PAYMENT: "Awaiting Payment",
+      /**
+       * The rest of the order breakdown, in lifecycle order.
+       *
+       * ⚠️ These do **not** partition `total_orders`. The backend's buckets skip
+       * `payment_received` — the transient between Stripe's webhook and
+       * `order_confirmed` — so the seven sum to at most the total and usually
+       * less. Fine as seven independent counts, which is how they are shown;
+       * anything treating them as parts of a whole must derive the remainder.
+       */
+      CONFIRMED: "Confirmed",
+      IN_PROGRESS: "In Progress",
+      DELIVERED: "Delivered",
       FAILED: "Failed Deliveries",
+      CANCELLED: "Cancelled",
+      REFUNDED: "Refunded",
     },
     // Express variant catalog tab
     COLUMNS: {
@@ -2702,6 +2774,9 @@ export const MESSAGES = {
     // Flow 28 API 12 — partner assignment, from inside the order drawer.
     ASSIGN: {
       SECTION: "Assign Delivery Partner",
+      /** Shown instead of the picker while the order is unpaid. */
+      AWAITING_PAYMENT:
+        "Waiting on payment. A delivery partner can be assigned once the sailor has paid.",
       SECTION_REASSIGN: "Reassign Delivery Partner",
       PARTNER_LABEL: "Delivery partner",
       PARTNER_PLACEHOLDER: "Select a partner",
@@ -2722,18 +2797,6 @@ export const MESSAGES = {
        * `confirm: true`, so this reads as a prompt rather than a dead end.
        */
       NEEDS_CONFIRM: "That order is already held by a partner — confirm again to reassign it.",
-    },
-    // Detail drawer
-    DRAWER: {
-      TITLE_FALLBACK: "Express Order",
-      CLOSE: "Close",
-      SECTIONS: {
-        OVERVIEW: "Overview",
-        CUSTOMER: "Customer",
-        DELIVERY: "Delivery",
-        TIMELINE: "Timeline",
-      },
-      ITEM_COUNT: (n: number) => `${n} item${n === 1 ? "" : "s"}`,
     },
     CATALOG: {
       /**

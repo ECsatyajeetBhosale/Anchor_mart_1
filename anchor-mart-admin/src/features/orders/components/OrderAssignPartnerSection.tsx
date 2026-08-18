@@ -349,6 +349,10 @@ export function OrderAssignPartnerSection({
                 options={options}
                 width="100%"
                 disabled={writeDisabled || partnersLoading}
+                // A fleet is long enough that scrolling it to find one name is
+                // the whole interaction.
+                searchable
+                searchPlaceholder={M.PARTNER_SEARCH}
               />
             </div>
             <Button

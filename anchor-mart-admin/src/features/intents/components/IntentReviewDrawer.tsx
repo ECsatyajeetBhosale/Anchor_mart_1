@@ -761,6 +761,8 @@ export function IntentReviewDrawer({
                               placeholder={partnerPlaceholder}
                               options={partnerOptions}
                               width="100%"
+                              searchable
+                              searchPlaceholder={MESSAGES.ORDERS.ASSIGN_PARTNER.PARTNER_SEARCH}
                             />
                           </FormField>
                         </div>

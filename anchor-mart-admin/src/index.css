@@ -812,6 +812,30 @@ body {
 .stats-row.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 @media (max-width: 1024px) { .stats-row.cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px)  { .stats-row.cols-4 { grid-template-columns: 1fr; } }
+
+/* Fills the last row instead of leaving empty cells at the end of it.
+
+   `cols-4` is a grid, so a group of 5 renders 4 + one lonely tile with three
+   dead slots beside it, and 7 renders 4 + 3 with a gap. Flex with `flex-grow`
+   has the property a fixed grid cannot: whatever lands on the final row shares
+   the full width between them. The basis picks how many fit per row before
+   wrapping — 4-up by default, `cols-3` for groups that read better in threes —
+   so a group of 5 wraps 3 + 2 and a group of 7 wraps 4 + 3, both flush.
+
+   Kept as its own modifier rather than changing `cols-4`: seven other screens
+   use that class and their trailing gaps are load-bearing (a 2-card group there
+   should stay 2 cards wide, not stretch to fill). */
+.stats-row.fill { display: flex; flex-wrap: wrap; }
+.stats-row.fill > * { flex: 1 1 calc(25% - 11px); }
+.stats-row.fill.cols-3 > * { flex: 1 1 calc(33.333% - 10px); }
+@media (max-width: 1024px) {
+  .stats-row.fill > *,
+  .stats-row.fill.cols-3 > * { flex-basis: calc(50% - 7px); }
+}
+@media (max-width: 560px) {
+  .stats-row.fill > *,
+  .stats-row.fill.cols-3 > * { flex-basis: 100%; }
+}
 /* Padding tightened with the footer's removal — the card is label + number
    only now, so the old bottom allowance reserved space for a row that no
    longer renders. */

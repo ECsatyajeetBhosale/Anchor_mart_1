@@ -449,7 +449,14 @@ function couponLabel(coupon: unknown): string {
 }
 
 /** Map a table row to the detail-drawer shape. */
-function toOrderDetail(order: Order): OrderDetail {
+/**
+ * Exported so the **Express Orders** screen renders through the same mapper.
+ *
+ * Both screens feed the one shared `OrderDetailDrawer`, and a second mapper
+ * would be a second definition of what an order looks like — the drift that the
+ * shared product columns already argued against.
+ */
+export function toOrderDetail(order: Order): OrderDetail {
   // Only the detail read returns `items`; a list row has just `item_count`.
   const items = order.items ?? [];
   const closedReason = orderTerminalReason(order);
@@ -938,7 +945,12 @@ export function OrdersPage() {
         }
       />
 
-      <StatsGrid items={statItems} className="cols-4" />
+      {/*
+        Six buckets, three across — 3 + 3 rather than 4 + 2. The trailing pair
+        was reading as a second, lesser group when the six are one set.
+        `fill` so each row divides the full width between its three.
+      */}
+      <StatsGrid items={statItems} className="fill cols-3" />
 
       {/* Order-type filter. Replaces the Express/Emergency cards that sat here:
           the same two numbers, but actionable, and with the complement

@@ -1,19 +1,33 @@
-import { IconClockDollar, IconShoppingCart, IconTruckOff } from "@tabler/icons-react";
+import {
+  IconBan,
+  IconCircleCheck,
+  IconClockDollar,
+  IconReceiptRefund,
+  IconShoppingCart,
+  IconTruckDelivery,
+  IconTruckOff,
+} from "@tabler/icons-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import type { DateRange } from "react-day-picker";
 import { useSearchParams } from "react-router-dom";
 
 import { DateRangePicker } from "@/components/common/DateRangePicker";
+import { OrderDetailDrawer } from "@/components/common/OrderDetailDrawer";
 import { PageHeader } from "@/components/common/PageHeader";
 import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import { DataTable } from "@/components/ui/data-table";
+import {
+  OrderAssignPartnerSection,
+  toOrderDetail,
+  useGetOrderDetailQuery,
+} from "@/features/orders";
 import { useGetPartnersQuery } from "@/features/partners";
 import { MESSAGES } from "@/lib/messages";
 import { useGetExpressOrdersQuery, useGetExpressStatsQuery } from "../api/expressApi";
+import { toExpressOrderDetail } from "../lib/expressOrderDetail";
 import type { ExpressOrder } from "../types/expressItem.types";
-import { ExpressItemDrawer } from "./ExpressItemDrawer";
 import { useExpressColumns } from "./expressColumns";
 
 const M = MESSAGES.EXPRESS;
@@ -39,7 +53,7 @@ function count(value: number | undefined): string {
  */
 export function ExpressOrdersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  /** The clicked row. It alone decides whether the drawer is open. */
   const [activeOrder, setActiveOrder] = useState<ExpressOrder | null>(null);
 
   // URL-driven state (shareable, refresh-safe).
@@ -77,6 +91,18 @@ export function ExpressOrdersPage() {
   const { data: stats, isLoading: statsLoading } = useGetExpressStatsQuery({});
   const orderStats = stats?.orders;
 
+  /**
+   * The whole `orders` block, one card per bucket — 4 + 4.
+   *
+   * Every card drills into the rows it counts, using the same `?status=` the
+   * table's own filter writes, so a number and the list it opens can never
+   * disagree. `total_orders` clears the filter instead of setting one: it is
+   * the population, and "filter to everything" is the same thing as no filter.
+   *
+   * The seven buckets do **not** sum to the total — `payment_received` belongs
+   * to none of them — so they are presented as seven independent counts rather
+   * than a breakdown that reconciles.
+   */
   const statItems = [
     {
       id: "orders",
@@ -86,6 +112,9 @@ export function ExpressOrdersPage() {
       value: statsLoading ? M.DASH : count(orderStats?.total_orders),
       icon: <IconShoppingCart size={19} />,
       variant: "navy" as const,
+      // Clears rather than sets — this card *is* "no filter".
+      onClick: () => setFilterParam("status", ""),
+      active: statusFilter === "",
     },
     {
       id: "awaiting-payment",
@@ -108,6 +137,43 @@ export function ExpressOrdersPage() {
       active: statusFilter === "payment_pending",
     },
     {
+      id: "confirmed",
+      /**
+       * The backend calls this bucket `new`; the status it counts is
+       * `order_confirmed` — express pays first, so the webhook moves an order
+       * straight to confirmed and that is where the queue starts. Labelled for
+       * the status rather than the key, so the card and the badge in the STATUS
+       * column read the same word.
+       */
+      label: M.STATS.CONFIRMED,
+      value: statsLoading ? M.DASH : count(orderStats?.new),
+      icon: <IconCircleCheck size={19} />,
+      variant: "blue" as const,
+      onClick: () => setFilterParam("status", "order_confirmed"),
+      active: statusFilter === "order_confirmed",
+    },
+    {
+      id: "in-progress",
+      label: M.STATS.IN_PROGRESS,
+      value: statsLoading ? M.DASH : count(orderStats?.in_progress),
+      icon: <IconTruckDelivery size={19} />,
+      variant: "teal" as const,
+      // A derived filter, not a raw status: it resolves server-side to the same
+      // `ORDER_IN_PROGRESS_STATUSES` constant this count is computed from, so
+      // the card and its drill-in cannot drift apart.
+      onClick: () => setFilterParam("status", "in_progress"),
+      active: statusFilter === "in_progress",
+    },
+    {
+      id: "delivered",
+      label: M.STATS.DELIVERED,
+      value: statsLoading ? M.DASH : count(orderStats?.delivered),
+      icon: <IconCircleCheck size={19} />,
+      variant: "green" as const,
+      onClick: () => setFilterParam("status", "delivered"),
+      active: statusFilter === "delivered",
+    },
+    {
       id: "failed",
       // Express skips verification entirely, so a failed delivery is the first
       // point where an express order needs a human — it earns its own card.
@@ -115,6 +181,26 @@ export function ExpressOrdersPage() {
       value: statsLoading ? M.DASH : count(orderStats?.delivery_failed),
       icon: <IconTruckOff size={19} />,
       variant: "red" as const,
+      onClick: () => setFilterParam("status", "delivery_failed"),
+      active: statusFilter === "delivery_failed",
+    },
+    {
+      id: "cancelled",
+      label: M.STATS.CANCELLED,
+      value: statsLoading ? M.DASH : count(orderStats?.cancelled),
+      icon: <IconBan size={19} />,
+      variant: "red" as const,
+      onClick: () => setFilterParam("status", "cancelled"),
+      active: statusFilter === "cancelled",
+    },
+    {
+      id: "refunded",
+      label: M.STATS.REFUNDED,
+      value: statsLoading ? M.DASH : count(orderStats?.refunded),
+      icon: <IconReceiptRefund size={19} />,
+      variant: "purple" as const,
+      onClick: () => setFilterParam("status", "refunded"),
+      active: statusFilter === "refunded",
     },
   ];
 
@@ -159,6 +245,27 @@ export function ExpressOrdersPage() {
     setSearchParams(next);
   };
 
+  /**
+   * The full record for the open order, on the **same pattern as Orders**: the
+   * drawer opens on the row and upgrades in place when the detail lands.
+   *
+   * If this endpoint turns out to be scoped away from express — the 2026-08-17
+   * split removed express from the `orders/orders/` *list*, and whether the
+   * detail route follows is unconfirmed — the query simply errors and the row
+   * mapping stands, which is exactly what this screen showed before. So the
+   * drawer is strictly better either way and never blank.
+   */
+  const { data: orderDetail } = useGetOrderDetailQuery(activeOrder?.id ?? "", {
+    skip: !activeOrder?.id,
+  });
+  const openOrder = activeOrder
+    ? orderDetail
+      ? toOrderDetail(orderDetail)
+      : toExpressOrderDetail(activeOrder)
+    : null;
+  /** Express is direct-pay — `payment_completed_at` is the marker, not a status. */
+  const isPaid = !!activeOrder?.payment_completed_at;
+
   // Assignment lives in the drawer (Flow 28 API 12) — the page only opens it.
   const columns = useExpressColumns({
     statusFilter,
@@ -182,6 +289,9 @@ export function ExpressOrdersPage() {
                 value: partnerFilter,
                 placeholder: M.ORDER_FILTERS.PARTNER_PLACEHOLDER,
                 options: partnerOptions,
+                // The same fleet as the assign picker, so the same problem.
+                searchable: true,
+                searchPlaceholder: MESSAGES.ORDERS.ASSIGN_PARTNER.PARTNER_SEARCH,
                 width: "180px",
                 onValueChange: (val) => setFilterParam("partner", val),
               },
@@ -213,17 +323,49 @@ export function ExpressOrdersPage() {
         onPageChange={handlePageChange}
         showPagination
         emptyMessage={M.EMPTY}
-        onRowClick={(order) => {
-          setActiveOrder(order);
-          setIsDrawerOpen(true);
-        }}
+        onRowClick={setActiveOrder}
       />
 
-      {/* Owns the partner picker (Flow 28 API 12) as well as the order detail. */}
-      <ExpressItemDrawer
-        isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-        item={activeOrder}
+      {/*
+        The **same drawer the Orders screen uses** — same summary strip, same
+        lifecycle rail, same tabs — rather than a second, thinner one. The only
+        express-specific rule lives in the slot below.
+
+        No `onCancel` / `onRefund` / `onDownloadSlip` yet: the drawer renders
+        those buttons only when a handler is supplied, and whether those order
+        endpoints accept an express id is the open question with backend. Better
+        absent than offered and 404ing.
+      */}
+      <OrderDetailDrawer
+        order={openOrder}
+        onClose={() => setActiveOrder(null)}
+        detailSlot={
+          activeOrder ? (
+            // Remounted per order so picker/claim state never leaks across rows.
+            <div key={activeOrder.id}>
+              {isPaid ? (
+                <OrderAssignPartnerSection
+                  orderId={activeOrder.id}
+                  status={activeOrder.status}
+                  activeAssignment={orderDetail?.active_assignment}
+                  assignedAdmin={orderDetail?.assigned_admin}
+                />
+              ) : (
+                /**
+                 * The one way this screen differs from Orders. An unpaid express
+                 * order has nothing to deliver yet — the sailor may never pay,
+                 * and a partner booked against an order that lapses is work
+                 * assigned to nothing. Absent rather than disabled: there is no
+                 * state before payment where assigning is the right next action.
+                 */
+                <section className="mt-4">
+                  <div className="sec-label">{MESSAGES.EXPRESS.ASSIGN.SECTION}</div>
+                  <p className="fg-hint">{MESSAGES.EXPRESS.ASSIGN.AWAITING_PAYMENT}</p>
+                </section>
+              )}
+            </div>
+          ) : undefined
+        }
       />
     </>
   );
