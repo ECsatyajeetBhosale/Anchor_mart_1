@@ -28,6 +28,7 @@ import { partnerRequirement } from "@/lib/partnerRequirement";
 import {
   IconAlertTriangle,
   IconAnchor,
+  IconBan,
   IconBolt,
   IconCalendar,
   IconFileInvoice,
@@ -43,7 +44,12 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useGetIntentDetailQuery } from "../api/intentApi";
 import { useGetSuggestedItemsQuery } from "../api/substitutionApi";
-import { canRejectIntent, canRequestReverification, deriveIntentAction } from "../lib/intentAction";
+import {
+  canCancelIntent,
+  canRejectIntent,
+  canRequestReverification,
+  deriveIntentAction,
+} from "../lib/intentAction";
 import type {
   IntentAction,
   IntentBadgeVariant,
@@ -91,6 +97,8 @@ export interface IntentReviewDrawerProps {
   onReject: () => void;
   /** Opens the re-verification prompt. Rendered only where §4.3b allows it. */
   onRequestReverification: () => void;
+  /** Opens the cancel prompt. Rendered where reject is no longer legal. */
+  onCancel: () => void;
   /** Flow 27 ownership of the underlying order. */
   ownership: OwnershipState;
   /** May the signed-in admin perform gated writes on this order? */
@@ -173,6 +181,7 @@ export function IntentReviewDrawer({
   onPrimaryAction,
   onReject,
   onRequestReverification,
+  onCancel,
   ownership,
   canManage,
   canClaim,
@@ -829,6 +838,15 @@ export function IntentReviewDrawer({
               <Button variant="danger" size="sm" onClick={onReject} disabled={!canManage}>
                 <IconX size={15} className="mr-1" />
                 {R.REJECT}
+              </Button>
+            )}
+            {/* Cancel takes over from reject once substitutions are released:
+                the API refuses reject there and says so, naming cancel. Both
+                are never offered at once — one terminal action per row. */}
+            {canCancelIntent(status) && (
+              <Button variant="danger" size="sm" onClick={onCancel} disabled={!canManage}>
+                <IconBan size={15} className="mr-1" />
+                {R.CANCEL_ORDER}
               </Button>
             )}
             {primary && (

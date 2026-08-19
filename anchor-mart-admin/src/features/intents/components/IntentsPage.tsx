@@ -26,9 +26,11 @@ import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import {
   type AssignedAdmin,
+  CancelOrderDialog,
   type ClaimConflict,
   OrderHandoverDialog,
   OwnerCell,
+  useCancelOrderMutation,
   useClaimOrderMutation,
   useOrderOwnership,
 } from "@/features/orders";
@@ -269,6 +271,7 @@ export function IntentsPage() {
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isRejectOpen, setIsRejectOpen] = useState(false);
   const [isReverifyOpen, setIsReverifyOpen] = useState(false);
+  const [isCancelOpen, setIsCancelOpen] = useState(false);
   const [isBillOpen, setIsBillOpen] = useState(false);
   /** create → Flow 07 API 1; update → API 2 (re-price an already-pending bill). */
   const [billMode, setBillMode] = useState<"create" | "update">("create");
@@ -293,6 +296,10 @@ export function IntentsPage() {
   const [rejectIntent, { isLoading: isRejecting }] = useRejectIntentMutation();
   const [releaseSuggestions, { isLoading: isReleasing }] = useReleaseSuggestionsMutation();
   const [requestReverification, { isLoading: isReverifying }] = useRequestReverificationMutation();
+  // Cancel is the intents screen's terminal action — the orders screen's is
+  // refund, and its cancel endpoint refuses every paid order. Same mutation,
+  // one owner.
+  const [cancelOrder, { isLoading: isCancelling }] = useCancelOrderMutation();
   const [createBill, { isLoading: isBilling }] = useCreateBillMutation();
   const [updateBill, { isLoading: isUpdatingBill }] = useUpdateBillMutation();
   const [generatePaymentLink, { isLoading: isGeneratingLink }] = useGeneratePaymentLinkMutation();
@@ -622,6 +629,26 @@ export function IntentsPage() {
     }
   };
 
+  /**
+   * Flow 1 §4.3 — cancel an unpaid intent. `reason` is required and is
+   * truncated to 50 characters server-side, which the dialog enforces.
+   *
+   * The button is gated on status, so what is left here is the ownership pair
+   * and the already-paid 409 — which cannot happen on this screen, but is
+   * surfaced in the backend's own words rather than swallowed if it ever does.
+   */
+  const handleConfirmCancel = async (reason: string) => {
+    if (!selectedIntent) return;
+    try {
+      await cancelOrder({ orderId: selectedIntent.id, reason }).unwrap();
+      toast.success(M.TOAST.CANCELLED(selectedIntent.r));
+      setIsCancelOpen(false);
+      setIsReviewOpen(false);
+    } catch (err) {
+      toast.error(getApiMessage(err) ?? M.TOAST.CANCEL_FAILED);
+    }
+  };
+
   const columns: Column<IntentData>[] = [
     avatarColumn({
       id: "sailor",
@@ -874,6 +901,10 @@ export function IntentsPage() {
           setIsReviewOpen(false);
           setIsReverifyOpen(true);
         }}
+        onCancel={() => {
+          setIsReviewOpen(false);
+          setIsCancelOpen(true);
+        }}
         ownership={selectedIntent ? stateOf(selectedIntent.assignedAdmin) : "unassigned"}
         canManage={canManage(selectedIntent?.assignedAdmin)}
         canClaim={canClaim(selectedIntent?.assignedAdmin)}
@@ -890,6 +921,17 @@ export function IntentsPage() {
         isLoading={isRejecting}
         onClose={() => setIsRejectOpen(false)}
         onConfirm={handleConfirmReject}
+      />
+
+      {/* Cancel reason popup (§4.3). Shared with the orders feature, which owns
+          the mutation — the endpoint is the same one, and only this screen's
+          population can actually use it. */}
+      <CancelOrderDialog
+        isOpen={isCancelOpen}
+        orderRef={selectedIntent?.r ?? ""}
+        isLoading={isCancelling}
+        onClose={() => setIsCancelOpen(false)}
+        onConfirm={handleConfirmCancel}
       />
 
       {/* Send-back-to-partner reason popup (§4.3b) */}

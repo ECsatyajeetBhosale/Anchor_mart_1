@@ -373,6 +373,24 @@ export const MESSAGES = {
     DATE_RANGE: "Date Range",
     // Row flag — an unactioned location report is waiting on the admin.
     LOCATION_REQUEST: "Location Change",
+    /**
+     * An unpaid delivery surcharge is blocking handover — the partner's own
+     * endpoint refuses with "Delivery is on hold". Not the same signal as
+     * LOCATION_REQUEST above, which only says a move was reported.
+     */
+    DELIVERY_ON_HOLD: "Delivery on hold",
+    /**
+     * The one worklist on this screen nothing else surfaces: partially
+     * delivered *and* the vessel has gone, so the rest can never arrive and
+     * only a refund closes it. Two orders sat in it for sixteen days.
+     */
+    SAILED_WORKLIST: "Vessel sailed · refund owed",
+    SAILED_WORKLIST_HINT:
+      "Partially delivered orders whose vessel has departed. The remainder can no longer be delivered — refund the undelivered value.",
+    HOLD_HINT:
+      "The sailor has an unpaid delivery surcharge for the new location. The partner cannot hand over until it is paid.",
+    /** Shown only once delivery has concluded and something is actually owed. */
+    UNDELIVERED_VALUE: (amount: string) => `${amount} undelivered`,
     // Flow 10 API 10 — picking-slip PDF
     SLIP: "Picking Slip",
     SLIP_DOWNLOADING: "Preparing…",
@@ -935,6 +953,12 @@ export const MESSAGES = {
       REJECT: "Reject",
       /** Only offered where a report exists to dispute and a partner to re-ask. */
       REVERIFY: "Re-verify",
+      /**
+       * The terminal action once substitutions are released — reject is refused
+       * from there and the API names cancel in its own error. Never shown
+       * beside Reject; the two split the funnel between them.
+       */
+      CANCEL_ORDER: "Cancel Order",
       // Primary action: hand the (claimed) order to a delivery partner (Flow 28).
       ASSIGN: "Assign",
       // Primary action once everything is verified available (Flow 7 create-bill:
@@ -1228,6 +1252,8 @@ export const MESSAGES = {
     TOAST: {
       REJECTED: (ref: string) => `Intent ${ref} rejected and sailor notified`,
       REJECT_FAILED: "Could not reject this intent. Please try again.",
+      CANCELLED: (ref: string) => `Order ${ref} cancelled`,
+      CANCEL_FAILED: "Could not cancel this order. Please try again.",
       ASSIGN_PENDING: "Partner assignment isn't wired up yet.",
       ASSIGN_SELECT_PARTNER: "Select a delivery partner first.",
       ASSIGNED: (ref: string) => `Partner assigned to ${ref} — now verifying stock.`,
@@ -1297,6 +1323,9 @@ export const MESSAGES = {
       PRODUCT: "Product",
       BRAND: "Brand",
       QTY: "Qty",
+      /** Vessel over port · anchorage, from the row's `shipping_address`. */
+      DELIVERY: "Delivery",
+      ARRIVAL: "Arrival",
       REQUESTED: "Requested",
       STATUS: "Status",
       ACTIONS: "Actions",
@@ -1406,6 +1435,12 @@ export const MESSAGES = {
       IMAGES_BY_ADMIN: "Admin's Images",
       NO_IMAGE: "No image provided",
       IMAGE_ALT: (product: string, index: number) => `${product} image ${index}`,
+      /**
+       * Some stored paths point outside the media directory, and one is a raw
+       * `file:///Users/…` simulator path — there is no prefix validation on the
+       * field, so a link is not a guarantee of a picture.
+       */
+      IMAGE_UNAVAILABLE: "Image unavailable",
       YES: "Yes",
       NO: "No",
       // Footer actions

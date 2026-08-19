@@ -27,6 +27,19 @@ export interface GetOrdersParams {
   /** Filter to one delivery partner's orders. */
   partnerId?: string;
   /**
+   * Has the vessel's `expected_departure` passed?
+   *
+   * The deadline half of the partial-delivery worklist. It has to be a server
+   * filter: the dates arrive pre-formatted as UTC wall-clock with no offset
+   * marker, so comparing them client-side would mean parsing exactly what the
+   * datetime contract forbids.
+   *
+   * **A null `expected_departure` is not "sailed".** It is unknown, so `true`
+   * excludes it rather than sweeping an order with no departure date into a
+   * refund worklist. Junk is a 400, not a silent no-op.
+   */
+  departed?: boolean;
+  /**
    * Order-type filters. Independent booleans that AND together, and **not**
    * mutually exclusive — an order may be both express and emergency (9 are, in
    * the current dataset), so these are queries rather than slices of a
@@ -48,6 +61,8 @@ export interface GetOrderStatsParams {
   dateFrom?: string;
   dateTo?: string;
   partnerId?: string;
+  /** Part of the shared scope, so the cards and the table describe one set. */
+  departed?: boolean;
   isExpress?: boolean;
   isEmergency?: boolean;
 }
@@ -129,6 +144,7 @@ export const ordersApi = baseApi.injectEndpoints({
           date_from: params.dateFrom || undefined,
           date_to: params.dateTo || undefined,
           partner_id: params.partnerId || undefined,
+          departed: boolParam(params.departed),
           is_express: boolParam(params.isExpress),
           is_emergency: boolParam(params.isEmergency),
         },
@@ -242,6 +258,7 @@ export const ordersApi = baseApi.injectEndpoints({
           date_from: params.dateFrom || undefined,
           date_to: params.dateTo || undefined,
           partner_id: params.partnerId || undefined,
+          departed: boolParam(params.departed),
           is_express: boolParam(params.isExpress),
           is_emergency: boolParam(params.isEmergency),
         },

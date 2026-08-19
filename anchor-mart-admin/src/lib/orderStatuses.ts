@@ -2,7 +2,11 @@ import type { BadgeProps } from "@/components/ui/badge";
 
 /**
  * Canonical order/intent status reference — the single source of truth for the
- * 18 lifecycle statuses, mirroring `docs/ORDER_STATUSES.md` (PM-provided).
+ * 19 lifecycle statuses, mirroring `docs/ORDER_STATUSES.md` (PM-provided).
+ *
+ * `partially_delivered` joined on 2026-08-19 with per-unit delivery; the four
+ * statuses after it were renumbered rather than given a fractional `order`,
+ * which the legend would have rendered literally.
  *
  * `key` and `label` are authoritative and must not change. `order` is the
  * canonical display order. `actor` is who the order is waiting on. `meaning` is
@@ -149,7 +153,20 @@ export const ORDER_STATUSES: OrderStatusInfo[] = [
     variant: "success",
   },
   {
+    // Added 2026-08-19 with per-unit delivery: a line of 2 with 1 handed over
+    // is finally expressible, so this is where such an order sits. Sequenced
+    // beside `delivered` because it is the same handover, incomplete.
     order: 15,
+    key: "partially_delivered",
+    label: "Partially Delivered",
+    actor: "Partner",
+    meaning:
+      "Some items were handed over; the partner can return with the rest until the vessel sails. Once it has, the remainder can never arrive and an admin has to refund the undelivered value.",
+    // Needs attention, but it is not a failure — the partner may still finish.
+    variant: "warning",
+  },
+  {
+    order: 16,
     key: "delivery_failed",
     label: "Delivery Failed",
     actor: "Admin",
@@ -158,7 +175,7 @@ export const ORDER_STATUSES: OrderStatusInfo[] = [
     variant: "danger",
   },
   {
-    order: 16,
+    order: 17,
     key: "intent_rejected",
     label: "Intent Rejected",
     actor: "—",
@@ -167,7 +184,7 @@ export const ORDER_STATUSES: OrderStatusInfo[] = [
     variant: "danger",
   },
   {
-    order: 17,
+    order: 18,
     key: "cancelled",
     label: "Cancelled",
     actor: "— / System",
@@ -176,7 +193,7 @@ export const ORDER_STATUSES: OrderStatusInfo[] = [
     variant: "danger",
   },
   {
-    order: 18,
+    order: 19,
     key: "refunded",
     label: "Refunded",
     actor: "—",

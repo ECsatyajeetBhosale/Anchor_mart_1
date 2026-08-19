@@ -1,42 +1,24 @@
 import type { StatusStats } from "@/lib/stats";
 
+import type { Order, OrderListResponse } from "@/features/orders";
+
 /**
- * An express order row as returned by GET /superadmin/express/orders/.
- * Dates arrive pre-formatted from the backend (e.g. "June 23, 2026, 02:18 AM").
+ * An express order row — **byte-identical to the Orders row**.
+ *
+ * Both screens are served by the same `OrderListSerializer` and a backend test
+ * asserts their key sets stay equal, so a field added to one and not the other
+ * is a build failure there. Aliasing rather than re-declaring is what makes that
+ * guarantee mean something here: a second declaration could drift silently, and
+ * did — this used to be a hand-written 19-field type whose location keys and
+ * date semantics fell out of sync with the real contract.
+ *
+ * `is_express` is `true` on every row of this screen, so it carries no
+ * information here; it is kept because the shared row component reads it.
  */
-export interface ExpressOrder {
-  id: string;
-  order_number: string;
-  /** Machine status, e.g. "delivered". */
-  status: string;
-  /** Human status label, e.g. "Delivered". */
-  status_display: string;
-  customer_name: string;
-  customer_email: string;
-  /** Decimal string, e.g. "2027.42". */
-  total_amount: string;
-  item_count: number;
-  port_name: string | null;
-  anchorage_name: string | null;
-  /** Pre-formatted timestamp, e.g. "June 23, 2026, 02:18 AM". */
-  ship_arrival_date: string | null;
-  payment_completed_at: string | null;
-  is_fastest_delivery: boolean;
-  is_express: boolean;
-  is_emergency: boolean;
-  partner_allocated: boolean;
-  partner_name: string | null;
-  has_location_request: boolean;
-  created_at: string | null;
-}
+export type ExpressOrder = Order;
 
 /** DRF paginated envelope for the express orders list (plain `results` array). */
-export interface ExpressOrderListResponse {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: ExpressOrder[];
-}
+export type ExpressOrderListResponse = OrderListResponse;
 
 /**
  * A row of the express variant catalog (`GET /superadmin/express/items/`).
@@ -204,9 +186,10 @@ export type GetExpressStatsParams = Pick<
  * are modelled as sent.
  *
  * **Mixed grain**: five product counts and three variant counts share this flat
- * object. `sourceable_products` is the product master flag alone, while
- * `sourceable_variants` is the effective AND *plus* `is_active` — so the two
- * must never be presented as a pair or read as a ratio.
+ * object. `sourceable_products` is the product master switch **alone**, while
+ * `sourceable_variants` needs the variant *and* its product to be sourceable —
+ * so the two count different things at different grains and must never be
+ * presented as a pair or read as a ratio.
  */
 export interface ExpressItemStats {
   total_products?: number;
@@ -217,7 +200,10 @@ export interface ExpressItemStats {
   on_deal?: number;
   total_variants?: number;
   active_variants?: number;
-  /** Effective sourceable — product AND variant, not the raw variant column. */
+  /**
+   * The **effective** value — variant AND product, not the raw variant column.
+   * Not a subset of `sourceable_products`, which counts products.
+   */
   sourceable_variants?: number;
 }
 

@@ -21,6 +21,7 @@ import { useGetOrderTimelineQuery } from "@/features/assignments";
 import { StatusLegendDialog } from "@/features/intents";
 import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
+import { dateTimeText, shortDate } from "@/lib/dates";
 import { MESSAGES } from "@/lib/messages";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
 import { readPartnerNeed } from "@/lib/partnerRequirement";
@@ -33,6 +34,7 @@ import {
   IconCircleCheck,
   IconInfoCircle,
   IconReceiptRefund,
+  IconShipOff,
   IconTruckDelivery,
 } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
@@ -41,7 +43,6 @@ import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   type OrderStatusKey,
-  useCancelOrderMutation,
   useGetOrderDetailQuery,
   useGetOrderStatsQuery,
   useGetOrdersQuery,
@@ -51,7 +52,6 @@ import { useClaimOrderMutation } from "../api/orderOwnershipApi";
 import { useOrderOwnership } from "../hooks/useOrderOwnership";
 import type { Order, OrderAssignment } from "../types/order.types";
 import type { ClaimConflict } from "../types/ownership.types";
-import { CancelOrderDialog } from "./CancelOrderDialog";
 import { OpenCartsCard } from "./OpenCartsCard";
 import { OrderAssignPartnerSection } from "./OrderAssignPartnerSection";
 import { OrderHandoverDialog } from "./OrderHandoverDialog";
@@ -82,9 +82,18 @@ interface OrderRow {
   st: string;
   shipName: string;
   terminalName: string;
-  /** Order type. Independent flags — an order may be both. */
+  /**
+   * Delivery flags. All three are independent and the tightest SLA wins —
+   * `isFastest` is the sailor's opt-in on any order, so a regular one can carry
+   * a hard deadline it would otherwise not have.
+   */
   isExpress: boolean;
   isEmergency: boolean;
+  isFastest: boolean;
+  /** Handover is blocked behind an unpaid delivery surcharge. */
+  deliveryOnHold: boolean;
+  /** Money owed as a decimal string; `"0.00"` until delivery has concluded. */
+  undeliveredValue: string;
   /**
    * The backend's explanation for a terminated row and when it was recorded
    * (`lib/terminalReason`). `""` on every row that did not end on an off-ramp,
@@ -113,6 +122,10 @@ const ORDER_FILTER_KEYS = [
   "at_port",
   "at_berth",
   "delivered",
+  // Added 2026-08-19 with per-unit delivery. It is a real status, so it belongs
+  // in the dropdown — and it is the status half of the sailed worklist, which
+  // the toggle above the table sets together with `?departed=true`.
+  "partially_delivered",
   "delivery_failed",
   "cancelled",
   "refunded",
@@ -255,13 +268,6 @@ const ORDER_TYPE_CONFIG: {
  * ISO timestamp → "Aug 16, 2026", matching the intents review drawer so the two
  * screens format the same field identically. Blank/invalid → "—".
  */
-function formatDate(value?: string | null): string {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-}
-
 function toApiDate(date?: Date): string | undefined {
   if (!date) return undefined;
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
@@ -287,29 +293,45 @@ function formatItems(order: Order): string {
   return "—";
 }
 
-/** Vessel name (or IMO) used in the ship column / drawer. */
+/**
+ * Vessel name (or IMO) for the ship column and the drawer.
+ *
+ * `shipping_address` is the only source: the row root carries no vessel name,
+ * and `imo` no longer exists — it is always `imo_number`.
+ */
 function shipLabel(order: Order): string {
-  return order.shipping_address?.vessel_name || order.shipping_address?.imo || "—";
+  const sa = order.shipping_address;
+  return sa?.vessel_name || sa?.imo_number || "—";
 }
 
-/** Berth / anchorage (or port) used as the terminal in the ship column / drawer. */
+/**
+ * Berth / anchorage (or port) — the terminal.
+ *
+ * `shipping_address` first, because since 2026-08-19 the list row has no
+ * top-level `port_name` / `anchorage_name` and its names are filled from the
+ * order's foreign keys, so they are populated on every row. The nested objects
+ * are kept as **detail-read** fallbacks: they are absent from a list row and
+ * present on `GET orders/{id}/`, and one mapper serves both.
+ */
 function terminalLabel(order: Order): string {
+  const sa = order.shipping_address;
   return (
+    sa?.anchorage_name ||
+    sa?.port_name ||
     order.anchorage?.anchorage_name ||
-    order.anchorage_name ||
     order.port?.port_name ||
-    order.port_name ||
     "—"
   );
 }
 
-/** Compact "Ship · Terminal" cell value. Falls back to the flat list fields. */
+/** Compact "Ship · Terminal" cell value. */
 function shipTerminal(order: Order): string {
-  const ship = order.shipping_address?.vessel_name || order.shipping_address?.imo;
-  const loc = order.anchorage?.anchorage_code || order.port?.port_code;
+  const sa = order.shipping_address;
+  const ship = sa?.vessel_name || sa?.imo_number;
+  const loc = sa?.anchorage_code || sa?.port_code || order.anchorage?.anchorage_code;
   const terminal = terminalLabel(order);
   if (ship) return loc ? `${ship} · ${loc}` : ship;
-  // List rows have no vessel name — show the anchorage/port instead of "—".
+  // No vessel recorded — show the anchorage/port rather than an em dash.
   return terminal;
 }
 
@@ -394,6 +416,15 @@ function toOrderRow(order: Order): OrderRow {
     reasonAt: reason.at,
     needsVerifierPartner: readPartnerNeed(order.needs_verifier_partner),
     needsDeliveryPartner: readPartnerNeed(order.needs_delivery_partner),
+    isFastest: order.is_fastest_delivery === true,
+    // Handover is blocked behind an unpaid surcharge — not a background charge.
+    deliveryOnHold: order.delivery_on_hold === true,
+    /**
+     * Money owed, as sent. `"0.00"` unless delivery has concluded, so an
+     * in-flight order shows nothing rather than a figure that reads as debt.
+     * Never derived here: the backend annotates it from one definition.
+     */
+    undeliveredValue: order.undelivered_value ?? "0.00",
     raw: order,
   };
 }
@@ -418,6 +449,18 @@ function paymentClass(pay: string): string {
   if (pay.includes("✓")) return "text-[var(--success-text)] font-bold text-[12.5px]";
   if (pay === "Pending") return "text-[var(--warning-text)] font-bold text-[12.5px]";
   return "text-[var(--danger-text)] font-bold text-[12.5px]";
+}
+
+/**
+ * Is there actually money outstanding?
+ *
+ * The backend sends `"0.00"` on every order whose delivery has not concluded,
+ * so this is a "should we say anything" check rather than a truthiness one —
+ * `"0.00"` is a non-empty string and would otherwise always render.
+ */
+function isMoneyOwed(value: string): boolean {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0;
 }
 
 /** Formats a decimal-ish value as `$0.00`; unparseable input → `$0.00`. */
@@ -501,15 +544,19 @@ export function toOrderDetail(order: Order): OrderDetail {
     // detail read; a list row leaves them undefined and the drawer shows "—".
     statusKey: order.status,
     sailorEmail: order.customer?.email || order.customer_email || order.user_email || "",
-    sailorPhone: order.customer?.whatsapp_number || order.shipping_address?.contact || "",
+    // `phone`, not `contact` — the key was renamed with the address contract.
+    sailorPhone: order.customer?.whatsapp_number || order.shipping_address?.phone || "",
     vesselName: order.shipping_address?.vessel_name || "",
-    imo: order.shipping_address?.imo || "",
-    portName: order.port?.port_name || order.port_name || "",
-    portCode: order.port?.port_code || order.shipping_address?.port_code || "",
-    anchorageName: order.anchorage?.anchorage_name || order.anchorage_name || "",
-    shipArrivalDate: formatDate(order.ship_arrival_date),
-    expectedDeparture: formatDate(order.expected_departure),
-    orderDate: order.created_at || "",
+    imo: order.shipping_address?.imo_number || "",
+    // Address first (populated on every row, filled from the FKs), nested
+    // objects as the detail-read fallback.
+    portName: order.shipping_address?.port_name || order.port?.port_name || "",
+    portCode: order.shipping_address?.port_code || order.port?.port_code || "",
+    anchorageName: order.shipping_address?.anchorage_name || order.anchorage?.anchorage_name || "",
+    // Display strings on the wire — read, never parsed. See `lib/dates.ts`.
+    shipArrivalDate: shortDate(order.ship_arrival_date),
+    expectedDeparture: shortDate(order.expected_departure),
+    orderDate: dateTimeText(order.created_at),
     notes: order.notes || "",
     itemCount: order.items_count ?? order.item_count ?? items.length,
     isExpress: order.is_express === true,
@@ -524,15 +571,12 @@ export function OrdersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   /** The clicked row's record — opens the drawer and seeds it before detail lands. */
   const [selectedRaw, setSelectedRaw] = useState<Order | null>(null);
-  /** The order awaiting a cancel reason, or null when the popup is closed. */
-  const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
   /** The order being refunded (Flow 12 §3–4), or null when closed. */
   const [orderToRefund, setOrderToRefund] = useState<Order | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   /** Which row's claim is in flight — scopes the spinner to that button. */
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [fetchSlip, { isFetching: slipLoading }] = useLazyGetOrderSlipQuery();
-  const [cancelOrder, { isLoading: isCancelling }] = useCancelOrderMutation();
 
   // Flow 27 — every admin order write is gated on ownership, so the claim
   // action has to live here too, not only on the Intents queue.
@@ -553,10 +597,24 @@ export function OrdersPage() {
   const typeFilter = asOrderType(searchParams.get("type"));
 
   /** The scope every counter and the table share — everything except `status`. */
+  /**
+   * The deadline half of the partial-delivery worklist, from `?departed=`.
+   *
+   * Server-side because it has to be: the row's `expected_departure` is a
+   * pre-formatted UTC wall-clock string with no offset, so comparing it here
+   * would mean parsing exactly what the datetime contract forbids.
+   *
+   * Part of `scope`, so the cards narrow with the table — the rule every other
+   * filter on this screen follows.
+   */
+  const departedParam = searchParams.get("departed");
+  const departed = departedParam === "true" ? true : departedParam === "false" ? false : undefined;
+
   const scope = {
     search,
     dateFrom: toApiDate(dateRange?.from),
     dateTo: toApiDate(dateRange?.to),
+    departed,
   };
 
   // Every filter is applied server-side, so pagination stays truthful.
@@ -647,6 +705,26 @@ export function OrdersPage() {
   const orders = (data?.results ?? []).map(toOrderRow);
 
   // Changing a filter resets to page 1; clearing it drops the param.
+  /**
+   * The sailed worklist is two params at once — the status and the deadline —
+   * so it is one control rather than asking the operator to line both up.
+   * Toggling off clears both rather than leaving a half-applied scope.
+   */
+  const isSailedWorklist = statusFilter === "partially_delivered" && departed === true;
+
+  const toggleSailedWorklist = () => {
+    const next = new URLSearchParams(searchParams);
+    next.set("page", "1");
+    if (isSailedWorklist) {
+      next.delete("status");
+      next.delete("departed");
+    } else {
+      next.set("status", "partially_delivered");
+      next.set("departed", "true");
+    }
+    setSearchParams(next);
+  };
+
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(searchParams);
     next.set("page", "1");
@@ -677,26 +755,6 @@ export function OrdersPage() {
     const next = new URLSearchParams(searchParams);
     next.set("page", newPage.toString());
     setSearchParams(next);
-  };
-
-  /**
-   * Flow 12 §2 — cancel a pre-payment order with the required reason. The
-   * documented failures all arrive as the backend's own message: 409 unclaimed
-   * or already paid ("use the refund flow"), 403 another admin's order, 400 for
-   * a post-payment status.
-   */
-  const handleCancel = async (reason: string) => {
-    if (!orderToCancel) return;
-    try {
-      const res = await cancelOrder({ orderId: orderToCancel.id, reason }).unwrap();
-      // Success: tag invalidation refreshes the row's status automatically.
-      toast.success(getApiMessage(res) ?? M.CANCEL_SUCCESS);
-      setOrderToCancel(null);
-    } catch (error) {
-      // Failure: keep the popup open (the typed reason is preserved) and
-      // surface why.
-      toast.error(getApiMessage(error) ?? M.CANCEL_ERROR);
-    }
   };
 
   /**
@@ -753,7 +811,13 @@ export function OrdersPage() {
     {
       id: "type",
       header: M.COLUMNS.TYPE,
-      cell: (o) => <OrderTypeBadges isExpress={o.isExpress} isEmergency={o.isEmergency} />,
+      cell: (o) => (
+        <OrderTypeBadges
+          isExpress={o.isExpress}
+          isEmergency={o.isEmergency}
+          isFastest={o.isFastest}
+        />
+      ),
     },
     textColumn({
       id: "ship",
@@ -829,7 +893,25 @@ export function OrdersPage() {
                 {M.LOCATION_REQUEST}
               </Badge>
             )}
+            {/* A different fact from the one above: that says the sailor
+                reported a move, this says an unpaid surcharge is stopping the
+                partner handing over. An order can carry either without the
+                other, and only this one holds the goods. */}
+            {o.deliveryOnHold && (
+              <Badge variant="danger" className="h-[22px] text-[10px]" title={M.HOLD_HINT}>
+                {M.DELIVERY_ON_HOLD}
+              </Badge>
+            )}
           </div>
+          {/* What a refund would be for — shown only once delivery has
+              concluded, which is the only time the backend reports it as
+              non-zero. Turns the worklist into a decision surface: the amount
+              is on the row rather than one drawer-open away. */}
+          {isMoneyOwed(o.undeliveredValue) && (
+            <div className="mt-1 text-[11.5px] font-bold text-[var(--danger-text)] tabular-nums">
+              {M.UNDELIVERED_VALUE(money(o.undeliveredValue))}
+            </div>
+          )}
           {/* Why a failed or cancelled row ended here — the backend sends it on
               the list itself, so the reassign-or-refund call no longer costs a
               drawer open per row. */}
@@ -952,6 +1034,27 @@ export function OrdersPage() {
         onRetry={refetchStats}
       />
 
+      {/* "Vessel sailed, refund owed".
+          Not a stat card: it is a *scope*, not a bucket — `?status=` plus
+          `?departed=`, and the cards themselves ignore `?status=` by design, so
+          a card here would sit beside six figures it is not comparable with.
+          It is the one worklist on this screen where the remainder can never
+          arrive and only an admin can close it out. */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Button
+          variant={isSailedWorklist ? "danger" : "secondary"}
+          size="sm"
+          onClick={toggleSailedWorklist}
+          aria-pressed={isSailedWorklist}
+        >
+          <IconShipOff size={15} className="mr-1" />
+          {M.SAILED_WORKLIST}
+        </Button>
+        {isSailedWorklist && (
+          <span className="text-[12px] font-medium text-[var(--t4)]">{M.SAILED_WORKLIST_HINT}</span>
+        )}
+      </div>
+
       {/* Order-type filter. Replaces the Express/Emergency cards that sat here:
           the same two numbers, but actionable, and with the complement
           ("Regular") that the cards could not express. Counts come from a
@@ -1006,15 +1109,12 @@ export function OrdersPage() {
         // No `onReassign`: the drawer's own partner section owns assignment now.
         // Both popups are custom Dialogs, which would render behind the Sheet
         // overlay — so the drawer closes first and the order is retained.
-        onCancel={
-          openOrder
-            ? () => {
-                const order = openOrder;
-                setSelectedRaw(null);
-                setOrderToCancel(order);
-              }
-            : undefined
-        }
+        // No `onCancel`. Every order on this screen is paid, and the cancel
+        // endpoint refuses a paid order outright — "use the refund flow to
+        // cancel it". The button could only ever 409, so the money-back path
+        // here is refund, and cancel lives on the intents screen where the
+        // population is unpaid.
+
         onRefund={
           openOrder
             ? () => {
@@ -1076,15 +1176,6 @@ export function OrdersPage() {
         orderRef={orderToRefund?.order_number ?? ""}
         status={orderToRefund?.status ?? ""}
         onClose={() => setOrderToRefund(null)}
-      />
-
-      {/* Cancel-order reason popup (Flow 12 §2 — `reason` is required) */}
-      <CancelOrderDialog
-        isOpen={!!orderToCancel}
-        orderRef={orderToCancel?.order_number ?? ""}
-        isLoading={isCancelling}
-        onClose={() => setOrderToCancel(null)}
-        onConfirm={handleCancel}
       />
 
       {/* Flow 27 — reassign to another admin, or release back to the pool. */}

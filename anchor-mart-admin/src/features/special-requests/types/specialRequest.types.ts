@@ -36,11 +36,21 @@ export const SPECIAL_REQUEST_STATUS_KEYS: SpecialRequestStatus[] = [
 export interface SpecialRequest {
   /** Unique request id (UUID) — passed to the detail API as `product_id`. */
   id: string;
-  /** Request reference, e.g. "SR202607140003". */
+  /**
+   * Request reference, e.g. "SR202607140003". **Not an order number** — an
+   * order exists only once the sailor accepts and pays, and its `AM…` number
+   * lives on the detail as `order.order_number`.
+   */
   r: string;
-  /** Sailor identity — the API sends an email here, not a display name. */
+  /** Sailor's display name, from `customer_name`. */
   n: string;
-  /** Sailor phone (nullable on the API — renders "-" when absent). */
+  /** Sailor's email, from `customer_email`. */
+  email: string;
+  /**
+   * The sailor's **account** number (`user.whatsapp_number`) — who they are,
+   * not who to call at the berth. The delivery contact is a different field
+   * (`shipping_address.phone`) and the two can both be set and differ.
+   */
   ph: string;
   /** Requested product name. */
   prod: string;
@@ -48,8 +58,15 @@ export interface SpecialRequest {
   brand: string;
   /** Requested quantity (number, or "-" when absent). */
   qty: number | string;
-  /** Request date label (pre-formatted by the API, e.g. "July 14, 2026, 09:41 AM"). */
+  /** Request date, as sent — the API pre-formats it. */
   dt: string;
+  /** Vessel dates, shortened. `"—"` when the request carries none. */
+  arrival: string;
+  departure: string;
+  /** Vessel name, else IMO, from `shipping_address`. `"—"` when neither. */
+  vessel: string;
+  /** Port · anchorage from `shipping_address`. `"—"` when neither. */
+  location: string;
   /** Status label (`status_display`) shown in the badge. */
   st: string;
   /** Raw status token (used internally for filtering / badge colour). */
@@ -72,11 +89,22 @@ export interface SpecialRequest {
  */
 export interface SpecialRequestApi {
   id: string;
+  /** `SR…`, this model's own reference. There is no `order_number` here. */
   reference?: string | null;
-  /** Sailor's email — the list endpoint sends no first/last name. */
-  sailor?: string | null;
-  /** Nullable on the API; currently unpopulated on every row. */
+  /**
+   * Unified across all four admin screens on 2026-08-19. They replaced a single
+   * `sailor` field that carried the email, so the table showed an address where
+   * a name belongs.
+   */
+  customer_name?: string | null;
+  customer_email?: string | null;
+  /** The sailor's **account** number, not the delivery contact. */
   phone?: string | null;
+  /** The same fixed 16-key object the three order screens carry. */
+  shipping_address?: SpecialRequestAddress | null;
+  /** Pre-formatted display strings, as everywhere else. */
+  ship_arrival_date?: string | null;
+  expected_departure?: string | null;
   product_name?: string | null;
   brand?: string | null;
   primary_image?: string | null;
@@ -210,20 +238,36 @@ export interface SpecialRequestOrderRef {
   payment_status?: string | null;
 }
 
-/** Delivery address — the same object that becomes the order's address at pay time. */
+/**
+ * Delivery address — the same object that becomes the order's address at pay
+ * time, and structurally the same fixed 16-key shape the three order screens
+ * carry. Unified across all four screens on 2026-08-19.
+ *
+ * Kept optional-and-nullable rather than the orders screens' required-nullable:
+ * this one is read from a **detail** payload as well as a list row, and the
+ * pending-changes object beside it carries only the keys the sailor actually
+ * changed — so "absent" is a real state here in a way it is not there.
+ *
+ * `phone` is the **delivery** contact. The row's own `phone` is the sailor's
+ * account number; the two answer different questions.
+ */
 export interface SpecialRequestAddress {
   full_name?: string | null;
   phone?: string | null;
   email?: string | null;
+  port_name?: string | null;
+  port_code?: string | null;
+  anchorage_name?: string | null;
+  anchorage_code?: string | null;
+  country?: string | null;
+  city?: string | null;
+  zip_code?: string | null;
   vessel_name?: string | null;
   imo_number?: string | null;
   deck?: string | null;
   cabin_number?: string | null;
   section?: string | null;
   delivery_instructions?: string | null;
-  port_name?: string | null;
-  anchorage_name?: string | null;
-  anchorage_code?: string | null;
 }
 
 /**

@@ -37,6 +37,8 @@ export type { OrderAssignPartnerSectionProps } from "./components/OrderAssignPar
 // Flow 12 — cancel + refund
 export { CancelOrderDialog } from "./components/CancelOrderDialog";
 export { RefundOrderDialog } from "./components/RefundOrderDialog";
+// The picking slip is the same endpoint and the same PDF on the express screen.
+export { useLazyGetOrderSlipQuery } from "./api/orderApi";
 export { useGetRefundQuoteQuery, useRefundOrderMutation } from "./api/orderRefundApi";
 
 // Flow 11 — location changes + delivery surcharges

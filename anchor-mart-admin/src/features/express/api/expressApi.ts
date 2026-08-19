@@ -34,6 +34,13 @@ export interface GetExpressOrdersParams {
    * sides, so an unpaid express order is filterable rather than invisible.
    */
   status?: string;
+  /**
+   * Has the vessel's `expected_departure` passed? The deadline half of the
+   * partial-delivery worklist, identical to the orders screen — express uses
+   * the same delivery and refund machinery. Server-side because the row's date
+   * is a pre-formatted wall-clock string with no offset to compare against.
+   */
+  departed?: boolean;
   /** `YYYY-MM-DD`, filtering on `payment_completed_at`. */
   dateFrom?: string;
   dateTo?: string;
@@ -145,6 +152,7 @@ export const expressApi = baseApi.injectEndpoints({
           date_from: params.dateFrom || undefined,
           date_to: params.dateTo || undefined,
           partner_id: params.partnerId || undefined,
+          departed: params.departed === undefined ? undefined : String(params.departed),
         },
       }),
       providesTags: (result) =>

@@ -1,6 +1,7 @@
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import type { Column } from "@/components/ui/data-table";
+import { dateTimeText, shortDate } from "@/lib/dates";
 import { MESSAGES } from "@/lib/messages";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
 import type { ExpressOrder } from "../types/expressItem.types";
@@ -33,6 +34,9 @@ const STATUS_FILTER_OPTIONS = [
   "at_port",
   "at_berth",
   "delivered",
+  // Per-unit delivery, 2026-08-19. Express uses the same delivery machinery, so
+  // a sailed partial here is the same worklist and the same refund.
+  "partially_delivered",
   "delivery_failed",
   "cancelled",
   "refunded",
@@ -76,8 +80,11 @@ export function useExpressColumns({
           <div className="td-p mono trunc" title={row.order_number}>
             {row.order_number}
           </div>
+          {/* Placed-at, as sent. This screen sorts on it (`-created_at`) rather
+              than on payment, because it spans both sides of payment and the
+              payment sort put every unpaid order above every paid one. */}
           <div className="td-m trunc" title={row.created_at ?? ""}>
-            {row.created_at ?? DASH}
+            {dateTimeText(row.created_at)}
           </div>
         </div>
       ),
@@ -99,16 +106,24 @@ export function useExpressColumns({
     {
       id: "location",
       header: M.COLUMNS.LOCATION,
-      cell: (row) => (
-        <div className="max-w-[200px]">
-          <div className="td-p trunc" title={row.port_name ?? ""}>
-            {row.port_name ?? DASH}
+      // `shipping_address` is the only source: the row root carries no
+      // top-level `port_name` / `anchorage_name` any more, and the address's
+      // own are filled from the order's foreign keys, so they are populated on
+      // every row rather than on the few whose snapshot happened to record one.
+      cell: (row) => {
+        const port = row.shipping_address?.port_name;
+        const anchorage = row.shipping_address?.anchorage_name;
+        return (
+          <div className="max-w-[200px]">
+            <div className="td-p trunc" title={port ?? ""}>
+              {port || DASH}
+            </div>
+            <div className="td-m trunc" title={anchorage ?? ""}>
+              {anchorage || DASH}
+            </div>
           </div>
-          <div className="td-m trunc" title={row.anchorage_name ?? ""}>
-            {row.anchorage_name ?? DASH}
-          </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       id: "items",
@@ -120,8 +135,22 @@ export function useExpressColumns({
     {
       id: "amount",
       header: M.COLUMNS.AMOUNT,
-      cell: (row) => `$${Number(row.total_amount).toFixed(2)}`,
-      className: "td-p",
+      cell: (row) => {
+        // What a refund would be for. `"0.00"` on every order whose delivery
+        // has not concluded, so the check is numeric — the string is truthy and
+        // would otherwise print on every healthy row.
+        const owed = Number(row.undelivered_value);
+        return (
+          <div>
+            <div className="td-p">{`$${Number(row.total_amount).toFixed(2)}`}</div>
+            {Number.isFinite(owed) && owed > 0 && (
+              <div className="td-m font-bold text-[var(--danger-text)] tabular-nums">
+                {MESSAGES.ORDERS.UNDELIVERED_VALUE(`$${owed.toFixed(2)}`)}
+              </div>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: "flags",
@@ -148,6 +177,19 @@ export function useExpressColumns({
               {M.FLAGS.LOCATION_REQ}
             </Badge>
           )}
+          {/* A different fact from the one above: that says a move was
+              reported, this says an unpaid surcharge is stopping the partner
+              handing over. Express has no cancel path, so an order stuck here
+              can only be resolved by the sailor paying or by a refund. */}
+          {row.delivery_on_hold && (
+            <Badge
+              variant="danger"
+              className="text-[10px] h-[22px]"
+              title={MESSAGES.ORDERS.HOLD_HINT}
+            >
+              {MESSAGES.ORDERS.DELIVERY_ON_HOLD}
+            </Badge>
+          )}
         </div>
       ),
     },
@@ -168,7 +210,9 @@ export function useExpressColumns({
     {
       id: "arrival",
       header: M.COLUMNS.ARRIVAL,
-      cell: (row) => <span className="td-m">{row.ship_arrival_date ?? DASH}</span>,
+      // Shortened, as on the other two screens — the arrival column answers
+      // "which day", and the time is in the drawer.
+      cell: (row) => <span className="td-m">{shortDate(row.ship_arrival_date)}</span>,
     },
     {
       id: "status",

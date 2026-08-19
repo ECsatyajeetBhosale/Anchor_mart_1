@@ -71,6 +71,10 @@ export function CancelOrderDialog({
             value={reason}
             error={!!error}
             placeholder={C.REASON_PLACEHOLDER}
+            // The API accepts a longer string, stores the first 50 and returns
+            // 200 — so without this the admin writes a sentence and the sailor
+            // receives half of one, with nothing to say it was cut.
+            maxLength={50}
             onChange={(e) => {
               setReason(e.target.value);
               if (error) setError("");

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { canRejectIntent, canRequestReverification, deriveIntentAction } from "./intentAction";
+import {
+  canCancelIntent,
+  canRejectIntent,
+  canRequestReverification,
+  deriveIntentAction,
+} from "./intentAction";
 
 describe("deriveIntentAction — the situation split", () => {
   it("offers the bill once the sailor has confirmed the substitutions", () => {
@@ -109,5 +114,53 @@ describe("canRequestReverification", () => {
     // `null` means the API omitted the field, which is not the same as saying
     // one is needed — withholding the control on that would hide a legal action.
     expect(canRequestReverification("verification_submitted", null)).toBe(true);
+  });
+});
+
+describe("canCancelIntent", () => {
+  it("takes over exactly where reject stops", () => {
+    // The API refuses reject past the release and names cancel in its error,
+    // so the two split the funnel between them rather than overlapping.
+    expect(canCancelIntent("pending_customer_response")).toBe(true);
+    expect(canCancelIntent("payment_pending")).toBe(true);
+  });
+
+  it("is never offered beside reject", () => {
+    // Two terminal buttons on one row invites picking the wrong one.
+    for (const status of [
+      "intent_received",
+      "sourcing",
+      "partner_verifying",
+      "verification_submitted",
+    ]) {
+      expect(canRejectIntent(status)).toBe(true);
+      expect(canCancelIntent(status)).toBe(false);
+    }
+  });
+
+  it("covers every open funnel status between them, and nothing else", () => {
+    const open = [
+      "intent_received",
+      "sourcing",
+      "partner_verifying",
+      "verification_submitted",
+      "pending_customer_response",
+      "payment_pending",
+    ];
+    for (const status of open) {
+      expect(canRejectIntent(status) || canCancelIntent(status)).toBe(true);
+    }
+    // Terminal rows have no terminal action left to offer.
+    for (const status of ["intent_rejected", "cancelled", "delivered"]) {
+      expect(canRejectIntent(status) || canCancelIntent(status)).toBe(false);
+    }
+  });
+
+  it("offers nothing on a post-payment status", () => {
+    // Cancel is unpaid-only; the orders screen's money-back path is refund, and
+    // its cancel endpoint refuses every paid order outright.
+    for (const status of ["order_confirmed", "partner_assigned", "items_collected"]) {
+      expect(canCancelIntent(status)).toBe(false);
+    }
   });
 });

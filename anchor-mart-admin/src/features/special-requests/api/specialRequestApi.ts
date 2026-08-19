@@ -1,4 +1,5 @@
 import { SPECIAL_REQUEST_ENDPOINTS } from "@/lib/apiEndpoints";
+import { shortDate } from "@/lib/dates";
 import { baseApi } from "@/lib/fetchUtils";
 import type {
   AllowChangesPayload,
@@ -58,18 +59,41 @@ export function specialRequestStatusVariant(status: string): SpecialRequestBadge
   return STATUS_VARIANT[status.toLowerCase()] ?? "neutral";
 }
 
-/** Maps a raw API row into the flat UI row the table columns render. */
-function toSpecialRequest(row: SpecialRequestApi): SpecialRequest {
+/** Joins the parts that are present with a separator; "-" when none are. */
+function join(parts: (string | null | undefined)[], separator = " · "): string {
+  const kept = parts.map((p) => (p ?? "").trim()).filter(Boolean);
+  return kept.length ? kept.join(separator) : FALLBACK;
+}
+
+/**
+ * Maps a raw API row into the flat UI row the table columns render.
+ *
+ * The identity fields were unified across all four admin screens on 2026-08-19:
+ * a single `sailor` carrying the email became `customer_name` + `customer_email`,
+ * so the Sailor column shows a name rather than an address.
+ */
+export function toSpecialRequest(row: SpecialRequestApi): SpecialRequest {
   const status = row.status ? String(row.status).trim() : "";
+  const address = row.shipping_address;
   return {
     id: row.id ? String(row.id) : "",
     r: dash(row.reference),
-    n: dash(row.sailor),
+    // Name, then email, so a request from an account with no name still
+    // identifies someone rather than reading "-".
+    n: dash(row.customer_name ?? row.customer_email),
+    email: dash(row.customer_email),
+    // The sailor's account number. The delivery contact is
+    // `shipping_address.phone`, which is a different question and can differ.
     ph: dash(row.phone),
     prod: dash(row.product_name),
     brand: dash(row.brand),
     qty: row.quantity ?? FALLBACK,
+    // Display strings on the wire — read, never parsed. See `lib/dates.ts`.
     dt: dash(row.created_at),
+    arrival: shortDate(row.ship_arrival_date),
+    departure: shortDate(row.expected_departure),
+    vessel: join([address?.vessel_name || address?.imo_number]),
+    location: join([address?.port_name, address?.anchorage_name]),
     st: dash(row.status_display),
     status,
     sc: specialRequestStatusVariant(status),

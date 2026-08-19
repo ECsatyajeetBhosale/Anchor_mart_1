@@ -8,7 +8,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { DynamicTabs } from "@/components/common/DynamicTabs";
@@ -94,17 +94,50 @@ function DiffRow({ label, from, to }: { label: string; from: string; to: string 
   );
 }
 
-/** A row of thumbnails; used once per uploader. */
+/**
+ * A row of thumbnails; used once per uploader.
+ *
+ * **Rendered defensively, because these paths are not reliable.** There is no
+ * prefix validation on the image field, so stored values include paths outside
+ * the configured media directory and at least one raw `file:///Users/…`
+ * simulator path — a URL only the machine that uploaded it could ever resolve.
+ *
+ * Two consequences. A path the browser cannot fetch is dropped up front rather
+ * than attempted, since a `file://` URL from a web page is refused outright and
+ * would log a console error on every open. Anything else that fails to load
+ * falls back to a placeholder, because the browser's own broken-image icon
+ * reads as "the console is broken" rather than "this picture is missing".
+ */
+function isFetchableImage(src: string): boolean {
+  const value = src.trim();
+  if (!value) return false;
+  // Relative paths and the two schemes a page may actually load.
+  return !/^[a-z][a-z0-9+.-]*:/i.test(value) || /^(https?|data):/i.test(value);
+}
+
+function GalleryImage({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  const box = "h-28 w-28 rounded-[var(--radius-sm)] border border-[var(--border-sm)] object-cover";
+  if (failed) {
+    return (
+      <div
+        className={`${box} flex items-center justify-center bg-[var(--surface-alt)] text-[var(--t4)]`}
+        title={D.IMAGE_UNAVAILABLE}
+      >
+        <IconPhotoOff size={20} />
+      </div>
+    );
+  }
+  return <img src={src} alt={alt} className={box} onError={() => setFailed(true)} />;
+}
+
 function Gallery({ srcs, productName }: { srcs: string[]; productName: string }) {
+  const usable = srcs.filter(isFetchableImage);
+  if (!usable.length) return null;
   return (
     <div className="flex flex-wrap gap-3">
-      {srcs.map((src, i) => (
-        <img
-          key={src}
-          src={src}
-          alt={D.IMAGE_ALT(productName, i + 1)}
-          className="h-28 w-28 rounded-[var(--radius-sm)] border border-[var(--border-sm)] object-cover"
-        />
+      {usable.map((src, i) => (
+        <GalleryImage key={src} src={src} alt={D.IMAGE_ALT(productName, i + 1)} />
       ))}
     </div>
   );

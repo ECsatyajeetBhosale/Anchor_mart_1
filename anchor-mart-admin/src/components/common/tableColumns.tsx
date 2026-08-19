@@ -120,6 +120,14 @@ export function avatarColumn<T>(
      * human face, which reads as a user record.
      */
     placeholder?: ReactNode;
+    /**
+     * Optional muted line under the name — an email, usually.
+     *
+     * Opt-in: without it the cell renders exactly as before, one line. Returning
+     * an empty string renders nothing rather than an empty row, so a record
+     * missing the secondary value does not gain a blank line.
+     */
+    secondary?: (row: T) => string;
     variant?: AvatarVariant;
   },
 ): Column<T> {
@@ -132,6 +140,7 @@ export function avatarColumn<T>(
     cell: (row) => {
       const label = opts.name(row);
       const src = opts.image?.(row);
+      const secondary = opts.secondary?.(row);
       return (
         <div className="flex items-center gap-2">
           {src ? (
@@ -147,7 +156,18 @@ export function avatarColumn<T>(
               {opts.initial ? opts.initial(row) : label.charAt(0)}
             </div>
           )}
-          <span className="td-p">{label}</span>
+          {secondary ? (
+            <div className="min-w-0">
+              <div className="td-p trunc" title={label}>
+                {label}
+              </div>
+              <div className="td-m trunc" title={secondary}>
+                {secondary}
+              </div>
+            </div>
+          ) : (
+            <span className="td-p">{label}</span>
+          )}
         </div>
       );
     },

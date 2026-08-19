@@ -82,6 +82,16 @@ const STAT_CONFIG: {
   label: string;
   /** `"total"` reads the aggregate; anything else is a `status_counts` bucket. */
   key: SpecialRequestStatusKey | "total";
+  /**
+   * The `?status=` this card selects, or null when it cannot drill through.
+   *
+   * Total clears the filter — it is the population, and "filter to everything"
+   * is the same as no filter. `awaiting_rebill` has **no** filter value at all:
+   * it is a subset of `sourcing_confirmed` flagged by `rebill_requested`, and
+   * the list has no parameter for that flag, so it is rendered as a sub-line of
+   * its parent card rather than as a card that counts what it cannot open.
+   */
+  filter: string | null;
   icon: ReactNode;
   variant: StatVariant;
 }[] = [
@@ -89,6 +99,7 @@ const STAT_CONFIG: {
     id: "total",
     label: M.STATS.TOTAL,
     key: "total",
+    filter: "",
     icon: <IconClipboardText size={20} />,
     variant: "navy",
   },
@@ -96,6 +107,7 @@ const STAT_CONFIG: {
     id: "pending",
     label: M.STATS.PENDING,
     key: "pending",
+    filter: "pending",
     icon: <IconClock size={20} />,
     variant: "amber",
   },
@@ -103,6 +115,7 @@ const STAT_CONFIG: {
     id: "sourcing_confirmed",
     label: M.STATS.SOURCING_CONFIRMED,
     key: "sourcing_confirmed",
+    filter: "sourcing_confirmed",
     icon: <IconShoppingCart size={20} />,
     variant: "teal",
   },
@@ -110,6 +123,7 @@ const STAT_CONFIG: {
     id: "quote_sent",
     label: M.STATS.QUOTE_SENT,
     key: "quote_sent",
+    filter: "quote_sent",
     icon: <IconSend size={20} />,
     variant: "blue",
   },
@@ -117,6 +131,7 @@ const STAT_CONFIG: {
     id: "accepted",
     label: M.STATS.ACCEPTED,
     key: "accepted",
+    filter: "accepted",
     icon: <IconCheck size={20} />,
     variant: "green",
   },
@@ -124,6 +139,7 @@ const STAT_CONFIG: {
     id: "rejected",
     label: M.STATS.REJECTED,
     key: "rejected",
+    filter: "rejected",
     icon: <IconBan size={20} />,
     variant: "red",
   },
@@ -173,6 +189,10 @@ export function SpecialRequestsPage() {
   const cardsState = statsState(statsQuery);
   const awaitingRebill = statusCount(stats, "awaiting_rebill") ?? 0;
 
+  // Clicking a card filters the table to it — the same relationship the other
+  // three screens have, and the reason the endpoint ignores `?status=`: the
+  // cards ARE the breakdown, so they must not filter themselves. Click the
+  // active one again to clear.
   const statItems = STAT_CONFIG.map((c) => ({
     id: c.id,
     label: c.label,
@@ -180,6 +200,11 @@ export function SpecialRequestsPage() {
       c.key === "total" ? statText(cardsState, stats?.total) : statusText(cardsState, stats, c.key),
     icon: c.icon,
     variant: c.variant,
+    active: c.filter !== null && c.filter !== "" && statusFilter === c.filter,
+    onClick:
+      c.filter === null
+        ? undefined
+        : () => setParam("status", statusFilter === c.filter ? "" : (c.filter as string)),
     /**
      * `awaiting_rebill` hangs *inside* Sourcing Confirmed rather than beside it.
      * Those requests already sit in that bucket, so a seventh card would count
@@ -245,12 +270,18 @@ export function SpecialRequestsPage() {
     // number: an order only exists once the sailor pays, and its `AM…` number is
     // on the detail as `order.order_number`.
     idColumn({ id: "ref", header: M.COLUMNS.REFERENCE, get: (r) => r.r }),
+    // Name over email, as on the other three screens. It showed the email as a
+    // name until the identity fields were unified — the list only ever sent
+    // `sailor`, which carried an address.
     avatarColumn({
       id: "sailor",
       header: M.COLUMNS.SAILOR,
       name: (r) => r.n,
+      secondary: (r) => r.email,
       image: (r) => getFallbackAvatar(r.n),
     }),
+    // The sailor's ACCOUNT number — who they are. Who to call at the berth is
+    // `shipping_address.phone`, which is on the detail.
     textColumn({ id: "phone", header: M.COLUMNS.PHONE, get: (r) => r.ph, className: "td-m" }),
     truncatedColumn({ id: "product", header: M.COLUMNS.PRODUCT, get: (r) => r.prod }),
     textColumn({ id: "brand", header: M.COLUMNS.BRAND, get: (r) => r.brand, className: "td-m" }),
@@ -260,6 +291,29 @@ export function SpecialRequestsPage() {
       get: (r) => r.qty,
       className: "td-m text-center",
       headerClassName: "text-center",
+    }),
+    {
+      id: "delivery",
+      header: M.COLUMNS.DELIVERY,
+      // From `shipping_address`, which this screen started carrying on
+      // 2026-08-19 — the same 16-key object the order screens get. Until then
+      // the table could not say where any of this was going.
+      cell: (r) => (
+        <div className="max-w-[180px]">
+          <div className="td-p trunc" title={r.vessel}>
+            {r.vessel}
+          </div>
+          <div className="td-m trunc" title={r.location}>
+            {r.location}
+          </div>
+        </div>
+      ),
+    },
+    textColumn({
+      id: "arrival",
+      header: M.COLUMNS.ARRIVAL,
+      get: (r) => r.arrival,
+      className: "td-m",
     }),
     textColumn({
       id: "requested",

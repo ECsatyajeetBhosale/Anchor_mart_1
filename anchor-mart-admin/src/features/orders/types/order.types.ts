@@ -33,12 +33,40 @@ export interface OrderCustomer {
   is_active: boolean;
 }
 
+/**
+ * The delivery target — the same fixed 16-key object the intents screen gets,
+ * always present, `null` when unknown, so no key needs an existence check.
+ *
+ * It replaced a free-form blob with seven different shapes across live data.
+ * Two consequences: `imo` is gone (always `imo_number`), and `contact` is gone
+ * (always `phone`). Nothing at the row root duplicates any of it — the list
+ * carries no top-level `port_name` or `anchorage_name` any more, so this is the
+ * only source of location on a list row.
+ *
+ * Structurally identical to `IntentShippingAddress`. They are declared once per
+ * feature rather than shared because the two screens' rows are otherwise
+ * different contracts; if the express row merge lands in step 3 that is the
+ * moment to hoist one shared type.
+ */
 export interface OrderShippingAddress {
-  imo: string;
-  agent: string;
-  contact: string;
-  port_code: string;
-  vessel_name: string;
+  full_name: string | null;
+  /** The delivery contact — not the account's own. */
+  phone: string | null;
+  email: string | null;
+  port_name: string | null;
+  port_code: string | null;
+  anchorage_name: string | null;
+  anchorage_code: string | null;
+  country: string | null;
+  city: string | null;
+  zip_code: string | null;
+  vessel_name: string | null;
+  /** Always `imo_number` — the old `imo` spelling is reconciled away server-side. */
+  imo_number: string | null;
+  deck: string | null;
+  cabin_number: string | null;
+  section: string | null;
+  delivery_instructions: string | null;
 }
 
 export interface OrderPort {
@@ -151,10 +179,31 @@ export interface Order {
   customer_name?: string;
   customer_email?: string;
   item_count?: number;
-  port_name?: string | null;
-  anchorage_name?: string | null;
+  /**
+   * When the money landed — the sort axis for this screen, and what
+   * `?date_from` / `?date_to` filter on. Always set here by definition.
+   */
   payment_completed_at?: string | null;
   is_emergency?: boolean;
+  is_fastest_delivery?: boolean;
+  /**
+   * Money still owed on this order, as a decimal string — annotated onto the
+   * list queryset, so it costs one query per page rather than one per row.
+   *
+   * **`"0.00"` unless delivery has concluded.** On `partially_delivered` it is
+   * the exact partial-refund amount; on `delivery_failed` it is the whole order,
+   * since a full refund is the policy there. Everywhere else it is zero: an
+   * in-flight order's outstanding value is not a debt, and rendering it as one
+   * would put a refund figure on a perfectly healthy row.
+   */
+  undelivered_value?: string;
+  /**
+   * The sailor owes an unpaid delivery surcharge, so the partner's handover is
+   * **blocked** — not a background charge. Distinct from `has_location_request`,
+   * which says a move was *reported*: an order can be either without the other,
+   * and this is the one that stops the goods moving.
+   */
+  delivery_on_hold?: boolean;
   /**
    * Kept for compatibility and history only. **Neither answers whether a
    * delivery partner is assigned**: an order whose one active assignment is a
@@ -164,6 +213,12 @@ export interface Order {
   partner_allocated?: boolean;
   partner_name?: string | null;
   has_location_request?: boolean;
+  /**
+   * The vessel's stay window — on the **list** row since 2026-08-19, because it
+   * is the deadline a partial delivery races: resumable while the ship is
+   * alongside, permanently incomplete once it has sailed.
+   */
+  expected_departure?: string | null;
   /**
    * Whether the order still needs a partner, and of which kind — the backend's
    * canonical answer (`orders/assignment_lifecycle.partner_requirements`). At
@@ -220,9 +275,7 @@ export interface Order {
   payment_status_display?: string;
   transaction_id?: string | null;
   is_express?: boolean;
-  is_fastest_delivery?: boolean;
   ship_arrival_date?: string | null;
-  expected_departure?: string | null;
   notes?: string;
   items?: OrderItem[];
   items_count?: number;

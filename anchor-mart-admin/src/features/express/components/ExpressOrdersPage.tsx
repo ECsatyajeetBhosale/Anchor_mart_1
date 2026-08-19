@@ -3,6 +3,7 @@ import {
   IconCircleCheck,
   IconClockDollar,
   IconReceiptRefund,
+  IconShipOff,
   IconShoppingCart,
   IconTruckDelivery,
   IconTruckOff,
@@ -11,23 +12,27 @@ import { format } from "date-fns";
 import { useState } from "react";
 import type { DateRange } from "react-day-picker";
 import { useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 
 import { DateRangePicker } from "@/components/common/DateRangePicker";
 import { OrderDetailDrawer } from "@/components/common/OrderDetailDrawer";
 import { PageHeader } from "@/components/common/PageHeader";
 import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
+import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import {
   OrderAssignPartnerSection,
+  RefundOrderDialog,
   toOrderDetail,
   useGetOrderDetailQuery,
+  useLazyGetOrderSlipQuery,
 } from "@/features/orders";
 import { useGetPartnersQuery } from "@/features/partners";
+import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { statText, statsError, statsState, statusText } from "@/lib/stats";
 import { useGetExpressOrdersQuery, useGetExpressStatsQuery } from "../api/expressApi";
-import { toExpressOrderDetail } from "../lib/expressOrderDetail";
 import type { ExpressOrder } from "../types/expressItem.types";
 import { useExpressColumns } from "./expressColumns";
 
@@ -65,6 +70,7 @@ export function ExpressOrdersPage() {
     limit: LIMIT,
     search: searchTerm,
     status: statusFilter,
+    departed: searchParams.get("departed") === "true" ? true : undefined,
     dateFrom,
     dateTo,
     partnerId: partnerFilter,
@@ -259,15 +265,66 @@ export function ExpressOrdersPage() {
   const { data: orderDetail } = useGetOrderDetailQuery(activeOrder?.id ?? "", {
     skip: !activeOrder?.id,
   });
-  const openOrder = activeOrder
-    ? orderDetail
-      ? toOrderDetail(orderDetail)
-      : toExpressOrderDetail(activeOrder)
-    : null;
+  // One mapper for both halves. It used to be two — a thinner express-only one
+  // for the row and the shared one for the detail — which meant the same drawer
+  // field changed format the moment the detail landed. The row is byte-identical
+  // to the Orders row now, so there is nothing for a second mapper to do.
+  const openOrder = activeOrder ? toOrderDetail(orderDetail ?? activeOrder) : null;
   /** Express is direct-pay — `payment_completed_at` is the marker, not a status. */
   const isPaid = !!activeOrder?.payment_completed_at;
 
   // Assignment lives in the drawer (Flow 28 API 12) — the page only opens it.
+  /**
+   * §4 — the money-back path for express is **always** an admin refund.
+   *
+   * Neither party can cancel: the sailor's own endpoint refuses with "Express
+   * orders can't be cancelled here — they're dispatched immediately. Contact
+   * support to request a refund", and "contact support" means this desk. So
+   * there is deliberately no cancel affordance to pair with this one.
+   */
+  const [orderToRefund, setOrderToRefund] = useState<ExpressOrder | null>(null);
+  const [fetchSlip, { isFetching: slipLoading }] = useLazyGetOrderSlipQuery();
+
+  /** Flow 2 §4.6 — the picking slip. Same endpoint, same PDF, same filename. */
+  const handleDownloadSlip = async (order: ExpressOrder) => {
+    try {
+      const blob = await fetchSlip(order.id).unwrap();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = MESSAGES.ORDERS.SLIP_FILENAME(order.order_number);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error(getApiMessage(error, { labelFields: false }) ?? MESSAGES.ORDERS.SLIP_FAILED);
+    }
+  };
+
+  /**
+   * The sailed-partial worklist, identical to the orders screen: a partial
+   * delivery is resumable only while the vessel is alongside, and once it has
+   * gone the remainder can never arrive. Server-filtered — the row's departure
+   * is a pre-formatted wall-clock string, so comparing it here is exactly what
+   * the datetime contract forbids.
+   */
+  const departedParam = searchParams.get("departed");
+  const isSailedWorklist = statusFilter === "partially_delivered" && departedParam === "true";
+
+  const toggleSailedWorklist = () => {
+    const next = new URLSearchParams(searchParams);
+    next.set("page", "1");
+    if (isSailedWorklist) {
+      next.delete("status");
+      next.delete("departed");
+    } else {
+      next.set("status", "partially_delivered");
+      next.set("departed", "true");
+    }
+    setSearchParams(next);
+  };
+
   const columns = useExpressColumns({
     statusFilter,
     onStatusFilter: (value) => setFilterParam("status", value),
@@ -316,6 +373,27 @@ export function ExpressOrdersPage() {
         onRetry={statsQuery.refetch}
       />
 
+      {/* "Vessel sailed, refund owed" — the same worklist as the orders screen,
+          because express uses the same delivery machinery. Not a stat card: it
+          is a scope (status + deadline together), and the cards ignore
+          `?status=` by design. */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Button
+          variant={isSailedWorklist ? "danger" : "secondary"}
+          size="sm"
+          onClick={toggleSailedWorklist}
+          aria-pressed={isSailedWorklist}
+        >
+          <IconShipOff size={15} className="mr-1" />
+          {MESSAGES.ORDERS.SAILED_WORKLIST}
+        </Button>
+        {isSailedWorklist && (
+          <span className="text-[12px] font-medium text-[var(--t4)]">
+            {MESSAGES.ORDERS.SAILED_WORKLIST_HINT}
+          </span>
+        )}
+      </div>
+
       <DataTable
         columns={columns}
         data={orders}
@@ -337,14 +415,28 @@ export function ExpressOrdersPage() {
         lifecycle rail, same tabs — rather than a second, thinner one. The only
         express-specific rule lives in the slot below.
 
-        No `onCancel` / `onRefund` / `onDownloadSlip` yet: the drawer renders
-        those buttons only when a handler is supplied, and whether those order
-        endpoints accept an express id is the open question with backend. Better
-        absent than offered and 404ing.
+        **No `onCancel`, deliberately and permanently.** Express is dispatched
+        immediately, so neither the sailor nor an admin can cancel one — both
+        endpoints refuse and name refund as the remedy. The button would be an
+        affordance for something that cannot happen.
       */}
       <OrderDetailDrawer
         order={openOrder}
         onClose={() => setActiveOrder(null)}
+        onRefund={
+          activeOrder
+            ? () => {
+                const order = activeOrder;
+                // The dialog is a Dialog and the drawer a Sheet — it would
+                // render behind the overlay, so the drawer closes first.
+                setActiveOrder(null);
+                setOrderToRefund(order);
+              }
+            : undefined
+        }
+        // Downloads in place; no reason to close the drawer.
+        onDownloadSlip={activeOrder ? () => handleDownloadSlip(activeOrder) : undefined}
+        slipLoading={slipLoading}
         detailSlot={
           activeOrder ? (
             // Remounted per order so picker/claim state never leaks across rows.
@@ -372,6 +464,16 @@ export function ExpressOrdersPage() {
             </div>
           ) : undefined
         }
+      />
+      {/* Flow 2 §4.5 — refund, unchanged. The quote is fetched on open, and a
+          partial is gated to `partially_delivered` with its own idempotency
+          key; express uses the same delivery and refund machinery. */}
+      <RefundOrderDialog
+        isOpen={!!orderToRefund}
+        orderId={orderToRefund?.id ?? ""}
+        orderRef={orderToRefund?.order_number ?? ""}
+        status={orderToRefund?.status ?? ""}
+        onClose={() => setOrderToRefund(null)}
       />
     </>
   );

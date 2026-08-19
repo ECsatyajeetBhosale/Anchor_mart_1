@@ -31,6 +31,26 @@ export function canRejectIntent(status: string): boolean {
 }
 
 /**
+ * Statuses from which an intent can be cancelled (Flow 1 §4.3).
+ *
+ * The terminal action pairs with reject rather than competing with it: reject
+ * is the supply-side verdict and is legal only *before* substitutions are
+ * released, so past that point cancel is the way an order ends. Both are legal
+ * on the earlier statuses, but offering two terminal buttons on one row invites
+ * picking the wrong one — and the backend's own recipe is "reject there,
+ * otherwise cancel".
+ *
+ * Cancel is **unpaid-only**. Every order on this screen is unpaid by
+ * definition; past payment it is the refund flow, which is the orders screen's.
+ */
+const CANCELLABLE_STATUSES = new Set(["pending_customer_response", "payment_pending"]);
+
+/** May this intent be cancelled from where it is? */
+export function canCancelIntent(status: string): boolean {
+  return CANCELLABLE_STATUSES.has(status);
+}
+
+/**
  * Statuses from which a report can be sent back to the partner (§4.3b).
  *
  * The state machine allows six, but the other four are pre-verification — there
