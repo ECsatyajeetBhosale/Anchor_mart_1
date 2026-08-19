@@ -1,3 +1,5 @@
+import type { StatusStats } from "@/lib/stats";
+
 /**
  * An express order row as returned by GET /superadmin/express/orders/.
  * Dates arrive pre-formatted from the backend (e.g. "June 23, 2026, 02:18 AM").
@@ -220,32 +222,33 @@ export interface ExpressItemStats {
 }
 
 /**
- * Order-volume half. `total_orders` is the aggregate the backend computes and
- * the siblings are conditional counts within it, so the two must never be summed
- * together.
+ * The buckets `orders.status_counts` carries on `GET /superadmin/express/stats/`.
  *
- * **The breakdown is not exhaustive**: it does not cover every post-payment
- * status — `payment_received` falls into no bucket — so
- * `sum(buckets) <= total_orders`, often strictly. Anything rendering these as
- * parts of a whole (a stacked bar, a "total" row) must derive the remainder
- * rather than assume it is zero.
+ * Express's own populations. `awaiting_payment` exists here and nowhere else:
+ * since the 2026-08-17 order split this screen is the only place an unpaid
+ * express order appears, and the intents screen no longer carries express at
+ * all. `new` means "paid but not yet worked" — the head of the express queue —
+ * which is not what `new` means on the intents payload.
  */
-export interface ExpressOrderStats {
-  total_orders?: number;
-  /**
-   * Unpaid express orders. Added 2026-08-17 with the order split: this screen
-   * is now the only place an unpaid express order appears, so the count needed
-   * somewhere to live. The intents screen no longer carries express at all.
-   */
-  awaiting_payment?: number;
-  /** Paid but not yet worked — the head of the express queue. */
-  new?: number;
-  in_progress?: number;
-  delivered?: number;
-  delivery_failed?: number;
-  cancelled?: number;
-  refunded?: number;
-}
+export type ExpressOrderStatusKey =
+  | "awaiting_payment"
+  | "new"
+  | "in_progress"
+  | "delivered"
+  | "delivery_failed"
+  | "cancelled"
+  | "refunded";
+
+/**
+ * Order-volume half, in the response's own shape: `total` plus a
+ * `status_counts` map.
+ *
+ * **The breakdown is not exhaustive** — it does not cover every post-payment
+ * status (`payment_received` falls into no bucket) — so the buckets do not
+ * reconstruct `total`. Read `total` from the backend; anything rendering these
+ * as parts of a whole must derive the remainder rather than assume it is zero.
+ */
+export type ExpressOrderStats = StatusStats<ExpressOrderStatusKey>;
 
 /**
  * `GET /superadmin/express/stats/` (Flow 09 API 4) — catalog counts and order

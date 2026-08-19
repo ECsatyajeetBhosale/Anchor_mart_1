@@ -7,6 +7,7 @@ import { ProductFormModal } from "@/features/products";
 import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
+import { statText, statsError, statsState } from "@/lib/stats";
 import { IconBolt, IconPackage, IconPlus, IconStack2 } from "@tabler/icons-react";
 import { useCallback, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -33,11 +34,6 @@ const SORT_OPTIONS = [
   { value: "popularity:high to low", label: C.SORT.POPULARITY_DESC },
   { value: "popularity:low to high", label: C.SORT.POPULARITY_ASC },
 ];
-
-/** Thousands-separated count; `undefined` degrades to 0, not a blank card. */
-function count(value: number | undefined): string {
-  return (value ?? 0).toLocaleString();
-}
 
 /**
  * The express catalog, at both grains.
@@ -141,12 +137,17 @@ export function ExpressPage() {
    * effective product-AND-variant rule. Passing either would silently narrow the
    * variant cards to a different population than the one the operator filtered.
    */
-  const { data: stats, isLoading: statsLoading } = useGetExpressStatsQuery(
+  const statsQuery = useGetExpressStatsQuery(
     isItems
       ? { search, adminSourceable: sourceable, isActive: active, isExpress: express }
       : { search },
   );
-  const items = stats?.items;
+  // The `items` half only — catalog counts. The `orders` half of this payload
+  // belongs to the Express Orders screen and is never mixed in here.
+  const items = statsQuery.data?.items;
+  // Loading / error / ready, so a failed request reads as "unknown" rather than
+  // as an empty catalog. See `lib/stats.ts`.
+  const cardsState = statsState(statsQuery);
 
   const statItems = [
     {
@@ -159,26 +160,24 @@ export function ExpressPage() {
        * the Products tab, which comes from `express/products/`.
        */
       value: isItems
-        ? statsLoading
-          ? M.DASH
-          : count(items?.total_products)
-        : productsCount === undefined
-          ? M.DASH
-          : count(productsCount),
+        ? statText(cardsState, items?.total_products)
+        : // The Products tab counts rows from `express/products/`, not this
+          // payload, so it carries its own loading state.
+          statText(productsCount === undefined ? "loading" : "ready", productsCount),
       icon: <IconPackage size={19} />,
       variant: "navy" as const,
     },
     {
       id: "variants",
       label: M.STATS.VARIANTS,
-      value: statsLoading ? M.DASH : count(items?.total_variants),
+      value: statText(cardsState, items?.total_variants),
       icon: <IconStack2 size={19} />,
       variant: "purple" as const,
     },
     {
       id: "sourceable",
       label: M.STATS.SOURCEABLE,
-      value: statsLoading ? M.DASH : count(items?.sourceable_variants),
+      value: statText(cardsState, items?.sourceable_variants),
       icon: <IconBolt size={19} />,
       variant: "teal" as const,
     },
@@ -240,7 +239,12 @@ export function ExpressPage() {
         }
       />
 
-      <StatsGrid items={statItems} className="cols-4" />
+      <StatsGrid
+        items={statItems}
+        className="cols-4"
+        error={statsError(cardsState)}
+        onRetry={statsQuery.refetch}
+      />
 
       <DynamicTabs
         value={tab}

@@ -1,4 +1,5 @@
 import type { BadgeProps } from "@/components/ui/badge";
+import type { StatusStats } from "@/lib/stats";
 
 /** Badge colour variant used for a special-request status pill. */
 export type SpecialRequestBadgeVariant = NonNullable<BadgeProps["variant"]>;
@@ -123,27 +124,30 @@ export interface SpecialRequestListResult {
 }
 
 /**
- * Special-request statistics returned by
- * `GET /superadmin/special-requests/special-request-stats/` — a flat count per
- * status. Every field is optional so a partial/empty payload degrades to 0.
+ * The buckets `status_counts` carries on
+ * `GET /superadmin/special-requests/special-request-stats/`.
+ *
+ * `awaiting_rebill` is **cross-cutting, never an addend**: those requests sit
+ * inside `sourcing_confirmed`, which is why the screen renders it as a sub-line
+ * of that card rather than a seventh one.
  */
-export interface SpecialRequestStats {
-  total_requests?: number;
-  pending?: number;
-  sourcing_confirmed?: number;
-  quote_sent?: number;
-  accepted?: number;
-  rejected?: number;
-  /**
-   * Requests whose sailor has asked for delivery changes and is waiting on a
-   * re-quote — the "needs an admin right now" figure.
-   *
-   * **Cross-cutting, never an addend.** These sit inside `sourcing_confirmed`,
-   * so it is rendered as a sub-line of that card rather than a seventh one;
-   * adding it to the total would count the same requests twice.
-   */
-  awaiting_rebill?: number;
-}
+export type SpecialRequestStatusKey =
+  | "pending"
+  | "sourcing_confirmed"
+  | "quote_sent"
+  | "accepted"
+  | "rejected"
+  | "awaiting_rebill";
+
+/**
+ * Special-request statistics in the response's own shape: `total` plus a
+ * `status_counts` map. No `type_counts` — special requests have no order-type
+ * dimension.
+ *
+ * Both fields are optional so a partial payload degrades per card rather than
+ * blanking the deck.
+ */
+export type SpecialRequestStats = StatusStats<SpecialRequestStatusKey>;
 
 /**
  * Body for `POST …/<id>/generate-bill/` (Flow 13 API 10). Decimals go over the

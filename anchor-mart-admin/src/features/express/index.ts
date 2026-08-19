@@ -11,6 +11,8 @@ export type {
   ExpressOrder,
   ExpressOrderListResponse,
   ExpressStats,
+  ExpressOrderStats,
+  ExpressOrderStatusKey,
   GetExpressCatalogParams,
   GetExpressStatsParams,
 } from "./types/expressItem.types";

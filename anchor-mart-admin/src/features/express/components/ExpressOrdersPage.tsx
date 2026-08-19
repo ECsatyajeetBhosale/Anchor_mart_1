@@ -25,6 +25,7 @@ import {
 } from "@/features/orders";
 import { useGetPartnersQuery } from "@/features/partners";
 import { MESSAGES } from "@/lib/messages";
+import { statText, statsError, statsState, statusText } from "@/lib/stats";
 import { useGetExpressOrdersQuery, useGetExpressStatsQuery } from "../api/expressApi";
 import { toExpressOrderDetail } from "../lib/expressOrderDetail";
 import type { ExpressOrder } from "../types/expressItem.types";
@@ -32,11 +33,6 @@ import { useExpressColumns } from "./expressColumns";
 
 const M = MESSAGES.EXPRESS;
 const LIMIT = 10;
-
-/** Thousands-separated count; `undefined` degrades to 0, not a blank card. */
-function count(value: number | undefined): string {
-  return (value ?? 0).toLocaleString();
-}
 
 /**
  * Express orders — **all of them, paid and unpaid**.
@@ -88,15 +84,20 @@ export function ExpressOrdersPage() {
    * deliberately leaves `orders` whole, so these three do **not** follow the
    * toolbar below.
    */
-  const { data: stats, isLoading: statsLoading } = useGetExpressStatsQuery({});
-  const orderStats = stats?.orders;
+  const statsQuery = useGetExpressStatsQuery({});
+  // The `orders` half only. It keeps its own namespace — the `items` half is a
+  // different population entirely and is never merged into these counts.
+  const orderStats = statsQuery.data?.orders;
+  // Loading / error / ready: a failed request dashes the cards out instead of
+  // reporting an empty queue that was never measured. See `lib/stats.ts`.
+  const cardsState = statsState(statsQuery);
 
   /**
    * The whole `orders` block, one card per bucket — 4 + 4.
    *
    * Every card drills into the rows it counts, using the same `?status=` the
    * table's own filter writes, so a number and the list it opens can never
-   * disagree. `total_orders` clears the filter instead of setting one: it is
+   * disagree. The `total` card clears the filter instead of setting one: it is
    * the population, and "filter to everything" is the same thing as no filter.
    *
    * The seven buckets do **not** sum to the total — `payment_received` belongs
@@ -107,9 +108,9 @@ export function ExpressOrdersPage() {
     {
       id: "orders",
       label: M.STATS.ORDERS,
-      // `total_orders` is the backend's own aggregate — the sibling keys are its
-      // breakdown, so summing them alongside it would double-count.
-      value: statsLoading ? M.DASH : count(orderStats?.total_orders),
+      // `total` is the backend's own aggregate — the `status_counts` buckets
+      // are its breakdown, and are never summed to reproduce it.
+      value: statText(cardsState, orderStats?.total),
       icon: <IconShoppingCart size={19} />,
       variant: "navy" as const,
       // Clears rather than sets — this card *is* "no filter".
@@ -125,7 +126,7 @@ export function ExpressOrdersPage() {
        * answers.
        */
       label: M.STATS.AWAITING_PAYMENT,
-      value: statsLoading ? M.DASH : count(orderStats?.awaiting_payment),
+      value: statusText(cardsState, orderStats, "awaiting_payment"),
       icon: <IconClockDollar size={19} />,
       variant: "amber" as const,
       /**
@@ -146,7 +147,7 @@ export function ExpressOrdersPage() {
        * column read the same word.
        */
       label: M.STATS.CONFIRMED,
-      value: statsLoading ? M.DASH : count(orderStats?.new),
+      value: statusText(cardsState, orderStats, "new"),
       icon: <IconCircleCheck size={19} />,
       variant: "blue" as const,
       onClick: () => setFilterParam("status", "order_confirmed"),
@@ -155,7 +156,7 @@ export function ExpressOrdersPage() {
     {
       id: "in-progress",
       label: M.STATS.IN_PROGRESS,
-      value: statsLoading ? M.DASH : count(orderStats?.in_progress),
+      value: statusText(cardsState, orderStats, "in_progress"),
       icon: <IconTruckDelivery size={19} />,
       variant: "teal" as const,
       // A derived filter, not a raw status: it resolves server-side to the same
@@ -167,7 +168,7 @@ export function ExpressOrdersPage() {
     {
       id: "delivered",
       label: M.STATS.DELIVERED,
-      value: statsLoading ? M.DASH : count(orderStats?.delivered),
+      value: statusText(cardsState, orderStats, "delivered"),
       icon: <IconCircleCheck size={19} />,
       variant: "green" as const,
       onClick: () => setFilterParam("status", "delivered"),
@@ -178,7 +179,7 @@ export function ExpressOrdersPage() {
       // Express skips verification entirely, so a failed delivery is the first
       // point where an express order needs a human — it earns its own card.
       label: M.STATS.FAILED,
-      value: statsLoading ? M.DASH : count(orderStats?.delivery_failed),
+      value: statusText(cardsState, orderStats, "delivery_failed"),
       icon: <IconTruckOff size={19} />,
       variant: "red" as const,
       onClick: () => setFilterParam("status", "delivery_failed"),
@@ -187,7 +188,7 @@ export function ExpressOrdersPage() {
     {
       id: "cancelled",
       label: M.STATS.CANCELLED,
-      value: statsLoading ? M.DASH : count(orderStats?.cancelled),
+      value: statusText(cardsState, orderStats, "cancelled"),
       icon: <IconBan size={19} />,
       variant: "red" as const,
       onClick: () => setFilterParam("status", "cancelled"),
@@ -196,7 +197,7 @@ export function ExpressOrdersPage() {
     {
       id: "refunded",
       label: M.STATS.REFUNDED,
-      value: statsLoading ? M.DASH : count(orderStats?.refunded),
+      value: statusText(cardsState, orderStats, "refunded"),
       icon: <IconReceiptRefund size={19} />,
       variant: "purple" as const,
       onClick: () => setFilterParam("status", "refunded"),
@@ -308,7 +309,12 @@ export function ExpressOrdersPage() {
         }
       />
 
-      <StatsGrid items={statItems} className="cols-4" />
+      <StatsGrid
+        items={statItems}
+        className="cols-4"
+        error={statsError(cardsState)}
+        onRetry={statsQuery.refetch}
+      />
 
       <DataTable
         columns={columns}

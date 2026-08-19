@@ -34,4 +34,6 @@ export type {
   IntentData,
   IntentDetail,
   IntentStats,
+  IntentStatusKey,
+  IntentTypeKey,
 } from "./types/intent.types";

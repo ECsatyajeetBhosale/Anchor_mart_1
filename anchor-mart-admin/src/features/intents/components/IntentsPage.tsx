@@ -37,6 +37,7 @@ import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
+import { statText, statsError, statsState, statusText } from "@/lib/stats";
 import { toast } from "sonner";
 import {
   useCreateBillMutation,
@@ -53,7 +54,7 @@ import type {
   GeneratePaymentLinkResponse,
   IntentAction,
   IntentData,
-  IntentStats,
+  IntentStatusKey,
 } from "../types/intent.types";
 import { type BillFees, CreateBillDialog } from "./CreateBillDialog";
 import { IntentReviewDrawer } from "./IntentReviewDrawer";
@@ -68,10 +69,13 @@ const LIMIT = 10;
 type StatVariant = "navy" | "teal" | "amber" | "red" | "green" | "purple" | "blue";
 
 /**
- * The open funnel. These six are mutually exclusive and sum to `total_intents`,
- * which is why the total is the page heading and not a seventh card: as a card
- * it reads as another bucket beside the six it is the sum of, and invites being
- * added in.
+ * The open funnel — the six buckets an intent can be sitting in right now.
+ *
+ * `total` is the page heading rather than a seventh card: as a card it reads as
+ * another bucket beside these six and invites being added in. It is also the
+ * backend's own figure and is never recomputed here — the API's contract is
+ * explicit that not every bucket belongs to it (`cancelled` and `rejected`
+ * below do not), so summing the cards would not reproduce it.
  *
  * `substitution_needed` keeps its card and carries its two sub-buckets *inside*
  * it — `awaiting_customer + ready_to_bill == substitution_needed`, so showing
@@ -80,7 +84,8 @@ type StatVariant = "navy" | "teal" | "amber" | "red" | "green" | "purple" | "blu
 const FUNNEL_STAT_CONFIG: {
   id: string;
   label: string;
-  key: keyof IntentStats;
+  /** The `status_counts` token this card counts — see `IntentStatusKey`. */
+  key: IntentStatusKey;
   icon: ReactNode;
   variant: StatVariant;
   filter: string;
@@ -88,7 +93,7 @@ const FUNNEL_STAT_CONFIG: {
   {
     id: "new",
     label: M.STATS.NEW,
-    key: "new_intents",
+    key: "new",
     icon: <IconInbox size={20} />,
     variant: "blue",
     filter: "intent_received",
@@ -96,7 +101,7 @@ const FUNNEL_STAT_CONFIG: {
   {
     id: "pending",
     label: M.STATS.PENDING,
-    key: "pending_intent",
+    key: "pending",
     icon: <IconHourglass size={20} />,
     variant: "purple",
     filter: "pending_intent",
@@ -104,7 +109,7 @@ const FUNNEL_STAT_CONFIG: {
   {
     id: "sourcing",
     label: M.STATS.SOURCING,
-    key: "in_sourcing",
+    key: "sourcing",
     icon: <IconSearch size={20} />,
     variant: "teal",
     filter: "sourcing",
@@ -112,7 +117,7 @@ const FUNNEL_STAT_CONFIG: {
   {
     id: "verification",
     label: M.STATS.VERIFICATION,
-    key: "in_verification",
+    key: "verification",
     icon: <IconClipboardCheck size={20} />,
     variant: "blue",
     // Derived filter resolving to the same two statuses this card counts.
@@ -137,8 +142,8 @@ const FUNNEL_STAT_CONFIG: {
 ];
 
 /**
- * Closed intents — terminal, and outside `total_intents`. Rendered under their
- * own heading so they are not read as open work.
+ * Closed intents — terminal, and outside `total`. Rendered after the funnel so
+ * they are not read as open work.
  *
  * Rejected and cancelled are different events: **rejected** is the admin's
  * supply-side verdict ("we cannot source this"); **cancelled** is the order
@@ -281,17 +286,18 @@ export function IntentsPage() {
     ...typeQuery,
   });
 
-  // Live KPI stats from the API; cards show "—" while loading and 0 when absent.
-  // Scoped to the same search and order type as the table beneath them — the
-  // endpoint honours both, and was previously called with neither.
-  const {
-    data: stats,
-    isLoading: statsLoading,
-    refetch: refetchStats,
-  } = useGetIntentStatsQuery({
+  // Live KPI stats from the API. Scoped to the same search and order type as
+  // the table beneath them — the endpoint honours both, and was previously
+  // called with neither.
+  const statsQuery = useGetIntentStatsQuery({
     search: searchTerm,
     ...typeQuery,
   });
+  const stats = statsQuery.data;
+  // Three states, not two: a failed request must not be drawn as a queue of
+  // zeros, so the cards dash out and the deck says why. See `lib/stats.ts`.
+  const cardsState = statsState(statsQuery);
+  const refetchStats = statsQuery.refetch;
 
   /** Retry after a failed load — reloads the cards as well as the table, so the
    *  two keep describing the same population. See the orders screen for why. */
@@ -312,15 +318,14 @@ export function IntentsPage() {
   const cardItem = (c: (typeof FUNNEL_STAT_CONFIG)[number]) => ({
     id: c.id,
     label: c.label,
-    value: statsLoading ? "—" : (stats?.[c.key] ?? 0).toLocaleString(),
+    value: statusText(cardsState, stats, c.key),
     icon: c.icon,
     variant: c.variant,
     active: statusFilter === c.filter,
     onClick: () => setParam("status", statusFilter === c.filter ? "" : c.filter),
   });
 
-  const num = (key: keyof IntentStats) =>
-    statsLoading ? "—" : (stats?.[key] ?? 0).toLocaleString();
+  const num = (key: IntentStatusKey) => statusText(cardsState, stats, key);
 
   const statItems = FUNNEL_STAT_CONFIG.map((c) =>
     c.id === "substitutions"
@@ -349,7 +354,7 @@ export function IntentsPage() {
 
   // One 4-across grid: the six funnel buckets, then the two terminal ones, in
   // that order. They keep separate configs because they mean different things —
-  // only the first six sum to `total_intents` — but they render as a single
+  // only the first six are open work — but they render as a single
   // block, with position and the red treatment carrying the distinction instead
   // of a heading.
   const allStatItems = [...statItems, ...CLOSED_STAT_CONFIG.map(cardItem)];
@@ -708,7 +713,7 @@ export function IntentsPage() {
       {/* Page Header */}
       <PageHeader
         title={M.TITLE}
-        subtitle={statsLoading ? undefined : M.STATS.OPEN_SUMMARY(stats?.total_intents ?? 0)}
+        subtitle={cardsState === "ready" ? M.STATS.OPEN_SUMMARY(stats?.total ?? 0) : undefined}
         actions={
           <SearchFilters
             searchValue={searchTerm}
@@ -738,7 +743,12 @@ export function IntentsPage() {
         }
       />
 
-      <StatsGrid items={allStatItems} className="cols-4" />
+      <StatsGrid
+        items={allStatItems}
+        className="cols-4"
+        error={statsError(cardsState)}
+        onRetry={refetchStats}
+      />
 
       {/* Throughput, not a funnel state: intents that LEFT this screen today by
           being paid. It belongs to no total, so it sits outside both grids. */}
@@ -746,7 +756,7 @@ export function IntentsPage() {
         <IconCheck size={15} className="shrink-0 text-[var(--success-icon)]" />
         <span className="font-semibold text-[var(--t3)]">{M.STATS.CONFIRMED_TODAY}</span>
         <span className="font-extrabold tabular-nums text-[var(--t1)]">
-          {num("confirmed_today")}
+          {statText(cardsState, stats?.confirmed_today)}
         </span>
       </div>
 

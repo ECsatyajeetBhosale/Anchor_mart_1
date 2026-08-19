@@ -30,6 +30,7 @@ import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { downloadBlob } from "@/lib/download";
 import { MESSAGES } from "@/lib/messages";
+import { statText, statsError, statsState, statusCount, statusText } from "@/lib/stats";
 import {
   useGetSpecialRequestStatsQuery,
   useGetSpecialRequestsQuery,
@@ -39,8 +40,8 @@ import { useSpecialRequestActions } from "../hooks/useSpecialRequestActions";
 import {
   SPECIAL_REQUEST_STATUS_KEYS,
   type SpecialRequest,
-  type SpecialRequestStats,
   type SpecialRequestStatus,
+  type SpecialRequestStatusKey,
 } from "../types/specialRequest.types";
 import { AllowChangesDialog } from "./AllowChangesDialog";
 import { GenerateBillDialog } from "./GenerateBillDialog";
@@ -71,18 +72,23 @@ const STATUS_OPTIONS = [
   ...SPECIAL_REQUEST_STATUS_KEYS.map((key) => ({ value: key, label: STATUS_LABEL[key] })),
 ];
 
-// KPI cards — each maps 1:1 to a field on the special-request stats API response.
+/**
+ * KPI cards. Each names the figure it reads straight from the response: either
+ * the aggregate `total`, or one token of `status_counts`. The label is
+ * contextual ("Total Requests"); the property behind it is the API's own.
+ */
 const STAT_CONFIG: {
   id: string;
   label: string;
-  key: keyof SpecialRequestStats;
+  /** `"total"` reads the aggregate; anything else is a `status_counts` bucket. */
+  key: SpecialRequestStatusKey | "total";
   icon: ReactNode;
   variant: StatVariant;
 }[] = [
   {
     id: "total",
     label: M.STATS.TOTAL,
-    key: "total_requests",
+    key: "total",
     icon: <IconClipboardText size={20} />,
     variant: "navy",
   },
@@ -160,23 +166,29 @@ export function SpecialRequestsPage() {
    * different — it decides which requests are on the screen at all — so the
    * cards follow it and a searched table gets searched cards.
    */
-  const { data: stats, isLoading: statsLoading } = useGetSpecialRequestStatsQuery({ search });
+  const statsQuery = useGetSpecialRequestStatsQuery({ search });
+  const stats = statsQuery.data;
+  // Loading / error / ready — a failed request must not be drawn as a queue
+  // with nothing in it. See `lib/stats.ts`.
+  const cardsState = statsState(statsQuery);
+  const awaitingRebill = statusCount(stats, "awaiting_rebill") ?? 0;
+
   const statItems = STAT_CONFIG.map((c) => ({
     id: c.id,
     label: c.label,
-    value: statsLoading ? "—" : (stats?.[c.key] ?? 0).toLocaleString(),
+    value:
+      c.key === "total" ? statText(cardsState, stats?.total) : statusText(cardsState, stats, c.key),
     icon: c.icon,
     variant: c.variant,
     /**
      * `awaiting_rebill` hangs *inside* Sourcing Confirmed rather than beside it.
      * Those requests already sit in that bucket, so a seventh card would count
-     * them twice and break the five-cards-sum-to-total contract. It is the
-     * "needs an admin right now" slice: a sailor changed delivery details and is
-     * waiting on the re-quote.
+     * them twice. It is the "needs an admin right now" slice: a sailor changed
+     * delivery details and is waiting on the re-quote.
      */
     breakdown:
-      c.key === "sourcing_confirmed" && !statsLoading && (stats?.awaiting_rebill ?? 0) > 0
-        ? [{ label: M.STATS.AWAITING_REBILL, value: String(stats?.awaiting_rebill ?? 0) }]
+      c.key === "sourcing_confirmed" && cardsState === "ready" && awaitingRebill > 0
+        ? [{ label: M.STATS.AWAITING_REBILL, value: awaitingRebill.toLocaleString() }]
         : undefined,
   }));
 
@@ -331,7 +343,7 @@ export function SpecialRequestsPage() {
         }
       />
 
-      <StatsGrid items={statItems} />
+      <StatsGrid items={statItems} error={statsError(cardsState)} onRetry={statsQuery.refetch} />
 
       <DataTable
         columns={columns}

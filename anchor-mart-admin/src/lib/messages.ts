@@ -733,11 +733,12 @@ export const MESSAGES = {
       PENDING_INTENT: "Pending Intent",
       INTENT_REJECTED: "Intent Rejected",
     },
-    // KPI cards (mapped to the intents stats API fields)
+    // KPI card labels. Contextual by design — the card says "Total Intents"
+    // while the property behind it stays `total`, the name the API uses.
     STATS: {
-      // The six funnel buckets are mutually exclusive and sum to TOTAL:
-      // new + pending + sourcing + verification + (awaiting_customer +
-      // ready_to_bill) + awaiting_payment == total_intents.
+      // The buckets are NOT assumed to add up to `total`: the endpoint's own
+      // contract says several of them (cancelled, confirmed_today) describe a
+      // different part of the lifecycle. Nothing here is derived by summing.
       /** The population, rendered as the page heading rather than a card. */
       TOTAL: "Total Intents",
       OPEN_SUMMARY: (n: number) => `${n.toLocaleString()} open ${n === 1 ? "intent" : "intents"}`,
@@ -773,7 +774,8 @@ export const MESSAGES = {
     /**
      * Order-type filter — same control and semantics as the orders screen.
      * Counts come from `type_counts`, computed over the open funnel without the
-     * type filter, so `type_counts.all == total_intents`.
+     * type filter, and are consumed exactly as sent: `all` is read, never
+     * derived from `emergency + regular`.
      */
     TYPE_FILTER: {
       LABEL: "Order Type",
@@ -4695,6 +4697,15 @@ export const MESSAGES = {
       LOAD_MORE: "Load more",
       CLEAR: "Clear",
       CLEAR_SEARCH: "Clear search",
+    },
+    /**
+     * Shared card-deck copy (`lib/stats.ts`). The dash covers both "still
+     * loading" and "this request failed": in neither case does the console know
+     * the count, and a `0` would claim it does.
+     */
+    STATS: {
+      DASH: "—",
+      ERROR: "Couldn't load the latest counts.",
     },
     SAVE_CHANGES: "Save Changes",
     CANCEL: "Cancel",

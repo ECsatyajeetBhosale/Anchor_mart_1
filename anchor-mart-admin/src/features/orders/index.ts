@@ -11,6 +11,8 @@ export type {
   CancelOrderPayload,
   CancelOrderResponse,
   OrderStats,
+  OrderStatusKey,
+  OrderTypeKey,
 } from "./api/orderApi";
 export type {
   AdminCart,

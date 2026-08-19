@@ -45,6 +45,7 @@ export type {
   SpecialRequest,
   SpecialRequestApi,
   SpecialRequestStats,
+  SpecialRequestStatusKey,
   SpecialRequestStatus,
   SpecialRequestDetail,
   SpecialRequestUser,

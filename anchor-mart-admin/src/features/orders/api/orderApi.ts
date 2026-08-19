@@ -1,6 +1,7 @@
 import { ORDER_ENDPOINTS } from "@/lib/apiEndpoints";
 import { asArray, asNumber, asString, getProp, unwrapList } from "@/lib/apiResponse";
 import { baseApi } from "@/lib/fetchUtils";
+import type { TypedStats } from "@/lib/stats";
 import type {
   AdminCart,
   AdminCartListResult,
@@ -57,55 +58,43 @@ function boolParam(value: boolean | undefined): string | undefined {
 }
 
 /**
- * Post-payment KPI counters (Flow 11 §16). No example response is published, so
- * every field is optional and the UI reads candidate keys with a 0 fallback —
- * a missing counter degrades to "0" rather than breaking the card.
+ * The buckets `status_counts` carries on `GET /superadmin/orders/orders/stats/`.
+ *
+ * The endpoint's own tokens, and its own populations: `new` is `order_confirmed`
+ * (paid, not yet assigned) and `in_progress` covers assigned → collected → at
+ * port → at berth → partially delivered. The intents payload also has a `new`
+ * and it counts something else entirely — the two are never compared.
+ *
+ * `refunded` is the terminal status, not "has a refund against it": a partially
+ * refunded order keeps its delivery status and counts under `delivered`.
  */
-export interface OrderStats {
-  /** Every order in the filtered population — the figure the buckets sum to. */
-  all_orders?: number;
-  // Lifecycle buckets. Mutually exclusive, and per the endpoint's own contract
-  // `new + in_progress + delivered + delivery_failed + cancelled + refunded ==
-  // all_orders`, less only the sub-second `payment_received` transient.
-  /** `order_confirmed` — paid and confirmed, not yet assigned. */
-  new?: number;
-  /** Assigned → collected → at port → at berth → partially delivered. */
-  in_progress?: number;
-  delivered?: number;
-  delivery_failed?: number;
-  cancelled?: number;
-  /** Terminal `refunded`, not "has a refund against it" — a partially refunded
-   *  order keeps its delivery status and counts under `delivered`. */
-  refunded?: number;
-  // Dimensions, not buckets: these cross-cut every status above and are not
-  // mutually exclusive with each other. Never add them into a lifecycle total.
-  express?: number;
-  emergency?: number;
-  /**
-   * Counts for the order-type filter, computed over a population the type
-   * filter has **not** touched — so selecting Express does not zero the other
-   * options. The other scope filters (search, date, partner) still apply.
-   *
-   * `both` is returned precisely so a client never has to guess the overlap:
-   * `regular + express + emergency - both == all`. `regular` is given outright
-   * because deriving it requires `both`, which nothing else exposes.
-   */
-  type_counts?: OrderTypeCounts;
-  [key: string]: number | OrderTypeCounts | undefined;
-}
+export type OrderStatusKey =
+  | "new"
+  | "in_progress"
+  | "delivered"
+  | "delivery_failed"
+  | "cancelled"
+  | "refunded";
+
+/** Order-type chips — a clean partition: `regular + emergency == all`. */
+export type OrderTypeKey = "all" | "emergency" | "regular";
 
 /**
- * The order-type chip counts — a clean partition: `regular + emergency == all`.
+ * Order statistics from `GET /superadmin/orders/orders/stats/`, in the
+ * response's own shape: `total`, `status_counts`, `type_counts`.
  *
- * `express` and `both` were removed on 2026-08-17 when express orders moved to
- * their own endpoint. Until then the buckets overlapped and needed
- * inclusion-exclusion to reconcile against the total.
+ * Typed field by field rather than through an index signature. The previous
+ * `[key: string]: number | …` accepted any name at all, which is precisely how
+ * the cards went on compiling — and rendering zeros — while reading field names
+ * the endpoint had stopped sending.
+ *
+ * `total` is the backend's aggregate and is never recomputed from the buckets.
+ *
+ * `type_counts` is computed over a population the type filter has **not**
+ * touched, so selecting Emergency does not zero the other options; the other
+ * scope filters (search, date, partner) still apply.
  */
-export interface OrderTypeCounts {
-  all?: number;
-  emergency?: number;
-  regular?: number;
-}
+export type OrderStats = TypedStats<OrderStatusKey, OrderTypeKey>;
 
 /**
  * Body of `POST /superadmin/orders/order/<id>/cancel/` (Flow 12 §2).

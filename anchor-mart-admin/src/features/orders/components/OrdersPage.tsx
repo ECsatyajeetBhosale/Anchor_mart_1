@@ -24,6 +24,7 @@ import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
 import { readPartnerNeed } from "@/lib/partnerRequirement";
+import { statsError, statsState, statusText } from "@/lib/stats";
 import { terminalReason } from "@/lib/terminalReason";
 import { clearParams } from "@/lib/utils";
 import {
@@ -39,7 +40,7 @@ import type { DateRange } from "react-day-picker";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  type OrderStats,
+  type OrderStatusKey,
   useCancelOrderMutation,
   useGetOrderDetailQuery,
   useGetOrderStatsQuery,
@@ -141,15 +142,17 @@ type StatVariant = "navy" | "teal" | "amber" | "red" | "green" | "purple" | "blu
 const STAT_CONFIG: {
   id: string;
   label: string;
-  keys: string[];
+  /** The `status_counts` token this card counts — see `OrderStatusKey`. */
+  key: OrderStatusKey;
   icon: ReactNode;
   variant: StatVariant;
   /**
    * The `?status=` value this card selects.
    *
-   * These six are mutually exclusive and sum to `all_orders`, which is the page
-   * heading rather than a seventh card — as a card it read as another bucket
-   * beside the six it is the sum of.
+   * `total` is the page heading rather than a seventh card — as a card it read
+   * as another bucket beside these six. It is the backend's own figure and is
+   * never recomputed from them; the standardized contract is explicit that the
+   * buckets are not guaranteed to add up to it.
    *
    * Every card maps to something: the aggregate ones use the derived filters
    * the list resolves alongside raw statuses (`ORDER_DERIVED_FILTERS`).
@@ -159,7 +162,7 @@ const STAT_CONFIG: {
   {
     id: "confirmed",
     label: M.STATS.CONFIRMED,
-    keys: ["new"],
+    key: "new",
     icon: <IconCircleCheck size={20} />,
     variant: "blue",
     filter: "order_confirmed",
@@ -167,7 +170,7 @@ const STAT_CONFIG: {
   {
     id: "in-transit",
     label: M.STATS.IN_TRANSIT,
-    keys: ["in_progress"],
+    key: "in_progress",
     icon: <IconTruckDelivery size={20} />,
     variant: "teal",
     // `in_progress` is a derived filter (`ORDER_DERIVED_FILTERS`) resolving to
@@ -179,7 +182,7 @@ const STAT_CONFIG: {
   {
     id: "delivered",
     label: M.STATS.DELIVERED,
-    keys: ["delivered"],
+    key: "delivered",
     icon: <IconCircleCheck size={20} />,
     variant: "green",
     filter: "delivered",
@@ -187,7 +190,7 @@ const STAT_CONFIG: {
   {
     id: "delivery-failed",
     label: M.STATS.FAILED,
-    keys: ["delivery_failed"],
+    key: "delivery_failed",
     icon: <IconAlertTriangle size={20} />,
     variant: "amber",
     filter: "delivery_failed",
@@ -195,7 +198,7 @@ const STAT_CONFIG: {
   {
     id: "cancelled",
     label: M.STATS.CANCELLED,
-    keys: ["cancelled"],
+    key: "cancelled",
     icon: <IconBan size={20} />,
     variant: "red",
     filter: "cancelled",
@@ -203,7 +206,7 @@ const STAT_CONFIG: {
   {
     id: "refunded",
     label: M.STATS.REFUNDED,
-    keys: ["refunded"],
+    key: "refunded",
     icon: <IconReceiptRefund size={20} />,
     variant: "purple",
     filter: "refunded",
@@ -246,16 +249,6 @@ const ORDER_TYPE_CONFIG: {
   { value: "emergency", label: M.TYPE_FILTER.EMERGENCY, countKey: "emergency" },
   { value: "regular", label: M.TYPE_FILTER.REGULAR, countKey: "regular" },
 ];
-
-/** First present counter among the candidate keys; 0 when none are returned. */
-function pickStat(stats: OrderStats | undefined, keys: string[]): number {
-  if (!stats) return 0;
-  for (const key of keys) {
-    const value = stats[key];
-    if (typeof value === "number") return value;
-  }
-  return 0;
-}
 
 /** `Date` → the `YYYY-MM-DD` the list endpoint expects. */
 /**
@@ -577,14 +570,15 @@ export function OrdersPage() {
 
   // Cards follow the whole screen, order type included: filter to Express and
   // the lifecycle breakdown is Express's breakdown.
-  const {
-    data: stats,
-    isLoading: statsLoading,
-    refetch: refetchStats,
-  } = useGetOrderStatsQuery({
+  const statsQuery = useGetOrderStatsQuery({
     ...scope,
     ...ORDER_TYPE_QUERY[typeFilter],
   });
+  const stats = statsQuery.data;
+  // Loading / error / ready — a failed counter request dashes out rather than
+  // reading as a genuinely empty pipeline. See `lib/stats.ts`.
+  const cardsState = statsState(statsQuery);
+  const refetchStats = statsQuery.refetch;
 
   /**
    * Retry after a failed load — reloads the cards as well as the table.
@@ -601,9 +595,10 @@ export function OrdersPage() {
 
   // Counts for the filter itself come from `type_counts`, which the endpoint
   // computes over a population the type filter has not touched — so selecting
-  // Express does not zero the other options, while search and date still apply.
-  // It also returns `regular` outright: deriving it needs the express/emergency
-  // overlap (9 orders are both), which nothing else in the response exposes.
+  // Emergency does not zero the other options, while search and date still
+  // apply. Read exactly as sent, including `all`: deriving it from the siblings
+  // assumes they partition the population, which is the backend's call to make
+  // and would silently break the day a third type appears.
   const typeCounts = stats?.type_counts;
 
   const typeOptions = ORDER_TYPE_CONFIG.map((t) => ({
@@ -618,7 +613,7 @@ export function OrdersPage() {
   const statItems = STAT_CONFIG.map((c) => ({
     id: c.id,
     label: c.label,
-    value: statsLoading ? "—" : pickStat(stats, c.keys).toLocaleString(),
+    value: statusText(cardsState, stats, c.key),
     icon: c.icon,
     variant: c.variant,
     active: c.filter !== null && c.filter !== "" && statusFilter === c.filter,
@@ -898,7 +893,7 @@ export function OrdersPage() {
     <>
       <PageHeader
         title={M.TITLE}
-        subtitle={statsLoading ? undefined : M.STATS.TOTAL_SUMMARY(pickStat(stats, ["all_orders"]))}
+        subtitle={cardsState === "ready" ? M.STATS.TOTAL_SUMMARY(stats?.total ?? 0) : undefined}
         actions={
           // Search, status and date range all scope the orders query, so they
           // only make sense while that tab is showing.
@@ -950,7 +945,12 @@ export function OrdersPage() {
         was reading as a second, lesser group when the six are one set.
         `fill` so each row divides the full width between its three.
       */}
-      <StatsGrid items={statItems} className="fill cols-3" />
+      <StatsGrid
+        items={statItems}
+        className="fill cols-3"
+        error={statsError(cardsState)}
+        onRetry={refetchStats}
+      />
 
       {/* Order-type filter. Replaces the Express/Emergency cards that sat here:
           the same two numbers, but actionable, and with the complement

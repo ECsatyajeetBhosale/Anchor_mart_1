@@ -1,4 +1,5 @@
 import type { AssignedAdmin } from "@/features/orders";
+import type { TypedStats } from "@/lib/stats";
 
 /** Badge colour variants used for an intent's status pill. */
 export type IntentBadgeVariant = "warning" | "info" | "teal" | "danger" | "neutral" | "success";
@@ -346,38 +347,50 @@ export interface IntentListResult {
 }
 
 /**
- * Intent statistics returned by `GET /superadmin/orders/intents/stats/`.
- * Every field is optional so a partial/empty payload degrades gracefully to 0.
+ * The buckets `status_counts` carries on `GET /superadmin/orders/intents/stats/`.
+ *
+ * These are the endpoint's own tokens, not order statuses: `new` is the
+ * `intent_received` population and `verification` covers the two verification
+ * statuses. Same-named tokens on the orders and express payloads count
+ * something else entirely — never read one screen's figure for another's.
  */
-export interface IntentStats {
-  total_intents?: number;
-  new_intents?: number;
-  pending_intent?: number;
-  in_sourcing?: number;
-  in_verification?: number;
-  substitution_needed?: number;
-  awaiting_customer?: number;
-  ready_to_bill?: number;
-  awaiting_payment?: number;
-  confirmed_today?: number;
-  rejected?: number;
-  /** Intents stopped before payment — a paid cancellation is a refund and
-   *  belongs to the orders screen. Together the two cover every one exactly once. */
-  cancelled?: number;
-  /**
-   * Counts for the order-type chips, over the open funnel with the type filter
-   * removed — so selecting a type does not zero the other options. `search`
-   * still applies. `type_counts.all == total_intents`.
-   */
-  type_counts?: IntentTypeCounts;
-}
+export type IntentStatusKey =
+  | "new"
+  | "pending"
+  | "sourcing"
+  | "verification"
+  | "substitution_needed"
+  /** Sub-buckets *inside* `substitution_needed`, not peers of it:
+   *  `awaiting_customer + ready_to_bill == substitution_needed`. */
+  | "awaiting_customer"
+  | "ready_to_bill"
+  | "awaiting_payment"
+  /** Terminal, and outside `total` — these left the funnel. */
+  | "rejected"
+  | "cancelled";
 
-/** Chip counts. `express` and `emergency` overlap; `both` is that overlap. */
-/** A clean partition since 2026-08-17: `regular + emergency == all`. */
-export interface IntentTypeCounts {
-  all?: number;
-  emergency?: number;
-  regular?: number;
+/** Order-type chips. A clean partition since 2026-08-17: `regular + emergency == all`. */
+export type IntentTypeKey = "all" | "emergency" | "regular";
+
+/**
+ * Intent statistics from `GET /superadmin/orders/intents/stats/`, in the
+ * response's own shape: `total`, a `status_counts` map, and `type_counts`.
+ *
+ * Not flattened onto invented names like `total_intents` / `new_intents`. The
+ * card *labels* are contextual ("Total Intents"), but the property read stays
+ * `total`, so a reader can put this type beside the API response and see one
+ * structure rather than two vocabularies to reconcile.
+ *
+ * Every field is optional: a partial payload degrades to a dash-or-zero per
+ * card rather than blanking the deck.
+ */
+export interface IntentStats extends TypedStats<IntentStatusKey, IntentTypeKey> {
+  /**
+   * Throughput, not a funnel state: intents that *left* this screen today by
+   * being paid. It belongs to no total, which is why it sits outside
+   * `status_counts` on the wire and outside the card deck on screen.
+   */
+  confirmed_today?: number;
 }
 
 /* ------------------------------------------------------------------ */
