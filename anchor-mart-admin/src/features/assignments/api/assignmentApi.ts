@@ -7,6 +7,7 @@ import type {
   ApiUnassignedOrder,
   ApiUnassignedOrdersResponse,
   AssignOrderPayload,
+  AssignOrderResponse,
   AssignablePartner,
   Assignment,
   OrderAssignmentHistory,
@@ -299,7 +300,7 @@ export const assignmentApi = baseApi.injectEndpoints({
     }),
 
     // Flow 28 API 12 — assign (or reassign) an order to a delivery partner.
-    assignOrder: builder.mutation<unknown, AssignOrderPayload>({
+    assignOrder: builder.mutation<AssignOrderResponse, AssignOrderPayload>({
       query: (body) => ({
         url: ASSIGNMENT_ENDPOINTS.ASSIGN_ORDER,
         method: "POST",
@@ -310,6 +311,16 @@ export const assignmentApi = baseApi.injectEndpoints({
       // list shows a partner column off the same orders, so it is invalidated
       // here rather than each caller refetching by hand.
       invalidatesTags: (_r, _e, { order_id }) => [
+        // The orders list row and the detail drawer are the surfaces that name
+        // the partner and carry the `needs_verifier_partner` /
+        // `needs_delivery_partner` chip, and both read the Orders cache — which
+        // this mutation used not to touch, so a real assignment left the row
+        // showing the previous partner and its "Needs delivery partner" badge
+        // until someone refreshed by hand. The stats deck moves too: assignment
+        // transitions the order (order_confirmed → partner_assigned).
+        { type: "Orders", id: order_id },
+        { type: "Orders", id: "PARTIAL-LIST" },
+        { type: "Orders", id: "STATS" },
         { type: "Assignments", id: "UNASSIGNED-LIST" },
         { type: "Assignments", id: "ACTIVE-LIST" },
         { type: "Assignments", id: `TIMELINE-${order_id}` },

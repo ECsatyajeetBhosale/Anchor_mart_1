@@ -85,6 +85,26 @@ export interface AssignOrderPayload {
   confirm?: boolean;
 }
 
+/**
+ * Response to POST /superadmin/partner/assign-order/ (Flow 28 API 12).
+ *
+ * `already_assigned` marks a **200 that changed nothing**: the backend
+ * short-circuits when the order's active assignment already belongs to the
+ * partner being picked, and it compares partner identity alone — it never asks
+ * whether that assignment serves the phase the order is actually in. So a
+ * finished verification (`status=verified`, still `is_active`) held by a
+ * both-capable partner blocks giving that same partner the delivery job: no
+ * assignment is created and the order does not transition. Reporting it as a
+ * successful assignment is what left an order showing "Needs delivery partner"
+ * straight after an apparently successful assign, so callers must check it.
+ */
+export interface AssignOrderResponse {
+  message?: string;
+  already_assigned?: boolean;
+  /** The assignment the backend considers current — new, or the untouched one. */
+  assignment?: unknown;
+}
+
 /** A partner returned by the assignable-partners endpoint (Flow 28 API 11). */
 export interface AssignablePartner {
   /** The id the assign-order API expects as `delivery_partner_id` (the user id). */

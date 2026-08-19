@@ -16,6 +16,7 @@ export type {
   Assignment,
   AssignablePartner,
   AssignOrderPayload,
+  AssignOrderResponse,
   AvailablePartner,
   OrderAssignmentHistory,
   OrderTimeline,

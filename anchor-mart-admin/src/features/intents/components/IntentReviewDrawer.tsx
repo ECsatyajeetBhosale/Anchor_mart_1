@@ -311,11 +311,19 @@ export function IntentReviewDrawer({
       return;
     }
     try {
-      await assignOrder({
+      const res = await assignOrder({
         order_id: orderId,
         delivery_partner_id: assignPartner,
         confirm: reassign || forceReassign,
       }).unwrap();
+      // 200 + `already_assigned` = the backend changed nothing (the picked
+      // partner already holds the order's active assignment). Not an
+      // assignment, so it must not read as one — and the drawer stays open,
+      // since the admin's next move is to pick someone else.
+      if (res?.already_assigned) {
+        toast.warning(MESSAGES.COMMON.ASSIGN_ORDER_NO_CHANGE);
+        return;
+      }
       toast.success(reassign ? T.REASSIGNED(intent?.r ?? "") : T.ASSIGNED(intent?.r ?? ""));
       onClose();
     } catch (err) {

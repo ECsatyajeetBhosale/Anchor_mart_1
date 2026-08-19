@@ -226,6 +226,17 @@ export function OrderAssignPartnerSection({
     try {
       const res = await assignOrder(body).unwrap();
       if (import.meta.env.DEV) console.log("[assign-order] success", res);
+      // A 200 carrying `already_assigned` created no assignment and moved no
+      // order (see `AssignOrderResponse`). It is the reply a both-capable
+      // partner's *completed verification* provokes when they are then picked
+      // to deliver — announcing it as a reassignment is precisely how an order
+      // kept its "Needs delivery partner" chip after a successful-looking
+      // assign. Say so, and leave the picker loaded so another name is one
+      // click away.
+      if (res?.already_assigned) {
+        toast.warning(MESSAGES.COMMON.ASSIGN_ORDER_NO_CHANGE);
+        return;
+      }
       toast.success(isReassign ? M.REASSIGNED(partnerName) : M.ASSIGNED(partnerName));
       setSelectedId("");
       setForceReassign(false);

@@ -4794,6 +4794,20 @@ export const MESSAGES = {
       UNKNOWN_HINT:
         "This response did not include needs_verifier_partner / needs_delivery_partner, so the outstanding requirement cannot be shown. It is not inferred from the order status or from partner_allocated.",
     },
+    /**
+     * The assign-order API answering 200 with `already_assigned` — a reply that
+     * changed nothing. Shared, because all three assign surfaces (orders,
+     * intents, the assignments board) POST the same endpoint and a
+     * feature-local copy is how three screens end up wording the same no-op
+     * differently.
+     *
+     * The backend's own sentence ("already assigned to this partner") is not
+     * used: it is true only of the *record*, and on a paid order that record is
+     * usually the partner's finished verification — so it reads as "the
+     * delivery is covered" at the exact moment it is not.
+     */
+    ASSIGN_ORDER_NO_CHANGE:
+      "Nothing was assigned — this partner already holds the order's active assignment. If that assignment is their completed verification, the order still has no delivery partner: pick a different partner, or have the backend stop treating a finished verification as a delivery job.",
     /** Shared long-list picker: server-side search, paged loading, reset. */
     SEARCHABLE_SELECT: {
       PLACEHOLDER: "Select…",

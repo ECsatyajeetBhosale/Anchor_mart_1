@@ -62,13 +62,20 @@ export function AssignmentsPage() {
   const confirmAssign = async (partner: PartnerData, deliverBy: string) => {
     if (!target) return;
     try {
-      await assignOrder({
+      const res = await assignOrder({
         order_id: target.orderId,
         delivery_partner_id: partner.deliveryPartnerId,
         deliver_by: deliverBy,
         // Reassignment needs the explicit confirm flag; a first assignment doesn't.
         confirm: target.confirm,
       }).unwrap();
+
+      // 200 + `already_assigned` = nothing was assigned. Keep the drawer open
+      // rather than closing on a change that never happened.
+      if (res?.already_assigned) {
+        toast.warning(MESSAGES.COMMON.ASSIGN_ORDER_NO_CHANGE);
+        return;
+      }
 
       // Both boards are tag-invalidated by the mutation, so they refresh
       // themselves — no local list surgery needed.
