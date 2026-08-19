@@ -1,25 +1,29 @@
 import type { AssignedAdmin } from "@/features/orders";
 import { INTENT_ENDPOINTS, ORDER_ENDPOINTS } from "@/lib/apiEndpoints";
+import { dateTimeText, shortDate } from "@/lib/dates";
 import { baseApi } from "@/lib/fetchUtils";
-import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
 import { readPartnerNeed } from "@/lib/partnerRequirement";
 import { terminalReason } from "@/lib/terminalReason";
+import { situationVariant } from "../lib/intentSituation";
 import type {
   AvailabilityState,
   GetIntentStatsParams,
   GetIntentsParams,
   IntentApi,
   IntentApiItem,
-  IntentBadgeVariant,
   IntentData,
   IntentDetail,
   IntentDetailItem,
   IntentItem,
   IntentListResult,
+  IntentLocationChange,
+  IntentShippingAddress,
   IntentStats,
   ItemAvailability,
   RejectIntentPayload,
   RejectIntentResponse,
+  RequestReverificationPayload,
+  RequestReverificationResponse,
 } from "../types/intent.types";
 
 /** Coerces an unknown to a trimmed string; non-strings/numbers → "". */
@@ -57,15 +61,6 @@ function unwrap<T>(res: unknown): T {
   return res as T;
 }
 
-/**
- * Maps a raw API status token to its badge colour variant, sourced from the
- * canonical status reference (`src/lib/orderStatuses.ts`) so the table badges,
- * the status legend, and every other surface stay in sync.
- */
-function statusVariant(status: string): IntentBadgeVariant {
-  return (ORDER_STATUS_BY_KEY[status]?.variant as IntentBadgeVariant) ?? "neutral";
-}
-
 /** Title-cases a raw status token as a fallback label (e.g. "in_sourcing" → "In Sourcing"). */
 function titleCase(value: string): string {
   return value
@@ -75,7 +70,14 @@ function titleCase(value: string): string {
     .join(" ");
 }
 
-/** Formats an ISO date consistently with the rest of the app; blanks → "—". */
+/**
+ * Formats an ISO date for the **detail** read only.
+ *
+ * The list and the detail are two different contracts: since 2026-08-19 the
+ * four admin *lists* send display strings (`lib/dates.ts` reads those), while
+ * `GET orders/{id}/` still sends ISO. Keeping one formatter per contract is
+ * what stops a change on either side from quietly corrupting the other.
+ */
 function formatDate(value?: string): string {
   if (!value) return "—";
   const date = new Date(value);
@@ -131,11 +133,16 @@ function availabilityState(a: ItemAvailability | null): {
   return shortBy > 0 ? { state: "short", shortBy } : { state: "available", shortBy: 0 };
 }
 
-/** Maps a raw API item into the drawer item model, including Flow 06 signals. */
+/**
+ * Maps a raw API item into the row/drawer item model, including Flow 06 signals.
+ *
+ * The availability fields only carry meaning at `verification_submitted`; at
+ * every other status they arrive null/zero and this produces an unverified
+ * line, which is what the row should show.
+ */
 function mapItem(item: IntentApiItem, index: number): IntentItem {
-  const name =
-    str(item.product_name) || str(item.name) || str(item.title) || str(item.item_name) || "Item";
-  const qty = num(item.quantity ?? item.qty ?? item.requested_qty) || 1;
+  const name = str(item.product_name) || "Item";
+  const qty = num(item.quantity) || 1;
   const availableQty = typeof item.available_qty === "number" ? item.available_qty : null;
   // Derive the shortfall when the backend doesn't send it explicitly.
   const shortfall =
@@ -145,21 +152,48 @@ function mapItem(item: IntentApiItem, index: number): IntentItem {
         ? Math.max(0, qty - availableQty)
         : 0;
   return {
-    id: str(item.id) || str(item.order_item_id) || `${name}-${index}`,
-    orderItemId: str(item.order_item_id) || str(item.id),
+    id: str(item.id) || `${name}-${index}`,
+    // The suggest API's `order_item_id` is this line's own id.
+    orderItemId: str(item.id),
     name,
     qty,
     available: typeof item.is_available === "boolean" ? item.is_available : null,
     availableQty,
     shortfall,
     needsSuggestion: item.needs_suggestion === true || item.is_available === false || shortfall > 0,
-    reason: str(item.reason) || str(item.note),
+    reason: str(item.reason),
+  };
+}
+
+/**
+ * Reads the delivery-move object, or null when there is nothing outstanding.
+ *
+ * The `state` is validated against the four the API defines rather than cast:
+ * every branch of the UI keys off it, and an unrecognised one should render
+ * nothing rather than an unlabelled badge.
+ */
+const LOCATION_CHANGE_STATES = new Set<IntentLocationChange["state"]>([
+  "delta_pending",
+  "delta_initiated",
+  "report_pending",
+  "report_dismissed",
+]);
+
+function mapLocationChange(value: unknown): IntentLocationChange | null {
+  const state = str(getProp(value, "state")) as IntentLocationChange["state"];
+  if (!LOCATION_CHANGE_STATES.has(state)) return null;
+  return {
+    state,
+    delta_id: str(getProp(value, "delta_id")) || null,
+    report_id: str(getProp(value, "report_id")) || null,
+    amount: str(getProp(value, "amount")) || null,
   };
 }
 
 /** Maps a raw API intent row into the UI row model used by the table + drawer. */
 export function toIntentData(intent: IntentApi): IntentData {
-  const sa = intent.shipping_address ?? {};
+  // Always present per the contract; `?? {}` only guards a truncated payload.
+  const sa = intent.shipping_address ?? ({} as IntentShippingAddress);
   const reqItems = (intent.items ?? []).map(mapItem);
   const itemCount = num(intent.item_count) || reqItems.length;
 
@@ -171,8 +205,7 @@ export function toIntentData(intent: IntentApi): IntentData {
       : "—";
 
   const status = str(intent.status);
-  const vessel = str(sa.vessel_name);
-  const imo = str(sa.imo_number) || str(sa.imo);
+  const situation = str(intent.situation);
   // Which of the two reason columns applies is decided in one shared place, so
   // this list and the Orders list can't answer the same question differently.
   const reason = terminalReason({
@@ -185,37 +218,38 @@ export function toIntentData(intent: IntentApi): IntentData {
   return {
     id: str(intent.id),
     r: str(intent.order_number) || str(intent.id),
-    s: str(intent.sailor_name) || str(intent.sailor_email) || "—",
-    email: str(intent.sailor_email),
+    s: str(intent.customer_name) || str(intent.customer_email) || "—",
     it,
     itemCount,
     reqItems,
-    sh: vessel || imo || "—",
-    vessel,
-    port: str(intent.port) || str(sa.port_name),
-    ar: formatDate(intent.ship_arrival_date),
-    sy: formatDate(intent.expected_departure),
-    // created_at is already a display-formatted string from the backend;
-    // fall back to formatting the ISO intent_received_at when it's absent.
-    sb: str(intent.created_at) || formatDate(intent.intent_received_at),
+    // Vessel, else IMO. `shipping_address` is the only source for either — the
+    // row root carries no vessel name and no `imo`.
+    sh: str(sa.vessel_name) || str(sa.imo_number) || "—",
+    port: str(sa.port_name),
+    // Dates arrive display-formatted; `shortDate` reads them, never parses.
+    ar: shortDate(intent.ship_arrival_date),
+    sy: shortDate(intent.expected_departure),
+    // `intent_received_at` is the same instant as `created_at` on a fresh
+    // intent, so it stands in only when the record's own timestamp is missing.
+    sb: dateTimeText(str(intent.created_at) || str(intent.intent_received_at)),
+    // The label of `situation` where the row has one, so a settled basket reads
+    // "Ready to Bill" rather than the status it shares with an unanswered one.
     st: str(intent.status_display) || titleCase(status) || "—",
     status,
-    sc: statusVariant(status),
-    imo,
-    terminal:
-      str(intent.anchorage) ||
-      str(sa.anchorage_name) ||
-      str(intent.port) ||
-      str(sa.port_name) ||
-      "—",
-    contact: str(sa.phone) || str(sa.contact),
+    situation,
+    // Coloured from the SITUATION, falling back to the status. Colouring by
+    // status alone would render both halves of a split identically — and
+    // `sourcing` exists as a raw status too, so two differently-coloured
+    // "Sourcing" badges would sit in one filtered list.
+    sc: situationVariant(situation, status),
     total: str(intent.total_amount),
     assignedAdmin: mapAssignedAdmin(intent.assigned_admin),
-    portId: str(intent.port_id) || str(sa.port_id),
     substitutionNeeded:
       intent.substitution_needed === true || reqItems.some((i) => i.needsSuggestion),
     isExpress: intent.is_express === true,
     isEmergency: intent.is_emergency === true,
+    isFastest: intent.is_fastest_delivery === true,
+    locationChange: mapLocationChange(intent.location_change),
     reason: reason.text,
     reasonAt: reason.at,
     // Straight passthrough — the backend owns this answer entirely.
@@ -255,7 +289,8 @@ export const intentApi = baseApi.injectEndpoints({
           page_size: params.limit,
           search: params.search || undefined,
           status: params.status || undefined,
-          is_express: boolParam(params.isExpress),
+          // No `is_express`: the endpoint 400s on `true` (express never reaches
+          // this screen) and `false` is inert, so neither is worth sending.
           is_emergency: boolParam(params.isEmergency),
         },
       }),
@@ -283,7 +318,6 @@ export const intentApi = baseApi.injectEndpoints({
         method: "GET",
         params: {
           search: params.search || undefined,
-          is_express: boolParam(params.isExpress),
           is_emergency: boolParam(params.isEmergency),
         },
       }),
@@ -300,6 +334,33 @@ export const intentApi = baseApi.injectEndpoints({
     rejectIntent: builder.mutation<RejectIntentResponse, RejectIntentPayload>({
       query: ({ orderId, reason }) => ({
         url: ORDER_ENDPOINTS.REJECT_INTENT(orderId),
+        method: "POST",
+        body: { reason },
+      }),
+      invalidatesTags: (_res, _err, { orderId }) => [
+        { type: "Intents", id: orderId },
+        { type: "Intents", id: "PARTIAL-LIST" },
+        { type: "Intents", id: "STATS" },
+      ],
+    }),
+
+    /**
+     * §4.3b — send a submitted report back to the partner to re-check.
+     *
+     * For when the desk does not trust the report: the partner checked the
+     * wrong shelf, or stock arrived since. The new report supersedes the old
+     * one automatically, so nothing is cleared first. `reason` is required and
+     * tells the partner what to look at.
+     *
+     * Moves the order to `partner_verifying`, so the list, the row and the
+     * cards all change — all three are invalidated.
+     */
+    requestReverification: builder.mutation<
+      RequestReverificationResponse,
+      RequestReverificationPayload
+    >({
+      query: ({ orderId, reason }) => ({
+        url: ORDER_ENDPOINTS.REQUEST_REVERIFICATION(orderId),
         method: "POST",
         body: { reason },
       }),
@@ -366,29 +427,6 @@ export const intentApi = baseApi.injectEndpoints({
         const adminRaw = o.assigned_admin;
         const assignedAdmin = mapAssignedAdmin(adminRaw);
 
-        // Indicative order value before a bill exists.
-        //
-        // `create_order` writes `subtotal = 0` and `total_amount = 0`; the real
-        // figures are only computed by `sync_order_subtotal` when the admin
-        // creates the bill. So a pre-bill order shows priced line items above a
-        // $0.00 breakdown — every row honest, the screen self-contradictory.
-        //
-        // Mirrors the backend's `compute_subtotal`: Σ (available qty × unit
-        // price), capped at the requested quantity. **Accepted substitutions
-        // are not included** — they live in a separate collection — so this is
-        // an estimate of the original basket, not a prediction of the bill.
-        const estimatedSubtotal = items.reduce((sum, item) => {
-          const unit = Number.parseFloat(item.unitPrice);
-          if (!Number.isFinite(unit)) return sum;
-          // Unverified lines count at their ordered quantity; verified ones at
-          // what the partner actually found. An unavailable line contributes
-          // nothing, since `available_qty` is what can be supplied.
-          const billableQty = item.availability
-            ? Math.min(item.availability.available_qty, item.qty)
-            : item.qty;
-          return sum + unit * billableQty;
-        }, 0);
-
         const statusRaw = str(o.status);
         const needsSub = o.substitution_needed === true || items.some((i) => i.needsSuggestion);
         // A closed intent explains itself in the rail's terminal notice. The
@@ -435,8 +473,12 @@ export const intentApi = baseApi.injectEndpoints({
           // Items
           items,
           itemCount: num(o.item_count) || num(o.items_count) || items.length,
-          // Pricing
-          estimatedSubtotal: estimatedSubtotal > 0 ? estimatedSubtotal.toFixed(2) : "",
+          // Pricing. `estimated_subtotal` is the backend's own live figure and
+          // is read, never recomputed: it includes accepted substitutes, which
+          // live in their own collection and so are missing from any sum over
+          // `items[]`. `subtotal` beside it is a stored column and a real
+          // "0.00" until create-bill writes it.
+          estimatedSubtotal: str(o.estimated_subtotal),
           subtotal: str(o.subtotal),
           shippingFee: str(o.shipping_fee),
           tax: str(o.tax_amount),
@@ -477,5 +519,6 @@ export const {
   useGetIntentsQuery,
   useGetIntentStatsQuery,
   useRejectIntentMutation,
+  useRequestReverificationMutation,
   useGetIntentDetailQuery,
 } = intentApi;

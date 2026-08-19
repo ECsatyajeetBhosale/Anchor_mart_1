@@ -20,7 +20,6 @@ import type { IntentAction } from "../types/intent.types";
  */
 const REJECTABLE_STATUSES = new Set([
   "intent_received",
-  "pending_intent",
   "sourcing",
   "partner_verifying",
   "verification_submitted",
@@ -31,18 +30,58 @@ export function canRejectIntent(status: string): boolean {
   return REJECTABLE_STATUSES.has(status);
 }
 
-export function deriveIntentAction(status: string, substitutionNeeded: boolean): IntentAction {
+/**
+ * Statuses from which a report can be sent back to the partner (§4.3b).
+ *
+ * The state machine allows six, but the other four are pre-verification — there
+ * the answer is to assign a partner, not to re-ask one — and `payment_pending`
+ * is the add-items path. These two are the only ones that occur in practice.
+ */
+const REVERIFIABLE_STATUSES = new Set(["verification_submitted", "pending_customer_response"]);
+
+/**
+ * May this order be sent back for re-verification?
+ *
+ * @param needsVerifierPartner The row's own flag. `true` means no partner is
+ *   assigned, which the endpoint answers with a 409 telling the admin to assign
+ *   one instead — so the control is withheld rather than offered and refused.
+ *   `null` (the field was absent) is not read as "no partner".
+ */
+export function canRequestReverification(
+  status: string,
+  needsVerifierPartner: boolean | null,
+): boolean {
+  return REVERIFIABLE_STATUSES.has(status) && needsVerifierPartner !== true;
+}
+
+/**
+ * @param situation The row's `situation` — the sub-state behind the status.
+ *   Only `pending_customer_response` carries one, and only `ready_to_bill`
+ *   changes the action. An absent or unrecognised value keeps the safe reading
+ *   ("still waiting on the sailor"), so a new sub-state the frontend has not
+ *   been taught cannot offer a write the backend would refuse.
+ */
+export function deriveIntentAction(
+  status: string,
+  substitutionNeeded: boolean,
+  situation = "",
+): IntentAction {
   switch (status) {
+    // `new` and `sourcing` are both this status — unclaimed and claimed. The
+    // action is the same either way: what it needs next is a verifier.
     case "intent_received":
-    case "pending_intent":
     case "sourcing":
       return "assign";
     case "partner_verifying":
       return "waiting_partner";
     case "verification_submitted":
       return substitutionNeeded ? "suggest" : "bill";
+    // One status, two situations. The sailor has either answered the released
+    // substitutions or not, and `status` alone cannot tell them apart — the
+    // split is `substitutions_confirmed_at` server-side, surfaced as
+    // `situation`. Confirmed means the basket is settled and the desk can bill.
     case "pending_customer_response":
-      return "waiting_customer";
+      return situation === "ready_to_bill" ? "bill" : "waiting_customer";
     case "payment_pending":
       return "awaiting_payment";
     case "intent_rejected":

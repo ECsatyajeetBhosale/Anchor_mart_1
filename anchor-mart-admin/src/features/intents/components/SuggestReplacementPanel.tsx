@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useGetCategoriesQuery } from "@/features/catalog";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
-import { IconCheck, IconReplace } from "@tabler/icons-react";
+import { IconCheck, IconClockPause, IconReplace } from "@tabler/icons-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -18,9 +18,28 @@ import {
   useStageSuggestionMutation,
   useSuggestNewProductMutation,
 } from "../api/substitutionApi";
-import type { VerificationLine } from "../types/intent.types";
+import type { SuggestionDecision, VerificationLine } from "../types/intent.types";
 
 const S = MESSAGES.INTENTS.SUBSTITUTION;
+
+/**
+ * The sailor's verdict, as label and colour.
+ *
+ * Kept apart from the release flag on purpose: `released` says whether *we*
+ * sent the suggestion, this says what *they* replied. A single badge covering
+ * both is what made a rejected replacement read as "Released" in green.
+ */
+const DECISION_LABEL: Record<SuggestionDecision, string> = {
+  pending: S.DECISION_PENDING,
+  accepted: S.DECISION_ACCEPTED,
+  rejected: S.DECISION_REJECTED,
+};
+
+const DECISION_VARIANT: Record<SuggestionDecision, "warning" | "success" | "danger"> = {
+  pending: "warning",
+  accepted: "success",
+  rejected: "danger",
+};
 const T = MESSAGES.INTENTS.TOAST;
 
 export interface SuggestReplacementPanelProps {
@@ -53,6 +72,24 @@ export function SuggestReplacementPanel({
     skip: !orderId,
   });
   const { data: staged = [] } = useGetSuggestedItemsQuery(orderId, { skip: !orderId });
+
+  /**
+   * The ORIGINAL product name, joined in by `order_item_id`.
+   *
+   * API 9 carries only the replacement — `product_name` is the suggestion — so
+   * the item it replaces is reached through the verification report, which is
+   * already loaded here. Returns "" when the report has not arrived, and the
+   * row then shows the replacement alone rather than a dangling arrow.
+   */
+  const originalNameFor = (orderItemId: string): string =>
+    detail?.lines.find((line) => line.orderItemId === orderItemId)?.name ?? "";
+
+  /**
+   * Catalog picks still waiting on a partner to confirm they physically exist.
+   * Release 409s while any remain, so the count is surfaced above the list
+   * instead of being discovered by pressing the button.
+   */
+  const blockedCount = staged.filter((s) => s.needsPartnerConfirmation).length;
 
   const [fetchVariants, { data: variants = [], isFetching: variantsLoading }] =
     useLazyGetSuggestionProductsQuery();
@@ -401,6 +438,14 @@ export function SuggestReplacementPanel({
 
       {/* Staged / released suggestions */}
       <div className="sec-label mt16">{S.STAGED_TITLE}</div>
+      {/* Why the release button will refuse, said before it is pressed rather
+          than as a 409 afterwards. The count comes from the rows themselves. */}
+      {blockedCount > 0 && (
+        <div className="mb-2 flex items-start gap-2 rounded-[var(--radius-md)] border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2 text-[12px] font-semibold text-[var(--warning-text)]">
+          <IconClockPause size={15} className="mt-px shrink-0" />
+          <span>{S.BLOCKED_RELEASE(blockedCount)}</span>
+        </div>
+      )}
       {staged.length === 0 ? (
         <div className="td-m">{S.STAGED_EMPTY}</div>
       ) : (
@@ -408,8 +453,14 @@ export function SuggestReplacementPanel({
           {staged.map((s) => (
             <div className="ecard flex aic g12" key={s.suggestionId}>
               <div className="f1">
+                {/* The original name is not on the suggestion — it is joined in
+                    from the verification line by `order_item_id`. Without the
+                    report loaded the arrow would have nothing on its left, so
+                    the replacement stands alone instead. */}
                 <div className="sm w7 c1">
-                  {s.originalName} → {s.suggestedName}
+                  {originalNameFor(s.orderItemId)
+                    ? `${originalNameFor(s.orderItemId)} → ${s.suggestedName}`
+                    : s.suggestedName}
                 </div>
                 <div className="xs c4">
                   {s.suggestedSku ? `${s.suggestedSku} · ` : ""}
@@ -417,9 +468,23 @@ export function SuggestReplacementPanel({
                   {s.unitPrice ? ` · $${s.unitPrice}` : ""}
                 </div>
               </div>
-              <Badge variant={s.released ? "success" : "warning"}>
-                {s.released ? S.RELEASED_BADGE : S.STAGED_BADGE}
-              </Badge>
+              <div className="flex flex-col items-end gap-1">
+                {/* Did the admin send it, and — separately — what did the
+                    sailor say. Two badges because they are two facts: one is
+                    ours, one is theirs, and either can be true without the
+                    other. */}
+                <Badge variant={s.released ? "info" : "neutral"}>
+                  {s.released ? S.RELEASED_BADGE : S.STAGED_BADGE}
+                </Badge>
+                {s.released && (
+                  <Badge variant={DECISION_VARIANT[s.decision]}>{DECISION_LABEL[s.decision]}</Badge>
+                )}
+                {s.needsPartnerConfirmation && (
+                  <Badge variant="warning" title={S.NEEDS_PARTNER_HINT}>
+                    {S.NEEDS_PARTNER}
+                  </Badge>
+                )}
+              </div>
             </div>
           ))}
         </div>

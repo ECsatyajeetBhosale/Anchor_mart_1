@@ -81,7 +81,6 @@ export function useDashboard() {
     activePartners: formatStat(statsQuery.data?.active_partners),
     intentReceived: formatStat(statsQuery.data?.intent_received),
     inProgress: formatStat(statsQuery.data?.in_progress),
-    pendingIntents: formatStat(statsQuery.data?.pending_intents),
 
     /* ── catalog / workload counters — also snapshots ─────────────────────── */
     products: formatStat(statsQuery.data?.products),
@@ -114,7 +113,6 @@ export function useDashboard() {
      */
     raw: {
       verifications: statsQuery.data?.verifications,
-      pendingIntents: statsQuery.data?.pending_intents,
       inProgress: statsQuery.data?.in_progress,
     },
 

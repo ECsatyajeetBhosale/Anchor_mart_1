@@ -60,14 +60,19 @@ export const MESSAGES = {
      * Counts are pluralised. The formatted stats are localised strings, so this
      * takes the raw numbers — reading the formatted ones is what produced
      * "1 verifications to review".
+     *
+     * The pending-intents clause was dropped on 2026-08-19 with the stat it
+     * read: `pending_intents` left `dashboard/stats/` when the
+     * `pending_intent` status was retired. Keeping the clause would have held
+     * the whole sentence at "Loading today's figures…" forever, since it only
+     * renders once every figure has arrived.
      */
     HERO: {
       EYEBROW: (date: string) => `Operations Dashboard · ${date}`,
       LOADING: "Loading today's figures…",
-      SUMMARY: (verifications: number, intents: number, inFlight: number) =>
+      SUMMARY: (verifications: number, inFlight: number) =>
         [
           `${verifications} ${verifications === 1 ? "verification" : "verifications"} to review`,
-          `${intents} pending ${intents === 1 ? "intent" : "intents"}`,
           `${inFlight.toLocaleString()} ${inFlight === 1 ? "order" : "orders"} in flight`,
         ].join(", "),
     },
@@ -490,6 +495,12 @@ export const MESSAGES = {
       EXPRESS: "Express",
       EMERGENCY: "Marine Emergency",
       REGULAR: "Regular",
+      /**
+       * Not a filter option — there is no `?is_fastest_delivery=` on any list.
+       * It sits here beside the other two flags because the same badge row
+       * renders it, and it is worded as the express screen words it.
+       */
+      FASTEST: "Fastest",
       /** Count is omitted while the figure is still loading. */
       OPTION: (label: string, count?: number) =>
         count === undefined ? label : `${label} · ${count.toLocaleString()}`,
@@ -711,6 +722,10 @@ export const MESSAGES = {
     ACTION_REVIEW: "Review",
     // Status legend (info popup explaining every lifecycle status)
     STATUS_LEGEND: {
+      SITUATIONS_TITLE: "Situations",
+      SITUATIONS_DESCRIPTION:
+        "Not statuses of their own — each is one half of a status above, split by who owes the next move. The badge on a row shows the situation's label rather than the status's.",
+      SPLIT_OF: (status: string) => `Half of ${status}`,
       OPEN_LABEL: "What do these statuses mean?",
       TITLE: "Order Status Guide",
       DESCRIPTION: "The 18 order lifecycle statuses, in order, and what each means.",
@@ -745,7 +760,6 @@ export const MESSAGES = {
       /** Parent bucket; `awaiting_customer` + `ready_to_bill` are inside it. */
       SUBSTITUTIONS: "Substitutions",
       NEW: "New Intents",
-      PENDING: "Pending Intent",
       SOURCING: "In Sourcing",
       VERIFICATION: "In Verification",
       // `substitution_needed` counts the whole `pending_customer_response`
@@ -785,6 +799,24 @@ export const MESSAGES = {
       REGULAR: "Regular",
       OPTION: (label: string, count?: number) =>
         count === undefined ? label : `${label} · ${count.toLocaleString()}`,
+    },
+    /**
+     * The delivery-move sub-flow (`location_change`), stated in the terms the
+     * admin acts in rather than the API's state names.
+     *
+     * Only `report_pending` asks anything of this desk — price the move or
+     * dismiss it. The `delta_*` states need a completed initial payment, so
+     * they belong to the orders screen and appear here only in the window
+     * between a bill being paid and the row leaving; they are worded as status,
+     * not as a prompt.
+     */
+    LOCATION_CHANGE: {
+      REPORT_PENDING: "Location change · needs review",
+      REPORT_DISMISSED: "Location change dismissed",
+      DELTA_PENDING: (amount: string) => `Location surcharge ${amount} · unpaid`,
+      DELTA_INITIATED: (amount: string) => `Location surcharge ${amount} · paying`,
+      /** Used when the API sends a `delta_*` state without its amount. */
+      DELTA_NO_AMOUNT: "Location surcharge raised",
     },
     // Table columns
     COLUMNS: {
@@ -901,6 +933,8 @@ export const MESSAGES = {
     REVIEW: {
       TITLE: "Review Intent Request",
       REJECT: "Reject",
+      /** Only offered where a report exists to dispute and a partner to re-ask. */
+      REVERIFY: "Re-verify",
       // Primary action: hand the (claimed) order to a delivery partner (Flow 28).
       ASSIGN: "Assign",
       // Primary action once everything is verified available (Flow 7 create-bill:
@@ -1056,6 +1090,25 @@ export const MESSAGES = {
       REJECTING: "Rejecting…",
       CANCEL: "Cancel",
     },
+    /**
+     * Send-back-for-re-verification popup (§4.3b). `reason` is required and
+     * reaches the partner, so it is worded as an instruction to them rather
+     * than as an explanation to the sailor.
+     */
+    REVERIFY_DIALOG: {
+      TITLE: "Send Back for Re-verification",
+      DESCRIPTION: (ref: string) =>
+        `Ask the partner to check order ${ref} again. Their new report replaces the current one.`,
+      REASON_LABEL: "What should they re-check?",
+      REASON_PLACEHOLDER: "e.g. Supplier restocked — please re-check the deck brushes",
+      REASON_REQUIRED: "A reason is required — tell the partner what to re-check.",
+      CONFIRM: "Send Back",
+      SENDING: "Sending…",
+      CANCEL: "Cancel",
+      SUCCESS: (partner: string) =>
+        partner ? `Sent back to ${partner} for re-verification.` : "Sent back for re-verification.",
+      FAILED: "Could not send this back for re-verification. Please try again.",
+    },
     // Derived "what to do next" hints (deriveIntentAction)
     ACTION: {
       assign: "Assign a partner to verify stock",
@@ -1108,8 +1161,26 @@ export const MESSAGES = {
       STAGING: "Staging…",
       STAGED_TITLE: "Suggestions",
       STAGED_EMPTY: "No suggestions staged yet.",
-      RELEASED_BADGE: "Released",
-      STAGED_BADGE: "Staged",
+      /**
+       * Two different facts, deliberately worded so they cannot be mistaken for
+       * each other. `RELEASED_BADGE` / `STAGED_BADGE` say whether the **admin**
+       * has sent the suggestion; `DECISION_*` is what the **sailor** replied.
+       * Showing the first where the second belongs is how a rejected
+       * replacement came to read "Released" in green.
+       */
+      RELEASED_BADGE: "Sent to sailor",
+      STAGED_BADGE: "Not sent",
+      DECISION_PENDING: "Awaiting sailor",
+      DECISION_ACCEPTED: "Accepted",
+      DECISION_REJECTED: "Rejected",
+      /** A catalog pick a partner has not yet confirmed is physically there. */
+      NEEDS_PARTNER: "Needs stock check",
+      NEEDS_PARTNER_HINT:
+        "A partner has to confirm this replacement is actually available before the sailor sees it.",
+      BLOCKED_RELEASE: (n: number) =>
+        `${n} replacement${n === 1 ? "" : "s"} still need a partner's stock check before this can be released.`,
+      /** The partner proposed it and was holding it, so it is confirmed already. */
+      FROM_PARTNER: "From partner",
       NO_PORT: "Port couldn't be resolved — can't load replacements. Check the intent data.",
       RELEASE: "Release to sailor",
       RELEASING: "Releasing…",

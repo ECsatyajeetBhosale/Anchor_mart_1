@@ -43,7 +43,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useGetIntentDetailQuery } from "../api/intentApi";
 import { useGetSuggestedItemsQuery } from "../api/substitutionApi";
-import { canRejectIntent, deriveIntentAction } from "../lib/intentAction";
+import { canRejectIntent, canRequestReverification, deriveIntentAction } from "../lib/intentAction";
 import type {
   IntentAction,
   IntentBadgeVariant,
@@ -89,6 +89,8 @@ export interface IntentReviewDrawerProps {
   /** Runs the primary action for the intent's derived state (assign/suggest→release/bill). */
   onPrimaryAction: (action: IntentAction) => void;
   onReject: () => void;
+  /** Opens the re-verification prompt. Rendered only where §4.3b allows it. */
+  onRequestReverification: () => void;
   /** Flow 27 ownership of the underlying order. */
   ownership: OwnershipState;
   /** May the signed-in admin perform gated writes on this order? */
@@ -170,6 +172,7 @@ export function IntentReviewDrawer({
   onClose,
   onPrimaryAction,
   onReject,
+  onRequestReverification,
   ownership,
   canManage,
   canClaim,
@@ -213,6 +216,9 @@ export function IntentReviewDrawer({
   const action = deriveIntentAction(
     status,
     detail?.substitutionNeeded ?? intent?.substitutionNeeded ?? false,
+    // From the list row: `situation` is part of the list contract, and the
+    // detail read is a different one that does not carry it.
+    intent?.situation,
   );
   /**
    * What the intent is short of, from `needs_verifier_partner` /
@@ -798,6 +804,23 @@ export function IntentReviewDrawer({
               <Button variant="teal" size="sm" disabled={isClaiming} onClick={onClaim}>
                 <IconUserCheck size={15} className="mr-1" />
                 {isClaiming ? O.CLAIMING : O.MANAGE}
+              </Button>
+            )}
+            {/* Send the report back to the partner. Withheld when no partner is
+                assigned — the endpoint 409s there and tells you to assign one
+                instead, which is what `needsVerifier` already offers. */}
+            {canRequestReverification(
+              status,
+              detail?.needsVerifierPartner ?? intent?.needsVerifierPartner ?? null,
+            ) && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={onRequestReverification}
+                disabled={!canManage}
+              >
+                <IconRefresh size={15} className="mr-1" />
+                {R.REVERIFY}
               </Button>
             )}
             {/* Reject is terminal and only legal before substitutions are

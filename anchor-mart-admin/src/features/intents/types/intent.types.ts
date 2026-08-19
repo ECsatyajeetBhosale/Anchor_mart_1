@@ -24,40 +24,122 @@ export interface IntentItem {
   reason: string;
 }
 
-/** Raw requested item as returned by the list API (partial/defensive shape). */
+/**
+ * A requested line on the list row.
+ *
+ * **The availability fields are populated only while the order is at
+ * `verification_submitted`.** Everywhere else they are `null` / `0` / `false`
+ * by design: past that stage the truth lives in the released suggestions and
+ * the sailor's answers, so re-surfacing a stale "out of stock" would be wrong.
+ */
 export interface IntentApiItem {
+  /** The `OrderItem` id — what the suggest API takes as `order_item_id`. */
   id?: string;
-  order_item_id?: string;
   product_name?: string;
-  name?: string;
-  title?: string;
-  item_name?: string;
+  sku?: string;
   quantity?: number;
-  qty?: number;
-  requested_qty?: number;
+  available_qty?: number | null;
   is_available?: boolean | null;
-  available_qty?: number;
   shortfall?: number;
   needs_suggestion?: boolean;
-  reason?: string;
-  note?: string;
+  reason?: string | null;
 }
 
-/** Nested shipping address on an intent row. */
+/**
+ * The delivery target — **the source of truth for where the partner goes**.
+ *
+ * Exactly these sixteen keys, **always present**, `null` when unknown, so no
+ * key needs an existence check. Nothing at the row root duplicates them: since
+ * 2026-08-19 there is no top-level `port`, `anchorage`, `vessel_name` or `imo`.
+ *
+ * `port_name` / `anchorage_name` are filled from the order's foreign keys
+ * rather than from the stored address blob — 842 of 884 live snapshots never
+ * recorded a port name, so reading the blob would blank the column on most
+ * rows, and the FK wins anyway when the two disagree (a location change writes
+ * both).
+ */
 export interface IntentShippingAddress {
-  imo?: string;
-  /** The API's actual IMO field name. */
-  imo_number?: string;
-  contact?: string;
-  /** The API's actual contact field name. */
-  phone?: string;
-  port_id?: string;
-  port_name?: string;
-  vessel_name?: string;
-  anchorage_name?: string;
+  full_name: string | null;
+  /** The delivery contact. Distinct from the account's own contact details. */
+  phone: string | null;
+  email: string | null;
+  port_name: string | null;
+  port_code: string | null;
+  anchorage_name: string | null;
+  anchorage_code: string | null;
+  country: string | null;
+  city: string | null;
+  zip_code: string | null;
+  vessel_name: string | null;
+  /**
+   * Always `imo_number` — never `imo`. The stored snapshots use both spellings
+   * (`imo` on 864 orders, `imo_number` on 19) and the API reconciles them to
+   * this one key, so the old two-name fallback is gone.
+   */
+  imo_number: string | null;
+  deck: string | null;
+  cabin_number: string | null;
+  section: string | null;
+  delivery_instructions: string | null;
 }
 
-/** Raw intent row from `GET /superadmin/orders/intents/`. */
+/**
+ * The delivery-move sub-flow, or `null` when there is nothing to act on.
+ *
+ * An **object, not a boolean**, and deliberately not the same signal as
+ * `has_location_request` on the orders and express screens — that one is a bare
+ * boolean covering the `report_pending` state alone. This carries the state
+ * *and* the id the follow-up call needs, so the two are never aliased.
+ *
+ * A delta requires a completed initial payment, so `delta_*` belongs to the
+ * orders screen and `report_*` is what this pre-payment screen normally shows.
+ */
+export interface IntentLocationChange {
+  /**
+   * - `delta_pending` — surcharge raised, awaiting the sailor's payment
+   * - `delta_initiated` — the sailor started paying; do not raise another
+   * - `report_pending` — a reported move needing an admin to price or dismiss it
+   * - `report_dismissed` — dismissed; no change and no charge
+   */
+  state: "delta_pending" | "delta_initiated" | "report_pending" | "report_dismissed";
+  /** Set on the `delta_*` states — the surcharge to withdraw or await. */
+  delta_id: string | null;
+  /** Set on the `report_*` states — the report to price or dismiss. */
+  report_id: string | null;
+  /** Decimal string, `delta_*` only. */
+  amount: string | null;
+}
+
+/**
+ * What a row's state *means*, where the status alone cannot say who owes the
+ * next move. Two statuses split, and `situation` names the halves:
+ *
+ * | status | split by | situation |
+ * |---|---|---|
+ * | `intent_received` | `assigned_admin` null / set | `new` / `sourcing` |
+ * | `pending_customer_response` | `substitutions_confirmed_at` null / set | `awaiting_customer` / `ready_to_bill` |
+ *
+ * Every other status reports itself, so `situation === status` almost always —
+ * which is why a future split adds a key without breaking anything written
+ * today. Each value is a valid `?status=` verbatim, so a badge drills through
+ * with no mapping.
+ *
+ * `new`/`sourcing` is derived from **ownership, not progress**: claiming an
+ * order moves it without the lifecycle changing at all.
+ */
+export type IntentSituation = "new" | "sourcing" | "awaiting_customer" | "ready_to_bill";
+
+/**
+ * Raw intent row from `GET /superadmin/orders/intents/`.
+ *
+ * The population is every live **non-express** order: express skips the funnel
+ * entirely and has its own screen, which is why `?is_express=true` is a 400
+ * here rather than an empty page.
+ *
+ * Renamed on 2026-08-19 (hard swaps, the old keys are gone): `sailor_name` →
+ * `customer_name`, `sailor_email` → `customer_email`, and top-level `port` /
+ * `anchorage` moved inside `shipping_address`.
+ */
 export interface IntentApi {
   id: string;
   /**
@@ -66,46 +148,72 @@ export interface IntentApi {
    */
   assigned_admin?: AssignedAdmin | null;
   order_number?: string;
-  sailor_name?: string;
-  sailor_email?: string;
+  customer_name?: string;
+  customer_email?: string;
   status?: string;
+  /**
+   * What the row's state *means* — see `IntentSituation` for the two splits.
+   *
+   * `status` stays the raw lifecycle value and never varies with this: the two
+   * answer different questions, so neither is derived from the other. Every
+   * other status reports itself here.
+   *
+   * Typed as a union **or** a plain string on purpose. Only the four values
+   * this screen knows are named; anything else — including a status echoing
+   * itself, or a split added later — must degrade to "read the status" rather
+   * than to a wrong action or an unlabelled badge.
+   */
+  situation?: IntentSituation | string;
+  /**
+   * The label of `situation`, not of `status`. Render it verbatim and **never
+   * string-match it** — colour and logic key off `situation`, then `status`.
+   */
   status_display?: string;
+  /** Equals `any(items[].needs_suggestion)` — the row-level shortage signal. */
   substitution_needed?: boolean;
   item_count?: number;
   items?: IntentApiItem[];
+  /** The 16-key delivery target; the only source of vessel/port/anchorage. */
   shipping_address?: IntentShippingAddress;
-  port?: string;
-  /** Port UUID — needed by the variant picker (Flow 06 API 10). */
-  port_id?: string;
-  anchorage?: string;
-  ship_arrival_date?: string;
   /**
-   * Absolute UTC datetime the vessel is expected to DEPART. The backend's
-   * `expected_stay` free-text duration was dropped in migrations 0053/0054 and
-   * replaced by this; reading the old name yielded `undefined` on every row, so
-   * the Stay column rendered its em-dash fallback for every order ever shown.
+   * Vessel dates. **Display strings, not ISO** — see `lib/dates.ts`; the
+   * backend renders `"%B %d, %Y, %I:%M %p"` and a test fails if either goes
+   * back to ISO.
    */
-  expected_departure?: string;
-  intent_received_at?: string;
+  ship_arrival_date?: string | null;
+  expected_departure?: string | null;
+  intent_received_at?: string | null;
+  created_at?: string | null;
+  /** `"0.00"` until the bill is created — an intent is not priced yet. */
   total_amount?: string;
-  created_at?: string;
-  /** Order type. Independent flags — an intent may be both. */
+  /**
+   * Three **independent** delivery flags; the tightest SLA wins. `is_express`
+   * (12h, a checkout tier) is always false on this screen. `is_emergency` (24h,
+   * cargo type) and `is_fastest_delivery` (24h, the sailor's opt-in on any
+   * order) cross-cut it — a regular order can be fastest-delivery, gaining a
+   * hard deadline it would not otherwise have.
+   */
   is_express?: boolean;
   is_emergency?: boolean;
+  is_fastest_delivery?: boolean;
+  /** The delivery-move sub-flow; `null` when there is nothing to act on. */
+  location_change?: IntentLocationChange | null;
   /**
    * Why a terminated intent ended where it did. Both are plain columns on the
    * order and are sent by the list serializer, so `?status=intent_rejected` is
    * a worklist that explains itself in place.
    *
    * `""` / `null` means the backend recorded nothing — never filled in from the
-   * status or anything else.
+   * status or anything else. Neither is the same event as the orders screen's
+   * `failure_reason`, which records a failed delivery attempt.
    */
   rejection_reason?: string;
   cancellation_reason?: string;
   cancelled_at?: string | null;
   /**
    * Whether the intent still needs a partner, and of which kind — the backend's
-   * canonical answer. Optional only so an absent field is detectable; see
+   * canonical answer, and the one to read: never infer it from assignment
+   * status. Optional only so an absent field is detectable; see
    * `lib/partnerRequirement`.
    */
   needs_verifier_partner?: boolean;
@@ -116,33 +224,40 @@ export interface IntentApi {
 export interface IntentData {
   id: string;
   r: string; // order_number (display ref)
-  s: string; // sailor_name
-  email: string; // sailor_email
+  s: string; // customer_name, falling back to customer_email
   it: string; // items summary text (with count)
   itemCount: number; // item_count
   reqItems: IntentItem[]; // mapped items for the drawer
-  sh: string; // ship / vessel summary
-  vessel: string;
+  /** Vessel name, else IMO — the SHIP column. `shipping_address` is its only source. */
+  sh: string;
+  /** `shipping_address.port_name` — seeds the drawer summary until detail lands. */
   port: string;
-  ar: string; // formatted ship arrival date
-  sy: string; // formatted expected_departure
-  sb: string; // submitted (created_at)
-  st: string; // status_display (badge label)
-  status: string; // raw status (filtering / logic)
+  ar: string; // ship_arrival_date, shortened
+  sy: string; // expected_departure, shortened
+  sb: string; // created_at, else intent_received_at — as sent
+  st: string; // status_display — the label of `situation`, shown verbatim
+  status: string; // raw lifecycle status (filtering / badge colour)
+  /**
+   * The sub-state behind `status`, or "" when the row does not carry one.
+   * Decides whether a `pending_customer_response` row can be billed.
+   */
+  situation: string;
   sc: IntentBadgeVariant; // badge variant derived from status
-  imo: string;
-  terminal: string; // anchorage
-  contact: string;
   total: string; // total_amount
   /** Owning admin, or null when unassigned — drives the Flow 27 ownership gate. */
   assignedAdmin: AssignedAdmin | null;
-  /** Port UUID for the variant picker (Flow 06 API 10); "" when unresolved. */
-  portId: string;
   /** Row-level Flow 06 signal: at `verification_submitted` with a short/unavailable line. */
   substitutionNeeded: boolean;
-  /** Order type. Independent flags — an intent may be both. */
+  /**
+   * Delivery flags. Independent of each other — see `IntentApi`. `isExpress` is
+   * always false on this screen and is kept only so the type badges stay one
+   * shared component across screens.
+   */
   isExpress: boolean;
   isEmergency: boolean;
+  isFastest: boolean;
+  /** The delivery-move state, or null when there is nothing outstanding. */
+  locationChange: IntentLocationChange | null;
   /**
    * The backend's explanation for a terminated row (`lib/terminalReason`), and
    * when it was recorded. `""` when there is none — the row then shows its
@@ -235,9 +350,15 @@ export interface IntentDetail {
   shipArrivalDate: string;
   expectedDeparture: string;
   /**
-   * Indicative basket value derived from the line items, for orders that have
-   * no bill yet (the backend's own `subtotal`/`total_amount` are a real 0 until
-   * Create Bill runs). Empty string when nothing could be computed.
+   * The backend's live `estimated_subtotal` — what the sailor will be charged
+   * before a bill exists.
+   *
+   * Read, never recomputed. `subtotal` is a stored column written by
+   * `sync_order_subtotal` at confirm-substitutions or create-bill, so on a
+   * pre-bill intent it is a real `"0.00"`, not an approximation. This one is
+   * `compute_subtotal()` on read and **includes accepted substitutes** — the
+   * part any client-side sum over `items[]` necessarily misses, since the
+   * substitutes live in their own collection.
    */
   estimatedSubtotal: string;
   // Items (full detail with pricing)
@@ -289,8 +410,8 @@ export type IntentAction =
   | "assign" // intent_received (owned) — assign a partner to verify
   | "waiting_partner" // partner_verifying — nothing to do yet
   | "suggest" // verification_submitted + substitution needed — suggest replacements
-  | "bill" // verification_submitted, all available — generate payment link
-  | "waiting_customer" // pending_customer_response — waiting on sailor
+  | "bill" // everything available, or substitutions confirmed — raise the bill
+  | "waiting_customer" // pending_customer_response, sailor has not answered
   | "awaiting_payment" // payment_pending — link sent
   | "rejected" // intent_rejected — terminal
   | "none";
@@ -304,6 +425,25 @@ export interface RejectIntentPayload {
   reason: string;
 }
 
+/**
+ * Body of `POST order/{id}/request-reverification/` (§4.3b) — send a report back
+ * to the partner. `reason` is required; the partner is told what to re-check.
+ */
+export interface RequestReverificationPayload {
+  orderId: string;
+  reason: string;
+}
+
+/** Success body of the re-verification endpoint. */
+export interface RequestReverificationResponse {
+  message?: string;
+  order_id?: string;
+  /** Always `partner_verifying` on success. */
+  status?: string;
+  /** The partner it went back to, by email. */
+  partner?: string;
+}
+
 /** Success body of the reject-intent endpoint. */
 export interface RejectIntentResponse {
   message: string;
@@ -311,20 +451,33 @@ export interface RejectIntentResponse {
   status: string;
 }
 
-/** Query params for the intents list (search + status are omitted when empty). */
+/**
+ * Query params for the intents list (search + status are omitted when empty).
+ *
+ * **No `isExpress`.** The endpoint rejects `?is_express=true` with a 400 —
+ * express orders never reach this screen, so the filter could only ever match
+ * nothing — and `false` is an inert no-op. Neither is worth a parameter that
+ * could be set by mistake.
+ *
+ * **No date window either.** The orders screen filters on
+ * `payment_completed_at`, which by definition has not happened yet for an
+ * intent, so the same parameter name would mean two different things.
+ */
 export interface GetIntentsParams {
   page?: number;
+  /** Clamped server-side to 50, silently — read `results.length`, not this. */
   limit?: number;
+  /** Order number, or the sailor's first/last name or email. */
   search?: string;
-  /** Raw API status value (e.g. "intent_received"); omit for "all". */
-  status?: string;
   /**
-   * Order-type filters. Independent booleans that are **not** mutually
-   * exclusive — an order may be both — so these are queries, not slices of a
-   * partition. "Regular" is `false` on both. `undefined` means no filter, and
-   * `false` is a real filter that must survive the usual `|| undefined` idiom.
+   * A raw status (`intent_received`), or one of the derived keys the endpoint
+   * resolves — `in_verification`, `awaiting_customer`, `ready_to_bill`,
+   * `cancelled`. Omit for the default open funnel. An unknown value is a 400
+   * that lists the valid set.
    */
-  isExpress?: boolean;
+  status?: string;
+  /** `true` = marine emergency, `false` = regular. `false` is a real filter
+   *  that must survive the usual `|| undefined` idiom. */
   isEmergency?: boolean;
 }
 
@@ -336,7 +489,6 @@ export interface GetIntentsParams {
  */
 export interface GetIntentStatsParams {
   search?: string;
-  isExpress?: boolean;
   isEmergency?: boolean;
 }
 
@@ -349,14 +501,17 @@ export interface IntentListResult {
 /**
  * The buckets `status_counts` carries on `GET /superadmin/orders/intents/stats/`.
  *
- * These are the endpoint's own tokens, not order statuses: `new` is the
- * `intent_received` population and `verification` covers the two verification
- * statuses. Same-named tokens on the orders and express payloads count
- * something else entirely — never read one screen's figure for another's.
+ * These are the endpoint's own tokens, not order statuses. `new` and `sourcing`
+ * are the two halves of `intent_received` (unclaimed / claimed) and
+ * `verification` covers the two verification statuses. Same-named tokens on the
+ * orders and express payloads count something else entirely — `new` is
+ * `order_confirmed` there — so never read one screen's figure for another's.
+ *
+ * `pending` was removed on 2026-08-19 along with the `pending_intent` filter:
+ * the status has no writer and no live rows.
  */
 export type IntentStatusKey =
   | "new"
-  | "pending"
   | "sourcing"
   | "verification"
   | "substitution_needed"
@@ -429,16 +584,43 @@ export interface SuggestionVariant {
 }
 
 /** A staged or released suggestion for an order (API 9). */
+/** The sailor's verdict on a released suggestion. */
+export type SuggestionDecision = "pending" | "accepted" | "rejected";
+
+/**
+ * One replacement the desk has staged or released (API 9).
+ *
+ * **`decision` and `released` answer different questions** and neither may be
+ * inferred from the other: `released` is whether the *admin* sent it, `decision`
+ * is what the *sailor* said about it. Reading one where the other belongs is
+ * how a rejected suggestion came to render as "Released" in green.
+ */
 export interface StagedSuggestion {
+  /** Integer id on the wire, kept as a string for React keys. */
   suggestionId: string;
+  /** Joins to `items[]` / the verification lines for the ORIGINAL product name. */
   orderItemId: string;
-  originalName: string;
+  /** The SUGGESTED product. The original is not on this row. */
   suggestedName: string;
   suggestedSku: string;
   quantity: number;
   unitPrice: string;
-  status: string;
+  /** The sailor's verdict; `"pending"` until they answer. */
+  decision: SuggestionDecision;
+  /** Whether the admin has sent it to the sailor. */
   released: boolean;
+  /**
+   * True while a catalog pick still needs a partner to confirm it is physically
+   * available. Releasing the order 409s until every such line is confirmed, so
+   * this is what to surface *before* the admin tries.
+   */
+  needsPartnerConfirmation: boolean;
+  /** When a partner confirmed it; "" while outstanding. */
+  partnerConfirmedAt: string;
+  /** `admin` picked it from the catalog, or `delivery_partner` proposed it. */
+  suggestedByRole: string;
+  /** The partner's photo of what they are holding; "" for a catalog pick. */
+  imageUrl: string;
 }
 
 /**

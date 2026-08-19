@@ -339,6 +339,8 @@ export const ORDER_ENDPOINTS = {
   // Flow 05 API 6 — terminal intent rejection. Requires a `reason`; gated by
   // Flow 27 ownership (409 if unclaimed, 403 if owned by another admin).
   REJECT_INTENT: (id: string) => `/superadmin/orders/order/${id}/reject-intent/`,
+  /** Flow 01 §4.3b — send a submitted report back to the partner to re-check. */
+  REQUEST_REVERIFICATION: (id: string) => `/superadmin/orders/order/${id}/request-reverification/`,
   // Flow 12 §3 — side-effect-free preview of what a refund would return.
   // Optional `?override=true` previews forcing it past the auto window.
   REFUND_QUOTE: (id: string) => `/superadmin/orders/order/${id}/refund-quote/`,

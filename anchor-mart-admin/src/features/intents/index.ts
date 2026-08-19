@@ -33,6 +33,8 @@ export type {
   IntentAction,
   IntentData,
   IntentDetail,
+  IntentLocationChange,
+  IntentShippingAddress,
   IntentStats,
   IntentStatusKey,
   IntentTypeKey,

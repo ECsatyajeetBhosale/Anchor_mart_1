@@ -5,6 +5,7 @@ import type {
   StageSuggestionPayload,
   StagedSuggestion,
   SuggestNewProductPayload,
+  SuggestionDecision,
   SuggestionVariant,
   VerificationDetail,
   VerificationLine,
@@ -79,20 +80,47 @@ function mapVerificationDetail(res: unknown): VerificationDetail {
 
 /* --------------------------- mappers (API 9) ------------------------ */
 
-function mapStaged(raw: unknown): StagedSuggestion {
-  const releasedRaw = pick(raw, "released", "is_released");
-  const status = str(pick(raw, "status"));
+/**
+ * The sailor's verdict, validated rather than cast. An unrecognised value reads
+ * as `"pending"` — "we have not heard back" is the safe wrong answer, where
+ * "accepted" or "rejected" would put words in the sailor's mouth.
+ */
+const DECISIONS = new Set<SuggestionDecision>(["pending", "accepted", "rejected"]);
+
+function mapDecision(value: unknown): SuggestionDecision {
+  const decision = str(value).toLowerCase() as SuggestionDecision;
+  return DECISIONS.has(decision) ? decision : "pending";
+}
+
+/**
+ * One row of API 9.
+ *
+ * `status` and `is_released_to_user` answer different questions and neither is
+ * derived from the other: the first is the *sailor's* decision, the second is
+ * whether the *admin* has sent it. Inferring one from the other is what made a
+ * suggestion the sailor **rejected** render as "Released" in green.
+ *
+ * The original product name is not on this row — it is reached by joining
+ * `order_item_id` into the order's items, which the panel does because that is
+ * where both datasets are in hand.
+ */
+export function mapStaged(raw: unknown): StagedSuggestion {
   return {
-    suggestionId: str(pick(raw, "suggestion_id", "id")),
+    // Integer on the wire, unlike every other id in this API.
+    suggestionId: str(pick(raw, "id")),
     orderItemId: str(pick(raw, "order_item_id")),
-    originalName: str(pick(raw, "original_product_name", "original_name")),
-    suggestedName: str(pick(raw, "suggested_product_name", "suggested_name")),
-    suggestedSku: str(pick(raw, "suggested_sku")),
-    quantity: num(pick(raw, "suggested_quantity", "quantity")) || 1,
-    unitPrice: str(pick(raw, "suggested_unit_price", "unit_price")),
-    status,
-    // A suggestion is "released" if the flag says so, else infer from status.
-    released: releasedRaw === true || /released|accepted|rejected|substituted/i.test(status),
+    suggestedName: str(pick(raw, "product_name")) || "Item",
+    suggestedSku: str(pick(raw, "sku")),
+    quantity: num(pick(raw, "quantity")) || 1,
+    unitPrice: str(pick(raw, "unit_price")),
+    decision: mapDecision(pick(raw, "status")),
+    released: pick(raw, "is_released_to_user") === true,
+    // Read straight: this is what makes release 409, so it must not be guessed
+    // at from the role or from whether a confirmation timestamp exists.
+    needsPartnerConfirmation: pick(raw, "needs_partner_confirmation") === true,
+    partnerConfirmedAt: str(pick(raw, "partner_confirmed_at")),
+    suggestedByRole: str(pick(raw, "suggested_by_role")),
+    imageUrl: str(pick(raw, "suggested_image")),
   };
 }
 

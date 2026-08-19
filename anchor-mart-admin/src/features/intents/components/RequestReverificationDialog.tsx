@@ -10,12 +10,12 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { MESSAGES } from "@/lib/messages";
-import { IconX } from "@tabler/icons-react";
+import { IconRefresh } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 
-const R = MESSAGES.INTENTS.REJECT_DIALOG;
+const R = MESSAGES.INTENTS.REVERIFY_DIALOG;
 
-export interface RejectIntentDialogProps {
+export interface RequestReverificationDialogProps {
   isOpen: boolean;
   /** Display reference (order number) shown in the prompt. */
   orderRef: string;
@@ -26,21 +26,28 @@ export interface RejectIntentDialogProps {
 }
 
 /**
- * Flow 05 API 6 — reject-intent reason popup. The backend requires a non-blank
- * `reason` (400 otherwise), so we validate it client-side before submitting and
- * pass the trimmed value up to the caller, which owns the mutation.
+ * §4.3b — send a submitted report back to the partner.
+ *
+ * For when the desk does not trust what came back: the partner checked the
+ * wrong shelf, or stock has arrived since. The new report supersedes the old
+ * one, so nothing is cleared first and the action is safe to repeat.
+ *
+ * `reason` is required (400 otherwise) and it reaches the **partner**, not the
+ * sailor — the copy asks what to re-check rather than why the order failed.
+ * Validated here so the round trip is not spent discovering a blank field.
  */
-export function RejectIntentDialog({
+export function RequestReverificationDialog({
   isOpen,
   orderRef,
   isLoading,
   onClose,
   onConfirm,
-}: RejectIntentDialogProps) {
+}: RequestReverificationDialogProps) {
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
 
-  // Reset the field each time the dialog opens.
+  // Clear on open, not on close: the popup animates out, and wiping the field
+  // mid-animation shows the admin their text disappearing.
   useEffect(() => {
     if (isOpen) {
       setReason("");
@@ -71,11 +78,6 @@ export function RejectIntentDialog({
             value={reason}
             error={!!error}
             placeholder={R.REASON_PLACEHOLDER}
-            // The sailor reads this, and the column stores 500 characters. The
-            // limit is stated here rather than discovered at submit — unlike
-            // the orders screen's cancel reason, which the API truncates to 50
-            // silently, this one is refused outright if it overflows.
-            maxLength={500}
             onChange={(e) => {
               setReason(e.target.value);
               if (error) setError("");
@@ -88,9 +90,9 @@ export function RejectIntentDialog({
           <Button variant="ghost" size="sm" onClick={onClose} disabled={isLoading}>
             {R.CANCEL}
           </Button>
-          <Button variant="danger" size="sm" onClick={handleConfirm} disabled={isLoading}>
-            <IconX size={15} className="mr-1" />
-            {isLoading ? R.REJECTING : R.CONFIRM}
+          <Button variant="primary" size="sm" onClick={handleConfirm} disabled={isLoading}>
+            <IconRefresh size={15} className="mr-1" />
+            {isLoading ? R.SENDING : R.CONFIRM}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -98,4 +100,4 @@ export function RejectIntentDialog({
   );
 }
 
-export default RejectIntentDialog;
+export default RequestReverificationDialog;

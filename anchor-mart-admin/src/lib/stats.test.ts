@@ -12,18 +12,17 @@ const DASH = MESSAGES.COMMON.STATS.DASH;
 const INTENT_PAYLOAD: IntentStats = {
   total: 81,
   status_counts: {
-    new: 7,
-    pending: 3,
-    sourcing: 0,
+    new: 4,
+    sourcing: 3,
     verification: 8,
     substitution_needed: 3,
-    awaiting_payment: 60,
-    awaiting_customer: 0,
-    ready_to_bill: 3,
+    awaiting_payment: 63,
+    awaiting_customer: 2,
+    ready_to_bill: 1,
     rejected: 3,
-    cancelled: 59,
+    cancelled: 60,
   },
-  confirmed_today: 0,
+  confirmed_today: 4,
   type_counts: { all: 81, emergency: 6, regular: 75 },
 };
 
@@ -104,13 +103,16 @@ describe("statText", () => {
 
 describe("statusCount", () => {
   it("reads through status_counts, preserving a genuine zero", () => {
-    expect(statusCount(INTENT_PAYLOAD, "sourcing")).toBe(0);
-    expect(statusCount(INTENT_PAYLOAD, "awaiting_payment")).toBe(60);
+    expect(statusCount(INTENT_PAYLOAD, "sourcing")).toBe(3);
+    expect(statusCount(INTENT_PAYLOAD, "awaiting_payment")).toBe(63);
   });
 
   it("returns undefined — not 0 — for a bucket the payload omits", () => {
     expect(statusCount({ total: 5 } as IntentStats, "new")).toBeUndefined();
     expect(statusCount(undefined, "new" as IntentStatusKey)).toBeUndefined();
+    // `pending` was removed with the `pending_intent` status on 2026-08-19; the
+    // key is gone from `IntentStatusKey`, so a stale card cannot compile.
+    expect(statusCount(INTENT_PAYLOAD, "sourcing")).toBe(3);
   });
 
   it("does not fall back to a root-level key of the same name", () => {
@@ -124,18 +126,17 @@ describe("statusCount", () => {
 describe("intent stats mapping", () => {
   it("maps every card to its documented figure", () => {
     expect(INTENT_PAYLOAD.total).toBe(81);
-    expect(statusText(READY, INTENT_PAYLOAD, "new")).toBe("7");
-    expect(statusText(READY, INTENT_PAYLOAD, "pending")).toBe("3");
-    expect(statusText(READY, INTENT_PAYLOAD, "sourcing")).toBe("0");
+    expect(statusText(READY, INTENT_PAYLOAD, "new")).toBe("4");
+    expect(statusText(READY, INTENT_PAYLOAD, "sourcing")).toBe("3");
     expect(statusText(READY, INTENT_PAYLOAD, "verification")).toBe("8");
     expect(statusText(READY, INTENT_PAYLOAD, "substitution_needed")).toBe("3");
-    expect(statusText(READY, INTENT_PAYLOAD, "awaiting_payment")).toBe("60");
-    expect(statusText(READY, INTENT_PAYLOAD, "awaiting_customer")).toBe("0");
-    expect(statusText(READY, INTENT_PAYLOAD, "ready_to_bill")).toBe("3");
+    expect(statusText(READY, INTENT_PAYLOAD, "awaiting_payment")).toBe("63");
+    expect(statusText(READY, INTENT_PAYLOAD, "awaiting_customer")).toBe("2");
+    expect(statusText(READY, INTENT_PAYLOAD, "ready_to_bill")).toBe("1");
     expect(statusText(READY, INTENT_PAYLOAD, "rejected")).toBe("3");
-    expect(statusText(READY, INTENT_PAYLOAD, "cancelled")).toBe("59");
+    expect(statusText(READY, INTENT_PAYLOAD, "cancelled")).toBe("60");
     // Throughput, outside status_counts and outside every total.
-    expect(statText(READY, INTENT_PAYLOAD.confirmed_today)).toBe("0");
+    expect(statText(READY, INTENT_PAYLOAD.confirmed_today)).toBe("4");
   });
 
   it("consumes type_counts as sent rather than deriving `all`", () => {
@@ -156,8 +157,27 @@ describe("intent stats mapping", () => {
   it("does not assume the buckets add up to total", () => {
     const c = INTENT_PAYLOAD.status_counts ?? {};
     const everyBucket = Object.values(c).reduce((sum, n) => sum + n, 0);
-    // 146 ≠ 81. The screen must read `total`, never compute one.
+    // The screen must read `total`, never compute one: summing every bucket
+    // double-counts the substitution split and adds two terminal states that
+    // sit outside the funnel entirely.
     expect(everyBucket).not.toBe(INTENT_PAYLOAD.total);
+  });
+
+  it("reconciles the five open buckets to total — and only those five", () => {
+    const c = INTENT_PAYLOAD.status_counts ?? {};
+    const open =
+      (c.new ?? 0) +
+      (c.sourcing ?? 0) +
+      (c.verification ?? 0) +
+      (c.substitution_needed ?? 0) +
+      (c.awaiting_payment ?? 0);
+    expect(open).toBe(INTENT_PAYLOAD.total);
+    // The split halves are inside `substitution_needed`, not beside it.
+    expect((c.awaiting_customer ?? 0) + (c.ready_to_bill ?? 0)).toBe(c.substitution_needed);
+    // And the terminal pair is outside the total.
+    expect(open + (c.rejected ?? 0) + (c.cancelled ?? 0)).toBeGreaterThan(
+      INTENT_PAYLOAD.total ?? 0,
+    );
   });
 });
 
@@ -183,7 +203,7 @@ describe("order stats mapping", () => {
     // intent 7 is `intent_received`. Equal here by coincidence of the sample —
     // the test asserts they are read from separate payloads, never compared.
     expect(statusCount(ORDER_PAYLOAD, "new")).toBe(7);
-    expect(statusCount(INTENT_PAYLOAD, "new")).toBe(7);
+    expect(statusCount(INTENT_PAYLOAD, "new")).toBe(4);
   });
 });
 

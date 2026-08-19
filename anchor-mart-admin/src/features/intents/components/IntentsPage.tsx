@@ -3,7 +3,6 @@ import {
   IconCheck,
   IconClipboardCheck,
   IconClock,
-  IconHourglass,
   IconInbox,
   IconInfoCircle,
   IconPackage,
@@ -33,7 +32,7 @@ import {
   useClaimOrderMutation,
   useOrderOwnership,
 } from "@/features/orders";
-import { getApiMessage } from "@/lib/apiError";
+import { getApiMessage, getApiStatus } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
@@ -48,6 +47,7 @@ import {
   useGetIntentStatsQuery,
   useGetIntentsQuery,
   useRejectIntentMutation,
+  useRequestReverificationMutation,
 } from "../api/intentApi";
 import { useReleaseSuggestionsMutation } from "../api/substitutionApi";
 import type {
@@ -58,18 +58,26 @@ import type {
 } from "../types/intent.types";
 import { type BillFees, CreateBillDialog } from "./CreateBillDialog";
 import { IntentReviewDrawer } from "./IntentReviewDrawer";
+import { LocationChangeBadge } from "./LocationChangeBadge";
 import { RejectIntentDialog } from "./RejectIntentDialog";
+import { RequestReverificationDialog } from "./RequestReverificationDialog";
 import { StatusLegendDialog } from "./StatusLegendDialog";
 
 const M = MESSAGES.INTENTS;
 const O = MESSAGES.INTENTS.OWNERSHIP;
+const RV = MESSAGES.INTENTS.REVERIFY_DIALOG;
 
 const LIMIT = 10;
 
 type StatVariant = "navy" | "teal" | "amber" | "red" | "green" | "purple" | "blue";
 
 /**
- * The open funnel — the six buckets an intent can be sitting in right now.
+ * The open funnel — the five buckets an intent can be sitting in right now.
+ *
+ * `pending_intent` was removed on 2026-08-19: the status has no writer and no
+ * live rows, `status_counts.pending` is gone, and `?status=pending_intent` now
+ * 400s. It stays in the canonical status map so historical timelines still
+ * resolve — a past order really did pass through it.
  *
  * `total` is the page heading rather than a seventh card: as a card it reads as
  * another bucket beside these six and invites being added in. It is also the
@@ -96,15 +104,9 @@ const FUNNEL_STAT_CONFIG: {
     key: "new",
     icon: <IconInbox size={20} />,
     variant: "blue",
-    filter: "intent_received",
-  },
-  {
-    id: "pending",
-    label: M.STATS.PENDING,
-    key: "pending",
-    icon: <IconHourglass size={20} />,
-    variant: "purple",
-    filter: "pending_intent",
+    // The unclaimed half of `intent_received`. `?status=intent_received` would
+    // return the claimed rows too, which is the distinction the card exists for.
+    filter: "new",
   },
   {
     id: "sourcing",
@@ -112,6 +114,9 @@ const FUNNEL_STAT_CONFIG: {
     key: "sourcing",
     icon: <IconSearch size={20} />,
     variant: "teal",
+    // The claimed half, plus the raw `sourcing` status — the endpoint returns
+    // the union, and the raw status has no writer, so in practice this is
+    // "someone has picked it up and not sent it for verification yet".
     filter: "sourcing",
   },
   {
@@ -203,7 +208,6 @@ const INTENT_TYPE_CONFIG: {
 // the Orders screen. Listed in canonical lifecycle order (src/lib/orderStatuses.ts).
 const INTENT_FILTER_KEYS = [
   "intent_received",
-  "pending_intent",
   "sourcing",
   "partner_verifying",
   "verification_submitted",
@@ -223,6 +227,10 @@ const INTENT_FILTER_KEYS = [
  * They are not raw statuses, so their labels are not in `ORDER_STATUS_BY_KEY`.
  */
 const INTENT_DERIVED_FILTER_OPTIONS = [
+  // The unclaimed half of `intent_received`. Its claimed half is `sourcing`,
+  // which is already listed above as a raw status — the endpoint resolves that
+  // key to the union of both, so one entry covers it.
+  { value: "new", label: M.STATS.NEW },
   { value: "in_verification", label: M.STATS.VERIFICATION },
   { value: "awaiting_customer", label: M.STATS.AWAITING_CUSTOMER },
   { value: "ready_to_bill", label: M.STATS.READY_TO_BILL },
@@ -235,6 +243,20 @@ const STATUS_OPTIONS = [
   ...INTENT_DERIVED_FILTER_OPTIONS,
 ];
 
+/**
+ * The "waiting on a partner's stock check" message, when that is why a release
+ * was refused.
+ *
+ * Ownership and this both answer 409 on the same endpoint, so the status code
+ * cannot tell them apart — only the body key can. Returns "" for every other
+ * failure, including the ownership one.
+ */
+function releaseBlockedMessage(err: unknown): string {
+  const data = (err as { data?: unknown })?.data;
+  const blocked = (data as { needs_partner_confirmation?: unknown })?.needs_partner_confirmation;
+  return typeof blocked === "string" ? blocked.trim() : "";
+}
+
 export function IntentsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -246,6 +268,7 @@ export function IntentsPage() {
   const [selectedIntent, setSelectedIntent] = useState<IntentData | null>(null);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isRejectOpen, setIsRejectOpen] = useState(false);
+  const [isReverifyOpen, setIsReverifyOpen] = useState(false);
   const [isBillOpen, setIsBillOpen] = useState(false);
   /** create → Flow 07 API 1; update → API 2 (re-price an already-pending bill). */
   const [billMode, setBillMode] = useState<"create" | "update">("create");
@@ -269,6 +292,7 @@ export function IntentsPage() {
   } | null>(null);
   const [rejectIntent, { isLoading: isRejecting }] = useRejectIntentMutation();
   const [releaseSuggestions, { isLoading: isReleasing }] = useReleaseSuggestionsMutation();
+  const [requestReverification, { isLoading: isReverifying }] = useRequestReverificationMutation();
   const [createBill, { isLoading: isBilling }] = useCreateBillMutation();
   const [updateBill, { isLoading: isUpdatingBill }] = useUpdateBillMutation();
   const [generatePaymentLink, { isLoading: isGeneratingLink }] = useGeneratePaymentLinkMutation();
@@ -440,8 +464,17 @@ export function IntentsPage() {
         toast.success(M.TOAST.RELEASED(res?.released_count ?? 0));
         setIsReviewOpen(false);
       } catch (err) {
-        const status = (err as { status?: unknown })?.status;
-        if (status === 409) {
+        // Two unrelated conditions answer 409 on this endpoint. The body tells
+        // them apart; the status code cannot, and branching on it alone told an
+        // admin to claim an order they already owned.
+        const blocked = releaseBlockedMessage(err);
+        if (blocked) {
+          // Not a failure — the replacement is queued behind a partner's stock
+          // check, which is a step in the flow rather than something to fix.
+          toast.info(blocked);
+          return;
+        }
+        if (getApiStatus(err) === 409) {
           toast.error(O.CLAIM_FIRST);
           return;
         }
@@ -565,6 +598,30 @@ export function IntentsPage() {
     }
   };
 
+  /**
+   * §4.3b — send the report back to the partner.
+   *
+   * The button is already gated on status and on a partner being assigned, so
+   * the errors left here are the ownership pair and the empty-reason 400, all
+   * of which read better in the backend's own words.
+   */
+  const handleConfirmReverification = async (reason: string) => {
+    if (!selectedIntent) return;
+    try {
+      const res = await requestReverification({ orderId: selectedIntent.id, reason }).unwrap();
+      toast.success(RV.SUCCESS(res.partner ?? ""));
+      setIsReverifyOpen(false);
+      setIsReviewOpen(false);
+    } catch (err) {
+      if (getApiStatus(err) === 409) {
+        // Ownership, or a partner that unassigned between render and click.
+        toast.error(getApiMessage(err) ?? O.CLAIM_FIRST);
+        return;
+      }
+      toast.error(getApiMessage(err) ?? RV.FAILED);
+    }
+  };
+
   const columns: Column<IntentData>[] = [
     avatarColumn({
       id: "sailor",
@@ -608,7 +665,14 @@ export function IntentsPage() {
       id: "type",
       header: M.COLUMNS.TYPE,
       cell: (i: IntentData) => (
-        <OrderTypeBadges isExpress={i.isExpress} isEmergency={i.isEmergency} />
+        // `isExpress` is always false here — express never reaches this screen —
+        // but it is passed rather than hardcoded so the badge row stays one
+        // shared component across the order screens.
+        <OrderTypeBadges
+          isExpress={i.isExpress}
+          isEmergency={i.isEmergency}
+          isFastest={i.isFastest}
+        />
       ),
     },
     textColumn({ id: "ship", header: M.COLUMNS.SHIP, get: (i) => i.sh, className: "td-m" }),
@@ -630,10 +694,21 @@ export function IntentsPage() {
       header: M.COLUMNS.STATUS,
       get: (i) => i.st,
       variant: (i) => i.sc,
+      // `situation` is a valid `?status=` verbatim, so the badge filters to its
+      // own bucket with no lookup table. Falls back to the raw status for a row
+      // that carries no situation.
+      onBadgeClick: (i) => {
+        const value = i.situation || i.status;
+        setParam("status", statusFilter === value ? "" : value);
+      },
       // Why a rejected or cancelled intent ended here. Both reason columns come
       // down on the list itself, so a terminated row explains itself in place.
       note: (i) => (
         <>
+          {/* The sailor has moved, or been billed for moving. Above the partner
+              badge because it is the newer event: a move can invalidate the
+              verification the partner line is waiting on. */}
+          <LocationChangeBadge change={i.locationChange} className="mt-1 h-[22px] text-[10px]" />
           {/* What the intent is short of — the backend's own flag, so the row
               does not have to be opened to see that it is waiting on a
               verification partner. */}
@@ -793,6 +868,12 @@ export function IntentsPage() {
         onClose={() => setIsReviewOpen(false)}
         onPrimaryAction={handlePrimaryAction}
         onReject={handleRejectIntent}
+        onRequestReverification={() => {
+          // Same reason the bill popup closes the drawer first: a Dialog would
+          // otherwise render behind the Sheet overlay.
+          setIsReviewOpen(false);
+          setIsReverifyOpen(true);
+        }}
         ownership={selectedIntent ? stateOf(selectedIntent.assignedAdmin) : "unassigned"}
         canManage={canManage(selectedIntent?.assignedAdmin)}
         canClaim={canClaim(selectedIntent?.assignedAdmin)}
@@ -809,6 +890,15 @@ export function IntentsPage() {
         isLoading={isRejecting}
         onClose={() => setIsRejectOpen(false)}
         onConfirm={handleConfirmReject}
+      />
+
+      {/* Send-back-to-partner reason popup (§4.3b) */}
+      <RequestReverificationDialog
+        isOpen={isReverifyOpen}
+        orderRef={selectedIntent?.r ?? ""}
+        isLoading={isReverifying}
+        onClose={() => setIsReverifyOpen(false)}
+        onConfirm={handleConfirmReverification}
       />
 
       {/* Fee popup — create (Flow 07 API 1), update (API 2), or generate a

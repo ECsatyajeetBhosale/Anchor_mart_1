@@ -10,7 +10,6 @@ import {
   IconEngine,
   IconFileInvoice,
   IconFilterOff,
-  IconHourglass,
   IconMapPin,
   IconMotorbike,
   IconPackage,
@@ -68,13 +67,10 @@ export function DashboardPage() {
    * figure beside two zeros, which reads as fact rather than as loading.
    */
   const hero =
-    stats.raw.verifications === undefined ||
-    stats.raw.pendingIntents === undefined ||
-    stats.raw.inProgress === undefined
+    stats.raw.verifications === undefined || stats.raw.inProgress === undefined
       ? null
       : {
           verifications: stats.raw.verifications,
-          intents: stats.raw.pendingIntents,
           inFlight: stats.raw.inProgress,
         };
 
@@ -173,8 +169,13 @@ export function DashboardPage() {
    *   the backend resolved this against one canonical lifecycle definition, so
    *   the link uses its `in_progress` filter rather than a status list rebuilt
    *   here. Rebuilding it is what made the two disagree before.
-   * - `delivery_failed` and `pending_intents` map to real filters on their own
-   *   screens.
+   * - `delivery_failed` maps to a real filter on its own screen.
+   * - **Pending Intents was removed on 2026-08-19.** The `pending_intent`
+   *   status has no writer and no live rows; `dashboard/stats/` dropped
+   *   `pending_intents` and the intents list now 400s on
+   *   `?status=pending_intent`, so the card had no figure and its link led
+   *   nowhere. The status itself survives in `ORDER_STATUS_BY_KEY` for
+   *   historical timelines.
    * - `delta_expired`, `cancelled` and `refunded` are **deliberately not
    *   clickable**: no cross-order list exists for expired deltas, and the two
    *   period metrics count `cancelled_at` / `refunded_at`, which the Orders
@@ -200,14 +201,6 @@ export function DashboardPage() {
       icon: <IconAlertTriangle size={19} />,
       variant: "red",
       onClick: () => navigate(`${APP_ROUTES.ORDERS}?status=delivery_failed`),
-    },
-    {
-      id: "pending-intents",
-      label: "Pending Intents",
-      value: stats.pendingIntents,
-      icon: <IconHourglass size={19} />,
-      variant: "amber",
-      onClick: () => navigate(`${APP_ROUTES.INTENTS}?status=pending_intent`),
     },
     {
       id: "location-reports",
@@ -316,7 +309,7 @@ export function DashboardPage() {
               orders), not `orders_placed` (volume placed in the window) — the
               two answer different questions and were previously swapped. */}
           <h1 className="dash-hero-title">
-            {hero === null ? H.LOADING : H.SUMMARY(hero.verifications, hero.intents, hero.inFlight)}
+            {hero === null ? H.LOADING : H.SUMMARY(hero.verifications, hero.inFlight)}
           </h1>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import type { Column, ColumnFilter } from "@/components/ui/data-table";
+import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 import type * as React from "react";
 import { RowActions, type RowActionsProps } from "./RowActions";
@@ -175,6 +176,15 @@ export function badgeColumn<T>(
     badgeClassName?: string;
     filter?: ColumnFilter;
     /**
+     * Makes the badge itself a filter control — click it to narrow the table to
+     * that row's bucket.
+     *
+     * Opt-in: without it the badge renders exactly as before, as a label. The
+     * click is stopped from propagating, since these tables usually open a
+     * drawer on row click and the two would otherwise both fire.
+     */
+    onBadgeClick?: (row: T) => void;
+    /**
      * Optional muted line under the badge — e.g. why a terminated row ended
      * where it did. Returning `null` (or an empty node) renders nothing, so
      * rows without one keep the badge alone.
@@ -189,10 +199,21 @@ export function badgeColumn<T>(
     className: opts.className,
     filter: opts.filter,
     cell: (row) => {
+      const onBadgeClick = opts.onBadgeClick;
       const badge = (
         <Badge
           variant={typeof opts.variant === "function" ? opts.variant(row) : opts.variant}
-          className={opts.badgeClassName ?? "text-[10px] h-[24px]"}
+          className={cn(
+            opts.badgeClassName ?? "text-[10px] h-[24px]",
+            onBadgeClick && "cursor-pointer",
+          )}
+          onClick={
+            onBadgeClick &&
+            ((e: React.MouseEvent) => {
+              e.stopPropagation();
+              onBadgeClick(row);
+            })
+          }
         >
           {opts.get(row)}
         </Badge>

@@ -50,8 +50,6 @@ export interface DashboardStatsResponse {
   in_progress: number;
   /** snapshot — awaiting admin intent review. */
   intent_received: number;
-  /** snapshot — orders sitting at `pending_intent`. */
-  pending_intents: number;
   /**
    * snapshot — exception state needing intervention. Deliberately held *out* of
    * `in_progress` so the signal isn't buried in routine work, which is why the
