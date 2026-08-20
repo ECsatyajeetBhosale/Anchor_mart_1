@@ -1,4 +1,5 @@
 import type { OrderDetail } from "@/components/common/OrderDetailDrawer";
+import { formatMoney } from "@/lib/money";
 import type { LiveOrder, LiveOrderDetailsResponse } from "../types/dashboard.types";
 
 /** Compose the "Ship / Port" cell from the live-order ship + port name. */
@@ -19,16 +20,21 @@ export function toOrderDetail(order: LiveOrder): OrderDetail {
     terminal: shipPort(order),
     partner: order.partner?.name ?? "Unassigned",
     status: order.status_display,
-    total: `$${Number(order.total_amount).toFixed(2)}`,
+    total: money(order.total_amount),
     payment: "—",
     items: [],
   };
 }
 
-/** Formats a numeric-ish value as `$0.00`; anything unparseable becomes "—". */
+/**
+ * `$0.00` for a real amount, "—" when there isn't one.
+ *
+ * Delegates rather than re-deriving: the local version guarded with
+ * `Number.isFinite(Number(value))`, which is `true` for `""` and `null` — so a
+ * missing total rendered as a confident `$0.00`.
+ */
 function money(value: unknown): string {
-  const n = Number(value);
-  return Number.isFinite(n) ? `$${n.toFixed(2)}` : "—";
+  return formatMoney(value as string | number | null | undefined);
 }
 
 /**

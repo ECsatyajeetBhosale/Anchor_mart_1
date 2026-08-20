@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
+import { formatMoney } from "@/lib/money";
 import { IconCoin, IconLoader2 } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -37,9 +38,7 @@ export interface RefundOrderDialogProps {
 
 /** `$1,234.50`, or a dash when the amount is missing. */
 function money(value?: string): string {
-  if (!value) return "—";
-  const n = Number(value);
-  return Number.isNaN(n) ? value : `$${n.toFixed(2)}`;
+  return formatMoney(value);
 }
 
 /**

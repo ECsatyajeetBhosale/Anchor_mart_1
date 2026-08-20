@@ -1,5 +1,6 @@
 import { REWARD_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
+import { formatMoney } from "@/lib/money";
 import type {
   AddBonusPointsPayload,
   AddCouponAssignmentPayload,
@@ -39,12 +40,15 @@ function pick(obj: unknown, ...keys: string[]): string {
   return "";
 }
 
-/** Formats a decimal-ish value as `$1,250.00`; unparseable input → "-". */
+/**
+ * `$1,250.00`; a missing or unreadable amount → "-".
+ *
+ * Keeps this feature's hyphen fallback. The blank case used to slip through
+ * `Number.isFinite` as a zero, and the locale was the ambient one rather than
+ * the en-US every other screen formats in.
+ */
 function money(value: unknown): string {
-  const n = Number(value);
-  return Number.isFinite(n)
-    ? `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    : "-";
+  return formatMoney(value as string | number | null | undefined, { fallback: "-" });
 }
 
 /** ISO timestamp → "Aug 14, 2026, 07:09 AM". Blank input stays a dash. */

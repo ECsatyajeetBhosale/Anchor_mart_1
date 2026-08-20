@@ -1,15 +1,18 @@
 import { Badge } from "@/components/ui/badge";
 import { MESSAGES } from "@/lib/messages";
+import { formatMoney } from "@/lib/money";
 import { IconMapPin } from "@tabler/icons-react";
 import type { IntentLocationChange } from "../types/intent.types";
 
 const M = MESSAGES.INTENTS.LOCATION_CHANGE;
 
-/** `"450.00"` → `"$450.00"`; anything unparseable is shown as sent. */
+/**
+ * `"450.00"` → `"$450.00"`. Returns `null` rather than a dash — this one feeds a
+ * badge that should be absent entirely when there is no surcharge to name.
+ */
 function money(amount: string | null): string | null {
-  if (!amount) return null;
-  const n = Number(amount);
-  return Number.isFinite(n) ? `$${n.toFixed(2)}` : amount;
+  if (!amount?.trim()) return null;
+  return formatMoney(amount, { fallback: amount });
 }
 
 /**

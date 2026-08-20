@@ -1033,7 +1033,30 @@ export const MESSAGES = {
       SHIPPING_FEE: "Shipping Fee",
       TAX: "Tax",
       DISCOUNT: "Discount",
+      /**
+       * The third fee the admin types into Create Bill, beside shipping and tax.
+       * It was missing from this panel while being part of `total_amount`, so
+       * the rows visibly fell short of the total by its value.
+       */
+      PLATFORM_FEE: "Platform Fee",
+      /** Flow 08 keeps the sailor's points separate from the coupon discount. */
+      LOYALTY: "Loyalty Discount",
+      LOYALTY_WITH_POINTS: (pts: number) => `Loyalty Discount (${pts} pts)`,
       TOTAL: "Total",
+      /**
+       * Why the line items above need not sum to the subtotal below.
+       *
+       * Until payment, `items[]` still holds what the sailor **asked for** at
+       * full quantity, while the billed subtotal is `compute_subtotal()` —
+       * available quantities plus accepted substitutes, and substitutes live in
+       * their own collection rather than in `items[]`. `finalise_paid_order`
+       * trims the short lines and promotes the substitutes into real lines, but
+       * that runs at payment. Before then the two are different questions with
+       * legitimately different answers, and saying so is the difference between
+       * a reader checking the arithmetic and a reader losing trust in it.
+       */
+      REQUESTED_VS_BILLED:
+        "These are the items as requested. Short quantities and accepted substitutes are settled at payment, so this list need not add up to the billed subtotal below.",
       PAYMENT_STATUS: "Payment Status",
       PAYMENT_METHOD: "Payment Method",
       COUPON: "Coupon Applied",

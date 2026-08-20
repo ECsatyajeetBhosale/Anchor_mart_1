@@ -314,4 +314,76 @@ describe("toIntentData — everything else the row renders", () => {
     });
     expect(short.substitutionNeeded).toBe(true);
   });
+
+  /**
+   * The list serializer's placeholders disagree with each other outside
+   * `verification_submitted`: `available_qty`/`is_available` are null while
+   * `shortfall` is hardcoded `0`. Two fields say "unknown", one says
+   * "definitely nothing short" — and the mapper used to believe the third.
+   */
+  describe("unverified lines", () => {
+    const unverified = {
+      ...ROW,
+      substitution_needed: undefined,
+      items: [
+        {
+          ...(ROW.items?.[0] ?? {}),
+          quantity: 2,
+          available_qty: null,
+          is_available: null,
+          shortfall: 0,
+          needs_suggestion: false,
+        },
+      ],
+    };
+
+    it("does not read a hardcoded shortfall of 0 as 'nothing is short'", () => {
+      const row = toIntentData(unverified);
+      // The honest answer is "not measured" — and specifically NOT a clean bill
+      // of health derived from a number the backend did not measure.
+      expect(row.reqItems[0].available).toBeNull();
+      expect(row.reqItems[0].needsSuggestion).toBe(false);
+      expect(row.substitutionNeeded).toBe(false);
+    });
+
+    /**
+     * The regression this guards: with `is_available` null, a `shortfall` of 2
+     * is still a placeholder and must not manufacture a suggestion prompt for a
+     * line nobody has verified.
+     */
+    it("ignores a shortfall figure on a line that was never verified", () => {
+      const row = toIntentData({
+        ...unverified,
+        items: [{ ...(unverified.items[0] ?? {}), shortfall: 2 }],
+      });
+      expect(row.reqItems[0].shortfall).toBe(0);
+      expect(row.reqItems[0].needsSuggestion).toBe(false);
+    });
+
+    it("still trusts the shortfall once the line IS verified", () => {
+      const row = toIntentData({
+        ...unverified,
+        items: [
+          {
+            ...(unverified.items[0] ?? {}),
+            is_available: true,
+            available_qty: 1,
+            shortfall: 1,
+          },
+        ],
+      });
+      expect(row.reqItems[0].shortfall).toBe(1);
+      expect(row.reqItems[0].needsSuggestion).toBe(true);
+      expect(row.substitutionNeeded).toBe(true);
+    });
+
+    /** `is_available: false` is a verdict, not a placeholder — always honoured. */
+    it("honours an explicit unavailable regardless of shortfall", () => {
+      const row = toIntentData({
+        ...unverified,
+        items: [{ ...(unverified.items[0] ?? {}), is_available: false, shortfall: 0 }],
+      });
+      expect(row.reqItems[0].needsSuggestion).toBe(true);
+    });
+  });
 });

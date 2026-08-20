@@ -8,6 +8,7 @@ import { type Column, DataTable } from "@/components/ui/data-table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
+import { formatMoney } from "@/lib/money";
 import { clearParams } from "@/lib/utils";
 import {
   IconAlertTriangle,
@@ -262,7 +263,9 @@ export function GiftShipsPage() {
     textColumn({
       id: "value",
       header: M.COLUMNS.VALUE,
-      get: (s) => `$${Number(s.total_value).toFixed(2)}`,
+      // Was `$${Number(...).toFixed(2)}` with no finite check, so a ship
+      // without a reported value rendered the literal string "$NaN".
+      get: (s) => formatMoney(s.total_value),
       cellClassName: "td-p",
     }),
     {

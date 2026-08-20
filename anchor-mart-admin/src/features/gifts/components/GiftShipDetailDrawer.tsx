@@ -12,6 +12,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
+import { formatMoney } from "@/lib/money";
 import { IconAlertTriangle, IconGift, IconGiftOff, IconShip, IconUser } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -174,7 +175,7 @@ export function GiftShipDetailDrawer({ imo, isOpen, onClose }: GiftShipDetailDra
         </div>
       </div>
 
-      <span className="td-p tabular-nums">${Number(order.total_amount).toFixed(2)}</span>
+      <span className="td-p tabular-nums">{formatMoney(order.total_amount)}</span>
       <span className="td-m trunc">{order.port_name ?? M.DASH}</span>
       <span className="td-m">{shortDate(order.ship_arrival_date)}</span>
       {/* Flow 20 leaves timing to the admin rather than encoding a rule, so the
@@ -204,7 +205,7 @@ export function GiftShipDetailDrawer({ imo, isOpen, onClose }: GiftShipDetailDra
                   swap between order totals and gift provenance depending on
                   state, so it could never be read as meaning one thing. */}
               <div className="td-m trunc">
-                {D.SAILOR_META(sailor.order_count, Number(sailor.total_value).toFixed(2))}
+                {D.SAILOR_META(sailor.order_count, formatMoney(sailor.total_value))}
               </div>
             </div>
           </div>

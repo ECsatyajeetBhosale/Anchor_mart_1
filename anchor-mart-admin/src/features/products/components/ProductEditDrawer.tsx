@@ -23,6 +23,7 @@ import { allImageUrls, primaryImageUrl } from "@/features/variants";
 import { getApiMessage, getFieldErrors } from "@/lib/apiError";
 import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
+import { formatMoney } from "@/lib/money";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconBoxSeam, IconCheck, IconPackage } from "@tabler/icons-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
@@ -560,7 +561,7 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                                 />
                               </td>
                               <td className="td-id">{variant.sku}</td>
-                              <td className="td-p">${Number(variant.price).toFixed(2)}</td>
+                              <td className="td-p">{formatMoney(variant.price)}</td>
                               <td className="td-m">{formatAttributes(variant.attributes)}</td>
                               <td>
                                 <Badge

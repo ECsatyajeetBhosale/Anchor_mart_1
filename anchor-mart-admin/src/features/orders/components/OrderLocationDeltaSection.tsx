@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
+import { formatMoney } from "@/lib/money";
 import { IconAlertTriangle, IconMapPin, IconReceipt } from "@tabler/icons-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -46,9 +47,7 @@ export interface OrderLocationDeltaSectionProps {
 
 /** `$25.00`, or a dash when absent. */
 function money(value?: string): string {
-  if (!value) return "—";
-  const n = Number(value);
-  return Number.isNaN(n) ? value : `$${n.toFixed(2)}`;
+  return formatMoney(value);
 }
 
 /** "Mumbai Port · Anchorage A", from whichever parts the report carries. */

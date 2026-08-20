@@ -8,6 +8,7 @@ import { type Column, DataTable } from "@/components/ui/data-table";
 import { MESSAGES } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
+import { formatMoney } from "@/lib/money";
 import { shipPort } from "../lib/orderAdapters";
 import type { LiveOrder } from "../types/dashboard.types";
 
@@ -83,7 +84,7 @@ export function LiveOrdersCard({
       id: "total",
       header: M.LIVE_ORDERS_COLUMNS.TOTAL,
       className: "td-p",
-      cell: (o) => `$${Number(o.total_amount).toFixed(2)}`,
+      cell: (o) => formatMoney(o.total_amount),
     },
     {
       id: "actions",

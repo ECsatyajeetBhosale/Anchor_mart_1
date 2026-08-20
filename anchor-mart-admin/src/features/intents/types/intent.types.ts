@@ -368,7 +368,24 @@ export interface IntentDetail {
   subtotal: string;
   shippingFee: string;
   tax: string;
+  /**
+   * The **coupon** discount (`discount_amount`), which is not the only one.
+   * Flow 08 keeps loyalty separate — see `loyaltyDiscount`.
+   */
   discount: string;
+  /**
+   * Admin-entered at bill time alongside shipping and tax
+   * (`GeneratePaymentLinkSerializer` takes exactly these three), and folded into
+   * `total_amount` by the backend.
+   *
+   * Its absence here is what made the breakdown fail to add up: the panel
+   * printed four of the six lines the total is made of.
+   */
+  platformFee: string;
+  /** Points redeemed by the sailor (Flow 08), capped at remaining shipping. */
+  loyaltyDiscount: string;
+  /** How many points produced `loyaltyDiscount`; `0` when none were used. */
+  loyaltyPoints: number;
   total: string;
   // Payment
   paymentStatus: string;

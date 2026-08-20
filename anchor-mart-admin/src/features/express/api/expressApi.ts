@@ -1,6 +1,7 @@
 import type { ProductListResponse } from "@/features/products/types/product.types";
 import { EXPRESS_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
+import { formatMoney } from "@/lib/money";
 import type {
   ExpressItem,
   ExpressItemListResult,
@@ -68,10 +69,15 @@ function pick(obj: unknown, ...keys: string[]): string {
   return "";
 }
 
-/** Formats a decimal string as `$120.00`; unparseable input → "-". */
+/**
+ * Formats a decimal string as `$120.00`; a missing price → "-".
+ *
+ * A ninth copy of the same formatter, and it carried the same flaw: the
+ * `Number.isFinite` guard passes `""` and `null` as a finite zero, so an
+ * unpriced variant read as free.
+ */
 function formatPrice(value: unknown): string {
-  const n = Number(value);
-  return Number.isFinite(n) ? `$${n.toFixed(2)}` : "-";
+  return formatMoney(value as string | number | null | undefined, { fallback: "-" });
 }
 
 /**

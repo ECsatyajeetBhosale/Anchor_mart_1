@@ -23,6 +23,7 @@ import {
 import { OwnerCell, type OwnershipState } from "@/features/orders";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
+import { formatMoney } from "@/lib/money";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
 import { partnerRequirement } from "@/lib/partnerRequirement";
 import {
@@ -117,12 +118,40 @@ function statusVariant(status: string): IntentBadgeVariant {
   return (ORDER_STATUS_BY_KEY[status]?.variant as IntentBadgeVariant) ?? "neutral";
 }
 
-/** Format a money string — add $ prefix if numeric, pass through otherwise. */
+/**
+ * One line of the pricing breakdown.
+ *
+ * Rendered unconditionally by every caller — a missing value shows as the
+ * formatter's own fallback rather than removing the row, so the reader can
+ * always check the sum against the total.
+ */
+function PriceLine({
+  label,
+  value,
+  negative,
+}: {
+  label: string;
+  value: string;
+  negative?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between py-1">
+      <span className="text-[12.5px] text-[var(--t3)]">{label}</span>
+      <span
+        className={`text-[13px] font-semibold tabular-nums ${
+          negative ? "text-[var(--success-text)]" : "text-[var(--t2)]"
+        }`}
+      >
+        {negative ? "-" : ""}
+        {money(value)}
+      </span>
+    </div>
+  );
+}
+
+/** `$55.00`, or a dash when the backend sent nothing for this line. */
 function money(value: string): string {
-  if (!value) return "—";
-  const n = Number(value);
-  if (!Number.isNaN(n)) return `$${n.toFixed(2)}`;
-  return value;
+  return formatMoney(value);
 }
 
 /**
@@ -246,6 +275,24 @@ export function IntentReviewDrawer({
   const showPartnerPicker = needsVerifier || showReassign;
   const showSubstitution =
     status === "verification_submitted" || status === "pending_customer_response";
+
+  /**
+   * Will the requested lines fail to sum to the billed subtotal?
+   *
+   * Exactly when some line is short or unavailable: those quantities are trimmed
+   * and their accepted substitutes promoted into real lines by
+   * `finalise_paid_order`, which runs **at payment**. Until then `items[]` is
+   * the request and `subtotal` is `compute_subtotal()`, and the two are
+   * different questions.
+   *
+   * Read off availability rather than by summing the lines and comparing: a
+   * float sum of decimal strings is the wrong instrument for an equality test,
+   * and availability is the cause rather than a symptom of it.
+   */
+  const billedDiffersFromRequested =
+    detail?.items.some(
+      (i) => i.availabilityState === "short" || i.availabilityState === "unavailable",
+    ) ?? false;
 
   // Land on the tab that carries the pending work, once the detail resolves the
   // real status. Only fires once per open so it never fights the user's clicks.
@@ -656,6 +703,17 @@ export function IntentReviewDrawer({
                           emptyMessage={R.NO_ITEMS}
                         />
                       </div>
+                      {/*
+                        Said only where the discrepancy is actually visible —
+                        an order carrying a substitution. On a straightforward
+                        order the rows do sum to the subtotal, and a caveat
+                        about arithmetic that holds would just be noise.
+                      */}
+                      {billedDiffersFromRequested && (
+                        <div className="mt-2 text-[11.5px] font-medium leading-[1.45] text-[var(--t4)]">
+                          {R.REQUESTED_VS_BILLED}
+                        </div>
+                      )}
                     </Section>
 
                     <Section title={R.PRICING}>
@@ -680,40 +738,31 @@ export function IntentReviewDrawer({
                         </div>
                       ) : (
                         <div className="rounded-[var(--radius-md)] border border-[var(--border-sm)] bg-[var(--navy-25)] px-4 py-3">
-                          {detail.subtotal && (
-                            <div className="flex items-center justify-between py-1">
-                              <span className="text-[12.5px] text-[var(--t3)]">{R.SUBTOTAL}</span>
-                              <span className="text-[13px] font-semibold text-[var(--t2)] tabular-nums">
-                                {money(detail.subtotal)}
-                              </span>
-                            </div>
-                          )}
-                          {detail.shippingFee && (
-                            <div className="flex items-center justify-between py-1">
-                              <span className="text-[12.5px] text-[var(--t3)]">
-                                {R.SHIPPING_FEE}
-                              </span>
-                              <span className="text-[13px] font-semibold text-[var(--t2)] tabular-nums">
-                                {money(detail.shippingFee)}
-                              </span>
-                            </div>
-                          )}
-                          {detail.tax && (
-                            <div className="flex items-center justify-between py-1">
-                              <span className="text-[12.5px] text-[var(--t3)]">{R.TAX}</span>
-                              <span className="text-[13px] font-semibold text-[var(--t2)] tabular-nums">
-                                {money(detail.tax)}
-                              </span>
-                            </div>
-                          )}
-                          {detail.discount && (
-                            <div className="flex items-center justify-between py-1">
-                              <span className="text-[12.5px] text-[var(--t3)]">{R.DISCOUNT}</span>
-                              <span className="text-[13px] font-semibold text-[var(--success-text)] tabular-nums">
-                                -{money(detail.discount)}
-                              </span>
-                            </div>
-                          )}
+                          {/*
+                            Every row renders, including a zero one.
+                            
+                            These used to be guarded on truthiness, which hid a
+                            line whenever the backend sent null — and a
+                            breakdown that silently drops a summand reads as
+                            complete while failing to add up. A "$0.00" is
+                            itself information (the admin entered no platform
+                            fee); an absent row is a question. This matches the
+                            Orders drawer, which already reasons the same way.
+                          */}
+                          <PriceLine label={R.SUBTOTAL} value={detail.subtotal} />
+                          <PriceLine label={R.SHIPPING_FEE} value={detail.shippingFee} />
+                          <PriceLine label={R.TAX} value={detail.tax} />
+                          <PriceLine label={R.PLATFORM_FEE} value={detail.platformFee} />
+                          <PriceLine label={R.DISCOUNT} value={detail.discount} negative />
+                          <PriceLine
+                            label={
+                              detail.loyaltyPoints > 0
+                                ? R.LOYALTY_WITH_POINTS(detail.loyaltyPoints)
+                                : R.LOYALTY
+                            }
+                            value={detail.loyaltyDiscount}
+                            negative
+                          />
                           <div className="mt-1 flex items-center justify-between border-t border-[var(--border-sm)] pt-2">
                             <span className="text-[13px] font-bold text-[var(--t1)]">
                               {R.TOTAL}

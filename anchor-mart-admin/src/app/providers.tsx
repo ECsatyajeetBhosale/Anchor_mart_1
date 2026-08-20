@@ -1,8 +1,8 @@
-import { Provider } from "react-redux";
 import { store } from "@/store";
-import { Toaster } from "sonner";
-import { IconCheck, IconX, IconAlertTriangle, IconInfoCircle } from "@tabler/icons-react";
+import { IconAlertTriangle, IconCheck, IconInfoCircle, IconX } from "@tabler/icons-react";
 import type { ReactNode } from "react";
+import { Provider } from "react-redux";
+import { Toaster } from "sonner";
 
 interface ProvidersProps {
   children: ReactNode;

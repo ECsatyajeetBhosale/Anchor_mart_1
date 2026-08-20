@@ -1,6 +1,7 @@
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import type { Column, ColumnFilter } from "@/components/ui/data-table";
 import { mediaSrc } from "@/lib/mediaUrl";
+import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 import type * as React from "react";
@@ -185,7 +186,9 @@ export function currencyColumn<T>(
     header: opts.header,
     headerClassName: opts.headerClassName,
     className: opts.className ?? "td-p w7",
-    cell: (row) => `${currency}${Number(opts.get(row)).toFixed(2)}`,
+    // Shared money column: an unreadable value renders the formatter's dash
+    // rather than the literal "$NaN" the raw `Number(...).toFixed(2)` produced.
+    cell: (row) => formatMoney(opts.get(row), { symbol: currency }),
   };
 }
 

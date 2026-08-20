@@ -1,4 +1,5 @@
 import { MESSAGES } from "@/lib/messages";
+import { formatMoney } from "@/lib/money";
 
 const D = MESSAGES.SPECIAL_REQUESTS.DETAIL;
 
@@ -34,12 +35,17 @@ export function symbolFor(currency?: string | null): string {
 /**
  * Formats a string/number money amount with its currency symbol, e.g.
  * `("34.00", "USD") → "$34.00"`. Returns the fallback for a null/blank amount.
+ *
+ * This is the one helper that reads a currency code rather than assuming
+ * dollars, so the symbol stays local; only the digits are handed off. It also
+ * used to interpolate the raw value — `"34.5"` rendered as `"$34.5"` and
+ * `"34.000"` as `"$34.000"` — which is why it now goes through `formatMoney`.
  */
 export function money(amount: unknown, currency?: string | null): string {
-  if (amount === null || amount === undefined || String(amount).trim() === "") {
-    return D.FALLBACK;
-  }
-  return `${symbolFor(currency)}${amount}`;
+  return formatMoney(amount as string | number | null | undefined, {
+    fallback: D.FALLBACK,
+    symbol: symbolFor(currency),
+  });
 }
 
 /**

@@ -144,9 +144,29 @@ function mapItem(item: IntentApiItem, index: number): IntentItem {
   const name = str(item.product_name) || "Item";
   const qty = num(item.quantity) || 1;
   const availableQty = typeof item.available_qty === "number" ? item.available_qty : null;
-  // Derive the shortfall when the backend doesn't send it explicitly.
-  const shortfall =
-    typeof item.shortfall === "number"
+  /**
+   * Has this line actually been verified?
+   *
+   * The list serializer emits placeholders outside `verification_submitted`, and
+   * they are **not consistent with each other**: `available_qty` and
+   * `is_available` come back `null` (honestly unknown) while `shortfall` is
+   * hardcoded `0` (a definite claim that nothing is short). `is_available` is
+   * the trustworthy one, so it decides whether the other two mean anything.
+   */
+  const verified = typeof item.is_available === "boolean";
+  /**
+   * Derived, or absent — never the backend's placeholder.
+   *
+   * This used to prefer `item.shortfall` whenever it was a number, which is
+   * exactly when the fabricated `0` arrives: the derivation below was skipped
+   * precisely in the case it existed to cover, and `needsSuggestion` then
+   * computed `false` for a line nobody had looked at. An unverified line now
+   * reports `0` because there is no measurement, not because there is no
+   * shortfall — and `needsSuggestion` no longer reads it as evidence.
+   */
+  const shortfall = !verified
+    ? 0
+    : typeof item.shortfall === "number"
       ? item.shortfall
       : availableQty !== null
         ? Math.max(0, qty - availableQty)
@@ -160,7 +180,11 @@ function mapItem(item: IntentApiItem, index: number): IntentItem {
     available: typeof item.is_available === "boolean" ? item.is_available : null,
     availableQty,
     shortfall,
-    needsSuggestion: item.needs_suggestion === true || item.is_available === false || shortfall > 0,
+    // `shortfall > 0` only counts on a verified line; on an unverified one the
+    // figure is not a measurement. The other two clauses are already safe —
+    // `=== true` and `=== false` both reject null.
+    needsSuggestion:
+      item.needs_suggestion === true || item.is_available === false || (verified && shortfall > 0),
     reason: str(item.reason),
   };
 }
@@ -483,6 +507,14 @@ export const intentApi = baseApi.injectEndpoints({
           shippingFee: str(o.shipping_fee),
           tax: str(o.tax_amount),
           discount: str(o.discount_amount),
+          // Both of these used to be dropped, and both are summands of
+          // `total_amount`: the breakdown could not add up to its own total.
+          // `platform_fee` is one of the three fees the admin types into Create
+          // Bill; `loyalty_discount` is the sailor's points, which Flow 08 keeps
+          // separate from the coupon `discount_amount`.
+          platformFee: str(o.platform_fee),
+          loyaltyDiscount: str(o.loyalty_discount),
+          loyaltyPoints: num(o.loyalty_points_redeemed),
           total: str(o.total_amount),
           // Payment
           paymentStatus: str(o.payment_status_display) || str(o.payment_status),

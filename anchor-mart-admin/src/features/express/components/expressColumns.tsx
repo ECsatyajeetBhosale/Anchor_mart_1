@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import type { Column } from "@/components/ui/data-table";
 import { dateTimeText, shortDate } from "@/lib/dates";
 import { MESSAGES } from "@/lib/messages";
+import { formatMoney } from "@/lib/money";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
 import type { ExpressOrder } from "../types/expressItem.types";
 
@@ -142,7 +143,7 @@ export function useExpressColumns({
         const owed = Number(row.undelivered_value);
         return (
           <div>
-            <div className="td-p">{`$${Number(row.total_amount).toFixed(2)}`}</div>
+            <div className="td-p">{formatMoney(row.total_amount)}</div>
             {Number.isFinite(owed) && owed > 0 && (
               <div className="td-m font-bold text-[var(--danger-text)] tabular-nums">
                 {MESSAGES.ORDERS.UNDELIVERED_VALUE(`$${owed.toFixed(2)}`)}

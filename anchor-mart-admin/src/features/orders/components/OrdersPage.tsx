@@ -23,6 +23,7 @@ import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { dateTimeText, shortDate } from "@/lib/dates";
 import { MESSAGES } from "@/lib/messages";
+import { formatMoney } from "@/lib/money";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
 import { readPartnerNeed } from "@/lib/partnerRequirement";
 import { statsError, statsState, statusText } from "@/lib/stats";
@@ -406,7 +407,7 @@ function toOrderRow(order: Order): OrderRow {
     pt: order.active_assignment?.partner_name || order.partner_name || M.UNASSIGNED,
     pay: paymentLabel(order),
     cp: order.applied_coupon || "—",
-    t: `$${Number(order.total_amount).toFixed(2)}`,
+    t: money(order.total_amount),
     st: order.status_display,
     shipName: shipLabel(order),
     terminalName: terminalLabel(order),
@@ -463,10 +464,15 @@ function isMoneyOwed(value: string): boolean {
   return Number.isFinite(n) && n > 0;
 }
 
-/** Formats a decimal-ish value as `$0.00`; unparseable input → `$0.00`. */
+/**
+ * `$0.00` for a real amount, "—" when the field is absent.
+ *
+ * The previous version coerced anything unreadable to `$0.00` **by design**,
+ * which is how an order whose optional `platform_fee` was simply not sent came
+ * to assert that its platform fee is zero.
+ */
 function money(value: unknown): string {
-  const n = Number(value);
-  return `$${(Number.isFinite(n) ? n : 0).toFixed(2)}`;
+  return formatMoney(value as string | number | null | undefined);
 }
 
 /**
