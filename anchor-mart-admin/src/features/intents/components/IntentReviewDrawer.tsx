@@ -367,7 +367,9 @@ export function IntentReviewDrawer({
   };
 
   // One line explaining what happens next. A super admin writes regardless of
-  // ownership, so they never see a blocking hint.
+  // ownership, so they never see a blocking hint — which means the blocked
+  // branches below are only ever read by an Operator, who cannot take the order
+  // on themselves. The line names who can hand it to them instead.
   const actionHint = showReassign ? R.REASSIGN_HINT : A[action];
   const gateHint = canManage
     ? isSuperAdmin && ownership !== "mine"
@@ -375,7 +377,7 @@ export function IntentReviewDrawer({
       : actionHint
     : ownership === "other" && owner
       ? O.OWNED_BY_OTHER(owner.name)
-      : O.CLAIM_FIRST;
+      : O.NOT_ASSIGNED;
 
   // Primary footer action. The assign branch is the backend's requirement, not
   // a status the frontend classified.

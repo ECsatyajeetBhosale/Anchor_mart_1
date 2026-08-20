@@ -181,6 +181,10 @@ export function EmergencyCategoryEditDrawer({
                     value={field.value ?? ""}
                     onChange={field.onChange}
                     fileLocation={FILE_LOCATIONS.CATEGORY_IMAGES}
+                    // The form holds the stored path (that is what submits);
+                    // this is the same image's read URL, so the box shows the
+                    // picture instead of an empty frame.
+                    previewUrl={source.image ?? ""}
                   />
                 )}
               />

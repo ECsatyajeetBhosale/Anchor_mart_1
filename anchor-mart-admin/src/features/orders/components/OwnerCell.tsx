@@ -20,6 +20,9 @@ const M = MESSAGES.INTENTS.OWNERSHIP;
  * for two reasons: the column is already at its width with Manage + View, and
  * handover is a change *to what this cell shows* — putting the control on the
  * value it edits is the shorter path to it.
+ *
+ * The caller decides who gets it: an Admin on any row, an Operator only on a
+ * row that is already theirs (where the dialog offers Release alone).
  */
 export function OwnerCell({
   assignedAdmin,
@@ -41,12 +44,11 @@ export function OwnerCell({
     /**
      * Unassigned is a **hand-over target**, not just a state.
      *
-     * `canReassign` already returns true for an admin on an unassigned order —
-     * there is no current owner to match, so only the admin tier passes — but
-     * this branch returned early and dropped the callback, so the one control
-     * that could put a row into someone's hands was unreachable on exactly the
-     * rows that needed it. Claiming it for yourself was the only route, which is
-     * a different intent: "I will handle this" rather than "you will".
+     * Only an Admin is handed the callback here, and this is now the *only*
+     * route by which an unassigned row reaches a named operator — an Operator
+     * can no longer claim one for themselves. The branch used to return early
+     * and drop the callback, which left "assign this to Priya" with no path at
+     * all.
      */
     if (!onHandover) return chip;
     return (

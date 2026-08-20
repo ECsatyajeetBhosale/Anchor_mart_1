@@ -580,7 +580,7 @@ export function OrdersPage() {
 
   // Flow 27 — every admin order write is gated on ownership, so the claim
   // action has to live here too, not only on the Intents queue.
-  const { stateOf, canClaim, canReassign } = useOrderOwnership();
+  const { stateOf, canClaim, canReassign, canRelease } = useOrderOwnership();
   const [claimOrder] = useClaimOrderMutation();
   /** The order whose handover dialog is open, or null when closed. */
   const [orderToHandover, setOrderToHandover] = useState<Order | null>(null);
@@ -926,11 +926,14 @@ export function OrdersPage() {
         <OwnerCell
           assignedAdmin={o.raw.assigned_admin ?? null}
           state={stateOf(o.raw.assigned_admin)}
-          // Flow 27 — reassign follows the owner-or-super-admin rule, which is
-          // narrower than the write gate. Offering the control to anyone else
-          // would produce a guaranteed 403.
+          // Flow 27 — the dialog behind this holds two actions with two gates:
+          // reassign (admin only) and release (the owner's way out). Offered
+          // when either applies; the dialog itself shows only the half that
+          // does. Offering it to anyone else would produce a guaranteed 403.
           onHandover={
-            canReassign(o.raw.assigned_admin) ? () => setOrderToHandover(o.raw) : undefined
+            canReassign(o.raw.assigned_admin) || canRelease(o.raw.assigned_admin)
+              ? () => setOrderToHandover(o.raw)
+              : undefined
           }
         />
       ),
@@ -941,7 +944,9 @@ export function OrdersPage() {
       className: "w-40 text-right",
       cell: (o) => (
         <div className="td-acts">
-          {/* Claim is offered only while unassigned — on a held order it 409s. */}
+          {/* Assigning an order — to yourself included — is an Admin-only
+              decision, so an Operator never sees this. For an Admin it is
+              offered only while unassigned; on a held order it 409s. */}
           {canClaim(o.raw.assigned_admin) && (
             <Button
               variant="teal"

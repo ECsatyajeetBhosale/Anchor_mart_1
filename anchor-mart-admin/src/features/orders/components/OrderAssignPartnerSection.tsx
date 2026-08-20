@@ -10,10 +10,9 @@ import {
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { type PartnerRequirement, partnerRequirement } from "@/lib/partnerRequirement";
-import { IconShieldCheck, IconTruckDelivery } from "@tabler/icons-react";
+import { IconTruckDelivery } from "@tabler/icons-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useClaimOrderMutation } from "../api/orderOwnershipApi";
 import { useOrderOwnership } from "../hooks/useOrderOwnership";
 import type { OrderAssignment } from "../types/order.types";
 import type { AssignedAdmin } from "../types/ownership.types";
@@ -60,8 +59,9 @@ export interface OrderAssignPartnerSectionProps {
  * Self-contained section injected into the shared `OrderDetailDrawer` via its
  * `detailSlot`, so the common drawer stays generic.
  *
- * Assignment is a governed order write: it runs through the Flow 27 gate, so a
- * sub-admin must claim the order first (offered inline). Reassigning an order
+ * Assignment is a governed order write: it runs through the Flow 27 gate, so an
+ * Operator can only assign a partner on an order an Admin has put in their
+ * hands — there is no self-claim step. Reassigning an order
  * that another partner already holds returns 409 `requires_confirmation`; the
  * next click re-sends with `confirm: true`.
  */
@@ -75,7 +75,6 @@ export function OrderAssignPartnerSection({
 }: OrderAssignPartnerSectionProps) {
   const { isSuperAdmin, stateOf } = useOrderOwnership();
   const [assignOrder, { isLoading: assigning }] = useAssignOrderMutation();
-  const [claimOrder, { isLoading: claiming }] = useClaimOrderMutation();
 
   const current = activeAssignment?.is_active ? activeAssignment : null;
   // Verbatim partner report + when it was made; "" when nothing failed.
@@ -89,9 +88,6 @@ export function OrderAssignPartnerSection({
   const [selectedId, setSelectedId] = useState("");
   // Flipped by a 409 `requires_confirmation`, so the next click reassigns.
   const [forceReassign, setForceReassign] = useState(false);
-  // Claimed in-session — list rows rarely carry `assigned_admin`, so a
-  // successful claim here grants write access locally.
-  const [claimedLocal, setClaimedLocal] = useState(false);
 
   /**
    * What the order is short of, from the backend's flags alone.
@@ -110,13 +106,18 @@ export function OrderAssignPartnerSection({
   const unpaid = normalised === UNPAID_STATUS;
   const ownState = stateOf(assignedAdmin);
   const ownershipKnown = assignedAdmin !== undefined;
-  // Another admin owns it and we're not super — a hard block; claiming would 409.
+  // Another admin owns it and we're not super — a hard block.
   const blockedByOther = ownershipKnown && !isSuperAdmin && ownState === "other";
-  const canWrite = isSuperAdmin || ownState === "mine" || claimedLocal;
-  const showClaim = !closed && !unpaid && !blockedByOther && !canWrite;
+  // Super admin always; otherwise the owner. There is no self-claim step here
+  // any more — an Operator cannot assign an order to themselves, so the way out
+  // of this gate is an Admin assigning it to them, which is a sentence rather
+  // than a button. Ownership still loading reads as "not yours" and blocks,
+  // which is the recoverable direction to be briefly wrong in.
+  const canWrite = isSuperAdmin || ownState === "mine";
+  const notAssigned = !closed && !unpaid && !blockedByOther && !canWrite;
 
   const stageBlocked = closed || unpaid;
-  const writeDisabled = assigning || claiming || stageBlocked || blockedByOther || showClaim;
+  const writeDisabled = assigning || stageBlocked || blockedByOther || notAssigned;
 
   // `order_id` is deliberately omitted: scoping the picker to the order filters
   // by port + required capability, which returns an empty list while partner
@@ -164,34 +165,12 @@ export function OrderAssignPartnerSection({
       ? M.UNPAID
       : blockedByOther
         ? M.OTHER_ADMIN
-        : showClaim
-          ? M.CLAIM_FIRST
+        : notAssigned
+          ? M.NOT_ASSIGNED
           : // With the gate clear, the line states the outstanding requirement in
             // words — including when the API didn't send it, which is reported
             // rather than quietly treated as "nothing needed".
             (REQUIREMENT_HINT[requirement] ?? null);
-
-  const handleClaim = async () => {
-    try {
-      const res = await claimOrder(orderId).unwrap();
-      if (import.meta.env.DEV) console.log("[assign-order] claim succeeded", res);
-      setClaimedLocal(true);
-      toast.success(res.message ?? M.CLAIM_SUCCESS);
-    } catch (error) {
-      // Claiming is the precondition for assigning, so a failure here explains
-      // a later 409 from assign-order.
-      const reason = getApiMessage(error, { labelFields: false });
-      if (import.meta.env.DEV)
-        console.error("[assign-order] claim failed", {
-          status: (error as { status?: unknown })?.status,
-          data: (error as { data?: unknown })?.data,
-          message: reason,
-          orderId,
-          error,
-        });
-      toast.error(reason ?? M.OTHER_ADMIN);
-    }
-  };
 
   /**
    * Flow 28 API 12. `confirm` is true for an explicit reassign, or once a prior
@@ -336,20 +315,6 @@ export function OrderAssignPartnerSection({
           disabled — only the record of who delivered it remains. */}
       {!stageBlocked && (
         <>
-          {/* Claim gate — a sub-admin must own the order before assigning. */}
-          {showClaim && (
-            <Button
-              variant="secondary"
-              size="sm"
-              className="mt-2"
-              onClick={handleClaim}
-              disabled={claiming}
-            >
-              <IconShieldCheck size={15} />
-              {claiming ? M.CLAIMING : M.MANAGE_ORDER}
-            </Button>
-          )}
-
           {/* Picker + action */}
           <div className="mt-2 flex items-center gap-2">
             <div className="flex-1">

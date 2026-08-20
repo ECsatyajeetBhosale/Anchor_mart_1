@@ -683,9 +683,6 @@ export const MESSAGES = {
       ASSIGNING: "Assigning…",
       REASSIGN: "Reassign",
       REASSIGNING: "Reassigning…",
-      MANAGE_ORDER: "Manage Order",
-      CLAIMING: "Claiming…",
-      CLAIM_SUCCESS: "Order claimed — you can now assign a delivery partner",
       SELECT_FIRST: "Select a delivery partner first.",
       ASSIGNED: (partner: string) => `${partner} assigned — the order is now with the partner.`,
       REASSIGNED: (partner: string) => `Order reassigned to ${partner}.`,
@@ -702,7 +699,14 @@ export const MESSAGES = {
       WRONG_CAPABILITY:
         "That partner is not qualified for the work this order needs. Pick a partner with the right capability.",
       // Gate / disabled hints
-      CLAIM_FIRST: "Claim this order (Manage Order) before assigning a partner.",
+      /**
+       * The replacement for the old "Claim this order (Manage Order) first".
+       * An Operator can no longer take an order on themselves, so the hint has
+       * to name the person who can — a dead end otherwise, pointing at a button
+       * that is no longer there.
+       */
+      NOT_ASSIGNED:
+        "This order is not assigned to you. An admin must assign it to you before you can assign a partner.",
       OTHER_ADMIN: "This order is managed by another admin.",
       CLOSED: "This order is closed — a delivery partner can no longer be assigned.",
       UNPAID: "A delivery partner can only be assigned once the order is paid.",
@@ -718,11 +722,9 @@ export const MESSAGES = {
       LOADING: "Saving…",
       ASSIGNED: "Ship agent updated",
       CLEARED: "Ship agent cleared",
-      MANAGE_ORDER: "Manage Order",
-      CLAIMING: "Claiming…",
-      CLAIM_SUCCESS: "Order claimed — you can now assign a ship agent",
       // Gate / disabled hints
-      CLAIM_FIRST: "Claim this order (Manage Order) before changing its ship agent.",
+      NOT_ASSIGNED:
+        "This order is not assigned to you. An admin must assign it to you before you can change its ship agent.",
       CLOSED: "This order is closed — its ship agent can no longer be changed.",
       OTHER_ADMIN: "This order is managed by another admin.",
     },
@@ -851,7 +853,14 @@ export const MESSAGES = {
       OWNER: "Managed By",
       ACTIONS: "Actions",
     },
-    // Order ownership (Flow 27) — claiming is the precondition for any write
+    /**
+     * Order ownership (Flow 27) — ownership is the precondition for any write.
+     *
+     * Assigning is an Admin-only power (2026-08-20): "Manage Order" claims an
+     * order **for yourself**, which is the same authority as handing one to an
+     * operator, so an Operator sees neither. What they see instead is a
+     * sentence naming who can.
+     */
     OWNERSHIP: {
       UNASSIGNED: "Unassigned",
       MANAGE: "Manage Order",
@@ -864,7 +873,8 @@ export const MESSAGES = {
       HELD_BY: (name: string) => `Already being handled by ${name}`,
       HELD_BY_UNKNOWN: "This order is already being handled by another admin.",
       // Why the footer actions are disabled
-      CLAIM_FIRST: "Claim this order before responding to the intent.",
+      NOT_ASSIGNED:
+        "This order is not assigned to you. An admin must assign it to you before you can respond to the intent.",
       OWNED_BY_OTHER: (name: string) => `${name} owns this order — ask them to hand it over.`,
       SUPER_ADMIN_OVERRIDE: "Admin — you can act on this order without claiming it.",
       /**
@@ -880,7 +890,7 @@ export const MESSAGES = {
         SUBTITLE: (ref: string) => `Change who is accountable for ${ref}.`,
         REASSIGN_SECTION: "Reassign to another admin",
         REASSIGN_HINT:
-          "The new owner can perform every gated write on this order. You lose that access unless you are an admin.",
+          "The new owner can perform every gated write on this order. The previous owner loses that access unless they are an admin.",
         PICKER_LABEL: "New Owner",
         PICKER_PLACEHOLDER: "Select an admin…",
         SEARCH_PLACEHOLDER: "Search admins by name or email…",
@@ -909,7 +919,7 @@ export const MESSAGES = {
         ASSIGN_FAILED: "Could not assign this order.",
         RELEASE_SECTION: "Release to the unassigned pool",
         RELEASE_HINT:
-          "The undo for picking up an order by mistake. Nobody is accountable until another admin claims it.",
+          "The undo for an order that shouldn't be yours. Nobody is accountable for it until an admin assigns it to someone.",
         RELEASE: "Release Order",
         RELEASING: "Releasing…",
         RELEASED: "Order released. It is unassigned, and its chat is with the admins.",
@@ -934,17 +944,16 @@ export const MESSAGES = {
          * click rather than discovering it from a thread that vanished.
          */
         CONFIRM_RELEASE_MESSAGE:
-          "It returns to the unassigned pool and nobody is accountable for it until an admin claims it — any admin can, including you. Its order chat goes with it: while unassigned, only admins can see the thread, so you will stop seeing it too.",
-        // Reassign is the owner-or-super-admin rule, which is narrower than the
-        // write gate — say which one is missing rather than "not allowed".
-        NOT_OWNER: "Only the current owner or an admin can hand this order over.",
+          "It returns to the unassigned pool and nobody is accountable for it until an admin assigns it to someone — which may or may not be you again. Its order chat goes with it: while unassigned, only admins can see the thread, so you will stop seeing it too.",
+        // Choosing the next owner is an Admin-only decision — say who can do it
+        // rather than "not allowed".
+        NOT_OWNER: "Only an admin can choose who this order goes to.",
         /**
          * Only an Operator reaches this — an Admin may assign any order, so for
-         * them the picker renders instead. Reassign needs a current owner to
-         * match the caller against, and an unassigned order has none.
+         * them the picker renders instead. An Operator has nothing to do on an
+         * unassigned order: they can neither take it nor place it.
          */
-        UNASSIGNED_NOTICE:
-          "This order is unassigned, so there is no owner to hand it over from. Claim it to take it on yourself.",
+        UNASSIGNED_NOTICE: "This order is unassigned. Only an admin can assign it to an operator.",
       },
     },
     // Review modal

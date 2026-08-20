@@ -6,6 +6,7 @@ import {
 } from "@/components/common/tableColumns";
 import type { Column } from "@/components/ui/data-table";
 import { Switch } from "@/components/ui/switch";
+import { mediaSrc } from "@/lib/mediaUrl";
 import { MESSAGES } from "@/lib/messages";
 import { IconCategory } from "@tabler/icons-react";
 import type React from "react";
@@ -22,7 +23,11 @@ function getCategoryImage(image: Category["image"]) {
     return <IconCategory size={18} />;
   }
   return (
-    <img src={image} alt={MESSAGES.CATEGORIES.IMAGE_ALT} className="h-8 w-8 rounded object-cover" />
+    <img
+      src={mediaSrc(image)}
+      alt={MESSAGES.CATEGORIES.IMAGE_ALT}
+      className="h-8 w-8 rounded object-cover"
+    />
   );
 }
 

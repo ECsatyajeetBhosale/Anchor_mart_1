@@ -1,5 +1,6 @@
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import type { Column, ColumnFilter } from "@/components/ui/data-table";
+import { mediaSrc } from "@/lib/mediaUrl";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 import type * as React from "react";
@@ -139,7 +140,7 @@ export function avatarColumn<T>(
     className: opts.className,
     cell: (row) => {
       const label = opts.name(row);
-      const src = opts.image?.(row);
+      const src = mediaSrc(opts.image?.(row));
       const secondary = opts.secondary?.(row);
       return (
         <div className="flex items-center gap-2">

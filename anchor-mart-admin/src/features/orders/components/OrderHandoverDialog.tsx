@@ -46,17 +46,18 @@ export interface OrderHandoverDialogProps {
  * shouldn't be mine") with different destinations, and separating them into two
  * entry points made the owner cell carry three buttons.
  *
- * **Reassign is the owner-or-super-admin rule, not the write gate.** A
- * sub-admin cannot hand over an order they do not own, nor an unassigned one —
- * there is no current owner to match against, so the server 403s. That renders
- * as a sentence rather than a disabled form.
+ * The two halves have **different gates**, so they are asked separately:
  *
- * A **super admin is not bound by either half**: the rule is owner *or* super
- * admin, so they may reassign any order including an unassigned one, and that
- * is the only route by which a row nobody has claimed reaches a specific
- * operator. This dialog used to refuse the unassigned case outright, for
- * everyone, which left "assign this to Priya" with no path at all — the nearest
- * thing was claiming it yourself, which states the opposite intent.
+ *  - **Reassign is Admin-only.** Choosing the next owner is an assignment, and
+ *    assignment is a decision an Admin makes — for themselves or for an
+ *    operator. It used to also pass the current owner, which let an Operator
+ *    push an order onto a colleague who never agreed to take it.
+ *  - **Release stays with the owner.** It names no recipient, so it grants
+ *    nobody anything; without it an Operator handed an order in error would be
+ *    stuck with it, now that self-claim is gone.
+ *
+ * An Operator therefore sees Release alone, and only on an order that is
+ * already theirs. Neither half applies → a sentence, not a disabled form.
  *
  * With no current owner the wording changes throughout (assign, not hand over)
  * and Release is absent: it returns an order to the pool this one is already
@@ -73,7 +74,7 @@ export function OrderHandoverDialog({
   const [selectedId, setSelectedId] = useState("");
   const [confirmingRelease, setConfirmingRelease] = useState(false);
 
-  const { canReassign } = useOrderOwnership();
+  const { canReassign, canRelease } = useOrderOwnership();
   const [reassignOrder, { isLoading: isReassigning }] = useReassignOrderMutation();
   const [releaseOrder, { isLoading: isReleasing }] = useReleaseOrderMutation();
 
@@ -110,7 +111,11 @@ export function OrderHandoverDialog({
     }));
 
   const isUnassigned = !assignedAdmin;
-  const allowed = canReassign(assignedAdmin);
+  // Admin-only: picking who an order goes to.
+  const showReassign = canReassign(assignedAdmin);
+  // Owner-or-admin, and only where there is something to give up.
+  const showRelease = !isUnassigned && canRelease(assignedAdmin);
+  const allowed = showReassign || showRelease;
   const busy = isReassigning || isReleasing;
 
   const handleReassign = async () => {
@@ -157,23 +162,24 @@ export function OrderHandoverDialog({
         </DialogHeader>
 
         {/*
-          `allowed` is `canReassign`, which is already the server's exact rule —
-          super admin, or the current owner. Testing `isUnassigned` ahead of it
-          refused super admins too, for a call the backend accepts from them.
-          The unassigned flag now only picks which refusal to explain.
+          Nothing to offer: an Operator looking at an order that is not theirs,
+          or at an unassigned one. The unassigned flag picks which refusal to
+          explain — both now end at "an admin decides", because claiming it for
+          yourself is no longer a route out of either.
         */}
         {!allowed ? (
           <p className="fg-hint mt-2">{isUnassigned ? H.UNASSIGNED_NOTICE : H.NOT_OWNER}</p>
         ) : (
           <div className="mt-2 flex flex-col gap-5">
-            {/* Reassign — or, with no current owner, assign. */}
-            <section>
-              <div className="sec-label">
-                {isUnassigned ? H.ASSIGN_SECTION : H.REASSIGN_SECTION}
-              </div>
-              <p className="fg-hint mb-3">{isUnassigned ? H.ASSIGN_HINT : H.REASSIGN_HINT}</p>
+            {/* Reassign — or, with no current owner, assign. Admin only. */}
+            {showReassign && (
+              <section>
+                <div className="sec-label">
+                  {isUnassigned ? H.ASSIGN_SECTION : H.REASSIGN_SECTION}
+                </div>
+                <p className="fg-hint mb-3">{isUnassigned ? H.ASSIGN_HINT : H.REASSIGN_HINT}</p>
 
-              {/*
+                {/*
                 One control, not a search box stacked above a picker. Separated,
                 the two read as independent filters — and the box appeared to
                 narrow the *dialog* rather than the list inside the field it sat
@@ -183,61 +189,65 @@ export function OrderHandoverDialog({
                 *because of* the query, and disabling the field would take away
                 the only control that could clear it.
               */}
-              <FormField label={isUnassigned ? H.ASSIGN_PICKER_LABEL : H.PICKER_LABEL}>
-                <DropdownSelect
-                  options={options}
-                  value={selectedId}
-                  onValueChange={setSelectedId}
-                  width="100%"
-                  placeholder={isFetching && !search ? H.LOADING_ADMINS : H.PICKER_PLACEHOLDER}
-                  disabled={busy}
-                  searchable
-                  searchPlaceholder={H.SEARCH_PLACEHOLDER}
-                  // Server-side: the roster is paginated at 50, so a local
-                  // filter could only ever search the page in hand.
-                  onSearchChange={setSearch}
-                  searchLoading={isFetching}
-                  emptyMessage={H.NO_ADMINS}
-                />
-              </FormField>
-              {/*
+                <FormField label={isUnassigned ? H.ASSIGN_PICKER_LABEL : H.PICKER_LABEL}>
+                  <DropdownSelect
+                    options={options}
+                    value={selectedId}
+                    onValueChange={setSelectedId}
+                    width="100%"
+                    placeholder={isFetching && !search ? H.LOADING_ADMINS : H.PICKER_PLACEHOLDER}
+                    disabled={busy}
+                    searchable
+                    searchPlaceholder={H.SEARCH_PLACEHOLDER}
+                    // Server-side: the roster is paginated at 50, so a local
+                    // filter could only ever search the page in hand.
+                    onSearchChange={setSearch}
+                    searchLoading={isFetching}
+                    emptyMessage={H.NO_ADMINS}
+                  />
+                </FormField>
+                {/*
                 The picker asks for the paginator's ceiling (50) and DRF clamps
                 silently above it, so a larger roster would truncate with nothing
                 to show for it. `count` is the true total, so the two disagreeing
                 is the signal — and the answer is the search box above, which
                 filters server-side across the whole roster rather than this page.
               */}
-              {isTruncated && (
-                <p className="fg-hint">{H.PICKER_TRUNCATED(options.length, data?.count ?? 0)}</p>
-              )}
+                {isTruncated && (
+                  <p className="fg-hint">{H.PICKER_TRUNCATED(options.length, data?.count ?? 0)}</p>
+                )}
 
-              <div className="mt-3 flex justify-end">
-                <Button
-                  variant="primary"
-                  size="sm"
-                  loading={isReassigning}
-                  disabled={busy || !selectedId}
-                  onClick={handleReassign}
-                >
-                  <IconUserShare size={15} className="mr-1" />
-                  {isUnassigned
-                    ? isReassigning
-                      ? H.ASSIGNING
-                      : H.ASSIGN
-                    : isReassigning
-                      ? H.REASSIGNING
-                      : H.REASSIGN}
-                </Button>
-              </div>
-            </section>
+                <div className="mt-3 flex justify-end">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    loading={isReassigning}
+                    disabled={busy || !selectedId}
+                    onClick={handleReassign}
+                  >
+                    <IconUserShare size={15} className="mr-1" />
+                    {isUnassigned
+                      ? isReassigning
+                        ? H.ASSIGNING
+                        : H.ASSIGN
+                      : isReassigning
+                        ? H.REASSIGNING
+                        : H.REASSIGN}
+                  </Button>
+                </div>
+              </section>
+            )}
 
             {/*
               Release — the other way out, and the one that needs no target.
               Absent when unassigned: it returns an order to the pool, and this
-              one never left it.
+              one never left it. For an Operator this is the whole dialog, so
+              the divider above it only appears when there is a section above.
             */}
-            {!isUnassigned && (
-              <section className="border-t border-[var(--border-sm)] pt-4">
+            {showRelease && (
+              <section
+                className={showReassign ? "border-t border-[var(--border-sm)] pt-4" : undefined}
+              >
                 <div className="sec-label">{H.RELEASE_SECTION}</div>
                 <p className="fg-hint mb-3">{H.RELEASE_HINT}</p>
                 <div className="flex justify-end">

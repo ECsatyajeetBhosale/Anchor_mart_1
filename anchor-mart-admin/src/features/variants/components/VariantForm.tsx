@@ -1,12 +1,12 @@
 import { IconPlus, IconTrash, IconX } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { FormField } from "@/components/common/FormField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { FILE_LOCATIONS, ImageListField } from "@/features/media";
+import { FILE_LOCATIONS, ImageListField, toStoredPath } from "@/features/media";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { useCreateVariantMutation, useUpdateVariantMutation } from "../api/variantApi";
@@ -105,6 +105,24 @@ export function VariantForm({ productId, variant, productCatalogType, onDone }: 
     setIsActive(variant?.isActive ?? true);
     setErrors({});
   }, [variant]);
+
+  /**
+   * Stored path → viewable URL, so the images already on the variant are shown
+   * rather than listed as filenames.
+   *
+   * Keyed by path rather than zipped by index: `imageUrls` is ordered for
+   * display (primary first) and `images` in the order the write payload takes,
+   * so position tells you nothing. `toStoredPath` is the one thing both sides
+   * agree on.
+   */
+  const imagePreviewUrls = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const url of variant?.imageUrls ?? []) {
+      const path = toStoredPath(url);
+      if (path && url !== path) map[path] = url;
+    }
+    return map;
+  }, [variant?.imageUrls]);
 
   /** Validates every field and returns the parsed attributes when all pass. */
   const validate = (): { ok: false } | { ok: true; attributes: Record<string, unknown> } => {
@@ -369,6 +387,7 @@ export function VariantForm({ productId, variant, productCatalogType, onDone }: 
             onChange={setImages}
             fileLocation={FILE_LOCATIONS.VARIANT_IMAGES}
             placeholder={F.IMAGES_PLACEHOLDER}
+            previewUrls={imagePreviewUrls}
           />
         </FormField>
 

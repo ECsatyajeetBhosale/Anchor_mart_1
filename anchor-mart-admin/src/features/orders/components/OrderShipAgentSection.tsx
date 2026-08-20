@@ -4,10 +4,9 @@ import { useGetShipAgentsQuery } from "@/features/ship-agents";
 import type { ShipAgent } from "@/features/ship-agents";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
-import { IconAnchor, IconShieldCheck, IconX } from "@tabler/icons-react";
+import { IconAnchor, IconX } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { useClaimOrderMutation } from "../api/orderOwnershipApi";
 import { useSetOrderShipAgentMutation } from "../api/orderShipAgentApi";
 import { useOrderOwnership } from "../hooks/useOrderOwnership";
 import type { OrderShipAgentSnapshot } from "../types/order.types";
@@ -52,18 +51,12 @@ export function OrderShipAgentSection({
 }: OrderShipAgentSectionProps) {
   const { isSuperAdmin, stateOf } = useOrderOwnership();
   const [setOrderShipAgent, { isLoading }] = useSetOrderShipAgentMutation();
-  const [claimOrder, { isLoading: claiming }] = useClaimOrderMutation();
 
   // Current binding: prefer the live agent, fall back to the frozen snapshot
   // (the agent may have been soft-deleted while the order keeps its binding).
   const current = shipAgent ?? shipAgentSnapshot ?? null;
 
   const [selectedId, setSelectedId] = useState<string>(current?.id ?? "");
-  // The order we've claimed in-session (list rows rarely carry `assigned_admin`,
-  // so a successful claim here grants write access locally). Derived per-order,
-  // so switching orders in the drawer resets it without an effect.
-  const [claimedOrderId, setClaimedOrderId] = useState<string | null>(null);
-  const claimedLocal = claimedOrderId === orderId;
   // Re-sync the picker when the drawer switches to a different order.
   useEffect(() => {
     setSelectedId(current?.id ?? "");
@@ -89,36 +82,30 @@ export function OrderShipAgentSection({
   const closed = CLOSED_STATUSES.has(status.trim().toLowerCase());
   const ownState = stateOf(assignedAdmin);
   const ownershipKnown = assignedAdmin !== undefined;
-  // Another admin owns it and we're not super — a hard block; claiming would 409.
+  // Another admin owns it and we're not super — a hard block.
   const blockedByOther = ownershipKnown && !isSuperAdmin && ownState === "other";
-  // Do we hold write access? Super admin always; the owner; or after we claim
-  // it here. Claiming is idempotent, so offering it when ownership is unknown is
-  // safe (an owner re-claiming gets the same 200).
-  const canWrite = isSuperAdmin || ownState === "mine" || claimedLocal;
-  // Offer the claim step when a sub-admin doesn't yet hold write access.
-  const showClaim = !closed && !blockedByOther && !canWrite;
+  // Do we hold write access? Super admin always; otherwise the owner.
+  //
+  // There is deliberately no self-claim step here any more: an Operator cannot
+  // assign an order to themselves, so the way out of this gate is an Admin
+  // assigning it to them — which is a sentence, not a button. Ownership that
+  // hasn't loaded yet reads as "not yours" and blocks, which is the recoverable
+  // direction to be wrong in for the moment before the detail lands.
+  const canWrite = isSuperAdmin || ownState === "mine";
+  // A sub-admin who doesn't hold the order: blocked, with nothing to click.
+  const notAssigned = !closed && !blockedByOther && !canWrite;
 
-  const busy = isLoading || claiming;
-  // Assign/clear are gated behind claiming (the doc's required sequence).
-  const writeDisabled = busy || closed || blockedByOther || showClaim;
+  const busy = isLoading;
+  // Assign/clear stay behind the ownership gate (the doc's required sequence).
+  const writeDisabled = busy || closed || blockedByOther || notAssigned;
 
   const hint = closed
     ? M.CLOSED
     : blockedByOther
       ? M.OTHER_ADMIN
-      : showClaim
-        ? M.CLAIM_FIRST
+      : notAssigned
+        ? M.NOT_ASSIGNED
         : null;
-
-  const handleClaim = async () => {
-    try {
-      const res = await claimOrder(orderId).unwrap();
-      setClaimedOrderId(orderId);
-      toast.success(res.message ?? M.CLAIM_SUCCESS);
-    } catch (error) {
-      toast.error(getApiMessage(error) ?? M.OTHER_ADMIN);
-    }
-  };
 
   const handleAssign = async () => {
     if (!selectedId) return;
@@ -162,20 +149,6 @@ export function OrderShipAgentSection({
           )}
         </div>
       </div>
-
-      {/* Claim gate — a sub-admin must own the order before binding an agent. */}
-      {showClaim && (
-        <Button
-          variant="secondary"
-          size="sm"
-          className="mt-2"
-          onClick={handleClaim}
-          disabled={claiming}
-        >
-          <IconShieldCheck size={15} />
-          {claiming ? M.CLAIMING : M.MANAGE_ORDER}
-        </Button>
-      )}
 
       {/* Picker + actions */}
       <div className="mt-2 flex items-center gap-2">

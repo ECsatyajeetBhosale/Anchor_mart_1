@@ -1,6 +1,7 @@
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Badge } from "@/components/ui/badge";
+import { mediaSrc } from "@/lib/mediaUrl";
 import { MESSAGES } from "@/lib/messages";
 import {
   IconMessages,
@@ -201,13 +202,13 @@ export function ChatMessagePane({ thread, socket, onlineUsers }: ChatMessagePane
                       {msg.media &&
                         (msg.messageType === "image" ? (
                           <img
-                            src={msg.media}
+                            src={mediaSrc(msg.media)}
                             alt={M.MESSAGES.ATTACHMENT}
                             className="mt-1.5 max-h-[220px] rounded-[var(--radius-sm)]"
                           />
                         ) : (
                           <a
-                            href={msg.media}
+                            href={mediaSrc(msg.media)}
                             target="_blank"
                             rel="noreferrer"
                             className="mt-1 inline-flex items-center gap-1.5 font-bold underline"

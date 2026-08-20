@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { mediaSrc } from "@/lib/mediaUrl";
 import { IconPhoto, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useRef, useState } from "react";
 import type { FileLocation } from "../types/media.types";
@@ -51,7 +52,8 @@ export function ImageListField({
    * showed as a path with no way to check you had picked the right file.
    */
   const [uploadedUrls, setUploadedUrls] = useState<Record<string, string>>({});
-  const previewFor = (path: string) => uploadedUrls[path] ?? previewUrls?.[path];
+  const previewFor = (path: string) =>
+    mediaSrc(uploadedUrls[path] ?? previewUrls?.[path]) || undefined;
 
   const updateAt = (index: number, value: string) =>
     onChange(values.map((v, i) => (i === index ? value : v)));

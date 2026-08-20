@@ -1,3 +1,4 @@
+import { mediaSrc } from "@/lib/mediaUrl";
 import { cn } from "@/lib/utils";
 import { type ReactNode, useState } from "react";
 
@@ -34,8 +35,11 @@ export function Thumbnail({ src, alt, placeholder, className }: ThumbnailProps) 
    * needed: a different `src` no longer matches what was recorded.
    */
   const [failedSrc, setFailedSrc] = useState<string>();
+  // Resolved before anything else reads it, so the failure record and the
+  // rendered `src` are the same string.
+  const resolved = mediaSrc(src);
 
-  if (!src || failedSrc === src) {
+  if (!resolved || failedSrc === resolved) {
     return <div className={cn("prod-thumb", className)}>{placeholder}</div>;
   }
 
@@ -44,10 +48,10 @@ export function Thumbnail({ src, alt, placeholder, className }: ThumbnailProps) 
       {/* `rounded-[inherit]` so the corners follow the container's radius
           instead of squaring off inside it. */}
       <img
-        src={src}
+        src={resolved}
         alt={alt}
         loading="lazy"
-        onError={() => setFailedSrc(src)}
+        onError={() => setFailedSrc(resolved)}
         className="h-full w-full rounded-[inherit] object-cover"
       />
     </div>

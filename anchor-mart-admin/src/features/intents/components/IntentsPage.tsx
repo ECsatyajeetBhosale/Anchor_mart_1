@@ -285,7 +285,8 @@ export function IntentsPage() {
   /** Which row's claim is in flight — scopes the spinner to that button. */
   const [claimingId, setClaimingId] = useState<string | null>(null);
 
-  const { stateOf, canManage, canClaim, canReassign, isSuperAdmin } = useOrderOwnership();
+  const { stateOf, canManage, canClaim, canReassign, canRelease, isSuperAdmin } =
+    useOrderOwnership();
   const [claimOrder] = useClaimOrderMutation();
   /** The intent whose handover dialog is open, or null when closed. */
   const [handover, setHandover] = useState<{
@@ -482,7 +483,7 @@ export function IntentsPage() {
           return;
         }
         if (getApiStatus(err) === 409) {
-          toast.error(O.CLAIM_FIRST);
+          toast.error(O.NOT_ASSIGNED);
           return;
         }
         toast.error(getApiMessage(err) ?? M.TOAST.RELEASE_FAILED);
@@ -527,7 +528,7 @@ export function IntentsPage() {
       if (status === 409) {
         // 409 covers unclaimed as well as "already billed / unconfirmed subs" —
         // surface the backend's specific message when present.
-        toast.error(getApiMessage(err) ?? O.CLAIM_FIRST);
+        toast.error(getApiMessage(err) ?? O.NOT_ASSIGNED);
         return;
       }
       toast.error(
@@ -564,7 +565,7 @@ export function IntentsPage() {
         return;
       }
       if (status === 409) {
-        toast.error(getApiMessage(err) ?? O.CLAIM_FIRST);
+        toast.error(getApiMessage(err) ?? O.NOT_ASSIGNED);
         return;
       }
       toast.error(getApiMessage(err) ?? M.TOAST.LINK_FAILED);
@@ -598,7 +599,7 @@ export function IntentsPage() {
     } catch (err) {
       const status = (err as { status?: unknown })?.status;
       if (status === 409) {
-        toast.error(O.CLAIM_FIRST);
+        toast.error(O.NOT_ASSIGNED);
         return;
       }
       toast.error(getApiMessage(err) ?? M.TOAST.REJECT_FAILED);
@@ -622,7 +623,7 @@ export function IntentsPage() {
     } catch (err) {
       if (getApiStatus(err) === 409) {
         // Ownership, or a partner that unassigned between render and click.
-        toast.error(getApiMessage(err) ?? O.CLAIM_FIRST);
+        toast.error(getApiMessage(err) ?? O.NOT_ASSIGNED);
         return;
       }
       toast.error(getApiMessage(err) ?? RV.FAILED);
@@ -761,10 +762,10 @@ export function IntentsPage() {
         <OwnerCell
           assignedAdmin={i.assignedAdmin}
           state={stateOf(i.assignedAdmin)}
-          // Same rule as the Orders board: reassign/release is owner-or-super
-          // admin, which is narrower than the write gate.
+          // Same rule as the Orders board: reassign is admin-only, release is
+          // the owner's way out. Offered when either applies.
           onHandover={
-            canReassign(i.assignedAdmin)
+            canReassign(i.assignedAdmin) || canRelease(i.assignedAdmin)
               ? () => setHandover({ id: i.id, ref: i.r || i.id, owner: i.assignedAdmin })
               : undefined
           }
@@ -777,7 +778,9 @@ export function IntentsPage() {
       className: "w-40 text-right",
       cell: (i) => (
         <div className="td-acts">
-          {/* Claim is offered only while unassigned — on a held order it would 409. */}
+          {/* Assigning an order — to yourself included — is an Admin-only
+              decision, so an Operator never sees this. For an Admin it is
+              offered only while unassigned; on a held order it would 409. */}
           {canClaim(i.assignedAdmin) && (
             <Button
               variant="teal"

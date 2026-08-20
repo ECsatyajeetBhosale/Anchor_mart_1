@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/sheet";
 import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
+import { mediaSrc } from "@/lib/mediaUrl";
 import { MESSAGES } from "@/lib/messages";
 import {
   specialRequestStatusVariant,
@@ -128,7 +129,7 @@ function GalleryImage({ src, alt }: { src: string; alt: string }) {
       </div>
     );
   }
-  return <img src={src} alt={alt} className={box} onError={() => setFailed(true)} />;
+  return <img src={mediaSrc(src)} alt={alt} className={box} onError={() => setFailed(true)} />;
 }
 
 function Gallery({ srcs, productName }: { srcs: string[]; productName: string }) {
@@ -219,7 +220,8 @@ export function SpecialRequestDetailDrawer({
     [user?.first_name, user?.last_name].filter(Boolean).join(" ").trim() || (user?.email ?? "");
   // The detail endpoint does expose a real profile picture (unlike the list),
   // so prefer it and only fall back to the deterministic placeholder.
-  const avatarSrc = user?.profile_picture || getFallbackAvatar(user?.id || fullName || "sailor");
+  const avatarSrc =
+    mediaSrc(user?.profile_picture) || getFallbackAvatar(user?.id || fullName || "sailor");
   const currency = detail?.currency;
   const productName = dash(detail?.product_name);
   /**

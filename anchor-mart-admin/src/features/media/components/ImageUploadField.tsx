@@ -1,6 +1,8 @@
 import { Input } from "@/components/ui/input";
+import { mediaSrc } from "@/lib/mediaUrl";
 import { IconPhoto, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useRef, useState } from "react";
+import { toStoredPath } from "../lib/storagePath";
 import type { FileLocation } from "../types/media.types";
 import { type UploadedFile, useMediaUpload } from "./useMediaUpload";
 
@@ -13,6 +15,23 @@ export interface ImageUploadFieldProps {
   /** Placeholder for the manual path box. */
   placeholder?: string;
   disabled?: boolean;
+  /**
+   * Viewable URL for the image `value` currently names, so a saved record can
+   * be **seen** and not just read as a filename.
+   *
+   * Paths and URLs are asymmetric here (Flow 26): a write takes
+   * `category_images/x.jpg`, a read hands back the absolute URL. The field holds
+   * the path because that is what submits, which used to leave the preview box
+   * empty on every existing record — the thumbnail only ever appeared for an
+   * image uploaded in the same session. The caller has the read side already, so
+   * it supplies it rather than the field trying to rebuild a URL it cannot know
+   * (the CloudFront domain is not exposed to the frontend).
+   *
+   * Matched against `value` rather than trusted outright, so hand-editing the
+   * path drops the now-wrong thumbnail instead of leaving it asserting that the
+   * new path is that picture.
+   */
+  previewUrl?: string;
 }
 
 /** Is this value already a full URL we can render directly? */
@@ -34,6 +53,7 @@ export function ImageUploadField({
   fileLocation,
   placeholder = `${fileLocation}example.jpg`,
   disabled,
+  previewUrl,
 }: ImageUploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { upload, isUploading, error } = useMediaUpload();
@@ -59,12 +79,22 @@ export function ImageUploadField({
     if (inputRef.current) inputRef.current.value = "";
   };
 
+  /**
+   * The caller's URL, but only while it still describes `value`. Both sides are
+   * normalised to a stored path first: the two are different renderings of the
+   * same file, so comparing them raw would never match.
+   */
+  const storedPreview =
+    previewUrl && value && toStoredPath(previewUrl) === toStoredPath(value) ? previewUrl : null;
+
   const shownPreview =
     lastUpload && lastUpload.path === value
       ? lastUpload.previewUrl
       : isAbsoluteUrl(value)
-        ? value
-        : null;
+        ? mediaSrc(value)
+        : storedPreview
+          ? mediaSrc(storedPreview)
+          : null;
 
   const clear = () => {
     setLastUpload(null);

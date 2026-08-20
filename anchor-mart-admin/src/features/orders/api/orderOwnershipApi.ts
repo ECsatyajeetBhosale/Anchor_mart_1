@@ -30,6 +30,11 @@ export const orderOwnershipApi = baseApi.injectEndpoints({
      * Flow 27 API 1 — become the single accountable owner of an order
      * ("Manage Order"). The body is ignored by the backend entirely.
      *
+     * Only ever called for an **Admin** (`super_admin`): claiming is assigning
+     * the order to yourself, and the console reserves every assignment decision
+     * to that tier (see `useOrderOwnership.canClaim`). An Operator who needs an
+     * order gets it from an Admin via reassign.
+     *
      * Idempotent: re-claiming an order you already own returns the same 200.
      * A 409 means another admin holds it, and carries that owner in
      * `assigned_admin` so the caller can name them.

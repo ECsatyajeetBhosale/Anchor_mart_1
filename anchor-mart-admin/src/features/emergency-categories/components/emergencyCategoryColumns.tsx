@@ -6,6 +6,7 @@ import {
 } from "@/components/common/tableColumns";
 import type { Column } from "@/components/ui/data-table";
 import { Switch } from "@/components/ui/switch";
+import { mediaSrc } from "@/lib/mediaUrl";
 import { MESSAGES } from "@/lib/messages";
 import { IconCategory } from "@tabler/icons-react";
 import type React from "react";
@@ -23,7 +24,7 @@ function getCategoryImage(image: EmergencyCategory["image"]) {
   }
   return (
     <img
-      src={image}
+      src={mediaSrc(image)}
       alt={MESSAGES.EMERGENCY_CATEGORIES.IMAGE_ALT}
       className="h-8 w-8 rounded object-cover"
     />

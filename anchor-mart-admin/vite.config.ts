@@ -1,13 +1,16 @@
 /// <reference types="vitest/config" />
-import { defineConfig, loadEnv } from "vite";
-import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
 import path from "path";
+import tailwindcss from "@tailwindcss/vite";
+import react from "@vitejs/plugin-react";
+import { defineConfig, loadEnv } from "vite";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   // Strip trailing /api from the base URL to get the raw backend origin
-  const backendTarget = (env.VITE_API_BASE_URL || "http://localhost:8000/api").replace(/\/api\/?$/, "");
+  const backendTarget = (env.VITE_API_BASE_URL || "http://localhost:8000/api").replace(
+    /\/api\/?$/,
+    "",
+  );
 
   return {
     plugins: [react(), tailwindcss()],
@@ -34,6 +37,23 @@ export default defineConfig(({ mode }) => {
       proxy: {
         // Proxy all /api/* requests to the backend server-side — no CORS needed
         "/api": {
+          target: backendTarget,
+          changeOrigin: true,
+          secure: false,
+          headers: {
+            "ngrok-skip-browser-warning": "true",
+          },
+        },
+        // Uploaded media, proxied for the same reason the API is — but the
+        // header matters more here. A free ngrok tunnel answers any *browser*
+        // request that lacks `ngrok-skip-browser-warning` with its interstitial
+        // HTML page, at status 200. An `<img>` therefore receives a web page
+        // where a JPEG should be, fails to decode it, and falls back to the
+        // "no picture" glyph — which reads as missing data rather than as a
+        // tunnel warning. Requests routed through here carry the header and get
+        // the file. Only useful for media served by the backend itself (local
+        // `MEDIA_ROOT`); S3/CloudFront URLs bypass this origin entirely.
+        "/media": {
           target: backendTarget,
           changeOrigin: true,
           secure: false,

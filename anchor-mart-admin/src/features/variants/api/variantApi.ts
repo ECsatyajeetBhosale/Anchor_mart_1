@@ -1,7 +1,7 @@
 import { toStoredPath } from "@/features/media";
 import { VARIANT_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
-import { primaryImageUrl } from "../lib/variantImage";
+import { allImageUrls, primaryImageUrl } from "../lib/variantImage";
 import type {
   AddVariantPayload,
   DeleteVariantResult,
@@ -79,6 +79,7 @@ function toVariant(raw: unknown, index: number): ProductVariant {
         ? (attrs as Record<string, unknown>)
         : {},
     images: toImagePaths(getProp(raw, "images")),
+    imageUrls: allImageUrls(getProp(raw, "images")),
     imageUrl: primaryImageUrl(getProp(raw, "images")),
     isActive: getProp(raw, "is_active") !== false,
     isExpress: getProp(raw, "is_express") === true,

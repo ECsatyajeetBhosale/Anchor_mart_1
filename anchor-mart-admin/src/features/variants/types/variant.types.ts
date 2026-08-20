@@ -26,6 +26,17 @@ export interface ProductVariant {
    * rejects a full CDN URL — which leaves nothing renderable.
    */
   imageUrl: string;
+  /**
+   * Every image's read URL — the display counterpart to the whole of `images`.
+   *
+   * `imageUrl` alone covers a row's thumbnail, but the edit form needs one per
+   * path or its gallery renders filenames where the pictures should be.
+   *
+   * ⚠️ **Not index-aligned with `images`**: this is ordered for display
+   * (primary first, then `display_order`) while `images` keeps the raw order the
+   * write payload expects. Pair them by `toStoredPath(url)`, never by index.
+   */
+  imageUrls: string[];
   isActive: boolean;
   /** Variant-level express flag (`set-express`). */
   isExpress: boolean;
