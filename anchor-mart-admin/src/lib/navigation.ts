@@ -376,7 +376,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       {
         key: "admins",
-        label: "Admins",
+        label: "Admins & Operators",
         icon: IconUserCog,
         path: APP_ROUTES.ADMIN_USERS,
         // Admin accounts are refused server-side below super admin (SEC-1).
