@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { tagsForQueues, tagsForRoute, tagsToInvalidate } from "./badgeRefetch";
+import { queuesForRoute, tagsForQueues, tagsForRoute, tagsToInvalidate } from "./badgeRefetch";
 
 describe("tagsToInvalidate", () => {
   it("returns the queue's list and stats caches when its screen is open", () => {
@@ -28,6 +28,17 @@ describe("tagsToInvalidate", () => {
     // and a plain prefix test would conflate them.
     expect(tagsToInvalidate("express_orders", "/express")).toEqual([]);
     expect(tagsToInvalidate("express_orders", "/express-orders")).toHaveLength(2);
+  });
+
+  it("routes verifications to the Intents caches, not a screen of its own", () => {
+    // `verification_submitted` is an intent status and those rows are already
+    // on the Intents list. Binding it to a screen that is no longer routed
+    // would mean the frame refetched nothing at all.
+    expect(tagsToInvalidate("verifications", "/intents")).toEqual([
+      { type: "Intents", id: "PARTIAL-LIST" },
+      { type: "Intents", id: "STATS" },
+    ]);
+    expect(tagsToInvalidate("verifications", "/verification")).toEqual([]);
   });
 
   it("routes delivery_failed to the orders caches", () => {
@@ -60,9 +71,17 @@ describe("tagsToInvalidate", () => {
 
 describe("tagsForRoute", () => {
   it("collects the caches behind the open screen", () => {
-    expect(tagsForRoute("/verification")).toEqual([
-      { type: "Verifications", id: "PARTIAL-LIST" },
-      { type: "Verifications", id: "STATS" },
+    expect(tagsForRoute("/sellers")).toEqual([
+      { type: "Sellers", id: "PARTIAL-LIST" },
+      { type: "Sellers", id: "STATS" },
+    ]);
+  });
+
+  it("collapses the two queues an Intents visit covers", () => {
+    // intents + verifications both bind here; the shared tags appear once.
+    expect(tagsForRoute("/intents")).toEqual([
+      { type: "Intents", id: "PARTIAL-LIST" },
+      { type: "Intents", id: "STATS" },
     ]);
   });
 
@@ -144,18 +163,24 @@ describe("tagsForRoute on the dashboard", () => {
   });
 });
 
-describe("the failed-deliveries route", () => {
-  it("counts as the orders screen", () => {
-    // `/orders/failed` is the same list seeded to a status, so an orders frame
-    // must refresh it exactly as it refreshes /orders.
-    expect(tagsToInvalidate("orders", "/orders/failed")).toHaveLength(2);
-    expect(tagsToInvalidate("delivery_failed", "/orders/failed")).toEqual([
-      { type: "Orders", id: "PARTIAL-LIST" },
-      { type: "Orders", id: "STATS" },
-    ]);
+describe("queuesForRoute", () => {
+  it("reports every queue a screen covers", () => {
+    // Opening Intents answers for verifications too — which is what lets one
+    // marker stand for both, and what clears both when the admin arrives.
+    expect(queuesForRoute("/intents").sort()).toEqual(["intents", "verifications"]);
+    expect(queuesForRoute("/orders").sort()).toEqual(["delivery_failed", "orders"]);
   });
 
-  it("is covered by the manual refresh button", () => {
-    expect(tagsForRoute("/orders/failed")).toHaveLength(2);
+  it("reports a single queue where a screen covers one", () => {
+    expect(queuesForRoute("/sellers")).toEqual(["seller_requests"]);
+  });
+
+  it("reports nothing for a screen with no queue behind it", () => {
+    expect(queuesForRoute("/settings")).toEqual([]);
+  });
+
+  it("does not read /express-orders as being under /express", () => {
+    expect(queuesForRoute("/express")).toEqual([]);
+    expect(queuesForRoute("/express-orders")).toEqual(["express_orders"]);
   });
 });

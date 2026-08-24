@@ -29,8 +29,9 @@ import { SettingsPage } from "@/pages/SettingsPage";
 // Settings sub-page — Help & FAQ management (Users moved to Account Management)
 import { FaqsPage } from "@/features/settings";
 import { SpecialRequestsPage } from "@/pages/SpecialRequestsPage";
-// Restored 2026-08-24 alongside its realtime badge.
-import { VerificationPage } from "@/pages/VerificationPage";
+// Parked — see the note above `AssignmentsPage`. Verifications is reached
+// through the Intents list, whose funnel `verification_submitted` belongs to.
+// import { VerificationPage } from "@/pages/VerificationPage";
 
 // Notification console — role-based sends + platform broadcast
 import { NotificationsPage } from "@/features/notifications";
@@ -111,18 +112,12 @@ export function AppRouter() {
             <Route path={APP_ROUTES.GIFTS} element={<GiftShipsPage />} />
             <Route path={APP_ROUTES.RATINGS} element={<RatingsPage />} />
             <Route path={APP_ROUTES.PARTNERS} element={<PartnersPage />} />
-            {/* Failed deliveries: the orders screen seeded to `delivery_failed`.
-                Declared before nothing in particular, but it must stay a real
-                route — a redirect to `/orders?status=…` would leave its sidebar
-                entry permanently inactive. */}
-            <Route
-              path={APP_ROUTES.ORDERS_FAILED}
-              element={<OrdersPage defaultStatus="delivery_failed" />}
-            />
-            <Route path={APP_ROUTES.VERIFICATION} element={<VerificationPage />} />
-            {/* Assignments stays parked — unrouted, so the path falls through to
-                the 404 redirect. Uncomment with its import and nav entry. */}
+            {/* Parked — unrouted, so these paths fall through to the 404
+                redirect. Verifications and failed deliveries are reached as
+                filters of the Intents and Orders lists rather than as screens of
+                their own; their realtime counters ride those entries' markers. */}
             {/* <Route path={APP_ROUTES.ASSIGNMENTS} element={<AssignmentsPage />} /> */}
+            {/* <Route path={APP_ROUTES.VERIFICATION} element={<VerificationPage />} /> */}
             <Route path={APP_ROUTES.NOTIFICATIONS} element={<NotificationsPage />} />
             <Route path={APP_ROUTES.CHAT} element={<DeliveryChatsPage />} />
             <Route path={APP_ROUTES.SUPPORT} element={<SupportChatsPage />} />

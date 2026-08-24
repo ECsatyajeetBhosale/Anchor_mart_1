@@ -4911,6 +4911,13 @@ export const MESSAGES = {
      * no badges. Said plainly so nobody tries to fix it by signing in again.
      */
     NO_BADGES: "Live counts aren't available for this account.",
+    /**
+     * The sidebar activity marker. It replaces the count deliberately: a count
+     * says how much work exists, which for Orders is never zero; this says
+     * something arrived since you last looked, which is what a nav indicator is
+     * for. The words matter — a bare dot announces nothing to a screen reader.
+     */
+    NEW_ACTIVITY: "New activity",
     /** Tooltip on the refresh button, which is the documented backstop. */
     STALE_HINT: "Live updates are down — refresh to get current numbers.",
   },

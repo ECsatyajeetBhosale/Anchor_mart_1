@@ -60,6 +60,7 @@ function latest(): FakeWebSocket {
 function handlers() {
   return {
     onBadge: vi.fn(),
+    onSignal: vi.fn(),
     onStatus: vi.fn(),
     onAuthError: vi.fn(),
     onError: vi.fn(),
@@ -132,6 +133,52 @@ describe("badge frames", () => {
     ws.open();
     expect(() => ws.receiveRaw("<html>gateway error</html>")).not.toThrow();
     expect(h.onBadge).not.toHaveBeenCalled();
+  });
+});
+
+describe("signal frames", () => {
+  const SIGNAL = {
+    type: "signal",
+    scope: "admin",
+    stage: "verification_submitted",
+    previous_stage: "partner_verifying",
+    screen: "verifications",
+    order_id: "8f1c2b3e",
+    order_number: "AM202608240001",
+    at: "2026-08-24T11:02:33.421Z",
+  };
+
+  it("delivers them, rather than dropping them on the floor", () => {
+    // Before this branch existed a signal matched no case in `onmessage` and
+    // was silently discarded — every hand-off the feature exists for vanished.
+    const { ws, h } = connected();
+    ws.open();
+    ws.receive(SIGNAL);
+    expect(h.onSignal).toHaveBeenCalledWith(SIGNAL);
+  });
+
+  it("does not confuse them with badge frames", () => {
+    const { ws, h } = connected();
+    ws.open();
+    ws.receive(SIGNAL);
+    // A signal carries no counts; routing it to onBadge would apply `undefined`.
+    expect(h.onBadge).not.toHaveBeenCalled();
+  });
+
+  it("leaves a badge frame going only to onBadge", () => {
+    const { ws, h } = connected();
+    ws.open();
+    ws.receive({
+      type: "badge",
+      scope: "admin",
+      changed: "orders",
+      delta: "up",
+      id: null,
+      counts: COUNTS,
+      at: "x",
+    });
+    expect(h.onSignal).not.toHaveBeenCalled();
+    expect(h.onBadge).toHaveBeenCalledTimes(1);
   });
 });
 

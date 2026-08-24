@@ -1,7 +1,6 @@
 import type { BadgeQueue } from "@/features/realtime/types/realtime.types";
 import { APP_ROUTES } from "@/lib/constants";
 import {
-  IconAlertTriangle,
   IconAnchor,
   IconBell,
   IconBolt,
@@ -10,7 +9,6 @@ import {
   IconCategory,
   IconCategory2,
   IconChartAreaLine,
-  IconChecklist,
   // Icons for the parked nav items below (Assignments, Message Log). Kept
   // commented, not deleted — `noUnusedLocals` would fail the build if they
   // stayed imported while their entries are off.
@@ -46,31 +44,26 @@ export interface NavItem {
   icon: ComponentType<{ size?: number; className?: string }>;
   path: string;
   /**
-   * Which realtime counter this item's pill shows.
+   * Which realtime queues raise this item's activity marker.
    *
-   * A **key, never a number** — that is the point. The previous shape took a
-   * literal string with a comment asking callers not to invent one, and three
-   * invented ones ("5" on Notifications, "3" on Support, "4" on Seller
-   * Requests) shipped anyway and sat in the sidebar looking like real
-   * outstanding work. Naming a counter instead makes the rule structural: there
-   * is no way to express a made-up number here, and an item with no counter
-   * behind it simply has no pill.
+   * **Keys, never a number.** The field once took a literal string with a
+   * comment asking callers not to invent one, and three invented ones ("5" on
+   * Notifications, "3" on Support, "4" on Seller Requests) shipped anyway and
+   * sat in the sidebar looking like real outstanding work. Naming counters
+   * instead makes the rule structural: there is no way to express a made-up
+   * number here.
    *
-   * The value comes from `state.realtime.counts`, pushed over `ws/events/`.
-   * Notifications and Support are absent from that contract, so neither carries
-   * a pill until the backend publishes counts for them.
+   * A **list**, because one entry can stand for several queues. Verifications
+   * and Failed Deliveries have no sidebar row of their own — they are already
+   * filters of the Intents and Orders lists, and a second row pointing at the
+   * same screen is navigation that duplicates itself. So Intents watches
+   * `intents` + `verifications`, and Orders watches `orders` + `delivery_failed`.
+   *
+   * Notifications and Support are absent from the badge contract entirely, so
+   * neither carries a marker.
    */
-  badgeKey?: BadgeQueue;
+  badgeKeys?: BadgeQueue[];
   badgeVariant?: "warning" | "success" | "info" | "danger" | null;
-  /**
-   * Match this path exactly instead of by prefix.
-   *
-   * `NavLink` treats a descendant route as active by default, which is right
-   * for a detail page opened from a queue and wrong for a sibling screen that
-   * happens to live under the same path — `/orders/failed` would otherwise keep
-   * Orders lit alongside Failed Deliveries.
-   */
-  navEnd?: boolean;
   /**
    * Hide this entry below super admin.
    *
@@ -139,7 +132,7 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    // Six queues of work an admin actions. Sailors and Delivery Partners used to
+    // Four queues of work an admin actions. Sailors and Delivery Partners used to
     // sit here too, which mixed two jobs — working a queue and looking someone
     // up — under one heading. They live in Account Management now.
     //
@@ -147,12 +140,7 @@ export const NAV_SECTIONS: NavSection[] = [
     // starts (pre-payment), Orders is where it continues (post-payment), and the
     // two share that funnel. Express skips it entirely and Special Requests sits
     // outside it, so both follow the pair they are the exception to.
-    //
-    // The last two are not funnel stages at all and sit after it deliberately:
-    // Verifications is a review step that interrupts the funnel, and Failed
-    // Deliveries is the exception state an order lands in when the funnel has
-    // already failed. Both arrived with the realtime badges — each is a queue
-    // precisely because a counter says how much is waiting in it.
+
     label: "Orders & Delivery",
     items: [
       {
@@ -160,16 +148,18 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "Intents",
         icon: IconFileInvoice,
         path: APP_ROUTES.INTENTS,
-        badgeKey: "intents",
+        // Verifications ride here: `verification_submitted` is an intent status
+        // and those rows are already on this list.
+        badgeKeys: ["intents", "verifications"],
       },
       {
         key: "orders",
         label: "Orders",
         icon: IconPackage,
         path: APP_ROUTES.ORDERS,
-        badgeKey: "orders",
-        // `/orders/failed` is its own entry below; without this both light up.
-        navEnd: true,
+        // Failed deliveries ride here: they are orders, and the screen already
+        // has a Failed card that filters to them.
+        badgeKeys: ["orders", "delivery_failed"],
       },
       {
         /**
@@ -185,53 +175,26 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "Express Orders",
         icon: IconBolt,
         path: APP_ROUTES.EXPRESS_ORDERS,
-        badgeKey: "express_orders",
+        badgeKeys: ["express_orders"],
       },
       {
         key: "requests",
         label: "Special Requests",
         icon: IconClipboardText,
         path: APP_ROUTES.REQUESTS,
-        badgeKey: "special_requests",
+        badgeKeys: ["special_requests"],
       },
-      {
-        /**
-         * Restored 2026-08-24 with the realtime badges. It had been parked with
-         * no recorded reason; the counter behind it is live and parity-tested
-         * against the dashboard card, so the screen and its badge came back
-         * together — the badge is the argument for the entry.
-         */
-        key: "verification",
-        label: "Verifications",
-        icon: IconChecklist,
-        path: APP_ROUTES.VERIFICATION,
-        badgeKey: "verifications",
-        badgeVariant: "warning",
-      },
-      {
-        /**
-         * Failed deliveries — the orders list preset to `delivery_failed`.
-         *
-         * Its **own path**, not `/orders?status=delivery_failed`. `NavLink`
-         * matches on pathname, so a query-string entry would light up whenever
-         * Orders was active and vice versa — the trap `constants.ts` records
-         * this codebase being bitten by with `?tab=`. Orders carries `navEnd`
-         * so the reverse cannot happen either: this path is a descendant of
-         * `/orders`, which would otherwise keep Orders lit here.
-         *
-         * Last in the section because it is the exception state, not a stage of
-         * the funnel.
-         */
-        key: "delivery-failed",
-        label: "Failed Deliveries",
-        icon: IconAlertTriangle,
-        path: APP_ROUTES.ORDERS_FAILED,
-        badgeKey: "delivery_failed",
-        badgeVariant: "danger",
-      },
-      // Assignments stays parked, deliberately: no counter in the badge contract
-      // covers it, so restoring it beside the two above would put one live badge
-      // and one bare entry side by side. Its own decision, not this one's.
+      // Verifications and Failed Deliveries deliberately have **no entry here**.
+      // Both are filters of the two lists above — `verification_submitted` is an
+      // intent status, and failed deliveries are orders with a card of their own
+      // on the Orders screen — so a row for each would be a second way to reach
+      // a list the admin is already one click from, and would put two numbers
+      // for one concept on the same screen (the Intents card counts
+      // `partner_verifying` + `verification_submitted`; the badge counted only
+      // the latter). Their counters ride the parent entries' markers instead.
+      //
+      // Assignments stays parked for a different reason: no counter in the badge
+      // contract covers it at all. Its own decision, not this one's.
       // {
       //   key: "assignments",
       //   label: "Assignments",
@@ -462,7 +425,7 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "Seller Requests",
         icon: IconBuildingStore,
         path: APP_ROUTES.SELLERS,
-        badgeKey: "seller_requests",
+        badgeKeys: ["seller_requests"],
         badgeVariant: "warning",
       },
       {

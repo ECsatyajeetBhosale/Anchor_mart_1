@@ -573,19 +573,7 @@ export function toOrderDetail(order: Order): OrderDetail {
   };
 }
 
-export interface OrdersPageProps {
-  /**
-   * Status this screen opens on when the URL names none.
-   *
-   * How `/orders/failed` works: same screen, same data, seeded to
-   * `delivery_failed`. It stays a *default* rather than a lock — the dropdown
-   * still writes `?status=`, so an admin who lands there from the badge can
-   * widen the view without being bounced to another route.
-   */
-  defaultStatus?: string;
-}
-
-export function OrdersPage({ defaultStatus }: OrdersPageProps = {}) {
+export function OrdersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   /** The clicked row's record — opens the drawer and seeds it before detail lands. */
   const [selectedRaw, setSelectedRaw] = useState<Order | null>(null);
@@ -608,7 +596,7 @@ export function OrdersPage({ defaultStatus }: OrdersPageProps = {}) {
   // URL-driven filter state (shareable, refresh-safe).
   const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
   const search = searchParams.get("search") ?? "";
-  const statusFilter = searchParams.get("status") ?? defaultStatus ?? "all";
+  const statusFilter = searchParams.get("status") ?? "all";
   // Tab lives in the URL alongside the filters so a shared link reopens the
   // same surface, not just the same query.
   const activeTab = searchParams.get("tab") === TAB_CARTS ? TAB_CARTS : TAB_ORDERS;

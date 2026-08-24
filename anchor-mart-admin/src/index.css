@@ -1005,6 +1005,34 @@ body {
   border-color: var(--warning-border);
 }
 
+/*
+ * Activity marker — "something arrived here since you last looked".
+ *
+ * A dot rather than a count, because a count on a queue like Orders is never
+ * zero and so stops being a signal. Sized and positioned like `.nav-badge` so
+ * an entry does not shift when one replaces the other, and it takes the same
+ * variant colours.
+ */
+.nav-dot {
+  margin-left: auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--danger-text);
+  /* Lifts the dot off a dark sidebar without a hard ring around it. */
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06);
+}
+.nav-dot.info {
+  background: var(--info-text);
+}
+.nav-dot.success {
+  background: var(--success-text);
+}
+.nav-dot.warning {
+  background: var(--warning-text);
+}
+
 .sb-footer {
   padding: 12px 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);

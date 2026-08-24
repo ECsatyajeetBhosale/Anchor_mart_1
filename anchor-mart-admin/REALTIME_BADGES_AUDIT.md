@@ -830,3 +830,318 @@ resolves its Header page title by exact-path match and is covered by `tagsForRou
 `TODO`/`FIXME` anywhere in the feature. Lint is clean across `features/realtime`, `lib` and
 `routes` — the only remaining warnings in the repo are pre-existing a11y issues in
 `AppSidebar.tsx`, `DataTable.tsx` and `ProfileDrawer.tsx`, none of them touched by this work.
+
+
+---
+
+# Activity-marker redesign — Audit & Plan (2026-08-24)
+
+**Driver:** the panel is dropping per-queue numbers in the sidebar for an **activity marker
+(`*`)**, and folding Verifications and Failed Deliveries into Intents and Orders rather than
+giving them their own screens.
+
+**Contract revision:** the backend answered both asks and withdrew a third thing.
+**Status:** A–G **implemented**. 257 tests pass; typecheck, lint and build clean. One item
+needs a product decision — see M.3 and "Open decision" below.
+
+## M.1 — Contract deltas
+
+| Change | Effect on us |
+|---|---|
+| **`delta: "up" \| "down" \| null` added** | The marker's gate. `changed` fires in *both* directions, so `changed` alone would mark the admin's own completions |
+| **`changed` confirmed bidirectional** | Confirms the workaround was needed; `delta` replaces it, and better — it is derived from the **row**, not the totals, so one-in-one-out no longer masks an arrival |
+| **Soft-delete gap withdrawn** | Nothing soft-deletes an order; `Order.is_deleted` has no production writer. The hole was theoretical |
+| **In-bucket transitions stay silent** | Confirmed as requested. No change |
+| **New: `order_confirmed` is not in `orders`** | See M.3 — this is the significant finding |
+
+## M.2 — What the withdrawal invalidates
+
+The Phase 2 safety-net `sync` (120s while visible) was justified **primarily by the
+soft-delete gap** — its doc comment names it as "the one failure the contract names, with no
+path back". That gap no longer exists, so the stated reason is now false.
+
+**Keep the timer, fix the reason.** It still earns its place for a different failure: §9's
+best-effort warning, and specifically a socket that is up but silently dead (a proxy holding
+a half-open connection). A halted socket never syncs again on its own. But the comment must
+stop citing a hole that was withdrawn, or the next person will delete the timer when they
+notice the justification is stale.
+
+## M.3 — The finding: under today's definitions, a newly paid order marks nothing
+
+This is the one thing that would have shipped broken, and it is worth stating plainly.
+
+`orders` means **in progress**, and `order_confirmed` is deliberately excluded (the Orders
+screen counts it separately as `new`). So when a sailor pays:
+
+- the order appears on the Orders screen as `new`
+- the frame we receive is `changed: "intents"`, `delta: "down"` — the intent *left* the funnel
+- `orders` does not go `up` until a delivery partner is assigned, which is a later,
+  **admin-initiated** step
+
+So the single event an activity marker most exists to announce — *money arrived, a real order
+is here* — **lights nothing**, and correctly so under our own `delta === "up"` gate.
+
+**We cannot fix this on the frontend.** `intents`-down also fires on reject and cancel, so it
+is not a proxy for "paid". And `counts.orders` excludes the bucket entirely, so no comparison
+of totals can reveal it. It needs the backend's option **(a)**: a new `new_orders` counter.
+
+Implementing to the current contract means shipping with this hole. The plan below therefore
+builds the mapping as a **list per nav entry**, so adding `new_orders` is one array element
+rather than a refactor.
+
+## M.4 — Rebinding, and a bug it fixes
+
+Folding changes which screen each counter refreshes:
+
+| Queue | Was | Now | Why |
+|---|---|---|---|
+| `verifications` | `/verification` | **Intents** | `verification_submitted` is an intent status (`IntentsPage.tsx:215`) — those rows are already on the Intents list |
+| `delivery_failed` | `/orders/failed` | **Orders** | unchanged in effect; the dedicated route goes away |
+
+The first also **fixes a live bug**: once `/verification` is unrouted, a
+`changed: "verifications"` frame would match no screen and refetch **nothing at all**, even
+with the admin sitting on the Intents list those rows appear in.
+
+## M.5 — Plan
+
+| # | Change |
+|---|---|
+| **A** | Add `delta` to the frame type and thread it through |
+| **B** | `activity` state in the slice — a per-queue boolean, set on `delta === "up"` when the admin is elsewhere, cleared when they open the screen |
+| **C** | `NavItem.badgeKey` → `badgeKeys: BadgeQueue[]`, so one entry can watch several queues (Intents ← intents + verifications; Orders ← orders + delivery_failed) |
+| **D** | Sidebar renders the marker instead of the count |
+| **E** | Unwind the two dedicated screens: nav entries, routes, `ORDERS_FAILED`, `OrdersPage.defaultStatus`, and the `navEnd` flag that only existed for `/orders/failed` |
+| **F** | Rebind `verifications` → Intents caches (M.4) |
+| **G** | Correct the safety-sync comment (M.2) |
+
+**Marker state is in-memory, deliberately.** It cannot be rebuilt after a reload: a reconnect
+snapshot arrives as `changed: "connect"` with no queue name, so there is nothing to replay
+from. Persisting to `localStorage` would preserve a marker whose cause the admin may already
+have dealt with in another tab. A fresh session starting clean is the honest default.
+
+### Tests
+- `delta` gating: `up` marks, `down` and `null` do not, snapshots never mark.
+- Not marked while the admin is already on that queue's screen.
+- Cleared on navigating to a watched screen; folded entries clear both queues.
+- `verifications` refetches the Intents caches.
+
+
+## M.6 — Delivered
+
+| # | Status | Files |
+|---|---|---|
+| A `delta` | done | `types/realtime.types.ts` — `BadgeDelta`, `BadgeFrame.delta` |
+| B activity state | done | `slice/realtimeSlice.ts` — `activity`, `markActivity`, `clearActivity` |
+| C folded keys | done | `lib/navigation.ts` — `badgeKey` → `badgeKeys: BadgeQueue[]` |
+| D marker UI | done | `AppSidebar.tsx`, `.nav-dot` in `index.css`, `MESSAGES.REALTIME.NEW_ACTIVITY` |
+| E unwind screens | done | `navigation.ts`, `AppRouter.tsx`, `constants.ts` (`ORDERS_FAILED` gone), `OrdersPage` (`defaultStatus` gone) |
+| F rebind verifications | done | `lib/badgeRefetch.ts` — now the Intents caches |
+| G safety-sync comment | done | `hooks/useRealtimeBadges.ts` |
+
+**Tests:** 9 new (86 in the feature, 257 across the app) — `delta` gating, activity
+mark/clear including the two-queue Intents case, and `queuesForRoute`.
+
+### The three gates on the marker
+
+Written down because each one, left out, turns the marker from signal into noise:
+
+1. **`delta === "up"` only.** `changed` fires in both directions, so without this an admin
+   marks their own sidebar every time they complete an order. `"down"` and `null` stay quiet.
+2. **Not while the admin is on that screen.** Marking the screen under their cursor is
+   telling them about work they can already see.
+3. **Snapshots never mark** — `connect`/`sync` name no queue, so there is nothing to
+   attribute the movement to. Handled by the existing `isBadgeQueue` guard.
+
+### Marker state is in-memory, deliberately
+
+It cannot be rebuilt after a reload — a reconnect snapshot carries no queue name — and
+persisting it would resurrect markers whose cause the admin may have handled in another tab.
+A fresh session starting clean is the honest default.
+
+---
+
+# Open decision — `order_confirmed` (backend §8) — **RESOLVED, see the Signals section**
+
+**Under the contract as it stands, a newly paid order raises no marker anywhere.** `orders`
+means *in progress* and excludes `order_confirmed`; payment produces
+`changed: "intents", delta: "down"`, which our `delta === "up"` gate correctly ignores.
+`orders` does not go up until a partner is assigned — an admin-initiated step.
+
+This cannot be worked around on the frontend: `intents`-down also fires on reject and cancel,
+and `counts.orders` excludes the bucket entirely, so no comparison of totals reveals it.
+
+**Recommendation: option (a)** — a new `new_orders` counter (`order_confirmed`, paid,
+non-express). It is additive, breaks nothing, keeps the badge and the dashboard card in
+agreement, and it is the event "a new order arrived" actually means. Option (b) makes the
+badge permanently disagree with the dashboard; option (c) accepts the hole.
+
+The mapping is already a list per nav entry, so adopting (a) is one array element:
+`badgeKeys: ["orders", "delivery_failed", "new_orders"]`.
+
+
+---
+
+# Signals (`type: "signal"`) — Audit & Plan (2026-08-24)
+
+**Status:** A–D **implemented**. 274 tests pass; typecheck, lint and build clean.
+
+## S.1 — What changed
+
+One new frame type, **additive**. Nothing about `badge`, `counts`, `mine`, auth or reconnect
+changes.
+
+```
+{ type: "signal", stage, previous_stage, screen, order_id, order_number, at }
+```
+
+It exists because counters structurally *cannot* express the work chain: every hand-off
+inside the intent funnel is a move **within** the `intents` bucket, so the membership diff is
+correctly silent for exactly the transitions the chain is made of. A signal says "the ball is
+now in your court" and always means work **arrived** — there is no direction to check.
+
+**It resolves the open `order_confirmed` decision.** Payment now produces
+`signal{stage: order_confirmed, screen: "orders"}`, so no `new_orders` counter is needed —
+and unlike that counter it also covers **express** orders, which skip the funnel and are in no
+bucket until a partner is assigned. The counter definitions are unchanged and still agree
+with the dashboard cards.
+
+## S.2 — Findings
+
+### S1 — Signals are currently dropped on the floor (the gap)
+
+`EventsSocket.onmessage` ends with `if (frame.type === "badge") …`. A `signal` frame matches
+no branch and is **silently discarded** — no error, no log, nothing. Every case the feature
+exists for (a partner submitting a report, a sailor paying, a delivery failing) arrives and
+vanishes. This is the whole of the work.
+
+### S2 — `screen` is a subset of `BadgeQueue`, and that is convenient rather than lucky
+
+The four `screen` values — `intents`, `verifications`, `orders`, `delivery_failed` — are all
+existing `BadgeQueue` keys. So a signal can reuse the machinery already built: `markActivity`,
+`queuesForRoute`, and the coalescer's `tagsForQueues`. In particular the folding still works
+without a special case:
+
+| signal `screen` | folds onto | via |
+|---|---|---|
+| `verifications` | **Intents** entry | `badgeKeys: ["intents", "verifications"]` |
+| `delivery_failed` | **Orders** entry | `badgeKeys: ["orders", "delivery_failed"]` |
+
+We must still **validate** it rather than trust it: an unrecognised `screen` from a future
+server version must be ignored, not marked against a queue we guessed.
+
+### S3 — Signals need the same two gates as badges, minus the delta
+
+- **No `delta` check** — a signal always means arrival. Checking one would drop every signal.
+- **Still don't mark the screen the admin is on.** If they are on Intents when a verification
+  arrives, the list refetches and the row appears; marking it as well is telling them about
+  work already in front of them.
+- **Still refetch through the coalescer.** §3b says a signal names the screen to *light and
+  refetch*. Going through the coalescer also means the badge frame that often accompanies the
+  same event (e.g. a new intent produces both) collapses into one request rather than two.
+
+### S4 — Signals must not touch `counts`
+
+`signal` carries no counts. The handler must not write `counts`, `mine` or `lastAt` — the
+`badge` frame stays the sole source of numbers, and the two arrive independently.
+
+### Deliberately not doing
+
+`stage`, `previous_stage`, `order_number` and `order_id` are **not** stored. The marker does
+not need them, and this pass has just finished removing fields nothing read. They are the
+raw material for a toast ("AM202608240001 moved from Partner Verifying") or a deep link, and
+both are UI decisions nobody has asked for. Noted, not built.
+
+## S.3 — Plan
+
+| # | Change |
+|---|---|
+| **A** | `SignalFrame` type; add it to `EventsInboundFrame`; `SignalScreen` typed as the four keys |
+| **B** | `onSignal` handler on the socket, dispatched before the `badge` branch |
+| **C** | Hook: validate `screen`, refetch through the coalescer, mark unless the admin is already there |
+| **D** | Tests: signals are delivered, unknown `screen` ignored, no marking on the current screen, counts untouched |
+
+
+## S.4 — Delivered
+
+| # | Status | Files |
+|---|---|---|
+| A | done | `types/realtime.types.ts` — `SignalFrame`, `SignalScreen`, `isSignalScreen`, added to `EventsInboundFrame` |
+| B | done | `lib/eventsSocket.ts` — `onSignal` handler, dispatched before falling off the end |
+| C | done | `hooks/useRealtimeBadges.ts` — validate, refetch through the coalescer, mark unless already there |
+| D | done | 17 new tests (108 in the feature, 274 across the app) |
+
+**Tests:** signals are delivered rather than dropped; a signal never reaches `onBadge` and a
+badge never reaches `onSignal`; `isSignalScreen` accepts the four hand-off screens and
+rejects the three real-but-never-signalled queues (`express_orders`, `special_requests`,
+`seller_requests` — all valid `BadgeQueue` keys, so a looser check would have let them
+through) as well as unknown values. A `realtime.types.test.ts` was added along the way, which
+also picked up `sameCounts`, previously covered only indirectly through the slice.
+
+### What this resolved
+
+The `order_confirmed` hole is closed **without a new counter**. Payment arrives as
+`signal{stage: order_confirmed, screen: "orders"}` and lights the Orders marker. It also
+covers **express** orders, which the proposed `new_orders` counter would have missed entirely
+— express skips the funnel and is in no bucket until a partner is assigned. `counts` is
+unchanged and still agrees with the dashboard cards.
+
+### Why signals reuse the badge machinery unchanged
+
+`SignalScreen` is typed as a strict subset of `BadgeQueue`, so `markActivity`,
+`queuesForRoute` and the coalescer's `tagsForQueues` all work on a signal with no translation
+layer — and the sidebar folding needs no special case: `screen: "verifications"` folds onto
+the Intents entry and `screen: "delivery_failed"` onto Orders, because those entries already
+watch those keys.
+
+Pushing signals through the **same coalescer** matters for a second reason beyond bursts: one
+event often produces both frames (a new intent raises a signal *and* a badge), which would
+otherwise be two list requests for one arrival.
+
+### Deliberately not built
+
+`stage`, `previous_stage`, `order_number` and `order_id` are received and **not stored**. The
+marker does not need them, and the cleanup pass immediately before this one was spent
+removing fields nothing read. They are the raw material for a toast ("AM202608240001 moved
+from Partner Verifying") or a deep link into the order — both are UI decisions nobody has
+asked for yet. The data is one line away in the handler if wanted.
+
+
+---
+
+# FE-questions doc, re-audited (2026-08-24)
+
+The "FE Open Questions: Audit, Decisions, Plan" doc was re-checked against the code. **Five of
+its six answers are already implemented**; one item was still live.
+
+| Q | State |
+|---|---|
+| Q1 Verifications | Implemented, then **superseded by the product decision to fold it into Intents**. The doc's real finding — hardcoded placeholder badges — was defused in Phase 1, before the entry was ever restored |
+| Q2 `delivery_failed` | Implemented as `/orders/failed`, then **superseded by the same fold** |
+| Q3 logout rule | Implemented and pinned by four tests (`close codes never imply an auth failure`) |
+| Q4 global 401 | Implemented — `baseQueryWithAuth`, 401 only |
+| Q5 `mine` | Implemented — `OwnedBadgeQueue` types the five scopeable queues. UI still open (Q5b) |
+| Q6 live milestones | Closed by the backend; nothing to build |
+| **Branch note** | **Still live — see below** |
+
+## The one live item: `main` and `dev_pratap` disagree, and it got worse
+
+The doc warned that `main` has Verifications live while `dev_pratap` has it parked. Verified,
+and the gap has widened since it was written, because the design reversed twice:
+
+- `origin/main` has **both** Verifications and Assignments live — nav entries *and* routes —
+  each carrying a hardcoded badge (`"3"` and `"4"`).
+- This branch **removed** the Verifications entry entirely and deleted `NavItem.badge`.
+- `navigation.ts` diverges by ~428 lines, `AppRouter.tsx` by ~94. Both will conflict.
+  `main` has no `src/features/realtime/` at all, so the rest merges additively.
+
+**The good news, and it is worth knowing:** the fake badges **cannot** survive silently.
+`badge: "3"` against a `NavItem` that no longer has a `badge` field is a TypeScript error, so
+a botched resolution fails the build rather than shipping invented numbers to operators.
+
+**The risk that has no compiler backstop:** `AppRouter.tsx` and `navigation.ts` are separate
+files. A resolution that keeps `main`'s routes while keeping our nav leaves `/verification`
+and `/assignments` reachable **by URL with no sidebar entry** — valid TypeScript, no error,
+and Verifications quietly back as a screen after it was deliberately folded.
+
+Written up as a checklist in **`MERGE_NOTES_REALTIME.md`**, since the merge itself is done by
+hand outside this session.

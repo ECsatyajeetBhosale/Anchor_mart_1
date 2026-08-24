@@ -2,6 +2,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { logout } from "@/features/auth/slice/authSlice";
 import { useAppDispatch, useAppSelector } from "@/hooks/useAppDispatch";
 import { APP_ROUTES } from "@/lib/constants";
+import { MESSAGES } from "@/lib/messages";
 import { NAV_SECTIONS } from "@/lib/navigation";
 import { roleLabel, useAdminAccess } from "@/lib/roles";
 import { cn } from "@/lib/utils";
@@ -15,17 +16,24 @@ interface AppSidebarProps {
   onToggle: () => void;
 }
 
+const NAV = MESSAGES.REALTIME;
+
 export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const user = useAppSelector((s) => s.auth.user);
   const { isSuperAdmin } = useAdminAccess();
   /**
-   * Live queue counters from `ws/events/`. Null until the first frame lands —
-   * which is why nothing renders a zero in the meantime: "not heard yet" and
-   * "nothing outstanding" must not look the same.
+   * Which queues have gained work the admin has not looked at yet.
+   *
+   * Deliberately not the counts. A count answers "how much work exists", and
+   * for a queue like Orders that is never zero — a permanent "111" draws the
+   * eye once and then never again. This answers "has something *arrived* since
+   * you last looked", which is the only question a sidebar indicator can
+   * usefully ask. The numbers still live on each screen's own cards, where they
+   * are acted on.
    */
-  const counts = useAppSelector((s) => s.realtime.counts);
+  const activity = useAppSelector((s) => s.realtime.activity);
 
   function handleLogout() {
     dispatch(logout());
@@ -128,35 +136,35 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
                 <div className="sb-section">{section.label}</div>
                 {items.map((item) => {
                   const Icon = item.icon;
-                  // An empty queue shows no pill at all rather than a "0". A
-                  // badge exists to draw the eye to outstanding work; a zero is
-                  // a claim that there is none, taking up the same space and
-                  // costing the same glance to dismiss.
-                  const count = item.badgeKey ? counts?.[item.badgeKey] : undefined;
+                  // One marker per entry however many queues feed it: Intents
+                  // covers verifications too, and the admin does not need to be
+                  // told which of the two moved — opening the screen shows them.
+                  const hasActivity = item.badgeKeys?.some((key) => activity[key]) ?? false;
                   const link = (
                     // String className (not a function) so it survives Radix's
                     // `Slot` merge when used as `TooltipTrigger asChild`. React
                     // Router auto-appends the `active` class, so active state is
                     // preserved without a function className.
-                    <NavLink to={item.path} end={item.navEnd} className="nav-item">
+                    <NavLink to={item.path} className="nav-item">
                       <Icon size={17} />
                       <span>{item.label}</span>
-                      {!!count && (
+                      {hasActivity && (
                         <span
                           className={cn(
-                            "nav-badge",
+                            "nav-dot",
                             "mla",
                             // `info` / `success` / `warning` are modifier classes;
-                            // danger is the base style, so it takes none. Only
-                            // `warning` used to be mapped, which silently turned
-                            // every other variant into a red pill.
+                            // danger is the base style, so it takes none.
                             item.badgeVariant === "info" && "info",
                             item.badgeVariant === "success" && "success",
                             item.badgeVariant === "warning" && "warning",
                           )}
-                        >
-                          {count}
-                        </span>
+                          // The marker is the only thing announcing this, so it
+                          // carries the words — a bare dot reads as nothing at
+                          // all to a screen reader.
+                          aria-label={NAV.NEW_ACTIVITY}
+                          title={NAV.NEW_ACTIVITY}
+                        />
                       )}
                     </NavLink>
                   );

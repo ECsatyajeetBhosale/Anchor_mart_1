@@ -16,6 +16,7 @@ export type { RealtimeState } from "./slice/realtimeSlice";
 export {
   EMPTY_BADGE_COUNTS,
   isBadgeQueue,
+  isSignalScreen,
   sameCounts,
   type MineCounts,
   type OwnedBadgeQueue,
@@ -23,6 +24,9 @@ export {
   type BadgeCounts,
   type BadgeFrame,
   type BadgeQueue,
+  type BadgeDelta,
   type EventsAuthErrorCode,
+  type SignalFrame,
+  type SignalScreen,
   type SocketStatus,
 } from "./types/realtime.types";

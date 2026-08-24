@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { BadgeCounts } from "../types/realtime.types";
-import reducer, { applyBadge, resetRealtime, setAuthError, setSocketStatus } from "./realtimeSlice";
+import reducer, {
+  applyBadge,
+  clearActivity,
+  markActivity,
+  resetRealtime,
+  setAuthError,
+  setSocketStatus,
+} from "./realtimeSlice";
 
 const FIRST: BadgeCounts = {
   intents: 3,
@@ -139,5 +146,40 @@ describe("owner-scoped counts", () => {
     let state = reducer(undefined, applyBadge({ counts: FIRST, mine: MINE, at: "x" }));
     state = reducer(state, resetRealtime());
     expect(state.mine).toBeNull();
+  });
+});
+
+describe("activity markers", () => {
+  it("starts with nothing marked", () => {
+    expect(reducer(undefined, { type: "@@init" }).activity).toEqual({});
+  });
+
+  it("marks a queue that gained work", () => {
+    const state = reducer(undefined, markActivity("orders"));
+    expect(state.activity.orders).toBe(true);
+  });
+
+  it("clears every queue the visited screen covers", () => {
+    // Opening Intents answers for verifications too — one screen, two queues.
+    let state = reducer(undefined, markActivity("intents"));
+    state = reducer(state, markActivity("verifications"));
+    state = reducer(state, markActivity("orders"));
+
+    state = reducer(state, clearActivity(["intents", "verifications"]));
+    expect(state.activity.intents).toBe(false);
+    expect(state.activity.verifications).toBe(false);
+    // Untouched: the admin looked at Intents, not at Orders.
+    expect(state.activity.orders).toBe(true);
+  });
+
+  it("is unbothered by clearing a queue that was never marked", () => {
+    const state = reducer(undefined, clearActivity(["orders", "intents"]));
+    expect(state.activity.orders).toBeFalsy();
+  });
+
+  it("clears on logout", () => {
+    let state = reducer(undefined, markActivity("orders"));
+    state = reducer(state, resetRealtime());
+    expect(state.activity).toEqual({});
   });
 });

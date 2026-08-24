@@ -6,19 +6,29 @@ import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { authFailureAction } from "../lib/authFailure";
-import { tagsForQueues } from "../lib/badgeRefetch";
+import { queuesForRoute, tagsForQueues } from "../lib/badgeRefetch";
 import { EventsSocket } from "../lib/eventsSocket";
 import { RefetchCoalescer } from "../lib/refetchCoalescer";
-import { applyBadge, resetRealtime, setAuthError, setSocketStatus } from "../slice/realtimeSlice";
-import { isBadgeQueue } from "../types/realtime.types";
+import {
+  applyBadge,
+  clearActivity,
+  markActivity,
+  resetRealtime,
+  setAuthError,
+  setSocketStatus,
+} from "../slice/realtimeSlice";
+import { isBadgeQueue, isSignalScreen } from "../types/realtime.types";
 
 /**
  * How often to re-snapshot while the tab is visible.
  *
- * The contract documents one publish gap — **soft-deleting an order sends no
- * frame** — whose stated cure is "the next snapshot: reconnect or `sync`". A tab
- * left open and focused gets neither, so without this the badge stays overstated
- * indefinitely: the one failure the contract names, with no path back.
+ * This was originally justified by the contract's soft-delete publish gap. That
+ * gap has since been **withdrawn** — an audit found nothing in the backend
+ * soft-deletes an order — so that reason is gone and the timer is deliberately
+ * kept for a different one: §9's warning that the socket is best-effort. The
+ * case it covers is a connection that is *up but silently dead* — a proxy
+ * holding a half-open socket sends no close, so no reconnect fires and no
+ * snapshot arrives; a periodic `sync` is the only thing that notices.
  *
  * This is not the polling the socket replaced. It fetches no rows and touches no
  * list endpoint — it is one small frame on an already-open connection, two
@@ -68,6 +78,18 @@ export function useRealtimeBadges(): void {
 
   const socketRef = useRef<EventsSocket | null>(null);
 
+  /**
+   * Arriving on a screen answers for every queue it covers.
+   *
+   * Keyed on `pathname` rather than done inside the frame handler, so a marker
+   * raised while the admin was elsewhere clears the moment they navigate — not
+   * only when the next frame happens to arrive.
+   */
+  useEffect(() => {
+    const queues = queuesForRoute(pathname);
+    if (queues.length > 0) dispatch(clearActivity(queues));
+  }, [pathname, dispatch]);
+
   useEffect(() => {
     if (!token) {
       // Logged out: tear down and clear, so the numbers do not survive behind a
@@ -97,9 +119,61 @@ export function useRealtimeBadges(): void {
         // `frame.id` is deliberately unused — it is advisory, and the list
         // refetch is the source of truth for what the admin may actually see.
         if (!isBadgeQueue(frame.changed)) return;
+        const queue = frame.changed;
+
         // Through the coalescer rather than straight to `invalidateTags`: bursts
         // are normal, and one request per frame is the polling this replaced.
-        coalescer.push(frame.changed);
+        coalescer.push(queue);
+
+        // The activity marker. Three gates, each of which would otherwise make
+        // the marker noise rather than signal:
+        //
+        //  1. `delta === "up"` only. `changed` fires in both directions, so
+        //     without this an admin marks their own screen every time they
+        //     complete an order. `"down"` and `null` (unknown) stay quiet — a
+        //     late marker costs less than a false one.
+        //  2. Not while they are already looking at it. Marking the screen
+        //     under the admin's cursor is telling them about work they can see.
+        //  3. Snapshots never mark, handled by the `isBadgeQueue` guard above:
+        //     `connect`/`sync` name no queue, so there is nothing to attribute
+        //     the movement to.
+        if (frame.delta !== "up") return;
+        if (queuesForRoute(pathnameRef.current).includes(queue)) return;
+        dispatch(markActivity(queue));
+      },
+      /**
+       * Work was handed to this admin.
+       *
+       * Signals exist because the counters structurally cannot express the work
+       * chain: every hand-off inside the intent funnel moves an order *within*
+       * the `intents` bucket, so the membership diff is silent for exactly the
+       * transitions the chain is made of — a partner submitting a report, a
+       * sailor paying, a delivery failing.
+       *
+       * Two differences from a badge frame, and one deliberate similarity:
+       *
+       *  - **No `delta` check.** A signal always means arrival; there is no
+       *    `down`. Gating on direction here would drop every one of them.
+       *  - **No counts touched.** A signal carries none — `badge` stays the sole
+       *    source of numbers, and the two frames arrive independently.
+       *  - Still not marked when the admin is already on the screen, same as a
+       *    badge: the refetch below puts the row in front of them, and a marker
+       *    as well would announce work they can already see.
+       */
+      onSignal: (frame) => {
+        // Validated, not trusted: an unrecognised screen from a future server
+        // must be ignored rather than guessed at, since marking the wrong queue
+        // sends the admin to look at somewhere nothing happened.
+        if (!isSignalScreen(frame.screen)) return;
+        const screen = frame.screen;
+
+        // Through the coalescer for the same reason badges are — and because one
+        // event often produces both frames (a new intent raises a signal *and* a
+        // badge), which would otherwise be two requests for one arrival.
+        coalescer.push(screen);
+
+        if (queuesForRoute(pathnameRef.current).includes(screen)) return;
+        dispatch(markActivity(screen));
       },
       onStatus: (status) => dispatch(setSocketStatus(status)),
       onAuthError: (code, detail) => {

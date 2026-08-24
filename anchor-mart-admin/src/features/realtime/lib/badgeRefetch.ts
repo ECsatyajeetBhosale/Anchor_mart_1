@@ -69,18 +69,31 @@ const QUEUE_BINDINGS: Record<BadgeQueue, QueueBinding> = {
       { type: "Sellers", id: "STATS" },
     ],
   },
+  /**
+   * Verifications are **intents**, not a screen of their own.
+   *
+   * `verification_submitted` is a status on the intent funnel and those rows
+   * are already on the Intents list, which is why the panel folds this counter
+   * into the Intents entry rather than giving it a sidebar row that duplicates
+   * a filter. Binding it here to the Verifications caches — which no routed
+   * screen reads any more — would mean a `verifications` frame refetched
+   * **nothing at all**, with the admin sitting on the very list those rows
+   * appear in.
+   */
   verifications: {
-    route: APP_ROUTES.VERIFICATION,
+    route: APP_ROUTES.INTENTS,
     tags: [
-      { type: "Verifications", id: "PARTIAL-LIST" },
-      { type: "Verifications", id: "STATS" },
+      { type: "Intents", id: "PARTIAL-LIST" },
+      { type: "Intents", id: "STATS" },
     ],
   },
   /**
-   * Failed deliveries are orders, and the contract's own answer is "the orders
-   * list filtered to failed" — so they share the Orders screen and its caches.
-   * A frame for either key refreshes the same rows, which is correct: a delivery
-   * failing changes the orders list whether or not a filter is applied to it.
+   * Failed deliveries are orders — the contract's own answer is "the orders list
+   * filtered to failed" — so they share the Orders screen and its caches, and
+   * the panel folds the counter into the Orders entry rather than routing a
+   * second screen at the same list. A frame for either key refreshes the same
+   * rows, which is correct: a delivery failing changes the orders list whether
+   * or not a filter is applied to it.
    */
   delivery_failed: {
     route: APP_ROUTES.ORDERS,
@@ -165,6 +178,20 @@ export function tagsForQueues(queues: BadgeQueue[], pathname: string): QueueTag[
     for (const tag of DASHBOARD_TAGS) add(tag);
   }
   return tags;
+}
+
+/**
+ * Which queues the screen at this path covers.
+ *
+ * The inverse of {@link tagsToInvalidate}'s route check, and what tells the
+ * activity marker two things: don't mark a queue the admin is already looking
+ * at, and clear its marker when they arrive. Several queues can share a screen —
+ * opening Intents answers for `verifications` as well.
+ */
+export function queuesForRoute(pathname: string): BadgeQueue[] {
+  return (Object.keys(QUEUE_BINDINGS) as BadgeQueue[]).filter((queue) =>
+    isOnRoute(pathname, QUEUE_BINDINGS[queue].route),
+  );
 }
 
 /**

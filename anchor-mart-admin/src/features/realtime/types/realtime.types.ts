@@ -85,6 +85,27 @@ export type EventsAuthErrorCode =
   | "blocked"
   | "no_badge_scope";
 
+/**
+ * Which way a queue moved.
+ *
+ * `changed` fires on **any** membership change, both directions — an order
+ * entering the orders bucket and an order leaving it both produce
+ * `changed: "orders"`. Lighting an activity marker on `changed` alone therefore
+ * marks the admin's own completions, on the screen they are already working.
+ * This is the field that separates the two.
+ *
+ * For order frames the server derives it **from the row**, not from the totals,
+ * which closes the blind spot a client-side comparison would have: one order
+ * arriving while another completes leaves the total unchanged and still reports
+ * `"up"`.
+ *
+ * `null` means **unknown, not "nothing moved"** — something did move, `changed`
+ * named it. It appears on snapshots (which name no queue) and on a cold-cache
+ * publish. For a marker the safe reading is to stay quiet: the next real frame
+ * carries a direction, and a false marker costs more than a late one.
+ */
+export type BadgeDelta = "up" | "down" | null;
+
 /** In-band, non-fatal refusals of our last message. The connection stays up. */
 export type EventsErrorCode = "rate_limited" | "unknown_type";
 
@@ -93,6 +114,8 @@ export interface BadgeFrame {
   type: "badge";
   scope: string;
   changed: BadgeChanged;
+  /** Direction of the movement — the activity marker's gate. See {@link BadgeDelta}. */
+  delta?: BadgeDelta;
   /**
    * The object that caused the frame, or null.
    *
@@ -137,7 +160,67 @@ export interface EventsErrorFrame {
   detail?: string;
 }
 
-export type EventsInboundFrame = BadgeFrame | EventsAuthErrorFrame | EventsErrorFrame;
+/**
+ * Screens a signal can name.
+ *
+ * A strict subset of {@link BadgeQueue} — the four an admin is ever handed work
+ * on. `express_orders`, `special_requests` and `seller_requests` never appear:
+ * the first has no admin hand-off inside the funnel, and the other two are not
+ * orders at all. Typed as a subset so a signal can reuse the badge machinery
+ * (marking, route matching, cache invalidation) without a translation layer.
+ */
+export type SignalScreen = Extract<
+  BadgeQueue,
+  "intents" | "verifications" | "orders" | "delivery_failed"
+>;
+
+/**
+ * "The ball is now in your court."
+ *
+ * A second frame type, additive, and the answer to something counters
+ * structurally could not express: every hand-off inside the intent funnel is a
+ * move *within* the `intents` bucket, so the membership diff is correctly silent
+ * for exactly the transitions the work chain is made of. A partner submitting a
+ * report, a sailor paying, a delivery failing — all invisible to `counts`.
+ *
+ * **A signal always means work ARRIVED.** There is no `down` and no direction to
+ * check; work *leaving* is what the counters are for. It carries no counts
+ * either — `badge` remains the sole source of numbers, and the two frames arrive
+ * independently.
+ */
+export interface SignalFrame {
+  type: "signal";
+  scope: string;
+  /** The status the order just entered — the reason we were signalled. */
+  stage: string;
+  /** Where it came from, for copy ("moved from Partner Verifying"). */
+  previous_stage?: string | null;
+  /** Which screen to light and refetch. Validate before trusting it. */
+  screen: SignalScreen;
+  /** Advisory, for deep-linking. REST still enforces permission. */
+  order_id?: string | null;
+  order_number?: string | null;
+  /** ISO-8601 server timestamp. */
+  at: string;
+}
+
+export type EventsInboundFrame = BadgeFrame | SignalFrame | EventsAuthErrorFrame | EventsErrorFrame;
+
+/**
+ * Is this a screen we know how to light?
+ *
+ * An unrecognised value from a future server must be ignored rather than
+ * guessed at — marking the wrong queue is worse than marking none, because the
+ * admin goes and looks at a screen where nothing happened.
+ */
+export function isSignalScreen(screen: string): screen is SignalScreen {
+  return (
+    screen === "intents" ||
+    screen === "verifications" ||
+    screen === "orders" ||
+    screen === "delivery_failed"
+  );
+}
 
 /** The only message the server accepts. Rate-limited to one per 5 seconds. */
 export interface EventsSyncFrame {

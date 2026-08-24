@@ -4,6 +4,7 @@ import type {
   EventsAuthErrorCode,
   EventsInboundFrame,
   EventsSyncFrame,
+  SignalFrame,
   SocketStatus,
 } from "../types/realtime.types";
 
@@ -56,6 +57,11 @@ const SYNC_MIN_GAP_MS = 5_000;
 export interface EventsSocketHandlers {
   /** A badge frame — counts to apply, and which queue moved. */
   onBadge: (frame: BadgeFrame) => void;
+  /**
+   * A signal frame — work was handed to this admin. Carries no counts; it is
+   * about *who owes the next move*, which the counters cannot express.
+   */
+  onSignal: (frame: SignalFrame) => void;
   onStatus: (status: SocketStatus) => void;
   /** Fired once per terminal failure so the UI can explain and stop. */
   onAuthError: (code: string, detail: string) => void;
@@ -132,7 +138,15 @@ export class EventsSocket {
         return;
       }
 
-      if (frame.type === "badge") this.handlers.onBadge(frame);
+      if (frame.type === "badge") {
+        this.handlers.onBadge(frame);
+        return;
+      }
+
+      // Signals are a separate frame type, not a variant of `badge` — they
+      // carry no counts, and until this branch existed one matched nothing here
+      // and was silently discarded.
+      if (frame.type === "signal") this.handlers.onSignal(frame);
     };
 
     socket.onerror = () => {
