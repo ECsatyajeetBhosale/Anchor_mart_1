@@ -908,6 +908,25 @@ export function IntentReviewDrawer({
                 {R.CANCEL_ORDER}
               </Button>
             )}
+            {/* Billing without suggesting first. Suggesting a replacement is the
+                better outcome when one exists, but it is not a precondition for
+                a bill: the subtotal is computed from what the partner confirmed
+                is available, so a line nobody can source does not have to hold
+                the whole order. Offered beside Release rather than instead of
+                it — Release stays the primary — and only where Release itself
+                is: `verification_submitted` with something unavailable. */}
+            {action === "suggest" && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onPrimaryAction("bill")}
+                disabled={!canManage}
+                title={R.BILL_AVAILABLE_HINT}
+              >
+                <IconFileInvoice size={15} className="mr-1" />
+                {R.BILL_AVAILABLE}
+              </Button>
+            )}
             {primary && (
               <Button
                 variant="primary"

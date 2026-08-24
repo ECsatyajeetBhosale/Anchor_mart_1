@@ -1131,6 +1131,15 @@ export const MESSAGES = {
       TIMELINE_EMPTY: "No milestones recorded yet.",
       // Flow 07 API 2 — re-price a bill that is already pending
       UPDATE_BILL: "Update Bill",
+      /**
+       * Bill without suggesting replacements first. Suggesting is the better
+       * path when a substitute exists, but it is not a precondition: the
+       * subtotal is computed from what the partner confirmed is available, so
+       * an order with a dead line can still be priced and paid for.
+       */
+      BILL_AVAILABLE: "Bill Available Items",
+      BILL_AVAILABLE_HINT:
+        "Bills only the items the partner confirmed. Unavailable and short lines are left out.",
       COPY_REF: "Copy order number",
       COPIED: "Order number copied",
     },
@@ -1169,7 +1178,7 @@ export const MESSAGES = {
     ACTION: {
       assign: "Assign a partner to verify stock",
       waiting_partner: "Partner is verifying stock",
-      suggest: "Suggest replacements for unavailable items",
+      suggest: "Suggest replacements for unavailable items, or bill just the available ones",
       bill: "All items available — ready to bill",
       waiting_customer: "Waiting on the sailor's response",
       awaiting_payment: "Payment link sent — awaiting payment",

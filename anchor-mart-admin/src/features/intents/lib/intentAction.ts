@@ -6,8 +6,11 @@ import type { IntentAction } from "../types/intent.types";
  * the drawer's `canClaim`/`canManage`; this is purely the order-state action.
  *
  * The pivotal case is `verification_submitted`: if any line is unavailable or
- * short (`substitutionNeeded`), the admin must suggest replacements before
- * billing; otherwise everything is available and the order is ready to bill.
+ * short (`substitutionNeeded`), suggesting replacements is the *recommended*
+ * next move and is what this returns — but it is not a precondition for a bill.
+ * The drawer offers billing the available lines alongside it, because a line
+ * nobody can source must not hold the rest of the order hostage. Otherwise
+ * everything is available and the order is ready to bill outright.
  */
 /**
  * Statuses from which the terminal reject action is still legal (Flow 05 API 6).
