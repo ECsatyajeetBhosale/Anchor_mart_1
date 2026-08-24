@@ -29,8 +29,8 @@ import { SettingsPage } from "@/pages/SettingsPage";
 // Settings sub-page — Help & FAQ management (Users moved to Account Management)
 import { FaqsPage } from "@/features/settings";
 import { SpecialRequestsPage } from "@/pages/SpecialRequestsPage";
-// Parked — see the note above `AssignmentsPage`.
-// import { VerificationPage } from "@/pages/VerificationPage";
+// Restored 2026-08-24 alongside its realtime badge.
+import { VerificationPage } from "@/pages/VerificationPage";
 
 // Notification console — role-based sends + platform broadcast
 import { NotificationsPage } from "@/features/notifications";
@@ -111,10 +111,18 @@ export function AppRouter() {
             <Route path={APP_ROUTES.GIFTS} element={<GiftShipsPage />} />
             <Route path={APP_ROUTES.RATINGS} element={<RatingsPage />} />
             <Route path={APP_ROUTES.PARTNERS} element={<PartnersPage />} />
-            {/* Parked — unrouted for now, so these paths fall through to the
-                404 redirect. Uncomment with their imports and nav entries. */}
+            {/* Failed deliveries: the orders screen seeded to `delivery_failed`.
+                Declared before nothing in particular, but it must stay a real
+                route — a redirect to `/orders?status=…` would leave its sidebar
+                entry permanently inactive. */}
+            <Route
+              path={APP_ROUTES.ORDERS_FAILED}
+              element={<OrdersPage defaultStatus="delivery_failed" />}
+            />
+            <Route path={APP_ROUTES.VERIFICATION} element={<VerificationPage />} />
+            {/* Assignments stays parked — unrouted, so the path falls through to
+                the 404 redirect. Uncomment with its import and nav entry. */}
             {/* <Route path={APP_ROUTES.ASSIGNMENTS} element={<AssignmentsPage />} /> */}
-            {/* <Route path={APP_ROUTES.VERIFICATION} element={<VerificationPage />} /> */}
             <Route path={APP_ROUTES.NOTIFICATIONS} element={<NotificationsPage />} />
             <Route path={APP_ROUTES.CHAT} element={<DeliveryChatsPage />} />
             <Route path={APP_ROUTES.SUPPORT} element={<SupportChatsPage />} />

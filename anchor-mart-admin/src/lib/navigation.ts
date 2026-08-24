@@ -1,5 +1,7 @@
+import type { BadgeQueue } from "@/features/realtime/types/realtime.types";
 import { APP_ROUTES } from "@/lib/constants";
 import {
+  IconAlertTriangle,
   IconAnchor,
   IconBell,
   IconBolt,
@@ -8,10 +10,10 @@ import {
   IconCategory,
   IconCategory2,
   IconChartAreaLine,
-  // Icons for the three parked nav items below (Assignments, Verifications,
-  // Message Log). Kept commented, not deleted — `noUnusedLocals` would fail the
-  // build if they stayed imported while their entries are off.
-  // IconChecklist,
+  IconChecklist,
+  // Icons for the parked nav items below (Assignments, Message Log). Kept
+  // commented, not deleted — `noUnusedLocals` would fail the build if they
+  // stayed imported while their entries are off.
   // IconClipboardList,
   IconClipboardText,
   IconDiscount2,
@@ -44,13 +46,31 @@ export interface NavItem {
   icon: ComponentType<{ size?: number; className?: string }>;
   path: string;
   /**
-   * Count pill beside the label. **Only set this from real data.** Orders,
-   * Intents and Special Requests carried hardcoded "12" / "8" / "5" from the
-   * static template — numbers that never matched anything and never moved, so
-   * they read as unactioned work that did not exist.
+   * Which realtime counter this item's pill shows.
+   *
+   * A **key, never a number** — that is the point. The previous shape took a
+   * literal string with a comment asking callers not to invent one, and three
+   * invented ones ("5" on Notifications, "3" on Support, "4" on Seller
+   * Requests) shipped anyway and sat in the sidebar looking like real
+   * outstanding work. Naming a counter instead makes the rule structural: there
+   * is no way to express a made-up number here, and an item with no counter
+   * behind it simply has no pill.
+   *
+   * The value comes from `state.realtime.counts`, pushed over `ws/events/`.
+   * Notifications and Support are absent from that contract, so neither carries
+   * a pill until the backend publishes counts for them.
    */
-  badge?: string | null;
+  badgeKey?: BadgeQueue;
   badgeVariant?: "warning" | "success" | "info" | "danger" | null;
+  /**
+   * Match this path exactly instead of by prefix.
+   *
+   * `NavLink` treats a descendant route as active by default, which is right
+   * for a detail page opened from a queue and wrong for a sibling screen that
+   * happens to live under the same path — `/orders/failed` would otherwise keep
+   * Orders lit alongside Failed Deliveries.
+   */
+  navEnd?: boolean;
   /**
    * Hide this entry below super admin.
    *
@@ -84,9 +104,17 @@ export interface NavSection {
  * **Section order is reactive work first, then planned work.** Orders &
  * Delivery and Operations are the two sections where work *arrives* — a queue
  * fills, a message lands, a request waits on a reply — so they sit together at
- * the top, which is also why they are the two carrying live count badges.
- * Everything below is work an admin chooses to go and do: what is sold, where
- * it ships to, what promotes it, who holds an account, and the system itself.
+ * the top. Everything below is work an admin chooses to go and do: what is
+ * sold, where it ships to, what promotes it, who holds an account, and the
+ * system itself.
+ *
+ * That order is about *arrival*, not about badges, and the two no longer line
+ * up: the live counters (`ws/events/`) cover Orders & Delivery's six entries
+ * and Seller Requests over in Account Management, while Operations carries
+ * none — Notifications and Support have no counter in the badge contract, and
+ * the hardcoded pills they once showed were fabricated. A section is placed
+ * here by whether work lands in it unbidden; whether the backend counts that
+ * work is a separate question with a different answer.
  *
  * That is the axis, not raw frequency. Catalog is edited often but never
  * *waits* on anyone; Operations may be quiet for an hour and then need an answer
@@ -111,15 +139,20 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    // The order funnel and nothing else: four queues of work an admin actions.
-    // Sailors and Delivery Partners used to sit here too, which mixed two jobs
-    // — working a queue and looking someone up — under one heading. They live in
-    // Account Management now.
+    // Six queues of work an admin actions. Sailors and Delivery Partners used to
+    // sit here too, which mixed two jobs — working a queue and looking someone
+    // up — under one heading. They live in Account Management now.
     //
     // Ordered along the funnel rather than by traffic: Intents is where an order
     // starts (pre-payment), Orders is where it continues (post-payment), and the
     // two share that funnel. Express skips it entirely and Special Requests sits
     // outside it, so both follow the pair they are the exception to.
+    //
+    // The last two are not funnel stages at all and sit after it deliberately:
+    // Verifications is a review step that interrupts the funnel, and Failed
+    // Deliveries is the exception state an order lands in when the funnel has
+    // already failed. Both arrived with the realtime badges — each is a queue
+    // precisely because a counter says how much is waiting in it.
     label: "Orders & Delivery",
     items: [
       {
@@ -127,12 +160,16 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "Intents",
         icon: IconFileInvoice,
         path: APP_ROUTES.INTENTS,
+        badgeKey: "intents",
       },
       {
         key: "orders",
         label: "Orders",
         icon: IconPackage,
         path: APP_ROUTES.ORDERS,
+        badgeKey: "orders",
+        // `/orders/failed` is its own entry below; without this both light up.
+        navEnd: true,
       },
       {
         /**
@@ -148,30 +185,58 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "Express Orders",
         icon: IconBolt,
         path: APP_ROUTES.EXPRESS_ORDERS,
+        badgeKey: "express_orders",
       },
       {
         key: "requests",
         label: "Special Requests",
         icon: IconClipboardText,
         path: APP_ROUTES.REQUESTS,
+        badgeKey: "special_requests",
       },
-      // Parked, not removed — both screens are built and wired; they are just
-      // hidden from the drawer for now. Restore these entries together with
-      // their routes in `routes/AppRouter.tsx` to bring them back.
+      {
+        /**
+         * Restored 2026-08-24 with the realtime badges. It had been parked with
+         * no recorded reason; the counter behind it is live and parity-tested
+         * against the dashboard card, so the screen and its badge came back
+         * together — the badge is the argument for the entry.
+         */
+        key: "verification",
+        label: "Verifications",
+        icon: IconChecklist,
+        path: APP_ROUTES.VERIFICATION,
+        badgeKey: "verifications",
+        badgeVariant: "warning",
+      },
+      {
+        /**
+         * Failed deliveries — the orders list preset to `delivery_failed`.
+         *
+         * Its **own path**, not `/orders?status=delivery_failed`. `NavLink`
+         * matches on pathname, so a query-string entry would light up whenever
+         * Orders was active and vice versa — the trap `constants.ts` records
+         * this codebase being bitten by with `?tab=`. Orders carries `navEnd`
+         * so the reverse cannot happen either: this path is a descendant of
+         * `/orders`, which would otherwise keep Orders lit here.
+         *
+         * Last in the section because it is the exception state, not a stage of
+         * the funnel.
+         */
+        key: "delivery-failed",
+        label: "Failed Deliveries",
+        icon: IconAlertTriangle,
+        path: APP_ROUTES.ORDERS_FAILED,
+        badgeKey: "delivery_failed",
+        badgeVariant: "danger",
+      },
+      // Assignments stays parked, deliberately: no counter in the badge contract
+      // covers it, so restoring it beside the two above would put one live badge
+      // and one bare entry side by side. Its own decision, not this one's.
       // {
       //   key: "assignments",
       //   label: "Assignments",
       //   icon: IconClipboardList,
       //   path: APP_ROUTES.ASSIGNMENTS,
-      //   badge: "4",
-      // },
-      // {
-      //   key: "verification",
-      //   label: "Verifications",
-      //   icon: IconChecklist,
-      //   path: APP_ROUTES.VERIFICATION,
-      //   badge: "3",
-      //   badgeVariant: "warning",
       // },
     ],
   },
@@ -191,7 +256,6 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "Notifications",
         icon: IconBell,
         path: APP_ROUTES.NOTIFICATIONS,
-        badge: "5",
       },
       {
         key: "chat",
@@ -204,7 +268,6 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "Support",
         icon: IconLifebuoy,
         path: APP_ROUTES.SUPPORT,
-        badge: "3",
       },
       {
         // Flow 23 §4.3 — per-order threads, deliberately separate from Chat
@@ -399,7 +462,7 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "Seller Requests",
         icon: IconBuildingStore,
         path: APP_ROUTES.SELLERS,
-        badge: "4",
+        badgeKey: "seller_requests",
         badgeVariant: "warning",
       },
       {

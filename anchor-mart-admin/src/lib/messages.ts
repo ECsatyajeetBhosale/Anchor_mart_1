@@ -4895,4 +4895,23 @@ export const MESSAGES = {
     CATALOG_CREATE_DENIED: "Only an admin can create catalog entries.",
     CATALOG_DELETE_DENIED: "Only an admin can delete catalog entries.",
   },
+  // Realtime badge socket (`ws/events/`). Only the states an admin must act on
+  // or account for — a healthy socket says nothing at all.
+  REALTIME: {
+    /** A terminal auth failure ended the session; the panel has signed them out. */
+    SESSION_ENDED: "Your session has ended. Please sign in again.",
+    // Connection state. Shown only while the socket is *not* healthy, so the
+    // normal case adds no chrome — and there is deliberately no "Connecting…"
+    // here: the indicator stays silent until something has actually arrived, so
+    // a page load never flashes a warning during its first second.
+    RECONNECTING: "Reconnecting — counts may be out of date.",
+    OFFLINE: "Offline — counts may be out of date. Use refresh.",
+    /**
+     * Terminal, and specifically *not* a session problem: this account type has
+     * no badges. Said plainly so nobody tries to fix it by signing in again.
+     */
+    NO_BADGES: "Live counts aren't available for this account.",
+    /** Tooltip on the refresh button, which is the documented backstop. */
+    STALE_HINT: "Live updates are down — refresh to get current numbers.",
+  },
 } as const;

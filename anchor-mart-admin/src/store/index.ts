@@ -1,4 +1,5 @@
 import authReducer from "@/features/auth/slice/authSlice";
+import realtimeReducer from "@/features/realtime/slice/realtimeSlice";
 import { baseApi } from "@/lib/fetchUtils";
 import { configureStore } from "@reduxjs/toolkit";
 import { setupListeners } from "@reduxjs/toolkit/query";
@@ -7,6 +8,9 @@ export const store = configureStore({
   reducer: {
     [baseApi.reducerPath]: baseApi.reducer,
     auth: authReducer,
+    // Badge counters pushed over `ws/events/`. Not RTK Query: nothing is fetched
+    // — the socket is the only writer, and every frame replaces the whole set.
+    realtime: realtimeReducer,
   },
   middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(baseApi.middleware),
   devTools: import.meta.env.DEV,

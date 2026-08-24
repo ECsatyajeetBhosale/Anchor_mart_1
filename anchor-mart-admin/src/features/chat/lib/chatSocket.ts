@@ -1,3 +1,4 @@
+import { resolveSocketUrl } from "@/lib/socketUrl";
 import type {
   InboundFrame,
   OutboundFrame,
@@ -24,6 +25,9 @@ const FATAL_AUTH_CODES: ReadonlySet<string> = new Set<SocketAuthErrorCode>([
   "missing_token",
 ]);
 
+/** This consumer's path. The origin and scheme come from `@/lib/socketUrl`. */
+const CHAT_SOCKET_PATH = "/ws/chat/";
+
 /** Backoff schedule in ms. Caps rather than growing without bound. */
 const RECONNECT_DELAYS = [1_000, 2_000, 5_000, 10_000, 30_000];
 
@@ -34,34 +38,6 @@ export interface ChatSocketHandlers {
   onAuthError: (code: SocketAuthErrorCode | string, detail: string) => void;
   /** In-band errors (`{"error": "…"}`) — these never close the connection. */
   onError: (message: string) => void;
-}
-
-/**
- * Resolves the socket origin.
- *
- * In dev the Vite proxy forwards `/ws` to the backend, so a relative path on the
- * current origin is correct and avoids CORS entirely. In production the API base
- * URL points at the backend, so its origin is reused with the matching
- * `ws`/`wss` scheme — mixed content on an HTTPS panel would be blocked outright.
- */
-export function resolveSocketUrl(token: string): string {
-  const path = "/ws/chat/";
-  const query = `?token=${encodeURIComponent(token)}`;
-
-  if (import.meta.env.DEV) {
-    const scheme = window.location.protocol === "https:" ? "wss:" : "ws:";
-    return `${scheme}//${window.location.host}${path}${query}`;
-  }
-
-  const base = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
-  try {
-    const url = new URL(base, window.location.origin);
-    const scheme = url.protocol === "https:" ? "wss:" : "ws:";
-    return `${scheme}//${url.host}${path}${query}`;
-  } catch {
-    const scheme = window.location.protocol === "https:" ? "wss:" : "ws:";
-    return `${scheme}//${window.location.host}${path}${query}`;
-  }
 }
 
 export class ChatSocket {
@@ -92,7 +68,7 @@ export class ChatSocket {
     this.handlers.onStatus("connecting");
     let socket: WebSocket;
     try {
-      socket = new WebSocket(resolveSocketUrl(this.token));
+      socket = new WebSocket(resolveSocketUrl(CHAT_SOCKET_PATH, this.token));
     } catch {
       // A malformed URL throws synchronously; treat it as a failed attempt so
       // the caller still sees a status change rather than a silent no-op.

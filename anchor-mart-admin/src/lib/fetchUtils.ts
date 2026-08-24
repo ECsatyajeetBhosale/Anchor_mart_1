@@ -1,4 +1,6 @@
+import { logout } from "@/features/auth/slice/authSlice";
 import type { RootState } from "@/store";
+import type { BaseQueryFn, FetchArgs, FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
 /**
@@ -10,6 +12,58 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
  * All feature APIs must extend this via injectEndpoints() — never
  * create a new createApi() instance.
  */
+const rawBaseQuery = fetchBaseQuery({
+  // Dev: empty baseUrl → relative URLs hit Vite proxy (no CORS)
+  // Prod: full URL → requests go directly to backend
+  baseUrl: import.meta.env.DEV ? "/api" : (import.meta.env.VITE_API_BASE_URL as string),
+  prepareHeaders: (headers, { getState }) => {
+    const token = (getState() as RootState).auth.token;
+    if (token) {
+      // Django REST Framework Token Auth — NOT Bearer
+      headers.set("Authorization", `Token ${token}`);
+    }
+    headers.set("Content-Type", "application/json");
+    // Default to JSON, but let an endpoint override `Accept` (e.g. file exports
+    // that return xlsx — forcing application/json makes DRF reply 406).
+    if (!headers.has("Accept")) {
+      headers.set("Accept", "application/json");
+    }
+    // Skip ngrok browser interstitial in development
+    headers.set("ngrok-skip-browser-warning", "true");
+    return headers;
+  },
+});
+
+/**
+ * Clears the session when the API says the token is dead.
+ *
+ * There was no 401 handling anywhere in this panel — no wrapper, no middleware,
+ * no interceptor, zero hits for `401` across `src/`. Every call against a dead
+ * token failed silently in whichever hook made it, leaving the admin on a fully
+ * rendered screen whose data had quietly stopped arriving. The badge socket's
+ * `auth_error` was papering over a gap that belongs here, in the API layer.
+ *
+ * With this in place the two signals sit the right way round: the REST layer
+ * detects a dead token on the very next call an admin makes, and the socket's
+ * terminal auth frame is a second, faster notice of the same thing. Either can
+ * fire first; `logout()` is idempotent, so both firing is harmless.
+ *
+ * **401 only.** A 403 is an authorisation verdict on one endpoint — a sub-admin
+ * reaching for something only a super admin may do — and signing them out over
+ * it would end a perfectly good session for touching the wrong screen.
+ */
+const baseQueryWithAuth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> = async (
+  args,
+  api,
+  extraOptions,
+) => {
+  const result = await rawBaseQuery(args, api, extraOptions);
+  if (result.error?.status === 401) {
+    api.dispatch(logout());
+  }
+  return result;
+};
+
 export const baseApi = createApi({
   reducerPath: "api",
   /**
@@ -35,29 +89,7 @@ export const baseApi = createApi({
    * does not update on its own — that needs `pollingInterval` or a socket.
    */
   refetchOnMountOrArgChange: true,
-  baseQuery: fetchBaseQuery({
-    // Dev: empty baseUrl → relative URLs hit Vite proxy (no CORS)
-    // Prod: full URL → requests go directly to backend
-    // Use VITE_API_BASE_URL if provided, otherwise fallback to relative '/api' for dev and prod
-    // Use relative '/api' during development (proxy handles CORS), fallback to VITE_API_BASE_URL in production
-    baseUrl: import.meta.env.DEV ? "/api" : (import.meta.env.VITE_API_BASE_URL as string),
-    prepareHeaders: (headers, { getState }) => {
-      const token = (getState() as RootState).auth.token;
-      if (token) {
-        // Django REST Framework Token Auth — NOT Bearer
-        headers.set("Authorization", `Token ${token}`);
-      }
-      headers.set("Content-Type", "application/json");
-      // Default to JSON, but let an endpoint override `Accept` (e.g. file exports
-      // that return xlsx — forcing application/json makes DRF reply 406).
-      if (!headers.has("Accept")) {
-        headers.set("Accept", "application/json");
-      }
-      // Skip ngrok browser interstitial in development
-      headers.set("ngrok-skip-browser-warning", "true");
-      return headers;
-    },
-  }),
+  baseQuery: baseQueryWithAuth,
   tagTypes: [
     "Dashboard",
     "Analytics",

@@ -1,5 +1,6 @@
 import { AppSidebar } from "@/components/common/AppSidebar";
 import { Header } from "@/components/common/Header";
+import { useRealtimeBadges } from "@/features/realtime";
 import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 
@@ -9,6 +10,11 @@ import { Outlet } from "react-router-dom";
  * Matches the original Cloud Dock Light design exactly.
  */
 export function Layout() {
+  // One badge socket for the whole panel, mounted here because this shell is the
+  // one component that mounts exactly once. Per-screen would mean N copies of
+  // every frame and N reconnect loops.
+  useRealtimeBadges();
+
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
 

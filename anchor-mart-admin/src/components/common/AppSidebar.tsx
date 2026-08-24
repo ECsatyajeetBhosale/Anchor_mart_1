@@ -20,6 +20,12 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
   const navigate = useNavigate();
   const user = useAppSelector((s) => s.auth.user);
   const { isSuperAdmin } = useAdminAccess();
+  /**
+   * Live queue counters from `ws/events/`. Null until the first frame lands —
+   * which is why nothing renders a zero in the meantime: "not heard yet" and
+   * "nothing outstanding" must not look the same.
+   */
+  const counts = useAppSelector((s) => s.realtime.counts);
 
   function handleLogout() {
     dispatch(logout());
@@ -122,23 +128,34 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
                 <div className="sb-section">{section.label}</div>
                 {items.map((item) => {
                   const Icon = item.icon;
+                  // An empty queue shows no pill at all rather than a "0". A
+                  // badge exists to draw the eye to outstanding work; a zero is
+                  // a claim that there is none, taking up the same space and
+                  // costing the same glance to dismiss.
+                  const count = item.badgeKey ? counts?.[item.badgeKey] : undefined;
                   const link = (
                     // String className (not a function) so it survives Radix's
                     // `Slot` merge when used as `TooltipTrigger asChild`. React
                     // Router auto-appends the `active` class, so active state is
                     // preserved without a function className.
-                    <NavLink to={item.path} className="nav-item">
+                    <NavLink to={item.path} end={item.navEnd} className="nav-item">
                       <Icon size={17} />
                       <span>{item.label}</span>
-                      {item.badge && (
+                      {!!count && (
                         <span
                           className={cn(
                             "nav-badge",
                             "mla",
+                            // `info` / `success` / `warning` are modifier classes;
+                            // danger is the base style, so it takes none. Only
+                            // `warning` used to be mapped, which silently turned
+                            // every other variant into a red pill.
+                            item.badgeVariant === "info" && "info",
+                            item.badgeVariant === "success" && "success",
                             item.badgeVariant === "warning" && "warning",
                           )}
                         >
-                          {item.badge}
+                          {count}
                         </span>
                       )}
                     </NavLink>

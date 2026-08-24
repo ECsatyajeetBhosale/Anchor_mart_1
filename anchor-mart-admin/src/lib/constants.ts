@@ -9,6 +9,14 @@ export const APP_ROUTES = {
   ANALYTICS: "/analytics",
   SAILORS: "/sailors",
   ORDERS: "/orders",
+  /**
+   * Failed deliveries — the orders list preset to `delivery_failed`.
+   *
+   * A real path rather than `?status=`, for the reason recorded on
+   * `ADMIN_USERS` below: `NavLink` matches on pathname, so a query-string
+   * destination cannot own a sidebar entry without lighting up its neighbour.
+   */
+  ORDERS_FAILED: "/orders/failed",
   INTENTS: "/intents",
   /**
    * Express orders — their own screen since the 2026-08-17 order split.
