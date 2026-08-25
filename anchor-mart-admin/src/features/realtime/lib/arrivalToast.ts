@@ -71,13 +71,16 @@ export function showSignalToast(frame: SignalFrame, deps: ArrivalToastDeps): voi
 }
 
 /**
- * A counter moved and nothing told us why — the generic case.
+ * Something landed in a queue, and the frame does not say what — the generic
+ * case.
  *
- * Kept deliberately vague because the frame genuinely is: claiming "new intent"
- * when all we know is that the intents count rose would be inventing detail the
- * server did not send.
+ * Kept deliberately vague because an arrival genuinely is: it names a queue and
+ * nothing else. Claiming "new intent" when all we were told is that the intents
+ * queue moved would be inventing detail the server did not send. When there is
+ * a stage to name, a signal arrives alongside and {@link showSignalToast}
+ * replaces this one on the shared `order_id`.
  */
-export function showBadgeToast(
+export function showArrivalToast(
   queue: BadgeQueue,
   orderId: string | null,
   deps: ArrivalToastDeps,

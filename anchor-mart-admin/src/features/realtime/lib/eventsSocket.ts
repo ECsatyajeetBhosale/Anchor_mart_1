@@ -1,5 +1,6 @@
 import { resolveSocketUrl } from "@/lib/socketUrl";
 import type {
+  ArrivalFrame,
   BadgeFrame,
   EventsAuthErrorCode,
   EventsInboundFrame,
@@ -62,6 +63,11 @@ export interface EventsSocketHandlers {
    * about *who owes the next move*, which the counters cannot express.
    */
   onSignal: (frame: SignalFrame) => void;
+  /**
+   * An arrival frame — something new landed in a queue. No counts, no rows,
+   * no direction: receiving one is itself the news.
+   */
+  onArrival: (frame: ArrivalFrame) => void;
   onStatus: (status: SocketStatus) => void;
   /** Fired once per terminal failure so the UI can explain and stop. */
   onAuthError: (code: string, detail: string) => void;
@@ -146,7 +152,17 @@ export class EventsSocket {
       // Signals are a separate frame type, not a variant of `badge` — they
       // carry no counts, and until this branch existed one matched nothing here
       // and was silently discarded.
-      if (frame.type === "signal") this.handlers.onSignal(frame);
+      if (frame.type === "signal") {
+        this.handlers.onSignal(frame);
+        return;
+      }
+
+      if (frame.type === "arrival") this.handlers.onArrival(frame);
+
+      // Anything else falls through unhandled, and must keep doing so. New
+      // frame types are promised, and an old client that throws on one is worse
+      // than an old client that ignores it — the socket is shared, so a throw
+      // here would cost the badges and signals as well.
     };
 
     socket.onerror = () => {

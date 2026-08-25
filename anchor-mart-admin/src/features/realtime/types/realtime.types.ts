@@ -204,7 +204,70 @@ export interface SignalFrame {
   at: string;
 }
 
-export type EventsInboundFrame = BadgeFrame | SignalFrame | EventsAuthErrorFrame | EventsErrorFrame;
+/**
+ * What arrived, when it is not a plain order.
+ *
+ * Advisory: it exists so copy can differ per kind, and nothing about the dot
+ * depends on it. Left open to `string` at the frame deliberately — new entity
+ * kinds are expected, and an unrecognised one must be ignorable rather than a
+ * parse failure.
+ */
+export type ArrivalEntity =
+  | "order"
+  | "special_request"
+  | "delta_payment"
+  | "assignment"
+  | "seller_request";
+
+/**
+ * "Something new landed in a queue you own."
+ *
+ * The third frame type on this socket, and the one the activity marker should
+ * have been built on from the start. It carries no counts and no rows — its
+ * entire job is to name a queue.
+ *
+ * **Why this exists when `badge.delta` already did.** `changed` fires on any
+ * membership move, in both directions, so the marker had to gate on
+ * `delta === "up"` — and `delta` is optional in the badge contract. A server
+ * that omits it silences the marker completely, which is the failure this panel
+ * actually hit: new intents refetched the list and lit nothing. An arrival has
+ * no direction to check. Receiving one *is* the arrival.
+ *
+ * The server decides who gets one. There is no filtering by user, role or
+ * ownership here — if a frame reached this socket it is for this admin, the
+ * same discipline `badge` and `signal` already follow.
+ *
+ * `queue` is typed as `string` rather than {@link BadgeQueue} on purpose. The
+ * backend publishes queues this panel has no screen for (`deltas`, and the
+ * partner and sailor vocabularies), and more are promised. Narrowing at the
+ * wire boundary would make "a queue we do not show" a type error at the one
+ * place that must simply shrug — see {@link isBadgeQueue}.
+ */
+export interface ArrivalFrame {
+  type: "arrival";
+  scope: string;
+  /** The only field the dot needs. Validate before trusting it. */
+  queue: string;
+  /** What kind of thing arrived. Optional, and for copy only. */
+  entity?: ArrivalEntity | string;
+  /** Id of the non-order object, when `entity` is not `"order"`. */
+  entity_id?: string | null;
+  /**
+   * The related order, when there is one — `null` for a special request that
+   * has not been accepted yet. Advisory, exactly as `badge.id` is: a deep-link
+   * hint, never a promise that the detail call will succeed.
+   */
+  order_id?: string | null;
+  /** ISO-8601 server timestamp. */
+  at: string;
+}
+
+export type EventsInboundFrame =
+  | BadgeFrame
+  | SignalFrame
+  | ArrivalFrame
+  | EventsAuthErrorFrame
+  | EventsErrorFrame;
 
 /**
  * Is this a screen we know how to light?

@@ -10,9 +10,12 @@
  * the marker is suppressed when the admin is already on the screen, and the
  * chime is not. Being on a screen makes a *marker* redundant — the refetch has
  * already put the row there — but says nothing about whether anyone is looking
- * at the tab, which is the whole case for a sound. The direction gate
- * (`delta === "up"`) and the snapshot gate still apply to both, so an admin's
- * own completions and the connect/sync snapshots stay silent.
+ * at the tab, which is the whole case for a sound.
+ *
+ * Both are now driven by the `arrival` frame rather than by `badge.delta`, so
+ * there is no direction gate left to describe: an arrival has no direction, and
+ * receiving one *is* the arrival. An admin's own completions stay silent because
+ * the server never publishes an arrival for them, not because we filter one out.
  *
  * **No audio file.** A two-note chime synthesised through WebAudio is a few
  * lines, ships nothing, and cannot 404 behind a CDN — and there is no asset

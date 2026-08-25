@@ -5,7 +5,7 @@ import { MESSAGES } from "@/lib/messages";
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { showBadgeToast, showSignalToast } from "../lib/arrivalToast";
+import { showArrivalToast, showSignalToast } from "../lib/arrivalToast";
 import { authFailureAction } from "../lib/authFailure";
 import { queuesForRoute, routeForQueue, tagsForQueues } from "../lib/badgeRefetch";
 import { EventsSocket } from "../lib/eventsSocket";
@@ -50,10 +50,18 @@ let liveSocket: EventsSocket | null = null;
  * frame and N reconnect loops. It coexists with the chat socket — separate
  * paths, separate connections, no interference.
  *
- * Two things happen per frame and no more: the counters are overwritten, and the
- * list the admin is currently looking at is invalidated. Rows never come off the
- * socket — it carries counters only, and the REST serializers remain the sole
- * authority on who may see what.
+ * Three frame types arrive on it and each does one job. A `badge` overwrites the
+ * counters and invalidates the list the admin is looking at. A `signal` says
+ * work was handed to this admin, naming the stage. An `arrival` says something
+ * new landed in a queue — and it, not the badge frame, is what raises the
+ * activity marker, the chime and the toast.
+ *
+ * One event commonly produces all three. That is expected rather than a fault,
+ * and nothing is announced three times: the coalescer collapses the refetches,
+ * the chime throttles itself, and the toasts share an id keyed on `order_id`.
+ *
+ * Rows never come off the socket — none of the three carries any, and the REST
+ * serializers remain the sole authority on who may see what.
  *
  * **This does not make the order lists live, and it is not meant to.** The server
  * publishes only when a *count* moves, so an order going `at_port → at_berth`
@@ -131,17 +139,6 @@ export function useRealtimeBadges(): void {
 
     const socket = new EventsSocket(token, {
       onBadge: (frame) => {
-        // Dev trace. The chime has several deliberate silent paths and the
-        // refetch fires regardless, so from the outside "working but quiet" and
-        // "broken" look identical. `delta` is the field to read here: it is
-        // optional in the contract, and a server that omits it silences the
-        // chime on every badge frame.
-        if (import.meta.env.DEV) {
-          console.info(
-            `[events] badge changed=${frame.changed} delta=${frame.delta ?? "(absent)"}`,
-          );
-        }
-
         // Absolute, always complete — overwrite rather than merge.
         dispatch(applyBadge({ counts: frame.counts, mine: frame.mine, at: frame.at }));
 
@@ -149,54 +146,23 @@ export function useRealtimeBadges(): void {
         // `frame.id` is deliberately unused — it is advisory, and the list
         // refetch is the source of truth for what the admin may actually see.
         if (!isBadgeQueue(frame.changed)) return;
-        const queue = frame.changed;
 
         // Through the coalescer rather than straight to `invalidateTags`: bursts
         // are normal, and one request per frame is the polling this replaced.
-        coalescer.push(queue);
+        coalescer.push(frame.changed);
 
-        // The activity marker. Three gates, each of which would otherwise make
-        // the marker noise rather than signal:
+        // **And that is all a badge frame does now.** It used to also raise the
+        // activity marker, the chime and a toast, gated on `delta === "up"` —
+        // because `changed` fires on completions too, and without that gate an
+        // admin marked their own screen every time they finished an order.
         //
-        //  1. `delta === "up"` only. `changed` fires in both directions, so
-        //     without this an admin marks their own screen every time they
-        //     complete an order. `"down"` and `null` (unknown) stay quiet — a
-        //     late marker costs less than a false one.
-        //  2. Not while they are already looking at it. Marking the screen
-        //     under the admin's cursor is telling them about work they can see.
-        //  3. Snapshots never mark, handled by the `isBadgeQueue` guard above:
-        //     `connect`/`sync` name no queue, so there is nothing to attribute
-        //     the movement to.
-        if (frame.delta !== "up") {
-          // Not an error: `down` is the admin's own completions, and `null` is
-          // "direction unknown". Both are correctly silent — but this is the
-          // line that says so, because the refetch above already happened.
-          if (import.meta.env.DEV) {
-            console.info(`[events] no chime: delta=${frame.delta ?? "(absent)"}, not "up"`);
-          }
-          return;
-        }
-
-        // The chime is raised *before* the route gate, and the marker after —
-        // the one place the two deliberately diverge. Being on the screen makes
-        // a marker redundant, because the refetch has already put the row in
-        // front of the admin. It does not make the sound redundant: the tab
-        // being open on Orders says nothing about whether anyone is looking at
-        // it, and the case this feature exists for is an admin working in
-        // another window.
-        playNotificationSound();
-
-        // Also route-independent. A badge frame carries no stage and no order
-        // number, so this toast can only name the queue — but that is still the
-        // difference between rows reshuffling unexplained and a caption saying
-        // why.
-        showBadgeToast(queue, frame.id, {
-          route: routeForQueue(queue),
-          onView: (route) => navigateRef.current(route),
-        });
-
-        if (queuesForRoute(pathnameRef.current).includes(queue)) return;
-        dispatch(markActivity(queue));
+        // That gate was load-bearing on an optional field. `delta` is optional
+        // in the contract, and a server that omits it silences every one of
+        // those three, which is precisely what this panel hit: new intents
+        // refetched the list and announced nothing. The `arrival` frame is the
+        // backend's own answer — it has no direction to gate on, because
+        // receiving one *is* the arrival. All three moved to `onArrival` below,
+        // and this handler is back to what §1 always said it was: counters.
       },
       /**
        * Work was handed to this admin.
@@ -248,6 +214,61 @@ export function useRealtimeBadges(): void {
 
         if (queuesForRoute(pathnameRef.current).includes(screen)) return;
         dispatch(markActivity(screen));
+      },
+      /**
+       * Something new landed in a queue.
+       *
+       * The activity marker's real source. Unlike a badge frame there is no
+       * direction to check and no counts to apply — the frame names a queue and
+       * that is the whole payload. Unlike a signal it is not limited to the four
+       * screens work is handed over on: an arrival covers seller registrations
+       * and special requests too, which no signal ever describes.
+       *
+       * Three frames land for one event — an `arrival`, a `badge` and often a
+       * `signal`. That is expected, and each is deduplicated by a different
+       * mechanism: the coalescer collapses the refetches, the chime's own
+       * throttle collapses the sound, and the toasts share an id keyed on
+       * `order_id`.
+       */
+      onArrival: (frame) => {
+        if (import.meta.env.DEV) {
+          console.info(`[events] arrival queue=${frame.queue} entity=${frame.entity ?? "order"}`);
+        }
+
+        // Validated, not trusted, and the ignore path here is a normal outcome
+        // rather than an error. One socket serves three vocabularies plus
+        // `deltas`, which this panel has no Delta Payments screen for — and the
+        // contract promises more queues will be added. A dot we cannot route
+        // anywhere is worse than no dot: it sends the admin looking for a screen
+        // that does not exist.
+        if (!isBadgeQueue(frame.queue)) {
+          if (import.meta.env.DEV) {
+            console.info(`[events] arrival ignored: no screen for queue=${frame.queue}`);
+          }
+          return;
+        }
+        const queue = frame.queue;
+
+        // The list the admin is looking at, if this is that queue. An arrival
+        // means a new row exists, so this is the refetch that matters most —
+        // and it no longer depends on the badge frame's `delta` surviving.
+        coalescer.push(queue);
+
+        // Chime and toast before the route gate; the marker after. The one place
+        // the three deliberately diverge: being on the screen makes a *marker*
+        // redundant, because the refetch above has already put the row in front
+        // of the admin. It does not make the sound redundant — a tab open on
+        // Orders says nothing about whether anyone is looking at it, and an
+        // admin working in another window is the case this exists for.
+        playNotificationSound();
+
+        showArrivalToast(queue, frame.order_id ?? null, {
+          route: routeForQueue(queue),
+          onView: (route) => navigateRef.current(route),
+        });
+
+        if (queuesForRoute(pathnameRef.current).includes(queue)) return;
+        dispatch(markActivity(queue));
       },
       onStatus: (status) => dispatch(setSocketStatus(status)),
       onAuthError: (code, detail) => {

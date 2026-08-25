@@ -16,7 +16,7 @@ export {
   tagsForRoute,
   routeForQueue,
 } from "./lib/badgeRefetch";
-export { showSignalToast, showBadgeToast } from "./lib/arrivalToast";
+export { showSignalToast, showArrivalToast } from "./lib/arrivalToast";
 export { RefetchCoalescer } from "./lib/refetchCoalescer";
 export {
   default as realtimeReducer,

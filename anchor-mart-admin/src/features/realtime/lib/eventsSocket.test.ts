@@ -61,6 +61,7 @@ function handlers() {
   return {
     onBadge: vi.fn(),
     onSignal: vi.fn(),
+    onArrival: vi.fn(),
     onStatus: vi.fn(),
     onAuthError: vi.fn(),
     onError: vi.fn(),
@@ -133,6 +134,58 @@ describe("badge frames", () => {
     ws.open();
     expect(() => ws.receiveRaw("<html>gateway error</html>")).not.toThrow();
     expect(h.onBadge).not.toHaveBeenCalled();
+  });
+});
+
+describe("arrival frames", () => {
+  const ARRIVAL = {
+    type: "arrival",
+    scope: "admin",
+    queue: "express_orders",
+    entity: "order",
+    entity_id: null,
+    order_id: "8f2c",
+    at: "2026-08-25T11:04:22.918Z",
+  };
+
+  it("delivers them", () => {
+    const { ws, h } = connected();
+    ws.open();
+    ws.receive(ARRIVAL);
+    expect(h.onArrival).toHaveBeenCalledWith(ARRIVAL);
+  });
+
+  it("routes them to onArrival alone", () => {
+    // An arrival carries no counts and no stage; reaching either of the other
+    // two handlers would apply `undefined` where a payload was expected.
+    const { ws, h } = connected();
+    ws.open();
+    ws.receive(ARRIVAL);
+    expect(h.onBadge).not.toHaveBeenCalled();
+    expect(h.onSignal).not.toHaveBeenCalled();
+  });
+
+  it("passes a queue it does not recognise straight through", () => {
+    // The socket is not where unknown queues are filtered — the hook is, which
+    // is the only layer that knows which queues this panel has screens for.
+    // Dropping `deltas` here would hide a real frame from the one place that
+    // could decide about it.
+    const { ws, h } = connected();
+    ws.open();
+    ws.receive({ ...ARRIVAL, queue: "deltas" });
+    expect(h.onArrival).toHaveBeenCalledWith(expect.objectContaining({ queue: "deltas" }));
+  });
+
+  it("ignores a frame type it has never heard of", () => {
+    // Forward compatibility, and the reason it matters here specifically: this
+    // socket is shared. A throw on an unknown type would take the badges and
+    // signals down with it.
+    const { ws, h } = connected();
+    ws.open();
+    expect(() => ws.receive({ type: "something_new", scope: "admin" })).not.toThrow();
+    expect(h.onArrival).not.toHaveBeenCalled();
+    expect(h.onBadge).not.toHaveBeenCalled();
+    expect(h.onSignal).not.toHaveBeenCalled();
   });
 });
 

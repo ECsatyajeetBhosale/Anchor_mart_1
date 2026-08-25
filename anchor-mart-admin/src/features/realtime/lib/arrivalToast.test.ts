@@ -4,7 +4,7 @@ const info = vi.fn();
 vi.mock("sonner", () => ({ toast: { info: (...a: unknown[]) => info(...a) } }));
 
 import type { SignalFrame } from "../types/realtime.types";
-import { showBadgeToast, showSignalToast } from "./arrivalToast";
+import { showArrivalToast, showSignalToast } from "./arrivalToast";
 
 const deps = { route: "/intents", onView: vi.fn() };
 
@@ -44,23 +44,23 @@ describe("arrivalToast", () => {
   it("shares one toast id between a signal and the badge frame for the same order", () => {
     // The dedupe that stops one arrival producing two notices.
     showSignalToast(signal(), deps);
-    showBadgeToast("intents", "abc", deps);
+    showArrivalToast("intents", "abc", deps);
     expect(info.mock.calls[0][1].id).toBe("arrival-abc");
     expect(info.mock.calls[1][1].id).toBe("arrival-abc");
   });
 
   it("lets anonymous arrivals stack, since there is nothing to collapse on", () => {
-    showBadgeToast("orders", null, deps);
+    showArrivalToast("orders", null, deps);
     expect(info.mock.calls[0][1].id).toBeUndefined();
   });
 
   it("names the parent screen for a folded queue", () => {
-    showBadgeToast("delivery_failed", null, deps);
+    showArrivalToast("delivery_failed", null, deps);
     expect(info.mock.calls[0][0]).toBe("New activity in Orders");
   });
 
   it("navigates to the bound route when View is clicked", () => {
-    showBadgeToast("intents", null, deps);
+    showArrivalToast("intents", null, deps);
     info.mock.calls[0][1].action.onClick();
     expect(deps.onView).toHaveBeenCalledWith("/intents");
   });
