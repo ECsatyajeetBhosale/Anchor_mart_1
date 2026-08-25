@@ -181,6 +181,19 @@ export function tagsForQueues(queues: BadgeQueue[], pathname: string): QueueTag[
 }
 
 /**
+ * The screen a queue belongs to.
+ *
+ * The same bindings the refetch uses, read in the other direction, so a toast
+ * deep-links to exactly the screen the invalidation refreshed. Note that three
+ * queues deliberately share two routes — `verifications` resolves to Intents
+ * and `delivery_failed` to Orders — which is the existing folding decision, not
+ * a lookup accident.
+ */
+export function routeForQueue(queue: BadgeQueue): string {
+  return QUEUE_BINDINGS[queue].route;
+}
+
+/**
  * Which queues the screen at this path covers.
  *
  * The inverse of {@link tagsToInvalidate}'s route check, and what tells the

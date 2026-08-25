@@ -3,11 +3,13 @@ import { useAppDispatch, useAppSelector } from "@/hooks/useAppDispatch";
 import { baseApi } from "@/lib/fetchUtils";
 import { MESSAGES } from "@/lib/messages";
 import { useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { showBadgeToast, showSignalToast } from "../lib/arrivalToast";
 import { authFailureAction } from "../lib/authFailure";
-import { queuesForRoute, tagsForQueues } from "../lib/badgeRefetch";
+import { queuesForRoute, routeForQueue, tagsForQueues } from "../lib/badgeRefetch";
 import { EventsSocket } from "../lib/eventsSocket";
+import { installAudioUnlock, playNotificationSound } from "../lib/notificationSound";
 import { RefetchCoalescer } from "../lib/refetchCoalescer";
 import {
   applyBadge,
@@ -64,6 +66,15 @@ export function useRealtimeBadges(): void {
   const dispatch = useAppDispatch();
   const token = useAppSelector((s) => s.auth.token);
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+
+  /**
+   * Held in a ref for the same reason `pathname` is: the socket effect must not
+   * rebuild when the router hands us a new function identity, or the connection
+   * would drop on navigation.
+   */
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
 
   /**
    * The live route, read at frame time rather than closed over.
@@ -90,6 +101,14 @@ export function useRealtimeBadges(): void {
     if (queues.length > 0) dispatch(clearActivity(queues));
   }, [pathname, dispatch]);
 
+  /**
+   * Arm audio on the admin's first click or keypress.
+   *
+   * Not inside the socket effect: it has no dependency on the token, and
+   * re-installing the listeners on every reconnect would be pointless churn.
+   */
+  useEffect(() => installAudioUnlock(), []);
+
   useEffect(() => {
     if (!token) {
       // Logged out: tear down and clear, so the numbers do not survive behind a
@@ -112,6 +131,17 @@ export function useRealtimeBadges(): void {
 
     const socket = new EventsSocket(token, {
       onBadge: (frame) => {
+        // Dev trace. The chime has several deliberate silent paths and the
+        // refetch fires regardless, so from the outside "working but quiet" and
+        // "broken" look identical. `delta` is the field to read here: it is
+        // optional in the contract, and a server that omits it silences the
+        // chime on every badge frame.
+        if (import.meta.env.DEV) {
+          console.info(
+            `[events] badge changed=${frame.changed} delta=${frame.delta ?? "(absent)"}`,
+          );
+        }
+
         // Absolute, always complete — overwrite rather than merge.
         dispatch(applyBadge({ counts: frame.counts, mine: frame.mine, at: frame.at }));
 
@@ -137,7 +167,34 @@ export function useRealtimeBadges(): void {
         //  3. Snapshots never mark, handled by the `isBadgeQueue` guard above:
         //     `connect`/`sync` name no queue, so there is nothing to attribute
         //     the movement to.
-        if (frame.delta !== "up") return;
+        if (frame.delta !== "up") {
+          // Not an error: `down` is the admin's own completions, and `null` is
+          // "direction unknown". Both are correctly silent — but this is the
+          // line that says so, because the refetch above already happened.
+          if (import.meta.env.DEV) {
+            console.info(`[events] no chime: delta=${frame.delta ?? "(absent)"}, not "up"`);
+          }
+          return;
+        }
+
+        // The chime is raised *before* the route gate, and the marker after —
+        // the one place the two deliberately diverge. Being on the screen makes
+        // a marker redundant, because the refetch has already put the row in
+        // front of the admin. It does not make the sound redundant: the tab
+        // being open on Orders says nothing about whether anyone is looking at
+        // it, and the case this feature exists for is an admin working in
+        // another window.
+        playNotificationSound();
+
+        // Also route-independent. A badge frame carries no stage and no order
+        // number, so this toast can only name the queue — but that is still the
+        // difference between rows reshuffling unexplained and a caption saying
+        // why.
+        showBadgeToast(queue, frame.id, {
+          route: routeForQueue(queue),
+          onView: (route) => navigateRef.current(route),
+        });
+
         if (queuesForRoute(pathnameRef.current).includes(queue)) return;
         dispatch(markActivity(queue));
       },
@@ -161,6 +218,10 @@ export function useRealtimeBadges(): void {
        *    as well would announce work they can already see.
        */
       onSignal: (frame) => {
+        if (import.meta.env.DEV) {
+          console.info(`[events] signal screen=${frame.screen} stage=${frame.stage}`);
+        }
+
         // Validated, not trusted: an unrecognised screen from a future server
         // must be ignored rather than guessed at, since marking the wrong queue
         // sends the admin to look at somewhere nothing happened.
@@ -171,6 +232,19 @@ export function useRealtimeBadges(): void {
         // event often produces both frames (a new intent raises a signal *and* a
         // badge), which would otherwise be two requests for one arrival.
         coalescer.push(screen);
+
+        // Before the route gate, same reasoning as the badge handler above.
+        // Throttled internally, which is what keeps a signal and the badge frame
+        // accompanying it from chiming twice for one arrival.
+        playNotificationSound();
+
+        // The rich notice: a signal names the stage, which is the detail neither
+        // the marker nor the counters can carry. Deduped against the badge frame
+        // for the same order by `order_id`.
+        showSignalToast(frame, {
+          route: routeForQueue(screen),
+          onView: (route) => navigateRef.current(route),
+        });
 
         if (queuesForRoute(pathnameRef.current).includes(screen)) return;
         dispatch(markActivity(screen));

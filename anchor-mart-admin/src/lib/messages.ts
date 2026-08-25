@@ -4898,6 +4898,9 @@ export const MESSAGES = {
   // Realtime badge socket (`ws/events/`). Only the states an admin must act on
   // or account for — a healthy socket says nothing at all.
   REALTIME: {
+    /** The header's chime toggle. Labels the action, not the state. */
+    SOUND_MUTE: "Mute notification sound",
+    SOUND_UNMUTE: "Unmute notification sound",
     /** A terminal auth failure ended the session; the panel has signed them out. */
     SESSION_ENDED: "Your session has ended. Please sign in again.",
     // Connection state. Shown only while the socket is *not* healthy, so the

@@ -1,9 +1,18 @@
-import { ConnectionStatus, requestBadgeSync, tagsForRoute } from "@/features/realtime";
+import {
+  ConnectionStatus,
+  isSoundMuted,
+  requestBadgeSync,
+  setSoundMuted,
+  subscribeSoundMuted,
+  tagsForRoute,
+} from "@/features/realtime";
 import { useAppDispatch } from "@/hooks/useAppDispatch";
 import { APP_ROUTES } from "@/lib/constants";
 import { baseApi } from "@/lib/fetchUtils";
+import { MESSAGES } from "@/lib/messages";
 import { NAV_SECTIONS } from "@/lib/navigation";
-import { IconBell, IconRefresh } from "@tabler/icons-react";
+import { IconBell, IconRefresh, IconVolume, IconVolumeOff } from "@tabler/icons-react";
+import { useSyncExternalStore } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -16,6 +25,11 @@ export function Header(_props: HeaderProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+
+  // The preference lives outside React — the frame handler that plays the chime
+  // is not in a component — so it is read through the store contract rather than
+  // mirrored into state that could fall out of step with what actually sounds.
+  const muted = useSyncExternalStore(subscribeSoundMuted, isSoundMuted, () => false);
 
   // Find the page title based on active path
   let pageTitle = "Dashboard";
@@ -67,6 +81,19 @@ export function Header(_props: HeaderProps) {
           screen have stopped being live. Sits beside refresh because that is the
           control it is telling the admin to reach for. */}
       <ConnectionStatus />
+
+      {/* Next to the connection state because both answer "why has this screen
+          gone quiet?" — one because the socket died, one because you silenced it. */}
+      <button
+        type="button"
+        className="tb-action"
+        title={muted ? MESSAGES.REALTIME.SOUND_UNMUTE : MESSAGES.REALTIME.SOUND_MUTE}
+        aria-label={muted ? MESSAGES.REALTIME.SOUND_UNMUTE : MESSAGES.REALTIME.SOUND_MUTE}
+        aria-pressed={muted}
+        onClick={() => setSoundMuted(!muted)}
+      >
+        {muted ? <IconVolumeOff size={17} /> : <IconVolume size={17} />}
+      </button>
 
       <button type="button" className="tb-action" title="Refresh data" onClick={handleRefresh}>
         <IconRefresh size={17} />
