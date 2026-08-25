@@ -165,6 +165,19 @@ export interface OrderAssignmentHistory {
   id: string;
   partnerName: string;
   partnerCode: string;
+  /**
+   * The partner's **user** UUID, when the payload carries one — `""` otherwise.
+   *
+   * Needed to open a chat with a *previous* partner on a reassigned order, which
+   * is the only case `user_id` on the create-order-chat endpoint exists for.
+   * `partnerCode` cannot stand in: it is a display code ("DP-00124") and the
+   * endpoint keys on the user id.
+   *
+   * Empty is treated as "cannot message this row" rather than an error — the
+   * assignment history is a timeline first, and messaging is a use it may or may
+   * not be able to support depending on what the row carries.
+   */
+  partnerUserId: string;
   status: string;
   statusDisplay: string;
   assignedBy: string;

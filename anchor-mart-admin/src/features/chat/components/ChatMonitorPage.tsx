@@ -1,10 +1,11 @@
-import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { PageHeader } from "@/components/common/PageHeader";
+import { SegmentedToggle } from "@/components/common/SegmentedToggle";
 import { Button } from "@/components/ui/button";
 import { useAppSelector } from "@/hooks/useAppDispatch";
 import { MESSAGES } from "@/lib/messages";
-import { IconUsersGroup } from "@tabler/icons-react";
-import { useMemo, useState } from "react";
+import { IconPencilPlus } from "@tabler/icons-react";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   useGetDeliveryChatsQuery,
   useGetOrderChatsQuery,
@@ -15,12 +16,12 @@ import { type ChatListTag, useChatSocket } from "../hooks/useChatSocket";
 import type { ChatSource, OrderChatCategory, SocketChatType } from "../types/chat.types";
 import { ChatMessagePane } from "./ChatMessagePane";
 import { ChatThreadList } from "./ChatThreadList";
-import { CreateGroupChatDrawer } from "./CreateGroupChatDrawer";
+import { StartChatDrawer } from "./StartChatDrawer";
 
 const M = MESSAGES.CHAT;
 
 /** `""` means "both sides" — the endpoint returns every category when omitted. */
-const CATEGORY_OPTIONS = [
+const CATEGORY_OPTIONS: { value: OrderChatCategory | ""; label: string }[] = [
   { value: "", label: M.ORDER.CATEGORY_ALL },
   { value: "order", label: M.ORDER.CATEGORY_ORDER },
   { value: "order_delivery", label: M.ORDER.CATEGORY_DELIVERY },
@@ -41,37 +42,80 @@ const SOURCE_CONFIG: Record<ChatSource, SourceConfig> = {
   order: { listTag: "ORDER-LIST", chatType: "order", copy: M.ORDER },
 };
 
+/** The two support inboxes, shown as one screen with a toggle. */
+export const SUPPORT_SOURCES: { value: ChatSource; label: string }[] = [
+  { value: "support", label: MESSAGES.CHAT.SUPPORT.TAB_SAILORS },
+  { value: "delivery", label: MESSAGES.CHAT.SUPPORT.TAB_PARTNERS },
+];
+
 export interface ChatMonitorPageProps {
-  /** Which endpoint backs the sidebar. */
+  /** Which endpoint backs the sidebar initially. */
   source: ChatSource;
+  /**
+   * When given, the screen renders a toggle between these inboxes.
+   *
+   * Used by Support to cover sailors and partners under one nav entry. They are
+   * two endpoints but one job — a desk answering whoever wrote in — and the
+   * separate "Chat Monitor" entry they used to have said nothing about which
+   * audience it held.
+   */
+  sources?: { value: ChatSource; label: string }[];
 }
 
 /**
- * Two-pane conversation screen, shared by Support Threads, Chat Monitor and
- * Order Chats — they differ only in which list endpoint feeds the sidebar and
- * how the socket addresses a thread, so one component serves all three rather
- * than three near-copies drifting apart.
+ * Two-pane conversation screen, shared by Support (both its tabs) and Order
+ * Chats — they differ only in which list endpoint feeds the sidebar and how the
+ * socket addresses a thread, so one component serves all of them rather than
+ * near-copies drifting apart.
  *
  * The order inbox is **not** a shared inbox: a sub-admin sees only threads on
  * orders they own, a super-admin sees all. That is enforced server-side, and
  * this screen makes no attempt to widen it.
  */
-export function ChatMonitorPage({ source }: ChatMonitorPageProps) {
+export function ChatMonitorPage({ source, sources }: ChatMonitorPageProps) {
+  // The toggle owns the active inbox once there is one; without it the prop is
+  // the whole answer.
+  const [activeSource, setActiveSource] = useState<ChatSource>(source);
+  const effectiveSource = sources ? activeSource : source;
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<OrderChatCategory | "">("");
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [groupOpen, setGroupOpen] = useState(false);
 
-  const { listTag, chatType, copy } = SOURCE_CONFIG[source];
+  // §8.3 — arriving from "Message sailor" / "Message partner" / "Message", which
+  // create the thread and then hand its id over in the route state. Opened here
+  // rather than by the caller because the thread may not be on the loaded page
+  // yet: the id is authoritative, the list catches up on its own invalidation.
+  const routeState = useLocation().state as { openChatId?: string; source?: ChatSource } | null;
+  const openChatId = routeState?.openChatId ?? null;
+  const routeSource = routeState?.source ?? null;
+  useEffect(() => {
+    if (openChatId) setActiveId(openChatId);
+  }, [openChatId]);
+
+  // A partner's support thread lives in a different inbox from a sailor's, so
+  // arriving with one selected has to switch tabs — otherwise the screen opens
+  // on the sailor list and the thread that was just created is nowhere on it.
+  useEffect(() => {
+    if (routeSource) setActiveSource(routeSource);
+  }, [routeSource]);
+  const [startOpen, setStartOpen] = useState(false);
+
+  const { listTag, chatType, copy } = SOURCE_CONFIG[effectiveSource];
   const adminEmail = useAppSelector((s) => s.auth.user?.email) ?? "Support";
 
   // All three hooks are always called (rules of hooks); the two that don't back
   // this screen are skipped so they never fire a request.
-  const supportQuery = useGetUserChatsQuery(undefined, { skip: source !== "support" });
-  const deliveryQuery = useGetDeliveryChatsQuery(undefined, { skip: source !== "delivery" });
-  const orderQuery = useGetOrderChatsQuery({ category }, { skip: source !== "order" });
+  const supportQuery = useGetUserChatsQuery(undefined, { skip: effectiveSource !== "support" });
+  const deliveryQuery = useGetDeliveryChatsQuery(undefined, {
+    skip: effectiveSource !== "delivery",
+  });
+  const orderQuery = useGetOrderChatsQuery({ category }, { skip: effectiveSource !== "order" });
   const { data, isLoading, isError } =
-    source === "support" ? supportQuery : source === "delivery" ? deliveryQuery : orderQuery;
+    effectiveSource === "support"
+      ? supportQuery
+      : effectiveSource === "delivery"
+        ? deliveryQuery
+        : orderQuery;
 
   const threads = useMemo(() => data?.items ?? [], [data]);
 
@@ -88,7 +132,10 @@ export function ChatMonitorPage({ source }: ChatMonitorPageProps) {
     );
   }, [threads, search]);
 
-  const activeThread = visibleThreads.find((t) => t.id === activeId) ?? null;
+  // Falls back to the unfiltered list so a thread opened by id from another
+  // screen is not hidden by a search term or category filter left on this one.
+  const activeThread =
+    visibleThreads.find((t) => t.id === activeId) ?? threads.find((t) => t.id === activeId) ?? null;
 
   const socket = useChatSocket({
     activeChatId: activeThread?.id ?? null,
@@ -100,7 +147,9 @@ export function ChatMonitorPage({ source }: ChatMonitorPageProps) {
   // Presence is polled for the rows on screen (§4.7) — an admin socket carries
   // no presence frames. The roster is the *visible* threads, so narrowing the
   // search narrows what is asked about rather than paying for the whole page.
-  const presence = useChatPresence(visibleThreads);
+  // Paused while the start-a-conversation drawer is up: it covers the thread
+  // list entirely, so the dots behind it are refreshing for nobody.
+  const presence = useChatPresence(visibleThreads, { enabled: !startOpen });
 
   return (
     <div className="page-enter">
@@ -108,22 +157,42 @@ export function ChatMonitorPage({ source }: ChatMonitorPageProps) {
         title={copy.TITLE}
         actions={
           <div className="flex items-center gap-2.5">
-            {source === "order" && (
-              <DropdownSelect
+            {/* Sailors / Partners. Two endpoints, one desk — the audiences are
+                answered by the same people and were previously split across two
+                nav entries, one of which named neither audience. */}
+            {sources && (
+              <SegmentedToggle
+                value={effectiveSource}
+                options={sources}
+                onChange={(next) => {
+                  setActiveSource(next);
+                  // The open thread belongs to the inbox being left.
+                  setActiveId(null);
+                }}
+              />
+            )}
+
+            {/* Same control as the support toggle above, for the same reason:
+                three short, mutually exclusive options fit on a line, and a
+                dropdown would hide two of them behind a click. */}
+            {effectiveSource === "order" && (
+              <SegmentedToggle
                 value={category}
-                placeholder={M.ORDER.CATEGORY_ALL}
                 options={CATEGORY_OPTIONS}
-                onValueChange={(v) => {
-                  setCategory(v as OrderChatCategory | "");
+                onChange={(next) => {
+                  setCategory(next);
                   // The open thread may not survive into the narrowed list.
                   setActiveId(null);
                 }}
-                width="170px"
               />
             )}
-            <Button variant="secondary" size="sm" onClick={() => setGroupOpen(true)}>
-              <IconUsersGroup size={15} className="mr-1" />
-              {M.GROUP.CREATE}
+            {/* §8.3 — the doc's two entry points start from an order or a user
+                the admin is already looking at, and those still exist. This is
+                the same two endpoints reached from the inbox itself, which is
+                where an admin goes when the conversation is the errand. */}
+            <Button variant="primary" size="sm" onClick={() => setStartOpen(true)}>
+              <IconPencilPlus size={15} className="mr-1" />
+              {M.START.NEW}
             </Button>
           </div>
         }
@@ -151,7 +220,13 @@ export function ChatMonitorPage({ source }: ChatMonitorPageProps) {
         <ChatMessagePane thread={activeThread} socket={socket} onlineUsers={presence.onlineUsers} />
       </div>
 
-      <CreateGroupChatDrawer isOpen={groupOpen} onClose={() => setGroupOpen(false)} />
+      <StartChatDrawer
+        isOpen={startOpen}
+        onClose={() => setStartOpen(false)}
+        // Order inboxes start an order thread; the support inboxes start a
+        // support thread. The screen the admin is on already says which.
+        mode={effectiveSource === "order" ? "order" : "support"}
+      />
     </div>
   );
 }

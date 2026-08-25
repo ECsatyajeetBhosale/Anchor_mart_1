@@ -1,3 +1,4 @@
+import type { UnreadCategory } from "@/features/chat/slice/chatUnreadSlice";
 import type { BadgeQueue } from "@/features/realtime/types/realtime.types";
 import { APP_ROUTES } from "@/lib/constants";
 import {
@@ -25,7 +26,6 @@ import {
   // IconMailFast,
   IconMapPin,
   IconMessage2,
-  IconMessages,
   IconMotorbike,
   IconPackage,
   IconSettings,
@@ -63,6 +63,20 @@ export interface NavItem {
    * neither carries a marker.
    */
   badgeKeys?: BadgeQueue[];
+  /**
+   * Which chat categories raise this item's unread dot (Flow 23 §9).
+   *
+   * Separate from {@link badgeKeys} because the two answer different questions
+   * against different transports: a badge queue asks "has work arrived in this
+   * queue", a chat category asks "is someone waiting on a reply". They happen to
+   * render the same dot, and merging them would mean one source clearing the
+   * other's marker.
+   *
+   * §9.5: this panel has separate icons per inbox, so it uses the breakdown
+   * rather than `total`. Group chats ride with Support, which is where a group
+   * thread surfaces.
+   */
+  chatUnreadKeys?: UnreadCategory[];
   badgeVariant?: "warning" | "success" | "info" | "danger" | null;
   /**
    * Hide this entry below super admin.
@@ -221,16 +235,19 @@ export const NAV_SECTIONS: NavSection[] = [
         path: APP_ROUTES.NOTIFICATIONS,
       },
       {
-        key: "chat",
-        label: "Chat Monitor",
-        icon: IconMessages,
-        path: APP_ROUTES.CHAT,
-      },
-      {
         key: "support",
         label: "Support",
         icon: IconLifebuoy,
         path: APP_ROUTES.SUPPORT,
+        // Both support inboxes. The screen carries a Sailors / Partners toggle:
+        // they are two endpoints but one desk, and the separate "Chat Monitor"
+        // entry that used to hold the partner half named neither audience —
+        // beside "Support" it read as a duplicate of it.
+        //
+        // `group` is deliberately **not** here. No admin list endpoint returns
+        // group threads, so a group dot would send an admin to a screen the
+        // thread is not on — worse than no dot at all.
+        chatUnreadKeys: ["user_support", "delivery_support"],
       },
       {
         // Flow 23 §4.3 — per-order threads, deliberately separate from Chat
@@ -240,6 +257,9 @@ export const NAV_SECTIONS: NavSection[] = [
         label: "Order Chats",
         icon: IconMessage2,
         path: APP_ROUTES.ORDER_CHATS,
+        // Both sides of an order: the sailor's thread and the partner's are
+        // separate conversations but land on the same screen.
+        chatUnreadKeys: ["order", "order_delivery"],
       },
       // Parked, not removed — see the note on Assignments above.
       // {

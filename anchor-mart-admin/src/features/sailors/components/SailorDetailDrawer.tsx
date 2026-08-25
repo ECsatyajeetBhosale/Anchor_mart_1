@@ -1,5 +1,4 @@
 import { IconEdit, IconMessage, IconUser } from "@tabler/icons-react";
-import { useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -10,8 +9,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useStartChat } from "@/features/chat";
 import { getFallbackAvatar } from "@/lib/avatar";
-import { APP_ROUTES } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 
 import type { SailorData } from "../types/sailor.types";
@@ -64,7 +63,7 @@ export function SailorDetailDrawer({
   onClose,
   onEdit,
 }: SailorDetailDrawerProps) {
-  const navigate = useNavigate();
+  const { startSupportChat, isStarting } = useStartChat();
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
@@ -133,9 +132,11 @@ export function SailorDetailDrawer({
             <button
               type="button"
               className="btn btn-secondary"
-              // No sailor-messaging endpoint exists yet, so this hands off to
-              // the chat screen rather than claiming a message was sent.
-              onClick={() => navigate(APP_ROUTES.CHAT)}
+              disabled={!sailor || isStarting}
+              // §8.3 — opens (or reuses) this sailor's support thread and lands
+              // on it. 201 and 200 are the same outcome: a thread already
+              // existing is not a conflict and is never reported as one.
+              onClick={() => sailor && startSupportChat(sailor.id)}
             >
               <IconMessage size={16} />
               {D.MESSAGE}

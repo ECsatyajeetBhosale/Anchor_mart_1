@@ -3980,16 +3980,22 @@ export const MESSAGES = {
   CHAT: {
     DASH: "—",
     SUPPORT: {
-      TITLE: "Support Threads",
+      TITLE: "Support",
       SUBTITLE: "Conversations sailors and partners opened with the support desk.",
       SEARCH_PLACEHOLDER: "Search support threads…",
       EMPTY: "No support threads yet.",
+      // The two inboxes, as the toggle labels them.
+      TAB_SAILORS: "Sailors",
+      TAB_PARTNERS: "Partners",
     },
+    // The partner half of the support desk. Titled "Support" like the sailor
+    // half because they are two tabs of one screen now, not two screens — the
+    // heading must not change when the toggle moves.
     DELIVERY: {
-      TITLE: "Chat Monitor",
-      SUBTITLE: "Admin ↔ Sailors & Delivery Partners — real-time communication",
-      SEARCH_PLACEHOLDER: "Search conversations…",
-      EMPTY: "No conversations yet.",
+      TITLE: "Support",
+      SUBTITLE: "Conversations delivery partners opened with the support desk.",
+      SEARCH_PLACEHOLDER: "Search partner threads…",
+      EMPTY: "No partner threads yet.",
     },
     ORDER: {
       TITLE: "Order Chats",
@@ -4008,23 +4014,59 @@ export const MESSAGES = {
     },
     // Live socket state (Flow 23 §2). Surfaced because a chat that has silently
     // stopped receiving is indistinguishable from a quiet one.
+    // ⚠️ This browser's **connection**, never the other person — the two are
+    // kept apart in wording and in placement.
+    //
+    // There is no longer a healthy-state label here. A green "Live" pill sat in
+    // the header saying nothing actionable, was read as "the sailor is online"
+    // (which it never meant), and by being true almost always it taught people
+    // to ignore the corner it lived in. What survives is the exception, shown
+    // under the composer where the admin is already looking when they act.
     SOCKET: {
-      CONNECTING: "Connecting…",
-      OPEN: "Live",
-      RECONNECTING: "Reconnecting…",
-      OFFLINE: "Offline",
       AUTH_ERROR: (code: string) => `Chat connection refused (${code}).`,
-      // `blocked` and `invalid_token` are terminal — the client must not retry.
-      AUTH_ERROR_FATAL: "Chat is unavailable for this account. Sign in again or contact support.",
-      QUEUED: "Offline — this will send when the connection returns.",
+      // Covers **both** directions on purpose. Queuing protects what the admin
+      // sends; nothing protects what they should be receiving, and a thread that
+      // has silently stopped receiving looks exactly like a quiet one. The
+      // inbound half is the part no other element on the screen would reveal.
+      QUEUED: "Reconnecting — new messages may not appear, and this will send once reconnected.",
+    },
+    // The **counterparty's** presence (§8.4), polled from the presence endpoint.
+    //
+    // There is deliberately no "Offline" label. The endpoint answers only for
+    // the ids it was asked about, so "not in the online set" covers both "away"
+    // and "we never asked" — and rendering the second as the first states
+    // something the server never said. Absent presence shows nothing at all.
+    // The **counterparty's** presence (§8.4) — the sailor or partner. The API
+    // never exposes an admin's, so this is the only presence signal that exists.
+    //
+    // ⚠️ Worded as **recency, not liveness**, because that is what the marker
+    // actually is: a Redis key with a 300-second TTL, refreshed on every socket
+    // frame. A clean disconnect clears it at once, but a crashed app, a dropped
+    // tunnel or a phone losing signal does not — that key just expires. So
+    // "offline" is trustworthy and "online" can be up to five minutes stale.
+    // "Online" promised presence at this instant, which the data cannot support;
+    // "Active recently" is the strongest claim it can honestly make.
+    //
+    // Consequently this must never gate a control, back a "they will see this
+    // immediately" promise, or imply anything about read state. It informs one
+    // small choice — ask a quick question and wait, or write a single
+    // self-contained message. A typing indicator or a delivered/read tick is a
+    // different mechanism, not a bolder reading of this one.
+    PRESENCE: {
+      RECENT: "Active recently",
+      RECENT_HINT: "Seen in the last few minutes — not a guarantee they are reading now.",
     },
     COMPOSER: {
       PLACEHOLDER: "Write a reply…",
       SEND: "Send",
       HINT: "Enter to send · Shift+Enter for a new line",
-      // The one write the admin panel genuinely cannot do: uploads live under
-      // /api/chat/, which requires a header this panel has no access to.
-      NO_ATTACH: "Attachments can be read here but not sent from the admin panel.",
+      ATTACH: "Attach an image or PDF (max 10 MB)",
+      UPLOADING: "Uploading…",
+      // Pre-flight failures, phrased as the rule that was broken. A bare 413 or
+      // 400 makes the admin guess which of the two limits they hit.
+      TOO_LARGE: "That file is over the 10 MB limit.",
+      BAD_TYPE: "Only images (png, jpg, gif, webp) and PDFs can be attached.",
+      UPLOAD_FAILED: "The attachment could not be sent.",
       TYPING_ONE: "typing…",
       TYPING_MANY: (n: number) => `${n} people typing…`,
       EDIT: "Edit",
@@ -4036,18 +4078,60 @@ export const MESSAGES = {
       CONFIRM_DELETE_BODY:
         "It stays in the thread marked as deleted — everyone in the conversation sees that a message was removed.",
     },
-    GROUP: {
-      CREATE: "New Group",
-      TITLE: "Create Group Chat",
-      SUBTITLE: "You become the group admin and are added automatically.",
-      NAME: "Group Name",
-      NAME_PLACEHOLDER: "e.g. Singapore Ops Desk",
-      PARTICIPANTS: "Participants",
-      PARTICIPANTS_HINT: "One user ID per line. Every ID must exist, or the request is rejected.",
-      PARTICIPANTS_PLACEHOLDER: "9c1e…\n0b7d…",
-      SUBMIT: "Create Group",
-      CREATED: "Group chat created successfully",
-      ERROR: "Failed to create the group chat",
+    // §5 — the order strip pinned above the message list on order threads.
+    CONTEXT: {
+      LOADING: "Loading…",
+      ON_HOLD: "On hold",
+      HOLD_LABEL: "Delivery",
+      HOLD_VALUE: "On hold",
+      UNITS: "Units delivered",
+      LINES: "Lines delivered",
+      PENDING: "Lines pending",
+      SUBSTITUTED: "Lines substituted",
+      UNAVAILABLE: "Lines unavailable",
+      PAYMENT: "Payment",
+      OPEN_ORDER: "Open full order",
+      // Not phrased as a failure: the thread is fine and the conversation below
+      // is fully usable. Only the enhancement is missing.
+      UNAVAILABLE_DETAIL: "Order details are unavailable right now.",
+      // Units, not lines — a line is a product, a unit is a piece.
+      DELIVERED: (done: number, total: number) => `${done}/${total} delivered`,
+      LINES_VALUE: (done: number, total: number) => `${done} of ${total}`,
+    },
+    // §8.3 — admin-initiated threads, opened from an order or a user.
+    START: {
+      NEW: "New Conversation",
+      NEW_SUPPORT: "Start a support conversation",
+      NEW_SUPPORT_HINT: "Pick the sailor or delivery partner to open a thread with.",
+      NEW_ORDER: "Start an order conversation",
+      NEW_ORDER_HINT:
+        "Pick the order, then which side to talk to. The sailor's thread and the partner's are separate conversations.",
+      AUDIENCE_SAILOR: "Sailor",
+      AUDIENCE_PARTNER: "Partner",
+      SIDE_SAILOR: "Sailor",
+      SIDE_PARTNER: "Delivery partner",
+      SEARCH_PEOPLE: "Search by name or email…",
+      SEARCH_ORDERS: "Search by order number…",
+      NO_EMAIL: "No email on file",
+      NO_NAME: "Unknown",
+      NO_MATCHES: "Nobody matches that search.",
+      NO_PEOPLE: "Nobody to show here yet.",
+      NO_ORDERS: "No orders match that search.",
+      // Reassignment is the uncommon case, so this stays folded away: the
+      // default (omitting `user_id`) reaches whoever holds the delivery now.
+      PREVIOUS_SHOW: "Message a previous partner instead",
+      PREVIOUS_HIDE: "Message the current partner",
+      NO_PREVIOUS: "No previous partners on this order.",
+      OPEN: "Open conversation",
+      MESSAGE_SAILOR: "Message sailor",
+      MESSAGE_PARTNER: "Message partner",
+      MESSAGE_USER: "Message",
+      OPENING: "Opening conversation…",
+      // 403 / 409 reuse the panel's ownership vocabulary and offer no retry —
+      // neither failure is transient, and a retry button would imply it is.
+      NOT_OWNER: "This order is managed by another admin.",
+      UNASSIGNED: "Claim this order before messaging about it.",
+      FAILED: "Could not open the conversation.",
     },
     THREADS: {
       FETCH_ERROR: "Failed to load conversations.",

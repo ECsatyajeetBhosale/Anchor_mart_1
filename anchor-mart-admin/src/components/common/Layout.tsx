@@ -1,5 +1,6 @@
 import { AppSidebar } from "@/components/common/AppSidebar";
 import { Header } from "@/components/common/Header";
+import { ChatSocketProvider } from "@/features/chat";
 import { useRealtimeBadges } from "@/features/realtime";
 import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
@@ -23,16 +24,18 @@ export function Layout() {
   }, []);
 
   return (
-    <div className={`app-shell ${collapsed ? "collapsed" : ""} ${mounted ? "in" : ""}`} id="app">
-      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
+    <ChatSocketProvider>
+      <div className={`app-shell ${collapsed ? "collapsed" : ""} ${mounted ? "in" : ""}`} id="app">
+        <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
 
-      <Header collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
+        <Header collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
 
-      <main className="main-content" id="mc">
-        <div className="page-enter">
-          <Outlet />
-        </div>
-      </main>
-    </div>
+        <main className="main-content" id="mc">
+          <div className="page-enter">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+    </ChatSocketProvider>
   );
 }

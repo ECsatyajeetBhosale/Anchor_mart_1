@@ -1,4 +1,5 @@
 import authReducer from "@/features/auth/slice/authSlice";
+import chatUnreadReducer from "@/features/chat/slice/chatUnreadSlice";
 import realtimeReducer from "@/features/realtime/slice/realtimeSlice";
 import { baseApi } from "@/lib/fetchUtils";
 import { configureStore } from "@reduxjs/toolkit";
@@ -11,6 +12,10 @@ export const store = configureStore({
     // Badge counters pushed over `ws/events/`. Not RTK Query: nothing is fetched
     // — the socket is the only writer, and every frame replaces the whole set.
     realtime: realtimeReducer,
+    // The chat red dot (Flow 23 §9). Seeded by `unread-summary/` and kept live
+    // by the app-level chat socket — not RTK Query state, because the socket
+    // writes to it far more often than the endpoint does.
+    chatUnread: chatUnreadReducer,
   },
   middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(baseApi.middleware),
   devTools: import.meta.env.DEV,

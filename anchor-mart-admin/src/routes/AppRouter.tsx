@@ -37,7 +37,7 @@ import { SpecialRequestsPage } from "@/pages/SpecialRequestsPage";
 import { NotificationsPage } from "@/features/notifications";
 
 // Chat — live support, delivery and per-order threads (Flow 23)
-import { DeliveryChatsPage, OrderChatsPage, SupportChatsPage } from "@/features/chat";
+import { OrderChatsPage, SupportChatsPage } from "@/features/chat";
 
 // Ratings & Reviews (Flow 16 admin surfaces)
 import { RatingsPage } from "@/features/ratings";
@@ -119,7 +119,6 @@ export function AppRouter() {
             {/* <Route path={APP_ROUTES.ASSIGNMENTS} element={<AssignmentsPage />} /> */}
             {/* <Route path={APP_ROUTES.VERIFICATION} element={<VerificationPage />} /> */}
             <Route path={APP_ROUTES.NOTIFICATIONS} element={<NotificationsPage />} />
-            <Route path={APP_ROUTES.CHAT} element={<DeliveryChatsPage />} />
             <Route path={APP_ROUTES.SUPPORT} element={<SupportChatsPage />} />
             <Route path={APP_ROUTES.ORDER_CHATS} element={<OrderChatsPage />} />
             <Route path={APP_ROUTES.SELLERS} element={<SellerRequestsPage />} />

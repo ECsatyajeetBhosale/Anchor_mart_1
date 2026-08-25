@@ -114,7 +114,7 @@ export function ChatThreadList({
 
               {section.rows.map((thread) => {
                 const role = CHAT_ROLES[section.key];
-                const isOnline = Boolean(thread.owner?.id && onlineUsers.has(thread.owner.id));
+                const isOnline = Boolean(thread.ownerId && onlineUsers.has(thread.ownerId));
                 const isActive = activeId === thread.id;
 
                 return (

@@ -1,8 +1,7 @@
-import { useAppDispatch, useAppSelector } from "@/hooks/useAppDispatch";
-import { MESSAGES } from "@/lib/messages";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
+import { useAppDispatch } from "@/hooks/useAppDispatch";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { chatApi, messagesCacheKey } from "../api/chatApi";
+import { ChatSocketContext } from "../context/ChatSocketProvider";
 import {
   applyDelete,
   applyEdit,
@@ -10,16 +9,12 @@ import {
   mergeIncomingMessage,
   optimisticMessage,
 } from "../lib/chatCache";
-import { ChatSocket } from "../lib/chatSocket";
-import {
-  type InboundFrame,
-  InboundMsgType,
-  type OutboundFrame,
-  type SocketChatType,
-  type SocketStatus,
+import type {
+  InboundFrame,
+  OutboundFrame,
+  SocketChatType,
+  SocketStatus,
 } from "../types/chat.types";
-
-const M = MESSAGES.CHAT;
 
 /** How long a typing indicator survives without a refreshing frame. */
 const TYPING_TTL_MS = 5_000;
@@ -46,14 +41,7 @@ export interface ChatSocketApi {
   authError: string | null;
   /** Sender ids currently typing in the open thread. */
   typingSenders: string[];
-  /**
-   * This admin's own user id, once known.
-   *
-   * The auth payload carries only email and role, so the id is **learned**: the
-   * server echoes our own sends back, and the first echo matching something we
-   * just typed identifies us. Null until then — which is why callers must treat
-   * "unknown" as "not me" rather than guessing.
-   */
+  /** This admin's own user id, so their own messages can be told apart. */
   selfUserId: string | null;
   sendMessage: (text: string) => void;
   notifyTyping: () => void;
@@ -64,12 +52,22 @@ export interface ChatSocketApi {
 }
 
 /**
- * Binds the chat websocket to the RTK Query cache (Flow 23 §2).
+ * Binds one chat screen to the app-level socket (Flow 23 §2).
  *
- * One socket per mounted chat screen, rebuilt only when the token changes.
+ * The connection itself lives in {@link ChatSocketProvider}, mounted in the app
+ * shell — this hook subscribes to it. That split is what §9 requires: the red
+ * dot has to light on **every** screen, so the socket cannot belong to the chat
+ * screens. It also means switching between the three inboxes no longer tears the
+ * connection down and rebuilds it.
+ *
  * Frames for the open thread patch its message cache in place; frames for any
  * other thread only invalidate the list, so an unread badge updates without
  * refetching a conversation nobody is reading.
+ *
+ * ⚠️ Frames are dispatched on the **`type` string**, not the integer `msg_type`.
+ * Both are on the wire and they agree, but §3 is explicit that a client picks
+ * one and uses it consistently — reading both is how the two drift apart
+ * unnoticed when one of them gains a value.
  */
 export function useChatSocket({
   activeChatId,
@@ -78,22 +76,26 @@ export function useChatSocket({
   senderName,
 }: UseChatSocketArgs): ChatSocketApi {
   const dispatch = useAppDispatch();
-  const token = useAppSelector((s) => s.auth.token);
+  const ctx = useContext(ChatSocketContext);
+  if (!ctx) {
+    throw new Error("useChatSocket must be used inside <ChatSocketProvider>.");
+  }
+  const { subscribe, send: sendFrame, setActiveChatId, status, authError, selfUserId } = ctx;
 
-  const [status, setStatus] = useState<SocketStatus>("idle");
-  const [authError, setAuthError] = useState<string | null>(null);
   const [typing, setTyping] = useState<Record<string, number>>({});
-  const [selfUserId, setSelfUserId] = useState<string | null>(null);
-
-  const socketRef = useRef<ChatSocket | null>(null);
   const lastTypingSentRef = useRef(0);
-  // Text we have just sent and not yet seen echoed. Used once, to learn our own
-  // user id — see `selfUserId`. Kept small: entries are removed on match.
-  const awaitingEchoRef = useRef<Set<string>>(new Set());
-  // Read inside socket callbacks, which are created once per connection and
-  // would otherwise capture whichever thread was open when it was created.
+
+  // Read inside the frame listener, which is registered once and would otherwise
+  // capture whichever thread was open at registration time.
   const activeChatIdRef = useRef(activeChatId);
   activeChatIdRef.current = activeChatId;
+
+  // Tell the provider which thread is being read, so its messages are not
+  // counted toward the badge and its dot contribution is retracted.
+  useEffect(() => {
+    setActiveChatId(activeChatId);
+    return () => setActiveChatId(null);
+  }, [activeChatId, setActiveChatId]);
 
   /* ── inbound frames ──────────────────────────────────────────────────────── */
 
@@ -108,37 +110,31 @@ export function useChatSocket({
       const refreshList = () =>
         dispatch(chatApi.util.invalidateTags([{ type: "Chats", id: listTag }]));
 
-      switch (frame.msg_type) {
-        case InboundMsgType.ChatMessage: {
-          // An echo of something we just typed tells us which sender id is us —
-          // the only way to know, since the auth payload has no user id.
-          const echoed = frame.content ?? "";
-          if (frame.sender && awaitingEchoRef.current.delete(echoed)) {
-            setSelfUserId(frame.sender);
-          }
+      switch (frame.type) {
+        case "chat_message": {
           patch((draft) => mergeIncomingMessage(draft, frameToMessage(frame)));
           // Either way the list's preview and unread badge are now stale.
           refreshList();
           break;
         }
 
-        case InboundMsgType.MessageEdited:
+        case "message_edited":
           patch((draft) => applyEdit(draft, frame));
           break;
 
-        case InboundMsgType.MessageDeleted:
+        case "message_deleted":
           patch((draft) => applyDelete(draft, frame));
           refreshList();
           break;
 
-        case InboundMsgType.UserTyping:
+        case "user_typing":
           if (isActive && frame.sender) {
             const sender = frame.sender;
             setTyping((prev) => ({ ...prev, [sender]: Date.now() }));
           }
           break;
 
-        case InboundMsgType.UserStoppedTyping:
+        case "user_stopped_typing":
           if (frame.sender) {
             const sender = frame.sender;
             setTyping((prev) => {
@@ -150,63 +146,30 @@ export function useChatSocket({
           }
           break;
 
-        case InboundMsgType.MessageSeen:
+        case "message_seen":
           // A read receipt moves the list's unread badge, nothing in the pane.
           refreshList();
           break;
 
-        // Presence frames are **not delivered to admins** (§2.3, corrected
-        // 2026-08-03): they go to delivery partners only, and only when an
-        // *admin* connects or disconnects. The online dots come from polling
-        // `…/chat/presence/` instead — see `useChatPresence`. These cases stay
-        // enumerated so the switch is exhaustive over the frame protocol and a
-        // future reader does not "restore" a listener that never fires here.
-        case InboundMsgType.UserWentOnline:
-        case InboundMsgType.UserWentOffline:
+        // Presence frames are **not delivered to admins** (§3.5): they go to
+        // delivery partners only. The online dots come from polling
+        // `…/chat/presence/` instead — see `useChatPresence`. These stay
+        // enumerated so a future reader does not "restore" a listener that can
+        // never fire here.
+        case "user_went_online":
+        case "user_went_offline":
           break;
 
         default:
+          // Unknown frame types are ignored rather than thrown on. The socket is
+          // shared with the badge, and a throw here would cost that too.
           break;
       }
     },
     [dispatch, listTag],
   );
 
-  // Held in a ref so the connection effect depends on the token alone.
-  // Reconnecting on every thread switch would drop queued frames and
-  // re-announce this admin's presence to every partner.
-  const handleFrameRef = useRef(handleFrame);
-  handleFrameRef.current = handleFrame;
-
-  /* ── connection lifecycle ────────────────────────────────────────────────── */
-
-  useEffect(() => {
-    if (!token) {
-      setStatus("idle");
-      return;
-    }
-    setAuthError(null);
-
-    const socket = new ChatSocket(token, {
-      onStatus: setStatus,
-      onAuthError: (code, detail) => {
-        setAuthError(detail || M.SOCKET.AUTH_ERROR(code));
-        setStatus("error");
-      },
-      // In-band errors are per-frame and non-fatal ("Message text is required"),
-      // so they surface as a toast and leave the connection alone.
-      onError: (message) => toast.error(message),
-      onFrame: (frame) => handleFrameRef.current(frame),
-    });
-
-    socketRef.current = socket;
-    socket.connect();
-
-    return () => {
-      socket.close();
-      socketRef.current = null;
-    };
-  }, [token]);
+  useEffect(() => subscribe(handleFrame), [subscribe, handleFrame]);
 
   /* ── typing indicator upkeep ─────────────────────────────────────────────── */
 
@@ -239,9 +202,9 @@ export function useChatSocket({
       if (!chatId) return;
       // An admin must always address the thread explicitly — only a
       // customer/partner may omit `receiver_id`, having exactly one thread.
-      socketRef.current?.send({ chat_type: chatType, receiver_id: chatId, ...frame });
+      sendFrame({ chat_type: chatType, receiver_id: chatId, ...frame });
     },
-    [chatType],
+    [chatType, sendFrame],
   );
 
   const sendMessage = useCallback(
@@ -259,12 +222,9 @@ export function useChatSocket({
         }),
       );
 
-      // Only worth recording until we have identified ourselves once.
-      if (!selfUserId) awaitingEchoRef.current.add(trimmed);
-
       send({ msg_type: "NewMessage", message: trimmed });
     },
-    [dispatch, send, senderName, selfUserId],
+    [dispatch, send, senderName],
   );
 
   const notifyTyping = useCallback(() => {

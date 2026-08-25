@@ -747,6 +747,61 @@ export const CHAT_ENDPOINTS = {
    * confidently wrong "everyone online".
    */
   PRESENCE: "/superadmin/chat/presence/",
+  /**
+   * §4.5 — the unread badge. Returns `total`, `has_unread`, `threads_with_unread`
+   * and a `by_category` breakdown.
+   *
+   * **Never polled.** Called at launch, after login, and after every reconnect;
+   * the socket keeps it live in between. Polling on top of the socket is exactly
+   * the cost this design exists to avoid.
+   *
+   * ⚠️ The admin unread rule differs from the client apps' and is **not a bug**:
+   * unread counts only messages sent by the thread's *owner*, never by another
+   * admin. The support inbox is shared, so counting a colleague's reply would
+   * light every admin's badge every time anyone answered anyone.
+   */
+  UNREAD_SUMMARY: "/superadmin/chat/unread-summary/",
+  /**
+   * §5 — the order a thread is about, projected for the caller's audience.
+   * Admins always receive the **admin** shape, on the sailor's thread and the
+   * partner's alike.
+   *
+   * 404 means the thread is fine and the order is gone — render the conversation
+   * without the strip. The chat must never be blocked on this call.
+   */
+  ORDER_CONTEXT: (chatId: string) => `/superadmin/chat/order-chats/${chatId}/order-context/`,
+  /**
+   * §8.3 — open a support thread with a user. Body: `{ user_id, message? }`.
+   * **201** = created, **200** = it already existed; both mean "open it".
+   */
+  CREATE_SUPPORT_CHAT: "/superadmin/chat/support-chats/create/",
+  /**
+   * §8.3 — open an order thread. Body: `{ order_id, side, user_id?, message? }`.
+   *
+   * `side` is required and never guessed. `user_id` reaches a **previous**
+   * delivery partner on a reassigned order; omit it for the current one. Sending
+   * it with `side: "customer"` is a 400 — an order has exactly one sailor.
+   *
+   * 403 = another admin owns this order, 409 = the order is unassigned. Both come
+   * from the same ownership gate as every other admin action on an order.
+   */
+  CREATE_ORDER_CHAT: "/superadmin/chat/order-chats/create/",
+  /**
+   * §4.4 — attachment upload. Multipart: `file`, `message_type`
+   * (`image` | `file`), optional `message` caption, and **one** target —
+   * `chat_id` for a support thread (admins only) or `order_id` for an order one.
+   *
+   * ⚠️ The only endpoint this panel calls that is **not** under
+   * `/api/superadmin/`, so it is the only one needing the `server-secret-key`
+   * header. Max 10 MB; the server sniffs the real bytes rather than trusting the
+   * extension or the content type, so a renamed file is a 400 and an oversized
+   * one is a 413.
+   *
+   * The created message is broadcast to every participant as a normal
+   * `chat_message` frame, so the response must **not** be appended — doing both
+   * is how the sender sees their own attachment twice.
+   */
+  UPLOAD_MEDIA: "/chat/upload-media/",
 };
 
 /**

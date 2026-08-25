@@ -12,17 +12,57 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
  * All feature APIs must extend this via injectEndpoints() — never
  * create a new createApi() instance.
  */
+/**
+ * Shared client secret required by the `/api/chat/` mounts.
+ *
+ * The `/api/superadmin/` prefix — which is almost everything this panel calls —
+ * is **exempt**, so this is attached per-endpoint rather than globally. The one
+ * admin call that needs it is chat attachment upload (Flow 23 §4.4).
+ *
+ * ⚠️ Not a secret from this panel's own users: Vite inlines every `VITE_*` var
+ * into the bundle at build time, so it is readable in any browser that loads the
+ * app. It gates the API against unauthenticated traffic, nothing more — which is
+ * the same footing the sailor and partner apps carry it on.
+ */
+const SERVER_SECRET_KEY = import.meta.env.VITE_SERVER_SECRET_KEY as string | undefined;
+
+/**
+ * Marks a request as needing the `server-secret-key` header.
+ *
+ * Spelled as an endpoint opt-in because the exemption runs the other way round
+ * from what you would guess: the privileged `/superadmin/` routes do **not**
+ * want it, and only the shared `/api/chat/` mounts do. Attaching it globally
+ * would send the panel's secret on every request in the app to no purpose.
+ */
+export const SERVER_SECRET_HEADER = "x-am-needs-server-secret";
+
 const rawBaseQuery = fetchBaseQuery({
   // Dev: empty baseUrl → relative URLs hit Vite proxy (no CORS)
   // Prod: full URL → requests go directly to backend
   baseUrl: import.meta.env.DEV ? "/api" : (import.meta.env.VITE_API_BASE_URL as string),
-  prepareHeaders: (headers, { getState }) => {
+  prepareHeaders: (headers, { getState, extra: _extra, endpoint: _endpoint, type: _type }) => {
     const token = (getState() as RootState).auth.token;
     if (token) {
       // Django REST Framework Token Auth — NOT Bearer
       headers.set("Authorization", `Token ${token}`);
     }
-    headers.set("Content-Type", "application/json");
+
+    // Opt-in marker set by the endpoint, swapped for the real header here so the
+    // key itself never has to be imported into a feature module.
+    if (headers.has(SERVER_SECRET_HEADER)) {
+      headers.delete(SERVER_SECRET_HEADER);
+      if (SERVER_SECRET_KEY) headers.set("server-secret-key", SERVER_SECRET_KEY);
+    }
+
+    // **Never set Content-Type on a multipart body.** The browser has to write
+    // it itself, because only it knows the boundary token it generated; setting
+    // it here produces a body the server cannot parse and a 400 that looks like
+    // a rejected file rather than a malformed request.
+    if (headers.get("Content-Type") === "multipart/form-data") {
+      headers.delete("Content-Type");
+    } else if (!headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
     // Default to JSON, but let an endpoint override `Accept` (e.g. file exports
     // that return xlsx — forcing application/json makes DRF reply 406).
     if (!headers.has("Accept")) {

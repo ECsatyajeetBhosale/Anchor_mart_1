@@ -30,7 +30,6 @@ export const APP_ROUTES = {
   ASSIGNMENTS: "/assignments",
   VERIFICATION: "/verification",
   NOTIFICATIONS: "/notifications",
-  CHAT: "/chat",
   SUPPORT: "/support",
   // Flow 23 §4.3 — per-order threads. Not the same as CHAT, which is the
   // shared delivery-partner support inbox.

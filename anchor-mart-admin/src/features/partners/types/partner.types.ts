@@ -56,7 +56,20 @@ export type PartnerBadgeVariant = NonNullable<BadgeProps["variant"]>;
  */
 export interface PartnerApi {
   id: string;
+  /**
+   * The backing **user** UUID, flat.
+   *
+   * ⚠️ Not the same as {@link PartnerApi.id}, which is the partner *profile*
+   * record. Every partner endpoint keys on the user id, and handing one a
+   * profile id is a 400 — the single most likely mistake against this payload.
+   */
   user_id?: string | null;
+  /**
+   * The same user, nested. Some responses carry the id here instead of flat, so
+   * both are read: whichever is present, the user UUID is what callers need and
+   * neither shape should decide whether a feature works.
+   */
+  user?: { id?: string | null } | null;
   partner_id?: string | null;
   name?: string | null;
   first_name?: string | null;
@@ -147,6 +160,14 @@ export interface GetPartnersParams {
   search?: string;
   /** One of `available | on_duty | inactive`. Omit for no status filter. */
   status?: string;
+  /**
+   * Restricts to accounts that are not blocked.
+   *
+   * Worth setting on any picker that feeds a write: a blocked account is
+   * rejected by the create-chat endpoint with a 400, and letting an admin pick
+   * someone only to fail afterwards spends their decision for nothing.
+   */
+  is_active?: boolean;
 }
 
 /**

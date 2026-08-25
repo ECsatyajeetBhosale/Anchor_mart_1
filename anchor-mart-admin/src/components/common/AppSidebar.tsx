@@ -1,5 +1,6 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { logout } from "@/features/auth/slice/authSlice";
+import { useChatUnread } from "@/features/chat";
 import { useAppDispatch, useAppSelector } from "@/hooks/useAppDispatch";
 import { APP_ROUTES } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
@@ -34,6 +35,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
    * are acted on.
    */
   const activity = useAppSelector((s) => s.realtime.activity);
+  const chatUnread = useChatUnread();
 
   function handleLogout() {
     dispatch(logout());
@@ -139,7 +141,13 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
                   // One marker per entry however many queues feed it: Intents
                   // covers verifications too, and the admin does not need to be
                   // told which of the two moved — opening the screen shows them.
-                  const hasActivity = item.badgeKeys?.some((key) => activity[key]) ?? false;
+                  // Two independent sources, one marker: a realtime badge queue
+                  // gaining work, or a chat thread waiting on a reply. They are
+                  // OR-ed rather than merged upstream so neither can clear the
+                  // other's reason for being lit.
+                  const hasActivity =
+                    (item.badgeKeys?.some((key) => activity[key]) ?? false) ||
+                    chatUnread.hasUnreadIn(item.chatUnreadKeys);
                   const link = (
                     // String className (not a function) so it survives Radix's
                     // `Slot` merge when used as `TooltipTrigger asChild`. React

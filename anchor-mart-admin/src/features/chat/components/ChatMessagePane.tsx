@@ -11,28 +11,19 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
-import { MESSAGE_PAGE_SIZE, useGetChatMessagesQuery } from "../api/chatApi";
+import { toast } from "sonner";
+import {
+  MESSAGE_PAGE_SIZE,
+  useGetChatMessagesQuery,
+  useUploadChatMediaMutation,
+} from "../api/chatApi";
 import type { ChatSocketApi } from "../hooks/useChatSocket";
 import { isFromAdmin, resolveChatRole } from "../lib/chatRoles";
-import type { ChatMessage, ChatThread, SocketStatus } from "../types/chat.types";
+import type { ChatMessage, ChatThread, UploadMessageType } from "../types/chat.types";
 import { ChatComposer } from "./ChatComposer";
+import { OrderContextStrip } from "./OrderContextStrip";
 
 const M = MESSAGES.CHAT;
-
-/** Live-connection pill. A chat that has silently stopped receiving looks quiet. */
-function StatusPill({ status }: { status: SocketStatus }) {
-  if (status === "open") {
-    return (
-      <Badge variant="success" showDot>
-        {M.SOCKET.OPEN}
-      </Badge>
-    );
-  }
-  if (status === "connecting") return <Badge variant="warning">{M.SOCKET.CONNECTING}</Badge>;
-  if (status === "closed") return <Badge variant="warning">{M.SOCKET.RECONNECTING}</Badge>;
-  if (status === "error") return <Badge variant="danger">{M.SOCKET.OFFLINE}</Badge>;
-  return null;
-}
 
 /** Formats one message's timestamp for the hover meta line. */
 function formatTime(iso: string): string {
@@ -65,6 +56,8 @@ export function ChatMessagePane({ thread, socket, onlineUsers }: ChatMessagePane
     { chatId: chatId ?? "", page: 1, limit: MESSAGE_PAGE_SIZE },
     { skip: !chatId },
   );
+
+  const [uploadMedia, { isLoading: isUploading }] = useUploadChatMediaMutation();
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<{ id: string; content: string } | null>(null);
@@ -110,7 +103,7 @@ export function ChatMessagePane({ thread, socket, onlineUsers }: ChatMessagePane
   }
 
   const role = resolveChatRole(thread);
-  const ownerId = thread.owner?.id ?? null;
+  const ownerId = thread.ownerId;
 
   /**
    * Whether *this* admin wrote the message, which is narrower than "the admin
@@ -121,6 +114,35 @@ export function ChatMessagePane({ thread, socket, onlineUsers }: ChatMessagePane
    */
   const isSelf = (msg: ChatMessage) =>
     Boolean(msg.pending || (socket.selfUserId && msg.senderId === socket.selfUserId));
+
+  /**
+   * Sends an attachment (§4.4).
+   *
+   * Addressed by **order id on an order thread** and chat id on a support one —
+   * the two are different parameters on the endpoint, and an order thread keyed
+   * by its chat id would be accepted for the wrong conversation.
+   *
+   * Nothing is appended here on success. The server broadcasts the created
+   * message to every participant as a normal `chat_message` frame, so the socket
+   * already puts it in the thread exactly once; adding the response as well is
+   * how a sender sees their own attachment twice.
+   */
+  const handleAttach = async (file: File, messageType: UploadMessageType, caption: string) => {
+    try {
+      await uploadMedia({
+        file,
+        messageType,
+        message: caption,
+        ...(thread.order ? { orderId: thread.order.id } : { chatId: thread.id }),
+      }).unwrap();
+    } catch (error) {
+      // 413 is the size limit and 400 is usually the byte-sniff rejecting a
+      // renamed file; the composer pre-flights both, so reaching here means the
+      // server disagreed with us and its own wording is the more useful one.
+      const detail = (error as { data?: { detail?: unknown } })?.data?.detail;
+      toast.error(typeof detail === "string" && detail ? detail : M.COMPOSER.UPLOAD_FAILED);
+    }
+  };
 
   const isOnline = Boolean(ownerId && onlineUsers.has(ownerId));
   const offlineNotice = socket.authError ?? (socket.status === "open" ? null : M.SOCKET.QUEUED);
@@ -148,18 +170,27 @@ export function ChatMessagePane({ thread, socket, onlineUsers }: ChatMessagePane
           <div className="mb-[3px] flex items-center gap-2">
             <span className="w7 c1 trunc">{thread.name}</span>
             <Badge variant={role.badgeVariant}>{role.label}</Badge>
+            {/* Shown **only** on a confirmed-true presence result. Nothing is
+                rendered otherwise: the endpoint answers for the ids it was
+                asked about, so "not online" also covers "never asked", and
+                labelling that "Offline" would state something the server never
+                said. A missing marker means "no claim", not "away". */}
+            {isOnline && (
+              <span
+                className="sdot on xs csuccess shrink-0"
+                title={M.PRESENCE.RECENT_HINT}
+                aria-label={M.PRESENCE.RECENT}
+              >
+                {M.PRESENCE.RECENT}
+              </span>
+            )}
           </div>
-          {isOnline ? (
-            <div className="sdot on xs csuccess">{contextLine}</div>
-          ) : (
-            <div className="xs c4 w6 trunc">{contextLine}</div>
-          )}
+          <div className="xs c4 w6 trunc">{contextLine}</div>
         </div>
 
         {thread.orderNumber && (
           <span className="badge badge-neutral mono shrink-0">{thread.orderNumber}</span>
         )}
-        <StatusPill status={socket.status} />
         <button
           type="button"
           className="btn btn-ghost btn-sm shrink-0"
@@ -170,6 +201,11 @@ export function ChatMessagePane({ thread, socket, onlineUsers }: ChatMessagePane
           <IconRefresh size={15} />
         </button>
       </div>
+
+      {/* §5 — the order, pinned between the header and the messages. Present
+          only on order threads, which is exactly what a non-null `order` means.
+          It renders from this row immediately and never gates the pane below. */}
+      {thread.order && <OrderContextStrip chatId={thread.id} order={thread.order} />}
 
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
         {isError ? (
@@ -275,6 +311,8 @@ export function ChatMessagePane({ thread, socket, onlineUsers }: ChatMessagePane
         onSubmitEdit={socket.editMessage}
         onTyping={socket.notifyTyping}
         onStoppedTyping={socket.notifyStoppedTyping}
+        onAttach={handleAttach}
+        isUploading={isUploading}
       />
 
       <ConfirmDialog

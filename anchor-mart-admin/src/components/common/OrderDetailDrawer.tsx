@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { Sheet, SheetContent, SheetFooter } from "@/components/ui/sheet";
+import { useStartChat } from "@/features/chat";
 import { MESSAGES } from "@/lib/messages";
 import {
   IconAlertTriangle,
@@ -10,6 +11,7 @@ import {
   IconCalendar,
   IconCoin,
   IconFileDownload,
+  IconMessage,
   IconPackage,
   IconShip,
   IconTransfer,
@@ -28,6 +30,7 @@ import {
 } from "./ReviewLayout";
 
 const M = MESSAGES.ORDERS;
+const CHAT_START = MESSAGES.CHAT.START;
 const D = MESSAGES.ORDERS.DRAWER;
 
 const TAB_OVERVIEW = "overview";
@@ -262,6 +265,12 @@ export function OrderDetailDrawer({
   timeline,
   detailSlot,
 }: OrderDetailDrawerProps) {
+  // §8.3 — admin-initiated order threads. Self-contained: the create endpoint
+  // needs only the order id and the side, so this needs nothing from the caller.
+  const { startOrderChat, isStarting } = useStartChat();
+  // `partner` is a display string; a dash or a blank means nobody holds it.
+  const hasPartner = Boolean(order?.partner && order.partner !== "—" && order.partner.trim());
+
   const [tab, setTab] = useState(TAB_OVERVIEW);
 
   // Reopening on whichever tab the last order was left on would be disorienting,
@@ -542,47 +551,73 @@ export function OrderDetailDrawer({
               )}
             </div>
 
-            {/* Footer actions — each renders only when the caller owns it. */}
-            {(onReassign || onCancel || onRefund || onDownloadSlip) && (
-              <SheetFooter className="p-5 border-t border-[var(--border-md)] bg-[var(--surface-alt)]">
-                <div className="flex gap-2 w-full">
-                  {onReassign && (
-                    <Button variant="secondary" size="sm" onClick={() => onReassign(order.id)}>
-                      <IconTransfer size={15} />
-                      {M.ACTIONS.REASSIGN}
-                    </Button>
-                  )}
-                  {onDownloadSlip && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={onDownloadSlip}
-                      disabled={slipLoading}
-                    >
-                      <IconFileDownload size={15} />
-                      {slipLoading ? M.SLIP_DOWNLOADING : M.SLIP}
-                    </Button>
-                  )}
-                  {onRefund && (
-                    <Button variant="secondary" size="sm" className="ml-auto" onClick={onRefund}>
-                      <IconCoin size={15} />
-                      {M.ACTIONS.REFUND}
-                    </Button>
-                  )}
-                  {onCancel && (
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      className={onRefund ? undefined : "ml-auto"}
-                      onClick={onCancel}
-                    >
-                      <IconX size={15} />
-                      {M.ACTIONS.CANCEL_ORDER}
-                    </Button>
-                  )}
-                </div>
-              </SheetFooter>
-            )}
+            {/* Footer actions. The two message buttons are always present — they
+                need nothing from the caller but the order id (§8.3) — while the
+                rest render only when the caller owns the handler. */}
+            <SheetFooter className="p-5 border-t border-[var(--border-md)] bg-[var(--surface-alt)]">
+              <div className="flex gap-2 w-full">
+                {/* §8.3 — `side` is required and never guessed: the sailor's
+                      thread and the partner's are separate conversations on the
+                      same order, and neither can see the other. */}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={isStarting}
+                  onClick={() => startOrderChat({ orderId: order.id, side: "customer" })}
+                >
+                  <IconMessage size={15} />
+                  {CHAT_START.MESSAGE_SAILOR}
+                </Button>
+                {/* Shown only when a partner actually holds the order: without
+                      an assignment the create is a 400, and offering a button
+                      that can only fail is worse than not offering it. */}
+                {hasPartner && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={isStarting}
+                    onClick={() => startOrderChat({ orderId: order.id, side: "delivery_partner" })}
+                  >
+                    <IconMessage size={15} />
+                    {CHAT_START.MESSAGE_PARTNER}
+                  </Button>
+                )}
+                {onReassign && (
+                  <Button variant="secondary" size="sm" onClick={() => onReassign(order.id)}>
+                    <IconTransfer size={15} />
+                    {M.ACTIONS.REASSIGN}
+                  </Button>
+                )}
+                {onDownloadSlip && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={onDownloadSlip}
+                    disabled={slipLoading}
+                  >
+                    <IconFileDownload size={15} />
+                    {slipLoading ? M.SLIP_DOWNLOADING : M.SLIP}
+                  </Button>
+                )}
+                {onRefund && (
+                  <Button variant="secondary" size="sm" className="ml-auto" onClick={onRefund}>
+                    <IconCoin size={15} />
+                    {M.ACTIONS.REFUND}
+                  </Button>
+                )}
+                {onCancel && (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    className={onRefund ? undefined : "ml-auto"}
+                    onClick={onCancel}
+                  >
+                    <IconX size={15} />
+                    {M.ACTIONS.CANCEL_ORDER}
+                  </Button>
+                )}
+              </div>
+            </SheetFooter>
           </>
         )}
       </SheetContent>

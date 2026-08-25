@@ -288,6 +288,11 @@ export const assignmentApi = baseApi.injectEndpoints({
           id: pick(r, "id") || `assignment-${idx}`,
           partnerName: pick(r, "partner_name", "partner", "name") || "-",
           partnerCode: pick(r, "partner_code", "code"),
+          // Several shapes tried because this is not documented on the row; a
+          // miss leaves it empty and the "message a previous partner" option
+          // simply does not appear, rather than offering a call that would 400.
+          partnerUserId:
+            pick(r, "partner_user_id", "user_id") || pick(getProp(r, "partner"), "user_id", "id"),
           status: pick(r, "status"),
           statusDisplay: pick(r, "status_display", "status"),
           assignedBy: pick(r, "assigned_by_email", "assigned_by"),

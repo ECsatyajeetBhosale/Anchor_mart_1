@@ -1,6 +1,6 @@
 import { CHAT_ENDPOINTS } from "@/lib/apiEndpoints";
 import { type ListResult, asNumber, asString, getProp, unwrapList } from "@/lib/apiResponse";
-import { baseApi } from "@/lib/fetchUtils";
+import { SERVER_SECRET_HEADER, baseApi } from "@/lib/fetchUtils";
 import type {
   ChatCategory,
   ChatCounterparty,
@@ -9,8 +9,16 @@ import type {
   ChatOwner,
   ChatPresence,
   ChatThread,
+  ChatUnreadSummary,
   CreateChatGroupPayload,
+  CreateOrderChatPayload,
+  CreateSupportChatPayload,
+  CreatedChat,
   OrderChatCategory,
+  OrderContext,
+  OrderContextAudience,
+  OrderContextSummary,
+  UploadChatMediaArgs,
 } from "../types/chat.types";
 
 /** First non-empty string among the given keys, else `""`. */
@@ -32,7 +40,7 @@ function pickOrNull(row: unknown, ...keys: string[]): string | null {
 function toOwner(value: unknown): ChatOwner | null {
   if (!value || typeof value !== "object") return null;
   return {
-    id: pick(value, "id"),
+    id: pick(value, "id", "user_id", "user"),
     name: pick(value, "name", "first_name", "email") || "Unknown",
     email: pickOrNull(value, "email"),
     role: pickOrNull(value, "role"),
@@ -65,6 +73,19 @@ function toOrderRef(value: unknown): ChatOrderRef | null {
 function toChatThread(row: unknown): ChatThread {
   const owner = toOwner(getProp(row, "owner"));
   const legacyUser = getProp(row, "user") ?? getProp(row, "customer") ?? getProp(row, "partner");
+  /**
+   * The counterparty's **user id**, which presence is keyed by.
+   *
+   * Read from the `owner` block first, then from the flat keys a row may carry
+   * instead. This fallback is load-bearing rather than defensive: presence asks
+   * about a roster built from these ids, so a row that yields none is not
+   * "someone shown as offline" — it is a user the presence endpoint is never
+   * asked about, and who therefore can never appear online at all.
+   */
+  const ownerId =
+    owner?.id ||
+    pick(row, "user_id", "owner_id", "customer_id", "partner_id") ||
+    pick(legacyUser, "id", "user_id");
   const lastMessage = getProp(row, "last_message");
   const order = toOrderRef(getProp(row, "order"));
 
@@ -79,7 +100,10 @@ function toChatThread(row: unknown): ChatThread {
     email: owner?.email ?? pickOrNull(row, "email", "user_email", "customer_email"),
     role: owner?.role ?? pickOrNull(row, "role", "user_role"),
     category: (pickOrNull(row, "category") as ChatCategory | null) ?? null,
-    owner,
+    // Rebuilt with the recovered id so presence has something to ask about even
+    // when the payload omitted the block but carried the id flat.
+    owner: owner ? { ...owner, id: ownerId } : null,
+    ownerId: ownerId || null,
     // The object form first, then the flat legacy string.
     lastMessage: pick(lastMessage, "content") || pick(row, "latest_message", "message"),
     lastMessageAt: pick(row, "last_message_at", "updated_at", "created_at"),
@@ -160,6 +184,91 @@ function toPresence(res: unknown): ChatPresence {
   // only one of the two still has to produce a usable set.
   for (const id of online) presence[id] = true;
   return { online, presence, ttlSeconds: asNumber(getProp(res, "ttl_seconds")) };
+}
+
+/** Every category the badge breaks down by, so a missing key reads as 0. */
+const UNREAD_CATEGORIES = [
+  "user_support",
+  "delivery_support",
+  "order",
+  "order_delivery",
+  "group",
+] as const;
+
+/** Maps the unread summary (§4.5), zeroing every category the payload omits. */
+function toUnreadSummary(res: unknown): ChatUnreadSummary {
+  const body = getProp(res, "data") ?? res;
+  const raw = getProp(body, "by_category");
+  const byCategory = {} as ChatUnreadSummary["byCategory"];
+  for (const key of UNREAD_CATEGORIES) {
+    byCategory[key] = asNumber(getProp(raw, key));
+  }
+  const total = asNumber(getProp(body, "total"));
+  return {
+    total,
+    // Trust the server's own boolean when it sent one; fall back to the count so
+    // a payload carrying only `total` still lights the dot correctly.
+    hasUnread: getProp(body, "has_unread") === true || total > 0,
+    threadsWithUnread: asNumber(getProp(body, "threads_with_unread")),
+    byCategory,
+  };
+}
+
+/** Maps `summary` (§5.1) — the one block that is identical across all apps. */
+function toOrderContextSummary(value: unknown): OrderContextSummary {
+  return {
+    orderId: pick(value, "order_id"),
+    orderNumber: pick(value, "order_number"),
+    status: pick(value, "status"),
+    // Falls back to the raw enum only so the strip is never blank; §6.2's "never
+    // print a raw status" is about the client apps, and an admin can read one.
+    statusDisplay: pick(value, "status_display") || pick(value, "status"),
+    itemsTotal: asNumber(getProp(value, "items_total")),
+    unitsOrdered: asNumber(getProp(value, "units_ordered")),
+    unitsDelivered: asNumber(getProp(value, "units_delivered")),
+    linesDelivered: asNumber(getProp(value, "lines_delivered")),
+    linesNotDelivered: asNumber(getProp(value, "lines_not_delivered")),
+    linesPending: asNumber(getProp(value, "lines_pending")),
+    linesAvailable: asNumber(getProp(value, "lines_available")),
+    linesUnavailable: asNumber(getProp(value, "lines_unavailable")),
+    linesSubstituted: asNumber(getProp(value, "lines_substituted")),
+    isFullyDelivered: getProp(value, "is_fully_delivered") === true,
+    isPartiallyDelivered: getProp(value, "is_partially_delivered") === true,
+    paymentStatus: pick(value, "payment_status"),
+    paymentStatusDisplay: pick(value, "payment_status_display") || pick(value, "payment_status"),
+    isPaid: getProp(value, "is_paid") === true,
+    deliveryOnHold: getProp(value, "delivery_on_hold") === true,
+  };
+}
+
+/** Maps the order-context envelope (§5). */
+function toOrderContext(res: unknown): OrderContext {
+  const body = getProp(res, "data") ?? res;
+  return {
+    chatId: pick(body, "chat_id"),
+    audience: (pickOrNull(body, "audience") as OrderContextAudience | null) ?? "admin",
+    counterparty: (pickOrNull(body, "counterparty") as ChatCounterparty | null) ?? null,
+    summary: toOrderContextSummary(getProp(body, "summary")),
+    order: getProp(body, "order") ?? null,
+  };
+}
+
+/**
+ * Maps either create response.
+ *
+ * **201 and 200 mean the same thing to the UI** — a thread to open. The doc is
+ * explicit that "a chat already exists" must never be shown, so `created` is
+ * recorded and deliberately not surfaced.
+ */
+function toCreatedChat(
+  res: unknown,
+  meta: { response?: { status: number } } | undefined,
+): CreatedChat {
+  const body = getProp(res, "data") ?? res;
+  return {
+    chatId: pick(body, "chat_id", "id"),
+    created: meta?.response?.status === 201,
+  };
 }
 
 export const chatApi = baseApi.injectEndpoints({
@@ -259,6 +368,105 @@ export const chatApi = baseApi.injectEndpoints({
       transformResponse: toPresence,
     }),
 
+    /**
+     * §4.5 / §9.1 — the unread badge.
+     *
+     * **Not polled.** The caller refetches at launch, after login and after each
+     * reconnect; between those the socket keeps the number live. Frames sent
+     * while the socket was down are never replayed, which is the entire reason
+     * the reconnect refetch exists.
+     */
+    getChatUnreadSummary: builder.query<ChatUnreadSummary, void>({
+      query: () => ({ url: CHAT_ENDPOINTS.UNREAD_SUMMARY, method: "GET" }),
+      transformResponse: toUnreadSummary,
+      providesTags: [{ type: "Chats", id: "UNREAD" }],
+    }),
+
+    /**
+     * §5 — the order a thread is about.
+     *
+     * **The conversation must never wait on this.** The caller renders the
+     * collapsed line from the inbox row it already has and lets this fill in;
+     * a 404 means the order is gone and the thread is fine, so the strip simply
+     * does not render. Nothing here is allowed to gate the message pane.
+     */
+    getOrderContext: builder.query<OrderContext, string>({
+      query: (chatId) => ({ url: CHAT_ENDPOINTS.ORDER_CONTEXT(chatId), method: "GET" }),
+      transformResponse: toOrderContext,
+      providesTags: (_r, _e, chatId) => [{ type: "Chats", id: `CONTEXT-${chatId}` }],
+    }),
+
+    /** §8.3 — open a support thread with a user, from the user detail screen. */
+    createSupportChat: builder.mutation<CreatedChat, CreateSupportChatPayload>({
+      query: (body) => ({ url: CHAT_ENDPOINTS.CREATE_SUPPORT_CHAT, method: "POST", body }),
+      transformResponse: toCreatedChat,
+      invalidatesTags: [
+        { type: "Chats", id: "SUPPORT-LIST" },
+        { type: "Chats", id: "DELIVERY-LIST" },
+      ],
+    }),
+
+    /**
+     * §8.3 — open an order thread with one side of an order.
+     *
+     * 403 (another admin owns it) and 409 (unassigned) come from the same
+     * ownership gate as every other admin action on an order, so the caller
+     * reuses the panel's existing copy for those and offers **no retry** — a
+     * retry affordance implies the failure is transient, and neither is.
+     */
+    createOrderChat: builder.mutation<CreatedChat, CreateOrderChatPayload>({
+      query: (body) => ({ url: CHAT_ENDPOINTS.CREATE_ORDER_CHAT, method: "POST", body }),
+      transformResponse: toCreatedChat,
+      invalidatesTags: [{ type: "Chats", id: "ORDER-LIST" }],
+    }),
+
+    /**
+     * §4.4 — upload an image or file into a thread.
+     *
+     * The **only** call this panel makes outside `/api/superadmin/`, and so the
+     * only one carrying the `server-secret-key` header. It was unavailable here
+     * until that key was provisioned; admins could read attachments others sent
+     * but not post one.
+     *
+     * **Deliberately does not invalidate the message cache.** The server
+     * broadcasts the created message to every participant as an ordinary
+     * `chat_message` frame, so the socket appends it exactly once. Appending the
+     * response as well is how the sender ends up looking at their own attachment
+     * twice — §4.4 says pick one path, and the socket is the one that already
+     * works for every other message type.
+     */
+    uploadChatMedia: builder.mutation<unknown, UploadChatMediaArgs>({
+      query: ({ file, messageType, message, chatId, orderId }) => {
+        const body = new FormData();
+        body.append("file", file);
+        body.append("message_type", messageType);
+        if (message?.trim()) body.append("message", message.trim());
+        // Exactly one target — never both. `order_id` addresses the order
+        // thread; `chat_id` is the admin-only route to a support thread.
+        if (orderId) body.append("order_id", orderId);
+        else if (chatId) body.append("chat_id", chatId);
+
+        return {
+          url: CHAT_ENDPOINTS.UPLOAD_MEDIA,
+          method: "POST",
+          body,
+          headers: {
+            [SERVER_SECRET_HEADER]: "1",
+            // Marker only: the base query strips this so the browser can write
+            // the real header with the multipart boundary it generated.
+            "Content-Type": "multipart/form-data",
+          },
+        };
+      },
+      // The thread lists still need refreshing — the row's preview and timestamp
+      // move even though the message itself arrives over the socket.
+      invalidatesTags: [
+        { type: "Chats", id: "SUPPORT-LIST" },
+        { type: "Chats", id: "DELIVERY-LIST" },
+        { type: "Chats", id: "ORDER-LIST" },
+      ],
+    }),
+
     /** §4.6 — create a group chat. The caller becomes `group_admin`. */
     createChatGroup: builder.mutation<unknown, CreateChatGroupPayload>({
       query: (body) => ({ url: CHAT_ENDPOINTS.CREATE_GROUP, method: "POST", body }),
@@ -275,5 +483,11 @@ export const {
   useGetOrderChatQuery,
   useGetChatMessagesQuery,
   useGetChatPresenceQuery,
+  useGetChatUnreadSummaryQuery,
+  useLazyGetChatUnreadSummaryQuery,
+  useGetOrderContextQuery,
+  useCreateSupportChatMutation,
+  useCreateOrderChatMutation,
+  useUploadChatMediaMutation,
   useCreateChatGroupMutation,
 } = chatApi;

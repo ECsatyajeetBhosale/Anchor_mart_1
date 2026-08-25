@@ -1,18 +1,26 @@
 // Public API for the chat feature (Flow 23) — import only from here.
 export { ChatMonitorPage } from "./components/ChatMonitorPage";
-export { DeliveryChatsPage } from "./components/DeliveryChatsPage";
 export { SupportChatsPage } from "./components/SupportChatsPage";
 export { OrderChatsPage } from "./components/OrderChatsPage";
-export { CreateGroupChatDrawer } from "./components/CreateGroupChatDrawer";
+export { StartChatDrawer } from "./components/StartChatDrawer";
+export { ChatUserPicker } from "./components/ChatUserPicker";
+export type { PickedUser } from "./components/ChatUserPicker";
 export {
   useGetUserChatsQuery,
+  useGetChatUnreadSummaryQuery,
+  useGetOrderContextQuery,
+  useCreateSupportChatMutation,
+  useCreateOrderChatMutation,
   useGetDeliveryChatsQuery,
   useGetOrderChatsQuery,
   useGetOrderChatQuery,
   useGetChatMessagesQuery,
-  useCreateChatGroupMutation,
 } from "./api/chatApi";
+export { ChatSocketProvider } from "./context/ChatSocketProvider";
 export { useChatSocket } from "./hooks/useChatSocket";
+export { useChatUnread } from "./hooks/useChatUnread";
+export { useStartChat } from "./hooks/useStartChat";
+export { OrderContextStrip } from "./components/OrderContextStrip";
 export type { ChatListTag, ChatSocketApi } from "./hooks/useChatSocket";
 export type {
   ChatCategory,

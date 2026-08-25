@@ -32,7 +32,22 @@ export interface ChatPresenceApi {
  * Each row's `owner_is_online` seeds the map so the list paints correctly on
  * first render rather than flashing presence in once the first poll lands.
  */
-export function useChatPresence(threads: readonly ChatThread[]): ChatPresenceApi {
+export interface UseChatPresenceOptions {
+  /**
+   * Whether the roster is actually on screen.
+   *
+   * Pass `false` while a drawer or dialog covers the list. §8.4 asks for the
+   * owners on *the page you are rendering*, and a list nobody can see is not
+   * being rendered in any sense that matters — polling it spends a request
+   * every 25 s to keep dots fresh behind a modal.
+   */
+  enabled?: boolean;
+}
+
+export function useChatPresence(
+  threads: readonly ChatThread[],
+  { enabled = true }: UseChatPresenceOptions = {},
+): ChatPresenceApi {
   // Only the owner's presence is ever exposed — an admin's never is — so the
   // roster is exactly the thread owners, deduped and capped at what the endpoint
   // accepts. Sorted so a re-render in a different order does not look like a new
@@ -40,14 +55,27 @@ export function useChatPresence(threads: readonly ChatThread[]): ChatPresenceApi
   const userIds = useMemo(() => {
     const ids = new Set<string>();
     for (const thread of threads) {
-      const id = thread.owner?.id;
-      if (id) ids.add(id);
+      if (thread.ownerId) ids.add(thread.ownerId);
     }
+
+    // An empty roster on a non-empty list is a **silent total failure**: the
+    // query is skipped, nobody is ever reported online, and every row renders
+    // exactly as it would if everyone happened to be away. There is no error to
+    // notice and no empty state to see, so it is called out here instead —
+    // this is the shape the bug took the first time, and it went unseen.
+    if (import.meta.env.DEV && enabled && threads.length > 0 && ids.size === 0) {
+      console.warn(
+        "[chat] presence disabled: no user id on any thread row. " +
+          "The list payload needs `owner.id` (or a flat `user_id`) per row — " +
+          "without it the presence endpoint is never called and every user shows offline.",
+      );
+    }
+
     return [...ids].sort().slice(0, PRESENCE_MAX_IDS);
-  }, [threads]);
+  }, [threads, enabled]);
 
   const { data, isLoading } = useGetChatPresenceQuery(userIds, {
-    skip: userIds.length === 0,
+    skip: userIds.length === 0 || !enabled,
     pollingInterval: PRESENCE_POLL_MS,
     // Presence at the moment the screen is looked at is the whole point.
     refetchOnFocus: true,
@@ -59,7 +87,7 @@ export function useChatPresence(threads: readonly ChatThread[]): ChatPresenceApi
     // Seed from the list payload first so the very first paint is right, then
     // let the poll's answer win for any id it actually covered.
     for (const thread of threads) {
-      if (thread.ownerIsOnline && thread.owner?.id) online.add(thread.owner.id);
+      if (thread.ownerIsOnline && thread.ownerId) online.add(thread.ownerId);
     }
     if (data) {
       for (const [id, isOnline] of Object.entries(data.presence)) {

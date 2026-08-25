@@ -87,11 +87,14 @@ function toPartner(row: PartnerApi): PartnerData {
   return {
     // Prefer the business partner id (shown in the ID column); fall back to the UUID.
     id: str(row.partner_id) || str(row.id),
-    userId: str(row.user_id),
+    // Flat first, then nested — the payload has carried it either way, and a
+    // partner whose user id resolved to "" is not a degraded row: it is a 400
+    // on every partner endpoint, since they all key on the user id.
+    userId: str(row.user_id) || str(row.user?.id),
     // Partner's user id — the assign-order API expects this as delivery_partner_id
     // (like every other partner endpoint, which keys on user_id). Falls back to
     // the partner record UUID when user_id is absent.
-    deliveryPartnerId: str(row.user_id) || str(row.id),
+    deliveryPartnerId: str(row.user_id) || str(row.user?.id) || str(row.id),
     n: dash(row.name),
     p: dash(row.port ?? row.assigned_port),
     j: formatJoined(row.joined),
@@ -276,6 +279,9 @@ export const partnerApi = baseApi.injectEndpoints({
           page_size: params?.limit ?? PARTNER_PAGE_SIZE,
           search: params?.search || undefined,
           status: params?.status || undefined,
+          // Only sent when explicitly asked for, so the unfiltered list stays
+          // the default everywhere else.
+          is_active: params?.is_active === undefined ? undefined : params.is_active,
         },
       }),
       transformResponse: (res: unknown): PartnerListResult => {

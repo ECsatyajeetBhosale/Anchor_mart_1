@@ -18,11 +18,20 @@ import type {
  * and deleting {@link scheduleReconnect}; nothing else here assumes the global.
  */
 
-/** Terminal auth failures. Reconnecting after one of these can never succeed. */
+/**
+ * Terminal auth failures. Reconnecting after one of these can never succeed.
+ *
+ * `token_expired` (close 4003) belongs here even though it *looks* transient:
+ * §2 lists it alongside the other two as terminal until the user acts, and it
+ * is. Nothing this client does refreshes the token — only a re-login does — so
+ * retrying is a guaranteed-futile request every 30 s for as long as the tab is
+ * open. The UI surfaces the failure and asks for a sign-in instead.
+ */
 const FATAL_AUTH_CODES: ReadonlySet<string> = new Set<SocketAuthErrorCode>([
   "blocked",
   "invalid_token",
   "missing_token",
+  "token_expired",
 ]);
 
 /** This consumer's path. The origin and scheme come from `@/lib/socketUrl`. */
