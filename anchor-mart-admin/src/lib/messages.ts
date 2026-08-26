@@ -259,8 +259,12 @@ export const MESSAGES = {
        * cannot recover what was not captured — so the card says so rather than
        * letting an operator read a correct chart as a broken one.
        */
+      // Every live creation path (checkout, express, order-intent, special
+      // request; additions inherit the parent) requires `platform` and 400s
+      // without it, so this bucket cannot grow from customer traffic. If it
+      // does start growing, a new write path is bypassing the tag — raise it.
       UNKNOWN_NOTE:
-        "“Unknown” covers orders with no platform recorded — placed before tracking existed, or created outside the sailor and partner apps. It shrinks as new traffic accumulates.",
+        "“Unknown” is orders placed before platform tracking was introduced, plus any created outside the sailor and partner apps. It does not grow with new traffic.",
     },
   },
   SAILORS: {

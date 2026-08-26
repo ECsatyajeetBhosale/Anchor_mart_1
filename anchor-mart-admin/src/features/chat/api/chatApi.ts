@@ -256,17 +256,22 @@ function toOrderContext(res: unknown): OrderContext {
 /**
  * Maps either create response.
  *
- * **201 and 200 mean the same thing to the UI** — a thread to open. The doc is
- * explicit that "a chat already exists" must never be shown, so `created` is
- * recorded and deliberately not surfaced.
+ * Both endpoints return the **full chat object at the top level** — no `data`
+ * envelope, no `chat_id` key. The id is `id`, and it is an **integer** (`Chat`
+ * uses a normal auto PK, which is why the detail routes are `<int:chat_id>`);
+ * `pick` stringifies it for routing and keys.
+ *
+ * **201 and 200 mean the same thing to the UI** — a thread to open. Both
+ * endpoints are idempotent: 201 created it, 200 returned the one that already
+ * existed, and the body is identical. "A chat already exists" must never be
+ * shown, so `created` is recorded and deliberately not surfaced.
  */
 function toCreatedChat(
   res: unknown,
   meta: { response?: { status: number } } | undefined,
 ): CreatedChat {
-  const body = getProp(res, "data") ?? res;
   return {
-    chatId: pick(body, "chat_id", "id"),
+    chatId: pick(res, "id"),
     created: meta?.response?.status === 201,
   };
 }

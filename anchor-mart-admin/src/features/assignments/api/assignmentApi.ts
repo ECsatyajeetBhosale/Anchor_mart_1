@@ -287,12 +287,16 @@ export const assignmentApi = baseApi.injectEndpoints({
         return rows.map((r, idx) => ({
           id: pick(r, "id") || `assignment-${idx}`,
           partnerName: pick(r, "partner_name", "partner", "name") || "-",
-          partnerCode: pick(r, "partner_code", "code"),
-          // Several shapes tried because this is not documented on the row; a
-          // miss leaves it empty and the "message a previous partner" option
-          // simply does not appear, rather than offering a call that would 400.
-          partnerUserId:
-            pick(r, "partner_user_id", "user_id") || pick(getProp(r, "partner"), "user_id", "id"),
+          // `partner_id` on this row is the human-readable profile code
+          // (PTR-0042), not an id anything accepts — and it is null for any
+          // partner whose profile was never issued one. Display only.
+          partnerCode: pick(r, "partner_id", "partner_code", "code"),
+          // `delivery_partner_id` is the **user** UUID: the FK on
+          // DeliveryAssignment points at user.User, so it is exactly what the
+          // chat endpoint wants as `user_id`. Confirmed by backend 2026-08-26 —
+          // `partner_user_id`, `user_id` and `partner.user_id` do not exist on
+          // this row, and `partner_id` next to it is the naming trap.
+          partnerUserId: pick(r, "delivery_partner_id"),
           status: pick(r, "status"),
           statusDisplay: pick(r, "status_display", "status"),
           assignedBy: pick(r, "assigned_by_email", "assigned_by"),
