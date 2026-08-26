@@ -540,6 +540,27 @@ export const ANALYTICS_ENDPOINTS = {
   GET_SALES_TREND: "/superadmin/analytics/sales-trend/",
   GET_ORDERS_BY_CATEGORY: "/superadmin/analytics/orders-by-category/",
   GET_PRODUCT_SALES: "/superadmin/analytics/product-sales/",
+  /**
+   * Order volume split by the surface the sailor placed it from.
+   *
+   * Both platform endpoints take the **same** filter query as every other
+   * analytics call — no extra control, no special-casing.
+   */
+  GET_ORDERS_BY_PLATFORM: "/superadmin/analytics/orders-by-platform/",
+  GET_PLATFORM_TREND: "/superadmin/analytics/platform-trend/",
+};
+
+/**
+ * Order timing rules — the cancellation window and the delivery SLAs.
+ *
+ * There is exactly **one** configuration record and it always exists. It cannot
+ * be created, duplicated or deleted by any path, so neither endpoint takes an
+ * id and there is no list, no create and no delete here. `POST` and `DELETE`
+ * are 405s server-side rather than merely unused.
+ */
+export const ORDER_CONFIG_ENDPOINTS = {
+  GET_ORDER_CONFIG: "/superadmin/order-config/",
+  UPDATE_ORDER_CONFIG: "/superadmin/order-config/update/",
 };
 
 export const REWARD_ENDPOINTS = {

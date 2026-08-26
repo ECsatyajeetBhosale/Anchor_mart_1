@@ -10,7 +10,7 @@ export { FaqFormModal } from "./components/FaqFormModal";
 export { FaqAddDrawer } from "./components/FaqAddDrawer";
 export { FaqEditDrawer } from "./components/FaqEditDrawer";
 export { FaqTypesCard } from "./components/FaqTypesCard";
-export { PlatformConfigCard } from "./components/PlatformConfigCard";
+export { OrderConfigCard } from "./components/OrderConfigCard";
 export {
   useGetFaqsQuery,
   useGetFaqQuery,
@@ -22,6 +22,8 @@ export {
   useUpdateFaqTypeMutation,
   useDeleteFaqTypeMutation,
 } from "./api/faqApi";
+export { useGetOrderConfigQuery, useUpdateOrderConfigMutation } from "./api/orderConfigApi";
+export { orderConfigSchema, type OrderConfigFormData } from "./schemas/orderConfig.schema";
 export type {
   Faq,
   FaqType,
@@ -30,4 +32,7 @@ export type {
   AddFaqPayload,
   UpdateFaqPayload,
   FaqTypePayload,
+  OrderConfig,
+  OrderConfigField,
+  UpdateOrderConfigPayload,
 } from "./types/settings.types";

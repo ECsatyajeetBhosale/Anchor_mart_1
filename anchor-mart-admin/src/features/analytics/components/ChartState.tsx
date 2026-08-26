@@ -10,6 +10,14 @@ export interface ChartStateProps {
   isError: boolean;
   isEmpty: boolean;
   onRetry: () => void;
+  /**
+   * Overrides the empty-state text.
+   *
+   * "No data for this period" is right for a chart whose window simply has no
+   * buckets. A section that can legitimately return a fully-populated but
+   * all-zero payload wants to say so in its own words instead.
+   */
+  emptyMessage?: string;
   /** Rendered once data has loaded successfully. */
   children: React.ReactNode;
 }
@@ -20,7 +28,14 @@ export interface ChartStateProps {
  * sized to the chart area so the card never shifts. Renders `children` (the
  * chart) only when data is ready.
  */
-export function ChartState({ isLoading, isError, isEmpty, onRetry, children }: ChartStateProps) {
+export function ChartState({
+  isLoading,
+  isError,
+  isEmpty,
+  onRetry,
+  emptyMessage,
+  children,
+}: ChartStateProps) {
   if (isLoading) {
     return (
       <div className="flex h-[150px] items-center justify-center">
@@ -41,7 +56,7 @@ export function ChartState({ isLoading, isError, isEmpty, onRetry, children }: C
   if (isEmpty) {
     return (
       <div className="flex h-[150px] items-center justify-center">
-        <span className="td-m">{M.EMPTY}</span>
+        <span className="td-m">{emptyMessage ?? M.EMPTY}</span>
       </div>
     );
   }

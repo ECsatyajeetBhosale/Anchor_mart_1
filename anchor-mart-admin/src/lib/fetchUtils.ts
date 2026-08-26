@@ -165,6 +165,7 @@ export const baseApi = createApi({
     "Audit",
     "OutboundMessages",
     "SavedProducts",
+    "OrderConfig",
   ],
   endpoints: () => ({}),
 });

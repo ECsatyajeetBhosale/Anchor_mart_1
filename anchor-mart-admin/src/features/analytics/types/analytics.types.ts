@@ -121,3 +121,83 @@ export interface ProductSalesResponse {
   growth: ProductSalesGrowth;
   series: ProductSalesSeriesPoint[];
 }
+
+/* ── Traffic by platform ───────────────────────────────── */
+
+/**
+ * The surface an order was placed from.
+ *
+ * **This is the key to render against** — colours, series, table rows. `label`
+ * is display text and is free to be reworded server-side; `platform` is not.
+ *
+ * `unknown` is a real bucket, not an error: orders placed before platform
+ * tracking existed, plus anything created outside the customer apps (Django
+ * admin, seed data, an admin-raised order). It is reported rather than dropped
+ * so these numbers reconcile with the Total Orders card. Expect it to dominate
+ * immediately after release and shrink as new traffic accumulates.
+ */
+export type PlatformKey = "app" | "web" | "unknown";
+
+/** One platform's row in the breakdown. */
+export interface OrdersByPlatformRow {
+  platform: PlatformKey;
+  /** Display name, safe to render as-is. */
+  label: string;
+  /** The traffic number — counted when the order was **placed**. */
+  orders_placed: number;
+  /**
+   * Share of `total_orders_placed`, 2dp, `0` on an empty window.
+   *
+   * Server-computed once over the window total. Never re-derive it by summing
+   * daily shares from the trend endpoint — that weighs a two-order day the same
+   * as a two-hundred-order day, and the numbers stop matching.
+   */
+  share_pct: number;
+  paid_orders: number;
+  /** A JSON number, not a string. Format it; do not parse it. */
+  gross_revenue: number;
+  cancelled_orders: number;
+  deliveries: number;
+  delivered_revenue: number;
+}
+
+/** Payload from `GET /superadmin/analytics/orders-by-platform/`. */
+export interface OrdersByPlatformResponse {
+  /** The server's statement of the window it measured. Render this, don't re-derive it. */
+  period: string;
+  /** Guaranteed to equal `sum(data[].orders_placed)`. */
+  total_orders_placed: number;
+  /**
+   * Always exactly three rows, in a fixed order — `app`, `web`, `unknown` —
+   * even where a platform had zero orders. Do not filter empties out or
+   * reorder: the fixed shape keeps series colours stable across period changes,
+   * and a surface that went quiet then reads as a visible `0` rather than
+   * silently vanishing from the chart.
+   */
+  data: OrdersByPlatformRow[];
+}
+
+/** One bucket in the platform trend. */
+export interface PlatformTrendBar {
+  /** Ready-to-render axis label, already shaped for the granularity. */
+  label: string;
+  /** **Only present on `granularity: "daily"`.** Guard before reading it. */
+  weekday?: string;
+  from: string;
+  to: string;
+  /** Bucket total = sum of the `platforms` values. */
+  orders_placed: number;
+  /** Every key in the response's `platforms` list is present and zero-filled. */
+  platforms: Record<string, number>;
+}
+
+/** Payload from `GET /superadmin/analytics/platform-trend/`. */
+export interface PlatformTrendResponse {
+  period: string;
+  /** Server-chosen from the window width; not overridable. */
+  granularity: string;
+  /** The series list, in render order. Build the legend from this, not a constant. */
+  platforms: string[];
+  /** Covers every bucket in the window, empty ones included. Do not synthesise gaps. */
+  bars: PlatformTrendBar[];
+}

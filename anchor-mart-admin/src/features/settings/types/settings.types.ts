@@ -53,3 +53,73 @@ export type UpdateFaqPayload = AddFaqPayload;
 export interface FaqTypePayload {
   name: string;
 }
+
+/* ── Order configuration ───────────────────────────────── */
+
+/**
+ * The order timing rules — `GET /superadmin/order-config/`.
+ *
+ * These six values used to live in the server's environment and needed a deploy
+ * to change. There is exactly **one** record and it always exists, so this is a
+ * settings form and not a list: nothing to create, nothing to select between,
+ * nothing to delete.
+ *
+ * Every value is a whole number of hours. Fractional hours are not supported and
+ * are rejected with a 400.
+ */
+export interface OrderConfig {
+  id: string;
+  /**
+   * How long before the ship arrives cancellation closes.
+   *
+   * ⚠️ **Counted backwards from the ship's arrival**, not forwards from when the
+   * order was placed. `36` means cancellation stays open until 36 hours before
+   * arrival and then closes — it does *not* mean the sailor has 36 hours to
+   * cancel. Read forwards, this gets set wrong, and it is the value that decides
+   * who gets a refund.
+   *
+   * Range 0–720. Changing it takes effect **immediately on orders already
+   * placed**, including paid ones.
+   */
+  cancel_lead_hours: number;
+  /** Delivery deadline for express orders. Range 1–168. */
+  sla_express_hours: number;
+  /** Delivery deadline where the sailor chose fastest delivery. Range 1–168. */
+  sla_fastest_hours: number;
+  /** Delivery deadline for marine-emergency orders. Range 1–168. */
+  sla_emergency_hours: number;
+  /**
+   * Fallback delivery time for an anchorage that has none of its own. Range
+   * 0–168. Anchorages carrying their own value are unaffected.
+   */
+  default_anchorage_hours: number;
+  /**
+   * Width of the delivery estimate range a sailor sees ("8–14h") — the gap
+   * between the two ends, not either end. Range 0–168.
+   */
+  eta_range_buffer_hours: number;
+  /** Preformatted for display, e.g. "26 Aug 2026, 04:12 PM". Render as-is. */
+  updated_at: string;
+}
+
+/** The six editable fields, by name. `id` and `updated_at` are not editable. */
+export type OrderConfigField =
+  | "cancel_lead_hours"
+  | "sla_express_hours"
+  | "sla_fastest_hours"
+  | "sla_emergency_hours"
+  | "default_anchorage_hours"
+  | "eta_range_buffer_hours";
+
+/**
+ * Body for `PATCH /superadmin/order-config/update/`.
+ *
+ * **Partial, and deliberately sent as a diff.** Omitted fields are left
+ * untouched. Sending the whole form works, but the backend records which fields
+ * moved and who moved them, so a full-form write logs one real change buried in
+ * five no-ops — the diff is what keeps the audit trail worth reading.
+ *
+ * Values must be JSON **numbers**. A number input yields a string, and `"8"` is
+ * a 400, not a coercion.
+ */
+export type UpdateOrderConfigPayload = Partial<Record<OrderConfigField, number>>;

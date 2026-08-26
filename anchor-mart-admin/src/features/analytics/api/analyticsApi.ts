@@ -6,6 +6,8 @@ import type {
   AnalyticsProductParams,
   AnalyticsSummaryResponse,
   OrdersByCategoryResponse,
+  OrdersByPlatformResponse,
+  PlatformTrendResponse,
   ProductSalesResponse,
   SalesTrendResponse,
 } from "../types/analytics.types";
@@ -53,6 +55,33 @@ export const analyticsApi = baseApi.injectEndpoints({
       }),
       providesTags: [{ type: "Analytics", id: "ORDERS-BY-CATEGORY" }],
     }),
+    /**
+     * Order volume split by the surface it was placed from.
+     *
+     * Takes the screen's filter unchanged — same `toFilterParams` as its
+     * siblings — so it refetches with the rest of the page on a period change
+     * and needs no control of its own.
+     */
+    getOrdersByPlatform: builder.query<OrdersByPlatformResponse, AnalyticsParams>({
+      query: (params) => ({
+        url: ANALYTICS_ENDPOINTS.GET_ORDERS_BY_PLATFORM,
+        method: "GET",
+        params: toFilterParams(params),
+      }),
+      providesTags: [{ type: "Analytics", id: "ORDERS-BY-PLATFORM" }],
+    }),
+    /**
+     * The same volume over time. Buckets on the identical adaptive granularity
+     * as `sales-trend/`, so the two charts line up across the screen.
+     */
+    getPlatformTrend: builder.query<PlatformTrendResponse, AnalyticsParams>({
+      query: (params) => ({
+        url: ANALYTICS_ENDPOINTS.GET_PLATFORM_TREND,
+        method: "GET",
+        params: toFilterParams(params),
+      }),
+      providesTags: [{ type: "Analytics", id: "PLATFORM-TREND" }],
+    }),
     getProductSales: builder.query<ProductSalesResponse, AnalyticsProductParams>({
       query: (params) => ({
         url: ANALYTICS_ENDPOINTS.GET_PRODUCT_SALES,
@@ -69,5 +98,7 @@ export const {
   useGetAnalyticsSummaryQuery,
   useGetSalesTrendQuery,
   useGetOrdersByCategoryQuery,
+  useGetOrdersByPlatformQuery,
+  useGetPlatformTrendQuery,
   useGetProductSalesQuery,
 } = analyticsApi;

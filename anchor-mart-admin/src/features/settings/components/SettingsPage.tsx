@@ -1,9 +1,16 @@
 import { PageHeader } from "@/components/common/PageHeader";
 import { MESSAGES } from "@/lib/messages";
-import { PlatformConfigCard } from "./PlatformConfigCard";
+import { OrderConfigCard } from "./OrderConfigCard";
 
 /**
- * Platform configuration, and nothing else.
+ * Order configuration, and nothing else.
+ *
+ * The card here used to be "Platform Configuration": four hardcoded strings,
+ * each labelled "No API — not saved". Two of those values — the cancellation
+ * window and the delivery timings — now have a real endpoint and are edited
+ * here. The payment timeout, the description cap and the feature toggles had no
+ * endpoint then and still have none, so they are gone rather than shown as
+ * facts nobody can verify or change.
  *
  * Two shortcut cards used to sit beside it — Account Management and Help & FAQ.
  * Both are sidebar entries in their own right now (Account Management is a whole
@@ -15,7 +22,7 @@ export function SettingsPage() {
   return (
     <div>
       <PageHeader title={MESSAGES.SETTINGS.TITLE} />
-      <PlatformConfigCard />
+      <OrderConfigCard />
     </div>
   );
 }

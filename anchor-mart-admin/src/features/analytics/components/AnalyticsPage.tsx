@@ -13,8 +13,10 @@ import { formatCurrency } from "@/lib/utils";
 import { useGetAnalyticsSummaryQuery } from "../api/analyticsApi";
 import { type AnalyticsPeriod, useAnalyticsFilters } from "../hooks/useAnalyticsFilters";
 import { OrdersByCategoryCard } from "./OrdersByCategoryCard";
+import { PlatformTrendCard } from "./PlatformTrendCard";
 import { ProductSalesCard } from "./ProductSalesCard";
 import { SalesTrendCard } from "./SalesTrendCard";
+import { TrafficByPlatformCard } from "./TrafficByPlatformCard";
 
 const M = MESSAGES.ANALYTICS;
 
@@ -109,6 +111,14 @@ export function AnalyticsPage() {
       <div className="grid-2 mb20">
         <SalesTrendCard params={params} />
         <OrdersByCategoryCard params={params} />
+      </div>
+
+      {/* Where the traffic comes from, then the same split over time. Both take
+          the shared `params` unchanged, so they refetch with the rest of the
+          screen on a filter change and need no control of their own. */}
+      <div className="grid-2 mb20">
+        <TrafficByPlatformCard params={params} />
+        <PlatformTrendCard params={params} />
       </div>
 
       <ProductSalesCard params={params} />

@@ -47,6 +47,7 @@ export type AdminFeature =
   | "governance.admin_users"
   | "governance.audit_integrity"
   | "platform.port_config"
+  | "platform.order_config"
   | "finance.config"
   | "finance.refund_override"
   | "finance.credit_override"

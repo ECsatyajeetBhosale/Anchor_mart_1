@@ -20,7 +20,12 @@ export interface TimeBucket {
   label: string;
   from: string;
   to: string;
-  weekday: string;
+  /**
+   * Optional: the platform trend only sends a weekday on a daily window, where
+   * the other series always carry one. Every read below already falls back to
+   * formatting `from`, so absence is handled rather than guarded against.
+   */
+  weekday?: string;
 }
 
 /** Parses an API date (`YYYY-MM-DD` or ISO datetime); null when unusable. */

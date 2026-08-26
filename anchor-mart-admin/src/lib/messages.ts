@@ -236,6 +236,32 @@ export const MESSAGES = {
     },
     UNITS_SUFFIX: (n: number) => `${n} units`,
     ORDERS_SUFFIX: (n: number) => `${n} orders`,
+    // Traffic by platform — where the orders are being placed from.
+    PLATFORM: {
+      TITLE: "Traffic by Platform",
+      TREND_TITLE: "Platform Trend",
+      /** Prefixes the server's own statement of the window it measured. */
+      PERIOD_PREFIX: "Period ·",
+      TOTAL: "Total orders placed",
+      /** Shown when the window has no orders at all — not an error. */
+      EMPTY: "No orders in this period",
+      /** Column heads for the conversion table under the donut. */
+      COL_PLATFORM: "Platform",
+      COL_ORDERS: "Orders",
+      COL_SHARE: "Share",
+      COL_PAID: "Paid",
+      COL_REVENUE: "Revenue",
+      COL_DELIVERED: "Delivered",
+      COL_CANCELLED: "Cancelled",
+      /**
+       * Sits under the table. `unknown` is expected to dominate right after
+       * release — historical orders never recorded a platform and backfilling
+       * cannot recover what was not captured — so the card says so rather than
+       * letting an operator read a correct chart as a broken one.
+       */
+      UNKNOWN_NOTE:
+        "“Unknown” covers orders with no platform recorded — placed before tracking existed, or created outside the sailor and partner apps. It shrinks as new traffic accumulates.",
+    },
   },
   SAILORS: {
     // Page chrome
@@ -2453,13 +2479,82 @@ export const MESSAGES = {
      * Rewards & Coupons, which writes the same endpoint and was always the
      * second editor of the same record.
      */
-    CONFIG: {
-      TITLE: "Platform Configuration",
+    /**
+     * Order Configuration — the cancellation window and the delivery SLAs.
+     *
+     * This replaced a "Platform Configuration" card of four hardcoded strings
+     * that each said "No API — not saved". Two of those values now have a real
+     * endpoint and are edited here; the payment timeout, the description cap and
+     * the feature toggles had no endpoint then and have none now, so they are
+     * gone rather than displayed as facts nobody can verify or change.
+     */
+    ORDER_CONFIG: {
+      TITLE: "Order Configuration",
+      SUBTITLE: "When sailors can cancel, and how quickly deliveries must arrive.",
       SECTIONS: {
-        OPERATIONAL: "Operational Limits",
+        CANCELLATION: "Cancellation",
+        DELIVERY: "Delivery Targets",
+        ESTIMATES: "Delivery Estimates",
       },
-      NO_ENDPOINT_HINT:
-        "These limits have no API yet, so they are shown for reference and cannot be edited here.",
+      /** Shown to an admin without `platform.order_config`. */
+      READ_ONLY:
+        "These values are set by a super admin. You can see what your orders are running on, but not change it.",
+      UPDATED_PREFIX: "Last changed",
+      SAVE: "Save Changes",
+      SAVING: "Saving…",
+      SAVED: "Order configuration updated.",
+      LOAD_ERROR: "Could not load the order configuration.",
+      /** Field labels and helper text. Worded to be read, not skimmed. */
+      FIELDS: {
+        CANCEL_LEAD: {
+          LABEL: "Cancellation closes … hours before ship arrival",
+          HINT: "Sailors can cancel their order, with an automatic refund, until this many hours before their ship arrives.",
+          /**
+           * A worked example, because the field is counted **backwards** and is
+           * read forwards by almost everyone who meets it for the first time.
+           * "Cancellation window (hours)" on its own gets set wrong, and this is
+           * the value that decides who gets refunded.
+           */
+          EXAMPLE: (hours: number, closesAt: string) =>
+            `Ship arrives Friday 6pm. At ${hours} hours, cancellation closes ${closesAt}.`,
+        },
+        SLA_EXPRESS: {
+          LABEL: "Express delivery target (hours)",
+          HINT: "Delivery deadline for express orders.",
+        },
+        SLA_FASTEST: {
+          LABEL: "Fastest delivery target (hours)",
+          HINT: "Delivery deadline for orders where the sailor chose fastest delivery.",
+        },
+        SLA_EMERGENCY: {
+          LABEL: "Marine emergency target (hours)",
+          HINT: "Delivery deadline for emergency orders.",
+        },
+        DEFAULT_ANCHORAGE: {
+          LABEL: "Default anchorage delivery time (hours)",
+          HINT: "Used when an anchorage has no delivery time of its own. Anchorages with their own value are unaffected.",
+        },
+        ETA_BUFFER: {
+          LABEL: "Delivery estimate range width (hours)",
+          HINT: "A sailor sees a range, e.g. “8–14h”. This is the gap between the two ends.",
+        },
+      },
+      /**
+       * Only the cancellation window is retroactive. A delivery deadline is
+       * fixed when a partner is assigned, so changing an SLA reaches orders
+       * assigned from then on and nothing already in flight — which is why the
+       * other four fields deliberately carry no warning.
+       */
+      RETROACTIVE: {
+        TITLE: "This changes existing orders too",
+        BODY: "The cancellation deadline applies immediately to orders already placed, including orders already paid for. Lowering it closes cancellation for sailors who were shown the old deadline in their app.",
+        CONFIRM: "Save anyway",
+      },
+      VALIDATION: {
+        REQUIRED: "Enter a whole number of hours",
+        WHOLE: "Whole hours only — fractions are not supported",
+        RANGE: (min: number, max: number) => `Must be between ${min} and ${max} hours`,
+      },
     },
     FAQ: {
       PAGE_TITLE: "Help & FAQ",
