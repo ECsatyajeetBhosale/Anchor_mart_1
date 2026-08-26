@@ -1,3 +1,4 @@
+import { playNotificationSound } from "@/features/realtime";
 import { useAppDispatch } from "@/hooks/useAppDispatch";
 import { MESSAGES } from "@/lib/messages";
 import type { RootState } from "@/store";
@@ -122,13 +123,37 @@ export function ChatSocketProvider({ children }: { children: ReactNode }) {
       .catch(() => undefined);
   }, [dispatch]);
 
+  /**
+   * Re-seeds the badge **and** the inbox lists after a burst of frames.
+   *
+   * The lists are what carry `last_message_at`, and that is what they are now
+   * ordered by — so without this a thread someone just wrote in keeps its old
+   * position until the admin navigates away and back. The socket frame does not
+   * carry enough to reorder locally (no timestamp, no row), so the list is
+   * refetched rather than patched.
+   *
+   * All three ids are invalidated because the frame does not say which inbox the
+   * thread belongs to. RTK Query only refetches queries that something is
+   * currently subscribed to, and an admin is on at most one inbox, so this is
+   * one request in practice rather than three.
+   *
+   * Shares the existing 4s debounce, which is what keeps a fast exchange from
+   * refetching per message. It is event-driven, not the polling §9.1 forbids.
+   */
   const scheduleReconcile = useCallback(() => {
     if (reconcileTimerRef.current) return;
     reconcileTimerRef.current = setTimeout(() => {
       reconcileTimerRef.current = null;
       fetchSummary();
+      dispatch(
+        chatApi.util.invalidateTags([
+          { type: "Chats", id: "SUPPORT-LIST" },
+          { type: "Chats", id: "DELIVERY-LIST" },
+          { type: "Chats", id: "ORDER-LIST" },
+        ]),
+      );
     }, RECONCILE_DEBOUNCE_MS);
-  }, [fetchSummary]);
+  }, [dispatch, fetchSummary]);
 
   const setActiveChatId = useCallback(
     (chatId: string | null) => {
@@ -146,15 +171,29 @@ export function ChatSocketProvider({ children }: { children: ReactNode }) {
 
       if (frame.type === "chat_message") {
         if (!chatId) return;
+
+        // Any message moves its thread to the top of the inbox — including our
+        // own, and including one in the thread that is already open. Ordering is
+        // not a notification, so it is settled before either suppression below.
+        scheduleReconcile();
+
         // Rule 3: our own message echoed back is never unread and never a dot.
         if (frame.sender && frame.sender === selfUserIdRef.current) return;
         // The open thread is being read — the pane appends it and sends
         // `MessageSeen`, so counting it would light a dot the admin is looking at.
         if (chatId === activeChatIdRef.current) return;
+
         dispatch(
           chatMessageArrived({ chatId, category: resolveCategory(store.getState(), chatId) }),
         );
-        scheduleReconcile();
+
+        // The same chime the intent and order queues use, on the same terms: it
+        // fires for a hidden tab (that is the case it exists for), it is muted by
+        // the one header toggle, and it is throttled to one per 3s internally —
+        // which is what keeps a burst of messages from stuttering. Deliberately
+        // after both returns: a sound for a message this admin just sent, or for
+        // the thread they are reading, is noise attached to nothing new.
+        playNotificationSound();
         return;
       }
 

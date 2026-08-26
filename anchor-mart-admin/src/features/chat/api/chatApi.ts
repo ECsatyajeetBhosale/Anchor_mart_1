@@ -276,6 +276,47 @@ function toCreatedChat(
   };
 }
 
+/**
+ * Newest thread first, by `last_message_at`.
+ *
+ * An inbox is a queue: the thread someone just wrote in is the one that needs
+ * answering, and it was arriving wherever the server happened to place it.
+ *
+ * Applied client-side **on top of** whatever order the server sends, not
+ * instead of it. If the server already orders by `-last_message_at` this is a
+ * no-op; if it does not, the visible page is at least internally correct. What
+ * it cannot fix is pagination — sorting page 1 cannot pull a newer thread back
+ * from page 2. Server-side ordering is the real fix and is an open ask.
+ *
+ * A thread with no timestamp at all sorts last rather than first. `lastMessageAt`
+ * already falls back to `updated_at` then `created_at`, so an empty thread the
+ * admin just opened still carries its creation time; a row reaching this with
+ * nothing is a row we know nothing about, and guessing "newest" for it would put
+ * it above real traffic.
+ *
+ * `slice()` first — RTK Query hands over the mapped array, and sorting it in
+ * place would mutate the object the cache is about to store.
+ */
+export function sortByLastMessage(items: ChatThread[]): ChatThread[] {
+  return items.slice().sort((a, b) => {
+    const at = a.lastMessageAt ? Date.parse(a.lastMessageAt) : Number.NaN;
+    const bt = b.lastMessageAt ? Date.parse(b.lastMessageAt) : Number.NaN;
+    // Unparseable is treated the same as absent: both mean "no position".
+    const aMissing = Number.isNaN(at);
+    const bMissing = Number.isNaN(bt);
+    if (aMissing && bMissing) return 0;
+    if (aMissing) return 1;
+    if (bMissing) return -1;
+    return bt - at;
+  });
+}
+
+/** {@link unwrapList}, then {@link sortByLastMessage} over the page. */
+function unwrapThreadList(res: unknown): ListResult<ChatThread> {
+  const list = unwrapList(res, toChatThread);
+  return { ...list, items: sortByLastMessage(list.items) };
+}
+
 export const chatApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     /** §4.1 — customer support inbox. Shared across the whole admin team. */
@@ -285,7 +326,7 @@ export const chatApi = baseApi.injectEndpoints({
         method: "GET",
         params: { page: args?.page, page_size: args?.limit },
       }),
-      transformResponse: (res: unknown) => unwrapList(res, toChatThread),
+      transformResponse: unwrapThreadList,
       providesTags: [{ type: "Chats", id: "SUPPORT-LIST" }],
     }),
 
@@ -296,7 +337,7 @@ export const chatApi = baseApi.injectEndpoints({
         method: "GET",
         params: { page: args?.page, page_size: args?.limit },
       }),
-      transformResponse: (res: unknown) => unwrapList(res, toChatThread),
+      transformResponse: unwrapThreadList,
       providesTags: [{ type: "Chats", id: "DELIVERY-LIST" }],
     }),
 
@@ -317,7 +358,7 @@ export const chatApi = baseApi.injectEndpoints({
           page_size: args?.limit,
         },
       }),
-      transformResponse: (res: unknown) => unwrapList(res, toChatThread),
+      transformResponse: unwrapThreadList,
       providesTags: [{ type: "Chats", id: "ORDER-LIST" }],
     }),
 
