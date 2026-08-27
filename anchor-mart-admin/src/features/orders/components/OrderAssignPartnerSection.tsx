@@ -272,7 +272,10 @@ export function OrderAssignPartnerSection({
           : M.ASSIGN;
 
   return (
-    <div className="mt16">
+    // The scroll target for the §4.3 reallocation prompt further down the
+    // drawer. An attribute rather than an id: the drawer renders one order at a
+    // time, but ids are global and this section is not the only thing on a page.
+    <div className="mt16" data-assign-partner-section>
       <div className="sec-label flex items-center gap-1.5">
         <IconTruckDelivery size={13} className="inline" />
         {M.SECTION}

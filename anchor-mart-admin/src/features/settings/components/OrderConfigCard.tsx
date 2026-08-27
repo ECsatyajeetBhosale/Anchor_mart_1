@@ -26,9 +26,12 @@ import type {
 const M = MESSAGES.SETTINGS.ORDER_CONFIG;
 const F = M.FIELDS;
 
-/** The six editable fields, in the order they appear on the form. */
+/** The editable fields, in the order they appear on the form. */
 const EDITABLE_FIELDS: OrderConfigField[] = [
   "cancel_lead_hours",
+  "add_items_lead_hours",
+  "max_unpaid_order_amendments",
+  "departure_safety_buffer_hours",
   "sla_express_hours",
   "sla_fastest_hours",
   "sla_emergency_hours",
@@ -40,6 +43,9 @@ const EDITABLE_FIELDS: OrderConfigField[] = [
 function toFormValues(config: OrderConfig): OrderConfigFormData {
   return {
     cancel_lead_hours: config.cancel_lead_hours,
+    add_items_lead_hours: config.add_items_lead_hours,
+    max_unpaid_order_amendments: config.max_unpaid_order_amendments,
+    departure_safety_buffer_hours: config.departure_safety_buffer_hours,
     sla_express_hours: config.sla_express_hours,
     sla_fastest_hours: config.sla_fastest_hours,
     sla_emergency_hours: config.sla_emergency_hours,
@@ -80,10 +86,29 @@ function diffAgainst(
  * refund, so it is worth the extra line.
  */
 function cancellationExample(hours: number): string {
-  // A fixed, arbitrary anchor — Friday 6pm — so the sentence reads the same
-  // every time and the only thing that moves is the answer.
-  const arrival = setMinutes(setHours(startOfDay(nextFriday(new Date())), 18), 0);
-  return format(addHours(arrival, -hours), "EEEE h aaa");
+  return countBackFromFridaySixPm(hours);
+}
+
+/**
+ * The same worked example for the departure buffer.
+ *
+ * It has the identical problem and a larger blast radius: for a regular order
+ * this figure *is* the delivery deadline, counted backwards from when the ship
+ * sails. Sharing the anchor with the cancellation example is deliberate — two
+ * different fixed times on one screen would invite the reader to work out
+ * whether the difference meant something.
+ */
+function departureExample(hours: number): string {
+  return countBackFromFridaySixPm(hours);
+}
+
+/**
+ * A fixed, arbitrary anchor — Friday 6pm — so the sentence reads the same every
+ * time and the only thing that moves is the answer.
+ */
+function countBackFromFridaySixPm(hours: number): string {
+  const anchor = setMinutes(setHours(startOfDay(nextFriday(new Date())), 18), 0);
+  return format(addHours(anchor, -hours), "EEEE h aaa");
 }
 
 /**
@@ -105,8 +130,9 @@ export function OrderConfigCard() {
   const [updateConfig, { isLoading: isSaving }] = useUpdateOrderConfigMutation();
 
   // Held back until the retroactivity warning is acknowledged. Null means no
-  // save is waiting on a decision.
+  // save is waiting on a decision; `warning` picks which of the two it is.
   const [pending, setPending] = useState<UpdateOrderConfigPayload | null>(null);
+  const [warning, setWarning] = useState<"cancel" | "departure">("cancel");
   // Form-level failures — an empty diff, an unknown field, a permission the
   // server disagrees with. Field-level ones go inline instead.
   const [formError, setFormError] = useState<string | null>(null);
@@ -128,6 +154,7 @@ export function OrderConfigCard() {
   }, [config, reset]);
 
   const cancelLeadHours = watch("cancel_lead_hours");
+  const departureBufferHours = watch("departure_safety_buffer_hours");
 
   const save = async (payload: UpdateOrderConfigPayload) => {
     setFormError(null);
@@ -157,10 +184,18 @@ export function OrderConfigCard() {
   const onSubmit = (values: OrderConfigFormData) => {
     const payload = diffAgainst(config, values);
     if (Object.keys(payload).length === 0) return;
-    // Only the cancellation window reaches orders already placed. The four
-    // delivery targets are fixed at assignment time, so warning about them
-    // would train the operator to click through the warning that matters.
+    // Two fields reach orders that already exist. The departure buffer is
+    // checked first because it is the broader of the two — it moves the deadline
+    // on every regular order in the system, so when both are in one diff that is
+    // the consequence worth naming. The remaining fields stay silent on purpose:
+    // a warning on everything is a warning on nothing.
+    if ("departure_safety_buffer_hours" in payload) {
+      setWarning("departure");
+      setPending(payload);
+      return;
+    }
     if ("cancel_lead_hours" in payload) {
+      setWarning("cancel");
       setPending(payload);
       return;
     }
@@ -225,7 +260,74 @@ export function OrderConfigCard() {
             </FormField>
           </FormRow>
 
+          <div className="sec-label">{M.SECTIONS.AMENDMENTS}</div>
+          <FormRow>
+            <FormField
+              label={F.ADD_ITEMS_LEAD.LABEL}
+              hint={F.ADD_ITEMS_LEAD.HINT}
+              error={errors.add_items_lead_hours?.message}
+            >
+              {/* Under its own heading, not beside the cancellation window. They
+                  share a default of 36 and were one field by accident; adjacency
+                  would keep teaching that changing one changes both. */}
+              <Input
+                type="number"
+                min={0}
+                max={720}
+                step={1}
+                disabled={disabled}
+                {...register("add_items_lead_hours")}
+              />
+            </FormField>
+            <FormField
+              label={F.MAX_AMENDMENTS.LABEL}
+              hint={F.MAX_AMENDMENTS.HINT}
+              error={errors.max_unpaid_order_amendments?.message}
+            >
+              <Input
+                type="number"
+                min={0}
+                max={20}
+                step={1}
+                disabled={disabled}
+                {...register("max_unpaid_order_amendments")}
+              />
+            </FormField>
+          </FormRow>
+
           <div className="sec-label">{M.SECTIONS.DELIVERY}</div>
+
+          {/* First in this section, and flagged, because it outranks the three
+              targets below it: it sets the deadline for regular orders — the
+              majority — and caps the fast tiers when the ship sails sooner. */}
+          <FormRow>
+            <FormField
+              label={F.DEPARTURE_BUFFER.LABEL}
+              hint={F.DEPARTURE_BUFFER.HINT}
+              error={errors.departure_safety_buffer_hours?.message}
+            >
+              <Input
+                type="number"
+                min={0}
+                max={168}
+                step={1}
+                disabled={disabled}
+                {...register("departure_safety_buffer_hours")}
+              />
+              <p className="mt-1 font-semibold text-[11.5px] text-[var(--warning-text)]">
+                {F.DEPARTURE_BUFFER.WARNING}
+              </p>
+              {Number.isFinite(departureBufferHours) && (
+                <p className="fg-hint mt-1">
+                  {F.DEPARTURE_BUFFER.EXAMPLE(
+                    departureBufferHours,
+                    departureExample(departureBufferHours),
+                  )}
+                </p>
+              )}
+            </FormField>
+          </FormRow>
+
           <FormRow>
             <FormField
               label={F.SLA_EXPRESS.LABEL}
@@ -328,9 +430,11 @@ export function OrderConfigCard() {
           setPending(null);
           if (payload) void save(payload);
         }}
-        title={M.RETROACTIVE.TITLE}
-        description={M.RETROACTIVE.BODY}
-        confirmText={M.RETROACTIVE.CONFIRM}
+        title={warning === "departure" ? M.DEPARTURE_RETROACTIVE.TITLE : M.RETROACTIVE.TITLE}
+        description={warning === "departure" ? M.DEPARTURE_RETROACTIVE.BODY : M.RETROACTIVE.BODY}
+        confirmText={
+          warning === "departure" ? M.DEPARTURE_RETROACTIVE.CONFIRM : M.RETROACTIVE.CONFIRM
+        }
         isLoading={isSaving}
         loadingText={M.SAVING}
       />

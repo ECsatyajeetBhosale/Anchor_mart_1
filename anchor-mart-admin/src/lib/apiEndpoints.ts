@@ -352,7 +352,15 @@ export const ORDER_ENDPOINTS = {
   LOCATION_REPORTS: "/superadmin/orders/location-reports/",
   // Flow 11 §3 — price the order's pending `delta` report into a DeltaPayment.
   RAISE_DELTA: (id: string) => `/superadmin/orders/order/${id}/raise-delta/`,
-  // Flow 11 §4 — dismiss a location report (either kind).
+  // §4.2 (2026-08-27) — accept a report **without** charging: applies the move
+  // and bills nothing. This is the answer that did not exist before; "accept it,
+  // free" was being done with `dismiss`, which never moved the order.
+  // Body: `{ reason }` — required, non-blank, ≤255.
+  ACCEPT_LOCATION_REPORT: (orderId: string, reportId: string) =>
+    `/superadmin/orders/order/${orderId}/location-reports/${reportId}/accept/`,
+  // Flow 11 §4 — dismiss a location report (either kind). This is a REJECTION:
+  // the order stays on its old berth. Labelled "Reject" in the UI for that
+  // reason — see §1.3.
   DISMISS_LOCATION_REPORT: (orderId: string, reportId: string) =>
     `/superadmin/orders/order/${orderId}/location-reports/${reportId}/dismiss/`,
   // Flow 11 §5 — apply a `rebill` report: relocate + kill the stale Stripe link.

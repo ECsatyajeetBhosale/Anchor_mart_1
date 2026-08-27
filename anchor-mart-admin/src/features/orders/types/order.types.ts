@@ -276,6 +276,33 @@ export interface Order {
   transaction_id?: string | null;
   is_express?: boolean;
   ship_arrival_date?: string | null;
+  /**
+   * The delivery deadline for this order (§1.1, 2026-08-27).
+   *
+   * Now present on **every** order, not just the fast tiers: a regular order's
+   * deadline is `departure − departure_safety_buffer_hours`, and the departure
+   * cap applies to all four kinds. Any copy saying "standard orders have no
+   * deadline" is wrong.
+   *
+   * `null` no longer means "regular order". It means the order has **neither** a
+   * departure **nor** a fast tier — rare, and a data problem rather than a
+   * category. It is still not "0h left".
+   *
+   * It is also **live** (§1.2): recomputed whenever the berth, arrival,
+   * departure, fastest-delivery flag or payment changes. Never cache it across
+   * screens, and re-read it after any location change.
+   */
+  deliver_by?: string | null;
+  /**
+   * §4.4 — the vessel sails before the delivery could physically be made.
+   *
+   * It needs its own flag precisely because `deliver_by` is clamped so it is
+   * never issued already-expired: without this, an impossible job is
+   * indistinguishable from a merely tight one. Shown **before** assignment —
+   * handing a partner an unreachable deadline damages their on-time record for
+   * something they never had a chance at.
+   */
+  delivery_window_infeasible?: boolean;
   notes?: string;
   items?: OrderItem[];
   items_count?: number;

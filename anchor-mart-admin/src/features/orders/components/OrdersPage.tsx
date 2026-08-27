@@ -1142,6 +1142,19 @@ export function OrdersPage() {
           openOrder ? (
             // Remount per order so picker/claim state never leaks across orders.
             <div key={openOrder.id}>
+              {/* §4.4 — shown ABOVE the partner section on purpose: the whole
+                  point is that the admin reads it before assigning, not after
+                  a partner is already committed to a deadline they cannot make. */}
+              {openOrder.delivery_window_infeasible && (
+                <div className="mb12 flex items-start gap-2 rounded-[var(--radius-md)] border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-[12px] text-[var(--danger-text)]">
+                  <IconAlertTriangle size={15} className="mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <div className="font-bold">{M.INFEASIBLE.TITLE}</div>
+                    <div className="mt-0.5">{M.INFEASIBLE.BODY}</div>
+                  </div>
+                </div>
+              )}
+
               <OrderAssignPartnerSection
                 orderId={openOrder.id}
                 status={openOrder.status}
@@ -1171,6 +1184,16 @@ export function OrdersPage() {
                 locationReports={openOrder.location_reports}
                 deltas={openOrder.deltas}
                 assignedAdmin={openOrder.assigned_admin}
+                // §4.3 — the reallocation prompt only makes sense when someone
+                // is actually out on the job.
+                hasAssignedPartner={!!openOrder.active_assignment?.is_active}
+                // Assignment lives in this same drawer, above; scroll to it
+                // rather than navigating away and losing the report context.
+                onReassignPartner={() => {
+                  document
+                    .querySelector("[data-assign-partner-section]")
+                    ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }}
               />
             </div>
           ) : null

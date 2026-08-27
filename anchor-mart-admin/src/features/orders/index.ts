@@ -47,13 +47,16 @@ export { RaiseDeltaDialog } from "./components/RaiseDeltaDialog";
 export {
   useGetLocationReportsQuery,
   useRaiseDeltaMutation,
+  useAcceptLocationReportMutation,
   useDismissLocationReportMutation,
   useApplyLocationReportMutation,
   useWithdrawDeltaMutation,
 } from "./api/orderDeltaApi";
 export type {
+  AcceptLocationReportPayload,
   DeltaPayment,
   DeltaStatus,
+  LocationActionResult,
   LocationReport,
   LocationReportKind,
   LocationReportStatus,

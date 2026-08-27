@@ -27,8 +27,21 @@ export interface LocationReportAnchorage {
  */
 export type LocationReportKind = "delta" | "rebill";
 
-/** `pending` is the only open state; the rest are resolved. */
-export type LocationReportStatus = "pending" | "priced" | "dismissed";
+/**
+ * `pending` is the only open state; the rest are resolved.
+ *
+ * `accepted` (2026-08-27) is **not** a synonym for `dismissed`, and mapping both
+ * to "closed" is the specific mistake this split exists to end:
+ *
+ *  - `accepted`  — the move was applied, nothing was charged
+ *  - `priced`    — the move was applied, a surcharge was raised
+ *  - `dismissed` — the move was **rejected**; the order is still on the old berth
+ *
+ * Two of the three relocate the order and one does not, so they must never read
+ * the same. Render {@link LocationReport.status_display} rather than switching on
+ * this — the server writes the wording for exactly this reason.
+ */
+export type LocationReportStatus = "pending" | "priced" | "accepted" | "dismissed";
 
 /** A sailor-reported move awaiting admin review (Flow 11 §2). */
 export interface LocationReport {
@@ -44,6 +57,24 @@ export interface LocationReport {
   expected_arrival?: string | null;
   expected_departure?: string | null;
   is_fastest_delivery?: boolean;
+  /**
+   * Server-written wording for {@link status}, e.g. "Accepted (no charge)".
+   * Preferred over switching on the raw status — it is on the payload precisely
+   * so `accepted` and `dismissed` cannot be collapsed into one label by a client.
+   */
+  status_display?: string;
+  /**
+   * The **sailor's** own words on why the ship moved (≤255). This is the context
+   * the charge-or-waive decision rests on, so it is shown next to the location
+   * rather than tucked into a detail row.
+   */
+  note?: string;
+  /**
+   * The **admin's** explanation, required on both accept and raise-delta. It is
+   * the difference between "you were charged $50" and "you were charged $50
+   * because…", and it has to stay answerable months later.
+   */
+  review_reason?: string;
   dismiss_reason?: string;
   reviewed_at?: string | null;
   created_at?: string;
@@ -163,13 +194,43 @@ export interface RaiseDeltaPayload {
   note: string;
 }
 
-/** Flow 11 §4 — dismiss a report of either kind. */
+/**
+ * §4.2 — accept a report without charging. The reason is **required** and a lone
+ * space is rejected server-side, so it is validated as non-blank before sending.
+ */
+export interface AcceptLocationReportPayload {
+  orderId: string;
+  reportId: string;
+  /** Required, non-blank, ≤255. */
+  reason: string;
+}
+
+/**
+ * What `accept`, `raise-delta` and `apply` all return alongside their own body.
+ *
+ * `partner_reallocation_suggested: true` means **the berth changed and a partner
+ * is already out on this job**. Reassignment always worked; nothing ever said it
+ * was needed, which is how a partner ends up delivering to a berth the ship has
+ * left. It is deliberately surfaced as an inline prompt rather than a toast —
+ * a toast is gone before it is read.
+ */
+export interface LocationActionResult {
+  partner_reallocation_suggested?: boolean;
+}
+
+/** Flow 11 §4 — **reject** a report of either kind. The order does not move. */
 export interface DismissLocationReportPayload {
   orderId: string;
   reportId: string;
   /** Optional, ≤255 chars. */
   reason?: string;
 }
+
+/** A report row plus the reallocation hint the write returns with it. */
+export type LocationReportResult = LocationReport & LocationActionResult;
+
+/** A priced delta plus the reallocation hint the write returns with it. */
+export type DeltaPaymentResult = DeltaPayment & LocationActionResult;
 
 /** Flow 11 §5 — apply a `rebill` report. No body. */
 export interface ApplyLocationReportPayload {

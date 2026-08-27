@@ -636,6 +636,11 @@ export const MESSAGES = {
       FAILED: "Could not process the refund. Please try again.",
     },
     // Flow 11 — location changes and delivery surcharges (deltas).
+    // §4.4 — the vessel sails before delivery could be completed.
+    INFEASIBLE: {
+      TITLE: "This vessel sails before delivery could be completed",
+      BODY: "Confirm the arrival and departure dates with the sailor before assigning a partner. The deadline shown has been clamped so it is not already expired — it is not achievable.",
+    },
     LOCATION: {
       SECTION: "Location Changes",
       NONE: "No location changes reported.",
@@ -645,16 +650,59 @@ export const MESSAGES = {
       MOVED_TO: "Moved to",
       ARRIVAL: "Arrival",
       DEPARTURE: "Departure",
-      DISMISS: "Dismiss",
-      DISMISSING: "Dismissing…",
+      // Buttons are named for what they DO, not for the endpoint behind them.
+      // "Dismiss" read as a soft, free acceptance and was used as one — which
+      // silently left the order on the old berth while the sailor was told the
+      // move was fine. It is a rejection, so it says so.
+      REJECT: "Reject",
+      REJECTING: "Rejecting…",
+      ACCEPT_FREE: "Accept — no charge",
+      ACCEPTING: "Accepting…",
       APPLY: "Apply",
       APPLYING: "Applying…",
-      RAISE: "Price It",
-      DISMISSED: "Report dismissed.",
+      RAISE: "Accept with a surcharge",
+      REJECTED: "Report rejected — the delivery location is unchanged.",
+      ACCEPTED: "Location applied. Nothing charged.",
       APPLIED: "Location applied — re-price the bill with Update Bill.",
       ACTION_FAILED: "Could not update the report. Please try again.",
+
+      // The sailor's own words, and the admin's answer to them.
+      SAILOR_NOTE: "Sailor's note",
+      REVIEW_REASON: "Your reason",
+
+      // Reject confirmation. The body states the consequence the old wording
+      // left implicit — the ship does not move, and the partner still goes to
+      // the berth the vessel has left.
+      REJECT_TITLE: "Reject this location change?",
+      REJECT_BODY:
+        "The order keeps its current port, anchorage and address, and the sailor is told the move was not applied. If the ship really has moved, accept it instead — with or without a charge.",
+      REJECT_CONFIRM: "Reject Report",
       DISMISS_REASON_LABEL: "Reason (optional)",
       DISMISS_REASON_PLACEHOLDER: "e.g. Duplicate report — same anchorage",
+
+      // Accept-free dialog (§4.2). The reason is mandatory server-side and a
+      // lone space is rejected, so it is a labelled field, never a placeholder.
+      ACCEPT_TITLE: "Accept — no charge",
+      ACCEPT_DESCRIPTION: (ref: string) =>
+        `Applies the new location to order ${ref} and bills nothing. The move goes live immediately.`,
+      ACCEPT_REASON_LABEL: "Why is this free?",
+      ACCEPT_REASON_PLACEHOLDER: "e.g. Short hop — absorbing the cost",
+      ACCEPT_REASON_HINT:
+        "Recorded against the order. Someone will ask why this move shipped free months from now.",
+      ACCEPT_REASON_REQUIRED: "A reason is required.",
+      ACCEPT_CONFIRM: "Accept — No Charge",
+
+      // 409: a surcharge is already awaiting payment, so "no charge"
+      // contradicts it. `detail` names the way out and is shown verbatim.
+      CONFLICT_TITLE: "A surcharge is already awaiting payment",
+      CONFLICT_WITHDRAW: "Withdraw the surcharge",
+
+      // §4.3 — the berth moved and a partner is already out on this job.
+      REALLOC_TITLE: "The delivery location changed",
+      REALLOC_BODY:
+        "A partner is already assigned to this order and is heading for the previous berth. Reassign, or contact them.",
+      REALLOC_ACTION: "Reassign partner",
+      REALLOC_DISMISS: "Not now",
     },
     DELTA: {
       SECTION: "Delivery Surcharges",
@@ -2497,6 +2545,10 @@ export const MESSAGES = {
       SUBTITLE: "When sailors can cancel, and how quickly deliveries must arrive.",
       SECTIONS: {
         CANCELLATION: "Cancellation",
+        // Its own heading, not a row under Cancellation. The two share a default
+        // of 36 and used to be one field by accident; sitting them together
+        // would keep teaching the assumption that changing one changes both.
+        AMENDMENTS: "Amending an Order",
         DELIVERY: "Delivery Targets",
         ESTIMATES: "Delivery Estimates",
       },
@@ -2542,22 +2594,51 @@ export const MESSAGES = {
           LABEL: "Delivery estimate range width (hours)",
           HINT: "A sailor sees a range, e.g. “8–14h”. This is the gap between the two ends.",
         },
+        DEPARTURE_BUFFER: {
+          LABEL: "Delivery must finish … hours before the ship sails",
+          HINT: "For a regular order this is the entire deadline — departure minus this figure. It also caps the three targets above: a 24-hour promise means nothing on a vessel sailing in ten.",
+          WARNING: "Affects most orders in the system.",
+          EXAMPLE: (hours: number, dueAt: string) =>
+            `Ship sails Friday 6pm. At ${hours} hours, delivery is due by ${dueAt}.`,
+        },
+        ADD_ITEMS_LEAD: {
+          LABEL: "Adding items closes … hours before ship arrival",
+          HINT: "Separate from the cancellation window above, even though both start at 36. Changing this does not change when cancellation closes.",
+        },
+        MAX_AMENDMENTS: {
+          LABEL: "Times an unpaid order may be amended",
+          HINT: "A count, not hours. Once it is reached the sailor is told to pay for the order first or place a new one.",
+        },
       },
       /**
-       * Only the cancellation window is retroactive. A delivery deadline is
-       * fixed when a partner is assigned, so changing an SLA reaches orders
-       * assigned from then on and nothing already in flight — which is why the
-       * other four fields deliberately carry no warning.
+       * Two fields warn, and only two.
+       *
+       * The cancellation window is retroactive: it applies immediately to orders
+       * already placed, paid ones included.
+       *
+       * The departure buffer is retroactive *and* broad. Since 2026-08-27 every
+       * order carries a deadline, and for a regular order — the majority — this
+       * field **is** that deadline. Changing it moves the due time of most
+       * deliveries in the system at once.
+       *
+       * The rest stay silent deliberately. A warning on every field is a warning
+       * on none: the operator learns to click through the dialog, including the
+       * two times it mattered.
        */
       RETROACTIVE: {
         TITLE: "This changes existing orders too",
         BODY: "The cancellation deadline applies immediately to orders already placed, including orders already paid for. Lowering it closes cancellation for sailors who were shown the old deadline in their app.",
         CONFIRM: "Save anyway",
       },
+      DEPARTURE_RETROACTIVE: {
+        TITLE: "This moves the deadline on most orders",
+        BODY: "Every regular order's delivery deadline is its ship's departure minus this figure, and it is recalculated immediately — including for orders already assigned to a partner. Raising it pulls deadlines earlier and can put deliveries already in progress behind schedule.",
+        CONFIRM: "Save anyway",
+      },
       VALIDATION: {
         REQUIRED: "Enter a whole number of hours",
         WHOLE: "Whole hours only — fractions are not supported",
-        RANGE: (min: number, max: number) => `Must be between ${min} and ${max} hours`,
+        RANGE: (min: number, max: number) => `Must be between ${min} and ${max}`,
       },
     },
     FAQ: {

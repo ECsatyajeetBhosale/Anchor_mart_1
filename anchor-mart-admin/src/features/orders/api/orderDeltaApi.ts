@@ -1,10 +1,13 @@
 import { ORDER_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
 import type {
+  AcceptLocationReportPayload,
   ApplyLocationReportPayload,
   DeltaPayment,
+  DeltaPaymentResult,
   DismissLocationReportPayload,
   LocationReport,
+  LocationReportResult,
   LocationReportStatus,
   RaiseDeltaPayload,
   WithdrawDeltaPayload,
@@ -84,7 +87,7 @@ export const orderDeltaApi = baseApi.injectEndpoints({
      * are rewritten at raise time, because the ship *is* there. Payment settles
      * the cost, not the location.
      */
-    raiseDelta: builder.mutation<DeltaPayment, RaiseDeltaPayload>({
+    raiseDelta: builder.mutation<DeltaPaymentResult, RaiseDeltaPayload>({
       query: ({ orderId, delta_amount, note }) => ({
         url: ORDER_ENDPOINTS.RAISE_DELTA(orderId),
         method: "POST",
@@ -97,7 +100,38 @@ export const orderDeltaApi = baseApi.injectEndpoints({
       ],
     }),
 
-    /** Flow 11 §4 — dismiss a location report of either kind. */
+    /**
+     * §4.2 — accept a report **without** charging: the move is applied, nothing
+     * is billed, and the report ends `accepted` rather than `dismissed`.
+     *
+     * **409 is the surcharge conflict**, not a generic failure: a delta is
+     * already awaiting payment on this order, and "no charge" contradicts it.
+     * The `detail` names the way out (withdraw it, or wait for it to be paid or
+     * to expire), so the caller surfaces `detail` verbatim and offers withdraw
+     * inline rather than translating it into copy that will drift.
+     */
+    acceptLocationReport: builder.mutation<LocationReportResult, AcceptLocationReportPayload>({
+      query: ({ orderId, reportId, reason }) => ({
+        url: ORDER_ENDPOINTS.ACCEPT_LOCATION_REPORT(orderId, reportId),
+        method: "POST",
+        body: { reason },
+      }),
+      invalidatesTags: (_r, _e, { orderId }) => [
+        { type: "Orders", id: orderId },
+        { type: "Orders", id: "PARTIAL-LIST" },
+        { type: "Orders", id: "LOCATION-REPORTS" },
+        // The berth may have moved, which changes the assignment's deadline.
+        { type: "Assignments", id: `HISTORY-${orderId}` },
+      ],
+    }),
+
+    /**
+     * Flow 11 §4 — **reject** a location report of either kind.
+     *
+     * Not "close it, free of charge": the order keeps its old port, anchorage
+     * and address, and the sailor is told the move was not applied. The free
+     * acceptance this was being misused for is `acceptLocationReport` above.
+     */
     dismissLocationReport: builder.mutation<LocationReport, DismissLocationReportPayload>({
       query: ({ orderId, reportId, reason }) => ({
         url: ORDER_ENDPOINTS.DISMISS_LOCATION_REPORT(orderId, reportId),
@@ -115,7 +149,7 @@ export const orderDeltaApi = baseApi.injectEndpoints({
      * Flow 11 §5 — apply a `rebill` report: relocate the order and expire the
      * stale Stripe session. The admin then re-prices with update-bill (Flow 7).
      */
-    applyLocationReport: builder.mutation<LocationReport, ApplyLocationReportPayload>({
+    applyLocationReport: builder.mutation<LocationReportResult, ApplyLocationReportPayload>({
       query: ({ orderId, reportId }) => ({
         url: ORDER_ENDPOINTS.APPLY_LOCATION_REPORT(orderId, reportId),
         method: "POST",
@@ -149,6 +183,7 @@ export const orderDeltaApi = baseApi.injectEndpoints({
 export const {
   useGetLocationReportsQuery,
   useRaiseDeltaMutation,
+  useAcceptLocationReportMutation,
   useDismissLocationReportMutation,
   useApplyLocationReportMutation,
   useWithdrawDeltaMutation,

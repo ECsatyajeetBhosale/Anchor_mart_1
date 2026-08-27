@@ -98,18 +98,47 @@ export interface OrderConfig {
    * between the two ends, not either end. Range 0–168.
    */
   eta_range_buffer_hours: number;
+  /**
+   * How long before the ship sails delivery must be complete. Default 6.
+   *
+   * ⚠️ **The highest-impact field on the page.** It is not a safety margin on
+   * top of something else — for a regular order it *is* the entire deadline
+   * (`departure − this`), and regular orders are the majority. It also caps the
+   * three SLAs below: a 24h promise means nothing on a vessel sailing in ten
+   * hours, so whichever is tighter wins.
+   *
+   * Raising it pulls every regular delivery in the system earlier; lowering it
+   * pushes them later. Changes apply to orders already placed.
+   */
+  departure_safety_buffer_hours: number;
+  /**
+   * How long before the ship arrives adding items closes. Default 36.
+   *
+   * ⚠️ Shares its default with {@link cancel_lead_hours} and **nothing else** —
+   * they were one field by accident and are now separate settings. Changing this
+   * does not change when cancellation closes. Counted backwards from arrival,
+   * like the cancellation window.
+   */
+  add_items_lead_hours: number;
+  /**
+   * How many times an unpaid order may be amended. Default 1. A count, not hours.
+   */
+  max_unpaid_order_amendments: number;
   /** Preformatted for display, e.g. "26 Aug 2026, 04:12 PM". Render as-is. */
   updated_at: string;
 }
 
-/** The six editable fields, by name. `id` and `updated_at` are not editable. */
+/** The editable fields, by name. `id` and `updated_at` are not editable. */
 export type OrderConfigField =
   | "cancel_lead_hours"
   | "sla_express_hours"
   | "sla_fastest_hours"
   | "sla_emergency_hours"
   | "default_anchorage_hours"
-  | "eta_range_buffer_hours";
+  | "eta_range_buffer_hours"
+  | "departure_safety_buffer_hours"
+  | "add_items_lead_hours"
+  | "max_unpaid_order_amendments";
 
 /**
  * Body for `PATCH /superadmin/order-config/update/`.

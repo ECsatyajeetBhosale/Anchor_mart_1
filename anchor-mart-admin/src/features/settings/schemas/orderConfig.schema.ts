@@ -27,7 +27,14 @@ function hours(min: number, max: number) {
 }
 
 /**
- * The six order-timing fields.
+ * A whole-number **count**, not hours. Same parsing rules, different unit —
+ * aliased rather than reused under the `hours` name so a reader of
+ * `max_unpaid_order_amendments` is not told it is a duration.
+ */
+const count = hours;
+
+/**
+ * The order-timing fields.
  *
  * The floors are **not uniform**: `0` is meaningful for the cancellation window,
  * the anchorage fallback and the estimate buffer — it means "no lead time", "no
@@ -42,6 +49,13 @@ export const orderConfigSchema = z.object({
   sla_emergency_hours: hours(1, 168),
   default_anchorage_hours: hours(0, 168),
   eta_range_buffer_hours: hours(0, 168),
+  // ⚠️ Bounds for the three fields below are the client's own guess — the
+  // 2026-08-27 doc gives defaults (6 / 36 / 1) but no ranges, and these are
+  // deliberately wider than anything sensible so this never rejects a value the
+  // server would have accepted. Narrow them once the real limits are confirmed.
+  departure_safety_buffer_hours: hours(0, 168),
+  add_items_lead_hours: hours(0, 720),
+  max_unpaid_order_amendments: count(0, 20),
 });
 
 export type OrderConfigFormData = z.infer<typeof orderConfigSchema>;
