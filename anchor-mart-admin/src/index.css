@@ -4251,3 +4251,468 @@ textarea.form-input {
 .am-calendar .rdp-day_button:hover:not([disabled]) {
   background: var(--surface-alt);
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Operations Command Center — dashboard shell
+   ══════════════════════════════════════════════════════════════════════════
+
+   Additive: every class here is new and prefixed `occ-`. Nothing above is
+   touched, so the eight other screens using `.stats-row`, `.stat-card` and
+   `.sec-label` are unaffected — including the reference deck at the bottom of
+   the dashboard itself, which still uses them.
+
+   The palette is the existing one. Colour carries severity and nothing else:
+   danger for failed work, warning for expired deadlines, purple for review
+   queues, teal for healthy flow. No decorative hues, and no gradient panels.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Command header ──────────────────────────────────────────────────────
+   Replaces the full-bleed teal banner. It is a band, not a hero: the point is
+   to spend as little vertical space as possible on a line nobody acts on. */
+.occ-head {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--navy-700);
+  border-radius: var(--radius-lg);
+  /* The sidebar's own gradient, verbatim (`.sidebar`), so the band and the nav
+     read as one surface rather than as two different navies that happen to sit
+     next to each other. Kept as a literal copy of that declaration — a shared
+     variable would let a future change to one silently move the other. */
+  background: linear-gradient(135deg, var(--navy-900) 0%, var(--navy-700) 65%, var(--navy-500) 130%);
+  padding: 18px 20px;
+  margin-bottom: 18px;
+}
+
+/* A single wide, very low-opacity teal wash. Not a "glow effect" — it stops
+   the navy reading as a flat rectangle at large widths, and it is invisible
+   at small ones where the band is already short. */
+.occ-head::before {
+  content: "";
+  position: absolute;
+  inset: -60% -20% auto 40%;
+  height: 220%;
+  background: radial-gradient(closest-side, rgba(10, 181, 168, 0.18), transparent 70%);
+  pointer-events: none;
+}
+
+/* Hairline grid, 1px lines at 3% white on a 32px pitch. Deliberately closer to
+   a plan drawing than to a texture — it should be noticeable only if looked
+   for. Masked so it fades before the right edge rather than butting into it. */
+.occ-head::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+  -webkit-mask-image: linear-gradient(90deg, #000 0%, transparent 78%);
+  mask-image: linear-gradient(90deg, #000 0%, transparent 78%);
+  pointer-events: none;
+}
+
+.occ-head-inner {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.occ-head-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--teal-300);
+}
+
+.occ-head-title {
+  margin-top: 5px;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+  color: #fff;
+}
+
+/* The status line. `b` is the figure; the surrounding words stay quieter so a
+   glance lands on the number rather than on the sentence. */
+.occ-head-status {
+  margin-top: 6px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--navy-100);
+}
+.occ-head-status b {
+  font-weight: 800;
+  color: #fff;
+}
+.occ-head-status .occ-sep {
+  margin: 0 8px;
+  color: var(--navy-300);
+}
+
+/* Live indicator. The ring pulses; the core does not, so the dot stays a solid
+   readable mark rather than blinking in and out of visibility. */
+.occ-live {
+  position: relative;
+  display: inline-flex;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--teal-400);
+}
+.occ-live::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 999px;
+  border: 1px solid var(--teal-400);
+  animation: occ-pulse 2.6s ease-out infinite;
+}
+@keyframes occ-pulse {
+  0% {
+    opacity: 0.85;
+    transform: scale(0.7);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+/* Period controls sit inside the band, right-aligned. On the dark ground the
+   shared PillToggle/DateRangePicker keep their own styling — they are wrapped,
+   not restyled, so the controls behave identically to every other screen. */
+.occ-head-controls {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--sh-sm);
+}
+
+/* ── Section heading ─────────────────────────────────────────────────────
+   Small, uppercase, with a count chip. Distinct from `.sec-label` so the
+   reference deck below keeps the old treatment and the two read as different
+   tiers rather than as an inconsistency. */
+.occ-sec {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  margin: 22px 0 10px;
+}
+.occ-sec-label {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--t3);
+}
+.occ-sec-note {
+  font-size: 11.5px;
+  color: var(--t4);
+}
+
+/* ── Needs Attention ─────────────────────────────────────────────────────
+   The dominant block. Panels, not cards: a heavier left rule carries severity,
+   the body stays near-white, and only the rule and the number are coloured. */
+.occ-attention {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.occ-att {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 15px 16px 15px 17px;
+  border: 1px solid var(--border-sm);
+  border-left: 3px solid var(--t5);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  text-align: left;
+  width: 100%;
+  transition: box-shadow 0.16s ease, transform 0.16s ease, border-color 0.16s ease;
+}
+/* Only the clickable ones lift. A hover state on a dead panel promises a
+   click that never happens — several of these deliberately have no route. */
+.occ-att.is-clickable {
+  cursor: pointer;
+}
+.occ-att.is-clickable:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--sh-sm);
+  border-color: var(--border-lg);
+}
+.occ-att.is-clickable:focus-visible {
+  outline: 2px solid var(--teal-500);
+  outline-offset: 2px;
+}
+
+.occ-att-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+}
+.occ-att-body {
+  min-width: 0;
+  flex: 1;
+}
+.occ-att-value {
+  font-size: 27px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.occ-att-label {
+  margin-top: 5px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--t1);
+}
+.occ-att-desc {
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--t4);
+}
+/* The staleness qualifier — "oldest 6 days ago". Sits under the description
+   because it changes what the number means, not what it is. */
+.occ-att-meta {
+  margin-top: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* A zero is the good outcome here, so it is drained of severity entirely:
+   grey rule, grey number, no coloured tile. An empty queue must not look like
+   an alert, or the coloured ones stop meaning anything. */
+.occ-att.is-clear {
+  border-left-color: var(--border-sm);
+}
+.occ-att.is-clear .occ-att-value {
+  color: var(--t4);
+}
+.occ-att.is-clear .occ-att-icon {
+  background: var(--surface-alt);
+  color: var(--t4);
+}
+
+.occ-att.sev-danger {
+  border-left-color: var(--danger-icon);
+}
+.occ-att.sev-danger .occ-att-value {
+  color: var(--danger-text);
+}
+.occ-att.sev-danger .occ-att-icon {
+  background: var(--danger-bg);
+  color: var(--danger-icon);
+}
+.occ-att.sev-danger .occ-att-meta {
+  color: var(--danger-text);
+}
+
+.occ-att.sev-warning {
+  border-left-color: var(--warning-icon);
+}
+.occ-att.sev-warning .occ-att-value {
+  color: var(--warning-text);
+}
+.occ-att.sev-warning .occ-att-icon {
+  background: var(--warning-bg);
+  color: var(--warning-icon);
+}
+.occ-att.sev-warning .occ-att-meta {
+  color: var(--warning-text);
+}
+
+.occ-att.sev-review {
+  border-left-color: var(--purple-icon);
+}
+.occ-att.sev-review .occ-att-value {
+  color: var(--purple-text);
+}
+.occ-att.sev-review .occ-att-icon {
+  background: var(--purple-bg);
+  color: var(--purple-icon);
+}
+.occ-att.sev-review .occ-att-meta {
+  color: var(--purple-text);
+}
+
+/* ── Operations Pulse ────────────────────────────────────────────────────
+   One flat strip, divided rather than carded. The lead cell is roughly twice
+   the width of the rest and carries the only large number in the group —
+   that asymmetry is what stops this reading as another KPI row. */
+.occ-pulse {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  border: 1px solid var(--border-sm);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+.occ-pulse-cell {
+  padding: 15px 17px;
+  border-left: 1px solid var(--border-xs);
+  text-align: left;
+  width: 100%;
+  transition: background 0.16s ease;
+}
+.occ-pulse-cell:first-child {
+  border-left: 0;
+}
+.occ-pulse-cell.is-clickable {
+  cursor: pointer;
+}
+.occ-pulse-cell.is-clickable:hover {
+  background: var(--surface-alt);
+}
+.occ-pulse-cell.is-clickable:focus-visible {
+  outline: 2px solid var(--teal-500);
+  outline-offset: -2px;
+}
+
+.occ-pulse-lead {
+  background: var(--navy-25);
+}
+.occ-pulse-lead:hover {
+  background: var(--navy-50);
+}
+
+.occ-pulse-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--t4);
+}
+.occ-pulse-value {
+  margin-top: 6px;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--t1);
+  font-variant-numeric: tabular-nums;
+}
+.occ-pulse-lead .occ-pulse-value {
+  font-size: 34px;
+  color: var(--navy-800);
+}
+.occ-pulse-desc {
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--t4);
+}
+/* A zero here is neither good nor bad — it is just quiet. Greying it keeps the
+   row from looking broken without dressing an empty period up as an event. */
+.occ-pulse-value.is-zero {
+  color: var(--t4);
+}
+
+/* ── Two-column operations row ───────────────────────────────────────────
+   Live orders (wide) beside the pending-work queue (narrow). */
+.occ-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.85fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+/* ── Reference deck ──────────────────────────────────────────────────────
+   Demoted, not deleted. Every tile keeps its figure and its click-through;
+   the group simply stops competing with the work above it. */
+.occ-ref {
+  margin-top: 26px;
+}
+.occ-ref-hint {
+  margin: -4px 0 10px;
+  font-size: 11.5px;
+  color: var(--t4);
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────
+   Order of collapse follows the reading order the screen is built around:
+   attention first, then pulse, then queues. Nothing is hidden at any width —
+   an operations console that drops a failure count on a narrow window is
+   worse than one that scrolls. */
+@media (max-width: 1180px) {
+  .occ-split {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 1000px) {
+  .occ-pulse {
+    grid-template-columns: 1fr 1fr;
+  }
+  /* Restore the border the first-child rule removed: what was the first cell
+     in a row of four is now the third, and needs its divider back. */
+  .occ-pulse-cell:nth-child(3) {
+    border-left: 0;
+  }
+  .occ-pulse-cell:nth-child(n + 3) {
+    border-top: 1px solid var(--border-xs);
+  }
+}
+@media (max-width: 860px) {
+  .occ-attention {
+    grid-template-columns: 1fr;
+  }
+  .occ-head-inner {
+    align-items: stretch;
+  }
+  .occ-head-controls {
+    width: 100%;
+  }
+}
+@media (max-width: 620px) {
+  .occ-head {
+    padding: 15px 16px;
+  }
+  .occ-head-title {
+    font-size: 18px;
+  }
+  .occ-pulse {
+    grid-template-columns: 1fr;
+  }
+  .occ-pulse-cell {
+    border-left: 0;
+    border-top: 1px solid var(--border-xs);
+  }
+  .occ-pulse-cell:first-child {
+    border-top: 0;
+  }
+  .occ-att-value {
+    font-size: 24px;
+  }
+}
+
+/* Honour the OS setting. The pulse ring is the only motion here, and someone
+   who has asked for less of it should not get a blinking dot all day. */
+@media (prefers-reduced-motion: reduce) {
+  .occ-live::after {
+    animation: none;
+  }
+  .occ-att.is-clickable:hover {
+    transform: none;
+  }
+}

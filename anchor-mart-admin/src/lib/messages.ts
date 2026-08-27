@@ -77,6 +77,50 @@ export const MESSAGES = {
         ].join(", "),
     },
 
+    /**
+     * Command-center copy.
+     *
+     * `HERO` above is kept and still used — the same figures, now as the status
+     * line under the title instead of as the heading itself. The heading names
+     * the screen; the status line says what is outstanding.
+     */
+    OCC: {
+      EYEBROW: "Live Operations",
+      TITLE: "Operations Command Center",
+      /** Shown until every figure in the status line has arrived. */
+      LOADING: "Reading current operations…",
+      /**
+       * The status line, in two halves so each figure can be emphasised in JSX
+       * while the words around it stay quiet. Pluralised from the raw counts —
+       * the formatted stats are localised strings and read "1 items".
+       */
+      NEEDS_ATTENTION: (n: number) => `${n === 1 ? "item" : "items"} require attention`,
+      IN_FLIGHT_LINE: (n: number) => `${n === 1 ? "order" : "orders"} currently in flight`,
+      ATTENTION: "Needs Attention",
+      /** Nothing outstanding — said plainly rather than left blank. */
+      ATTENTION_CLEAR: "Nothing outstanding",
+      ATTENTION_NOTE: "Live now — not affected by the selected period.",
+      PULSE: "Operations Pulse",
+      /** Echoed from the response, so a custom range confirms what the server read. */
+      PULSE_NOTE: (period: string) => `This period: ${period}`,
+      PULSE_NOTE_PLAIN: "Orders, Cancelled and Refunded follow the selected period.",
+      ACTIVITY: "Order Activity",
+      REFERENCE: "Reference",
+      REFERENCE_HINT: "Catalog and workload totals. True at a glance, rarely something to act on.",
+      IN_FLIGHT: "In Flight",
+      IN_FLIGHT_DESC: "Orders actively being worked right now",
+      ORDERS_DESC: "Placed in the selected period",
+      CANCELLED_DESC: "Cancelled in the selected period",
+      REFUNDED_DESC: "Refunded in the selected period",
+      /** Zero states — compact, and never dressed up as an event. */
+      ZERO_PERIOD: "None in this period",
+      DELIVERY_FAILED_DESC: "Orders requiring intervention",
+      DELTA_EXPIRED_DESC: "Surcharge deadlines that have passed",
+      LOCATION_REPORTS_DESC: "Reports awaiting a decision",
+      /** Staleness qualifier on Delivery Failed — the count alone omits how long. */
+      OLDEST_FAILED: (ago: string) => `Oldest ${ago}`,
+    },
+
     TITLE: "Operations Dashboard",
     TOTAL_SAILORS: "Total Sailors",
     ACTIVE_PARTNERS: "Active Partners",
