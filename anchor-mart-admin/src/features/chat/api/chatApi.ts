@@ -56,6 +56,7 @@ function toOrderRef(value: unknown): ChatOrderRef | null {
     id: pick(value, "id"),
     orderNumber: pick(value, "order_number"),
     status: pick(value, "status"),
+    orderType: pick(value, "order_type"),
     itemCount: asNumber(getProp(value, "item_count")),
     assignedAdminId: pickOrNull(admin, "id"),
     assignedAdminName: pickOrNull(admin, "name"),
@@ -220,6 +221,7 @@ function toOrderContextSummary(value: unknown): OrderContextSummary {
     orderId: pick(value, "order_id"),
     orderNumber: pick(value, "order_number"),
     status: pick(value, "status"),
+    orderType: pick(value, "order_type"),
     // Falls back to the raw enum only so the strip is never blank; §6.2's "never
     // print a raw status" is about the client apps, and an admin can read one.
     statusDisplay: pick(value, "status_display") || pick(value, "status"),

@@ -42,6 +42,7 @@ export interface ChatOwner {
 export interface ChatOrderRef {
   id: string;
   orderNumber: string;
+  orderType: string;
   status: string;
   /** A count only — the full item list lives on the order-detail screen. */
   itemCount: number;
@@ -331,6 +332,7 @@ export type OrderContextAudience = "customer" | "delivery_partner" | "admin";
 export interface OrderContextSummary {
   orderId: string;
   orderNumber: string;
+  orderType: string;
   /** Raw enum. Never render this — render {@link statusDisplay}. */
   status: string;
   statusDisplay: string;
