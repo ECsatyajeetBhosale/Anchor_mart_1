@@ -29,7 +29,8 @@ import {
   IconMotorbike,
   IconPackage,
   IconSettings,
-  IconShieldLock,
+  // Used only by the commented-out Audit Trail entry below.
+  // IconShieldLock,
   IconStar,
   IconStarFilled,
   IconUserCog,
@@ -461,14 +462,20 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     label: "System",
     items: [
-      {
-        // Flow 34. Role-scoped server-side: a sub-admin only ever sees
-        // `category=order` entries, and chain verification is super-admin only.
-        key: "audit",
-        label: "Audit Trail",
-        icon: IconShieldLock,
-        path: APP_ROUTES.AUDIT,
-      },
+      // Audit Trail — hidden from the sidebar for now, kept here because the
+      // page is wanted back later. Nothing else was removed: the route
+      // (`APP_ROUTES.AUDIT` in AppRouter) and the whole `features/audit`
+      // module still work, so /audit is reachable by URL. Uncomment this block
+      // and the `IconShieldLock` import above to put it back.
+      //
+      // {
+      //   // Flow 34. Role-scoped server-side: a sub-admin only ever sees
+      //   // `category=order` entries, and chain verification is super-admin only.
+      //   key: "audit",
+      //   label: "Audit Trail",
+      //   icon: IconShieldLock,
+      //   path: APP_ROUTES.AUDIT,
+      // },
       {
         key: "settings",
         label: "Settings",

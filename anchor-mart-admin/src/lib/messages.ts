@@ -99,7 +99,6 @@ export const MESSAGES = {
       ATTENTION: "Needs Attention",
       /** Nothing outstanding — said plainly rather than left blank. */
       ATTENTION_CLEAR: "Nothing outstanding",
-      ATTENTION_NOTE: "Live now — not affected by the selected period.",
       PULSE: "Operations Pulse",
       /** Echoed from the response, so a custom range confirms what the server read. */
       PULSE_NOTE: (period: string) => `This period: ${period}`,

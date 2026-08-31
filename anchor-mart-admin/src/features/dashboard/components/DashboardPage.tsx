@@ -300,7 +300,6 @@ export function DashboardPage() {
           replace did. */}
       <div className="occ-sec">
         <span className="occ-sec-label">{M.OCC.ATTENTION}</span>
-        <span className="occ-sec-note">{M.OCC.ATTENTION_NOTE}</span>
       </div>
       <div className="occ-attention">
         <AttentionPanel
