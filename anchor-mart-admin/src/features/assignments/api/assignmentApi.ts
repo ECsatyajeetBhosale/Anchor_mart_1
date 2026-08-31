@@ -352,5 +352,10 @@ export const {
   useGetPartnersByCapabilityQuery,
   useGetOrderTimelineQuery,
   useGetOrderAssignmentsQuery,
+  // Lazy variant: the order drawer needs the partner's **user** id only at the
+  // moment its message button is pressed, and only when the order thread search
+  // came up empty. Subscribing on open would fetch the assignment history for
+  // every order anyone looks at, to answer a question most of them never ask.
+  useLazyGetOrderAssignmentsQuery,
   useAssignOrderMutation,
 } = assignmentApi;

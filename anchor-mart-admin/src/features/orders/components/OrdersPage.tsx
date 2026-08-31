@@ -512,7 +512,12 @@ export function toOrderDetail(order: Order): OrderDetail {
   );
 
   return {
+    // Display identity. The UUID rides alongside it — see `orderUuid`.
     id: order.order_number,
+    orderUuid: order.id,
+    // `customer.id` is the sailor's user id. It has always been on this payload;
+    // only the name was being read off it.
+    sailorUserId: order.customer?.id,
     sailor: customerName(order),
     ship: shipLabel(order),
     terminal: terminalLabel(order),
@@ -1051,20 +1056,6 @@ export function OrdersPage() {
           a card here would sit beside six figures it is not comparable with.
           It is the one worklist on this screen where the remainder can never
           arrive and only an admin can close it out. */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Button
-          variant={isSailedWorklist ? "danger" : "secondary"}
-          size="sm"
-          onClick={toggleSailedWorklist}
-          aria-pressed={isSailedWorklist}
-        >
-          <IconShipOff size={15} className="mr-1" />
-          {M.SAILED_WORKLIST}
-        </Button>
-        {isSailedWorklist && (
-          <span className="text-[12px] font-medium text-[var(--t4)]">{M.SAILED_WORKLIST_HINT}</span>
-        )}
-      </div>
 
       {/* Order-type filter. Replaces the Express/Emergency cards that sat here:
           the same two numbers, but actionable, and with the complement

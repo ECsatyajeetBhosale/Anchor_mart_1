@@ -9,8 +9,6 @@ export {
   useGetUserChatsQuery,
   useGetChatUnreadSummaryQuery,
   useGetOrderContextQuery,
-  useCreateSupportChatMutation,
-  useCreateOrderChatMutation,
   useGetDeliveryChatsQuery,
   useGetOrderChatsQuery,
   useGetOrderChatQuery,
@@ -20,6 +18,12 @@ export { ChatSocketProvider } from "./context/ChatSocketProvider";
 export { useChatSocket } from "./hooks/useChatSocket";
 export { useChatUnread } from "./hooks/useChatUnread";
 export { useStartChat } from "./hooks/useStartChat";
+export {
+  matchesOrderThread,
+  matchesSupportThread,
+  orderThreadCategory,
+  supportInboxFor,
+} from "./lib/threadMatch";
 export { OrderContextStrip } from "./components/OrderContextStrip";
 export type { ChatListTag, ChatSocketApi } from "./hooks/useChatSocket";
 export type {

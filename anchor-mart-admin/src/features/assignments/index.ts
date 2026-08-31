@@ -10,6 +10,7 @@ export {
   useGetPartnersByCapabilityQuery,
   useGetOrderTimelineQuery,
   useGetOrderAssignmentsQuery,
+  useLazyGetOrderAssignmentsQuery,
   useAssignOrderMutation,
 } from "./api/assignmentApi";
 export type {

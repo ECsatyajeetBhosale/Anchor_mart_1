@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { Sheet, SheetContent, SheetFooter } from "@/components/ui/sheet";
+import { useLazyGetOrderAssignmentsQuery } from "@/features/assignments";
 import { useStartChat } from "@/features/chat";
 import { MESSAGES } from "@/lib/messages";
 import {
@@ -79,7 +80,30 @@ export interface OrderPricing {
 }
 
 export interface OrderDetail {
+  /**
+   * The **human order number** (`AM-100234`), not the primary key — it is what
+   * the drawer's title shows and what an admin quotes.
+   *
+   * This is a long-standing trap. `startOrderChat` was handed this as the
+   * `order_id`, which no endpoint accepts: the API keys orders by UUID
+   * everywhere. See {@link OrderDetail.orderUuid}.
+   */
   id: string;
+  /**
+   * The order's UUID — what every endpoint and every chat row means by "order
+   * id". Optional because a caller holding only a list row may not have mapped
+   * it; the messaging actions are disabled without it rather than sending the
+   * order number and failing at the server.
+   */
+  orderUuid?: string;
+  /**
+   * The sailor's user id, for reaching their support conversation.
+   *
+   * Arrives on the order payload as `customer.id` and was simply not being
+   * mapped — the drawer carried the sailor's name, email and phone but no id,
+   * so there was nothing to address a conversation to.
+   */
+  sailorUserId?: string;
   sailor: string;
   ship: string;
   terminal: string;
@@ -265,11 +289,56 @@ export function OrderDetailDrawer({
   timeline,
   detailSlot,
 }: OrderDetailDrawerProps) {
-  // §8.3 — admin-initiated order threads. Self-contained: the create endpoint
-  // needs only the order id and the side, so this needs nothing from the caller.
+  // Opens the conversation with one side of this order. It searches the order
+  // inbox and navigates — it cannot create a thread, because no admin can (flow
+  // 23 §1). See `useStartChat` for the whole story.
   const { startOrderChat, isStarting } = useStartChat();
+  /**
+   * The partner's **user** id, fetched only when a message button is pressed.
+   *
+   * It is not on the order payload: `active_assignment` carries
+   * `partner_name`/`partner_email`/`partner_code` and no user id, and
+   * `partner_id` on that row is the human profile code (`PTR-0042`), which is
+   * the naming trap this deliberately avoids. `delivery_partner_id` on the
+   * assignment history *is* the user UUID (confirmed by backend 2026-08-26),
+   * which is why the id comes from there and only on demand.
+   */
+  const [fetchAssignments] = useLazyGetOrderAssignmentsQuery();
   // `partner` is a display string; a dash or a blank means nobody holds it.
   const hasPartner = Boolean(order?.partner && order.partner !== "—" && order.partner.trim());
+  /**
+   * The UUID every endpoint means by "order id". `order.id` is the human order
+   * number and was being sent in its place — a bug that outlived the endpoint it
+   * was sent to. Without it the message buttons are disabled rather than firing
+   * a request that cannot match anything.
+   */
+  const orderUuid = order?.orderUuid ?? "";
+
+  /** Opens the sailor's conversation for this order. */
+  const messageSailor = () => {
+    if (!orderUuid) return;
+    void startOrderChat({
+      orderId: orderUuid,
+      side: "customer",
+      // Fallback target when the order has no thread yet.
+      userId: order?.sailorUserId,
+    });
+  };
+
+  /** Opens the current delivery partner's conversation for this order. */
+  const messagePartner = async () => {
+    if (!orderUuid) return;
+    // Resolved before the call so the support fallback has somewhere to go; a
+    // failure here is not fatal, it only costs the fallback.
+    let partnerUserId: string | undefined;
+    try {
+      const rows = await fetchAssignments(orderUuid, true).unwrap();
+      partnerUserId = rows.find((r) => r.isActive && r.partnerUserId)?.partnerUserId;
+    } catch {
+      partnerUserId = undefined;
+    }
+    void startOrderChat({ orderId: orderUuid, side: "delivery_partner", userId: partnerUserId });
+  };
 
   const [tab, setTab] = useState(TAB_OVERVIEW);
 
@@ -556,30 +625,37 @@ export function OrderDetailDrawer({
                 rest render only when the caller owns the handler. */}
             <SheetFooter className="p-5 border-t border-[var(--border-md)] bg-[var(--surface-alt)]">
               <div className="flex gap-2 w-full">
-                {/* §8.3 — `side` is required and never guessed: the sailor's
-                      thread and the partner's are separate conversations on the
-                      same order, and neither can see the other. */}
+                {/* `side` is required and never guessed: the sailor's thread
+                      and the partner's are separate conversations on the same
+                      order, and neither can see the other.
+
+                      Disabled without `orderUuid` — a caller holding only a list
+                      row has no UUID to search on, and the order number it does
+                      have matches nothing. Better a dead button than one that
+                      always reports "no conversation". */}
                 <Button
                   variant="secondary"
                   size="sm"
-                  disabled={isStarting}
-                  onClick={() => startOrderChat({ orderId: order.id, side: "customer" })}
+                  disabled={isStarting || !orderUuid}
+                  title={orderUuid ? undefined : CHAT_START.NO_PARTICIPANT}
+                  onClick={messageSailor}
                 >
                   <IconMessage size={15} />
-                  {CHAT_START.MESSAGE_SAILOR}
+                  {isStarting ? CHAT_START.OPENING : CHAT_START.MESSAGE_SAILOR}
                 </Button>
-                {/* Shown only when a partner actually holds the order: without
-                      an assignment the create is a 400, and offering a button
-                      that can only fail is worse than not offering it. */}
+                {/* Shown only when a partner actually holds the order. Nobody
+                      to message otherwise, and an order thread cannot exist on a
+                      side the order does not have. */}
                 {hasPartner && (
                   <Button
                     variant="secondary"
                     size="sm"
-                    disabled={isStarting}
-                    onClick={() => startOrderChat({ orderId: order.id, side: "delivery_partner" })}
+                    disabled={isStarting || !orderUuid}
+                    title={orderUuid ? undefined : CHAT_START.NO_PARTICIPANT}
+                    onClick={() => void messagePartner()}
                   >
                     <IconMessage size={15} />
-                    {CHAT_START.MESSAGE_PARTNER}
+                    {isStarting ? CHAT_START.OPENING : CHAT_START.MESSAGE_PARTNER}
                   </Button>
                 )}
                 {onReassign && (

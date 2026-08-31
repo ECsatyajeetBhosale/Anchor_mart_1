@@ -285,8 +285,7 @@ export function IntentsPage() {
   /** Which row's claim is in flight — scopes the spinner to that button. */
   const [claimingId, setClaimingId] = useState<string | null>(null);
 
-  const { stateOf, canManage, canClaim, canReassign, canRelease, isSuperAdmin } =
-    useOrderOwnership();
+  const { stateOf, canManage, canClaim, canReassign, canRelease } = useOrderOwnership();
   const [claimOrder] = useClaimOrderMutation();
   /** The intent whose handover dialog is open, or null when closed. */
   const [handover, setHandover] = useState<{
@@ -855,15 +854,6 @@ export function IntentsPage() {
         onRetry={refetchStats}
       />
 
-      {/* Throughput, not a funnel state: intents that LEFT this screen today by
-          being paid. It belongs to no total, so it sits outside both grids. */}
-      <div className="mb-5 flex items-center gap-2 text-[13px]">
-        <IconCheck size={15} className="shrink-0 text-[var(--success-icon)]" />
-        <span className="font-semibold text-[var(--t3)]">{M.STATS.CONFIRMED_TODAY}</span>
-        <span className="font-extrabold tabular-nums text-[var(--t1)]">
-          {statText(cardsState, stats?.confirmed_today)}
-        </span>
-      </div>
 
       {/* Order-type filter — same control and semantics as the orders screen. */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -911,7 +901,6 @@ export function IntentsPage() {
         ownership={selectedIntent ? stateOf(selectedIntent.assignedAdmin) : "unassigned"}
         canManage={canManage(selectedIntent?.assignedAdmin)}
         canClaim={canClaim(selectedIntent?.assignedAdmin)}
-        isSuperAdmin={isSuperAdmin}
         isClaiming={!!selectedIntent && claimingId === selectedIntent.id}
         isReleasing={isReleasing}
         onClaim={() => selectedIntent && handleClaim(selectedIntent)}

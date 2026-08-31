@@ -11,9 +11,6 @@ import type {
   ChatThread,
   ChatUnreadSummary,
   CreateChatGroupPayload,
-  CreateOrderChatPayload,
-  CreateSupportChatPayload,
-  CreatedChat,
   OrderChatCategory,
   OrderContext,
   OrderContextAudience,
@@ -256,29 +253,6 @@ function toOrderContext(res: unknown): OrderContext {
 }
 
 /**
- * Maps either create response.
- *
- * Both endpoints return the **full chat object at the top level** — no `data`
- * envelope, no `chat_id` key. The id is `id`, and it is an **integer** (`Chat`
- * uses a normal auto PK, which is why the detail routes are `<int:chat_id>`);
- * `pick` stringifies it for routing and keys.
- *
- * **201 and 200 mean the same thing to the UI** — a thread to open. Both
- * endpoints are idempotent: 201 created it, 200 returned the one that already
- * existed, and the body is identical. "A chat already exists" must never be
- * shown, so `created` is recorded and deliberately not surfaced.
- */
-function toCreatedChat(
-  res: unknown,
-  meta: { response?: { status: number } } | undefined,
-): CreatedChat {
-  return {
-    chatId: pick(res, "id"),
-    created: meta?.response?.status === 201,
-  };
-}
-
-/**
  * Newest thread first, by `last_message_at`.
  *
  * An inbox is a queue: the thread someone just wrote in is the one that needs
@@ -444,29 +418,26 @@ export const chatApi = baseApi.injectEndpoints({
       providesTags: (_r, _e, chatId) => [{ type: "Chats", id: `CONTEXT-${chatId}` }],
     }),
 
-    /** §8.3 — open a support thread with a user, from the user detail screen. */
-    createSupportChat: builder.mutation<CreatedChat, CreateSupportChatPayload>({
-      query: (body) => ({ url: CHAT_ENDPOINTS.CREATE_SUPPORT_CHAT, method: "POST", body }),
-      transformResponse: toCreatedChat,
-      invalidatesTags: [
-        { type: "Chats", id: "SUPPORT-LIST" },
-        { type: "Chats", id: "DELIVERY-LIST" },
-      ],
-    }),
-
-    /**
-     * §8.3 — open an order thread with one side of an order.
+    /* ── Removed: `createSupportChat` / `createOrderChat` ──────────────────
      *
-     * 403 (another admin owns it) and 409 (unassigned) come from the same
-     * ownership gate as every other admin action on an order, so the caller
-     * reuses the panel's existing copy for those and offers **no retry** — a
-     * retry affordance implies the failure is transient, and neither is.
+     * Both POSTed to routes the backend does not serve —
+     * `…/chat/support-chats/create/` and `…/chat/order-chats/create/` — and
+     * every call failed. The second is the one that produced a **400 rather
+     * than a 404**, which is what made it look like a payload bug for so long:
+     * `create` was being matched as the `<chat_id>` path segment of §4.4's
+     * `GET …/order-chats/<chat_id>/`, and the view rejected the unparseable id.
+     *
+     * They were written against a "§8.3" of the flow doc that does not exist —
+     * flow 23 ends at §6 — and no admin-facing create endpoint was ever built,
+     * deliberately: §1's "Who may open an order thread" table gives admins
+     * **"cannot open one — there is nothing to say until the other side asks"**,
+     * and the Postman collection says the same of the customer route ("staff
+     * cannot open a thread on the customer's behalf").
+     *
+     * Threads are opened by the sailor or partner; admins join what exists.
+     * `hooks/useStartChat.ts` therefore finds the existing thread and navigates
+     * to it, using the same list endpoints the inboxes already render.
      */
-    createOrderChat: builder.mutation<CreatedChat, CreateOrderChatPayload>({
-      query: (body) => ({ url: CHAT_ENDPOINTS.CREATE_ORDER_CHAT, method: "POST", body }),
-      transformResponse: toCreatedChat,
-      invalidatesTags: [{ type: "Chats", id: "ORDER-LIST" }],
-    }),
 
     /**
      * §4.4 — upload an image or file into a thread.
@@ -528,14 +499,18 @@ export const {
   useGetUserChatsQuery,
   useGetDeliveryChatsQuery,
   useGetOrderChatsQuery,
+  // Lazy variants back the thread search in `useStartChat`: it pages an inbox
+  // looking for one row, which is a one-shot request rather than a subscription
+  // any component renders from.
+  useLazyGetUserChatsQuery,
+  useLazyGetDeliveryChatsQuery,
+  useLazyGetOrderChatsQuery,
   useGetOrderChatQuery,
   useGetChatMessagesQuery,
   useGetChatPresenceQuery,
   useGetChatUnreadSummaryQuery,
   useLazyGetChatUnreadSummaryQuery,
   useGetOrderContextQuery,
-  useCreateSupportChatMutation,
-  useCreateOrderChatMutation,
   useUploadChatMediaMutation,
   useCreateChatGroupMutation,
 } = chatApi;

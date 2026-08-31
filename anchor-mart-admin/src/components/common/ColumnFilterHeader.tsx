@@ -22,6 +22,14 @@ export interface ColumnFilterHeaderProps {
  * Reusable clickable table-header filter. Renders the column label with a
  * filter icon; clicking opens a menu of options plus an "All" reset item.
  * Generic by design — any DataTable column can opt in via its `filter` config.
+ *
+ * The menu is bounded to the space it actually has rather than left to grow to
+ * its content. A short option list never noticed the difference; the intents
+ * screen's status filter, at thirteen entries, is tall enough that Radix flips
+ * it above the trigger when the table header sits low in the window, and an
+ * unbounded menu then ran up over the sticky topbar with its first options past
+ * the top edge of the screen. Every column that opts in gets the bounded
+ * behaviour, so this cannot come back on the next long filter.
  */
 export function ColumnFilterHeader({
   label,
@@ -50,10 +58,32 @@ export function ColumnFilterHeader({
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
+        {/* Three things keep a long option list on screen.
+
+            `collisionPadding` is the reason for the top value in particular:
+            the app shell is a grid whose first row is the 62px sticky topbar,
+            and this menu is portalled to `body`, so it is not clipped by
+            `.main-content` and will happily flip up into — or straight past —
+            that row when the trigger sits low in the window. Reserving the
+            topbar's height plus a margin keeps the menu inside the content
+            area, on either side of the trigger.
+
+            `max-h` is what makes that survivable. Radix publishes the room it
+            actually has on the chosen side as
+            `--radix-dropdown-menu-content-available-height` (already net of
+            `collisionPadding`), so binding the height to it turns a list too
+            tall for the window into a scrolling one instead of one whose first
+            items are off the top edge. `overscroll-contain` stops that scroll
+            from chaining to the page underneath once it bottoms out.
+
+            The z-index sits above the row action menu (`.action-menu`, 200) and
+            the sticky panel headers (30), so nothing the table itself paints
+            can cover the open menu. */}
         <DropdownMenu.Content
           align="start"
           sideOffset={6}
-          className="z-50 min-w-[150px] rounded-md border p-1 shadow-md"
+          collisionPadding={{ top: 70, bottom: 12, left: 12, right: 12 }}
+          className="z-[300] max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-[150px] overflow-y-auto overscroll-contain rounded-md border p-1 shadow-md"
           style={{ background: "var(--surface)", borderColor: "var(--border-md)" }}
         >
           {items.map((opt) => (

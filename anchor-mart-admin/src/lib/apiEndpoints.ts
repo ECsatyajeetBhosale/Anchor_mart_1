@@ -799,22 +799,17 @@ export const CHAT_ENDPOINTS = {
    * without the strip. The chat must never be blocked on this call.
    */
   ORDER_CONTEXT: (chatId: string) => `/superadmin/chat/order-chats/${chatId}/order-context/`,
-  /**
-   * §8.3 — open a support thread with a user. Body: `{ user_id, message? }`.
-   * **201** = created, **200** = it already existed; both mean "open it".
-   */
-  CREATE_SUPPORT_CHAT: "/superadmin/chat/support-chats/create/",
-  /**
-   * §8.3 — open an order thread. Body: `{ order_id, side, user_id?, message? }`.
+  /* Removed: `CREATE_SUPPORT_CHAT` and `CREATE_ORDER_CHAT`.
    *
-   * `side` is required and never guessed. `user_id` reaches a **previous**
-   * delivery partner on a reassigned order; omit it for the current one. Sending
-   * it with `side: "customer"` is a 400 — an order has exactly one sailor.
+   * `…/chat/support-chats/create/` and `…/chat/order-chats/create/` are not
+   * routes the backend serves. The order one answered **400 rather than 404**
+   * because `create` was matched as the `<chat_id>` segment of the detail route
+   * below, which is what disguised a missing endpoint as a payload bug.
    *
-   * 403 = another admin owns this order, 409 = the order is unassigned. Both come
-   * from the same ownership gate as every other admin action on an order.
+   * No admin create endpoint exists, by design: flow 23 §1 gives admins
+   * "cannot open one — there is nothing to say until the other side asks". The
+   * panel finds the existing thread instead — see `hooks/useStartChat.ts`.
    */
-  CREATE_ORDER_CHAT: "/superadmin/chat/order-chats/create/",
   /**
    * §4.4 — attachment upload. Multipart: `file`, `message_type`
    * (`image` | `file`), optional `message` caption, and **one** target —
@@ -849,3 +844,30 @@ export const PORT_ENDPOINTS = {
 // No admin screen consumes them, so their constants are intentionally absent
 // rather than sitting here uncalled — add them back alongside the UI that needs
 // them.
+
+/**
+ * Flow 21 §9 — device push registration.
+ *
+ * The odd one out in this file, in three ways worth stating rather than
+ * rediscovering:
+ *
+ * 1. **Prefix.** Every other route here hangs off `/superadmin/`. This one is
+ *    `/v1/user/`, a shared mount the sailor and partner apps call too — it
+ *    registers *a device for the signed-in user*, whoever that user is, and
+ *    there is no admin-scoped twin.
+ * 2. **Version segment.** `/api/v1/…`, not `/api/…`. The original Postman
+ *    collection had it at `/api/user/add-fcm-token/` and every call 404'd; the
+ *    corrected collection notes the missing `v1` explicitly. The base URL
+ *    already ends in `/api`, so the leading `/v1` here is the whole difference.
+ * 3. **Secret header.** `/superadmin/` is exempt from `ServerSecurityMiddleware`
+ *    and this mount is not, so the request must carry `server-secret-key` or it
+ *    401s. See `SERVER_SECRET_HEADER` in `lib/fetchUtils.ts` for the opt-in.
+ *
+ * Body `{ fcm_token }`. Upserts on the token, which is unique across users: a
+ * token last seen on another account is reassigned to the caller, so re-sending
+ * on every sign-in is both safe and the point. The backend drops a user's tokens
+ * on logout, which is why there is no delete route to pair with this.
+ */
+export const PUSH_ENDPOINTS = {
+  ADD_FCM_TOKEN: "/v1/user/add-fcm-token/",
+};

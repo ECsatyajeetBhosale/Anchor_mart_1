@@ -115,9 +115,17 @@ export function AnalyticsPage() {
 
       {/* Where the traffic comes from, then the same split over time. Both take
           the shared `params` unchanged, so they refetch with the rest of the
-          screen on a filter change and need no control of their own. */}
-      <div className="grid-2 mb20">
+          screen on a filter change and need no control of their own.
+
+          Stacked full width rather than side by side: the trend is a stacked
+          bar chart over a time axis, and at half width its buckets compress
+          until adjacent columns are no longer separable. The breakdown card
+          above it carries a five-column table that reads better with the room
+          too, so neither loses anything by taking the whole line. */}
+      <div className="mb20">
         <TrafficByPlatformCard params={params} />
+      </div>
+      <div className="mb20">
         <PlatformTrendCard params={params} />
       </div>
 

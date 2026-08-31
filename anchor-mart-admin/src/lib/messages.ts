@@ -4355,6 +4355,32 @@ export const MESSAGES = {
       NOT_OWNER: "This order is managed by another admin.",
       UNASSIGNED: "Claim this order before messaging about it.",
       FAILED: "Could not open the conversation.",
+
+      /**
+       * The button was pressed with no user id behind it — a bug in the caller,
+       * not a state of the data, so it reads as an error rather than as news.
+       */
+      NO_PARTICIPANT: "No account is linked to this order yet.",
+      /**
+       * Not an error. An admin cannot open an order thread — flow 23 §1 gives
+       * that to the sailor and the partner only — so "there isn't one" is an
+       * ordinary answer and the copy says who can change it, since pressing the
+       * button again never will.
+       */
+      NO_ORDER_THREAD_SAILOR:
+        "No chat on this order yet — the sailor opens it by asking about the order.",
+      NO_ORDER_THREAD_PARTNER:
+        "No chat on this order yet — the delivery partner opens it from their assignment.",
+      /** Same, for a support thread the person has never used. */
+      NO_SUPPORT_THREAD: "No support conversation with this person yet.",
+      /**
+       * The fallback announces itself. Landing silently on a general support
+       * thread after asking about a specific order would leave an admin writing
+       * into the wrong conversation believing it was the order's.
+       */
+      FELL_BACK_SAILOR: "No chat on this order — opened the sailor's support conversation instead.",
+      FELL_BACK_PARTNER:
+        "No chat on this order — opened the partner's support conversation instead.",
     },
     THREADS: {
       FETCH_ERROR: "Failed to load conversations.",
@@ -5230,5 +5256,36 @@ export const MESSAGES = {
     NEW_ACTIVITY: "New activity",
     /** Tooltip on the refresh button, which is the documented backstop. */
     STALE_HINT: "Live updates are down — refresh to get current numbers.",
+  },
+
+  /**
+   * Browser push (Flow 21 §9). Sits next to REALTIME because the two are the
+   * same promise made over different transports — one while the tab is open,
+   * one while it is not.
+   */
+  PUSH: {
+    /** Header button, before the admin has been asked. */
+    ENABLE: "Enable browser notifications",
+    /** Header button, once this browser is registered. Reads as state, not as an action, because clicking it does nothing further. */
+    ENABLED_LABEL: "Browser notifications on",
+    /** Header button where the browser has permanently refused. */
+    DENIED_LABEL: "Browser notifications blocked",
+    ENABLED: "Browser notifications are on for this device.",
+    /**
+     * Said this way on purpose. A denied permission cannot be re-requested from
+     * script — only the browser's own site settings can undo it — so a message
+     * that just says "denied" leaves the admin clicking a button that can never
+     * work again.
+     */
+    DENIED_HINT:
+      "Notifications are blocked. Allow them in your browser's site settings, then try again.",
+    /** The browser cannot do push at all: no service worker, or an insecure origin. */
+    UNSUPPORTED: "This browser can't show notifications.",
+    /** Permission is fine; the build has no Firebase config. An operator-facing wording, since only a deploy can fix it. */
+    UNCONFIGURED: "Push notifications aren't configured for this deployment.",
+    /** Permission granted, registration failed. Retryable, so it says so. */
+    FAILED: "Couldn't turn on notifications. Please try again.",
+    /** A push that arrived with no title while the panel was focused. */
+    FOREGROUND_FALLBACK: "New notification",
   },
 } as const;

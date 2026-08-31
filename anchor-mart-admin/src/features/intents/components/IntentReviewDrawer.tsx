@@ -61,7 +61,6 @@ import { IntentLifecycleRail } from "./IntentLifecycleRail";
 import { SuggestReplacementPanel } from "./SuggestReplacementPanel";
 
 const O = MESSAGES.INTENTS.OWNERSHIP;
-const A = MESSAGES.INTENTS.ACTION;
 const S = MESSAGES.INTENTS.SUBSTITUTION;
 const T = MESSAGES.INTENTS.TOAST;
 const R = MESSAGES.INTENTS.REVIEW;
@@ -106,7 +105,6 @@ export interface IntentReviewDrawerProps {
   canManage: boolean;
   /** Should the claim action be offered (unassigned only)? */
   canClaim: boolean;
-  isSuperAdmin: boolean;
   isClaiming: boolean;
   /** Release-suggestions mutation in flight. */
   isReleasing: boolean;
@@ -214,7 +212,6 @@ export function IntentReviewDrawer({
   ownership,
   canManage,
   canClaim,
-  isSuperAdmin,
   isClaiming,
   isReleasing,
   onClaim,
@@ -413,15 +410,19 @@ export function IntentReviewDrawer({
     isUnbilled: UNBILLED_STATUSES.has(status),
   };
 
-  // One line explaining what happens next. A super admin writes regardless of
-  // ownership, so they never see a blocking hint — which means the blocked
-  // branches below are only ever read by an Operator, who cannot take the order
-  // on themselves. The line names who can hand it to them instead.
-  const actionHint = showReassign ? R.REASSIGN_HINT : A[action];
-  const gateHint = canManage
-    ? isSuperAdmin && ownership !== "mine"
-      ? O.SUPER_ADMIN_OVERRIDE
-      : actionHint
+  // Why this admin cannot write, when they cannot. The "Next step" half of this
+  // — the info-tone line telling an admin who *can* act what to do next — was
+  // removed from the drawer: the footer's primary button already carries that
+  // instruction as its own label, so the banner restated it in a full-width
+  // strip above the tabs and pushed the content down on every open.
+  //
+  // What remains is the blocked case, which is not a restatement of anything:
+  // it is the only place the drawer explains why every action is disabled. A
+  // super admin writes regardless of ownership and so never reaches it; it is
+  // read by an Operator, who cannot take the order on themselves, and it names
+  // who can hand it to them instead.
+  const blockedHint = canManage
+    ? null
     : ownership === "other" && owner
       ? O.OWNED_BY_OTHER(owner.name)
       : O.NOT_ASSIGNED;
@@ -586,12 +587,8 @@ export function IntentReviewDrawer({
             ]}
           />
 
-          {gateHint && (
-            <ReviewGateBanner
-              tone={canManage ? "info" : "blocked"}
-              label={canManage ? R.NEXT_STEP : R.BLOCKED}
-              message={gateHint}
-            />
+          {blockedHint && (
+            <ReviewGateBanner tone="blocked" label={R.BLOCKED} message={blockedHint} />
           )}
 
           {/* ── Body ──────────────────────────────────────────────────── */}

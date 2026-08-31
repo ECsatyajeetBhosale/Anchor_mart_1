@@ -1,102 +1,164 @@
-import { APP_ROUTES } from "@/lib/constants";
+import { API_MAX_PAGE_SIZE, APP_ROUTES } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { useCreateOrderChatMutation, useCreateSupportChatMutation } from "../api/chatApi";
-import type { ChatCounterparty } from "../types/chat.types";
+import {
+  useLazyGetDeliveryChatsQuery,
+  useLazyGetOrderChatsQuery,
+  useLazyGetUserChatsQuery,
+} from "../api/chatApi";
+import {
+  matchesOrderThread,
+  matchesSupportThread,
+  orderThreadCategory,
+  supportInboxFor,
+} from "../lib/threadMatch";
+import type { ChatCounterparty, ChatSource, ChatThread } from "../types/chat.types";
 
 const M = MESSAGES.CHAT.START;
 
-/** Reads the HTTP status off an RTK Query error without asserting a shape. */
-function statusOf(error: unknown): number | null {
-  if (error && typeof error === "object" && "status" in error) {
-    const status = (error as { status: unknown }).status;
-    if (typeof status === "number") return status;
+/**
+ * How many pages deep to look before giving up.
+ *
+ * At {@link API_MAX_PAGE_SIZE} rows a page this covers 500 threads, which is far
+ * past any realistic inbox and still bounded — an unbounded loop against a
+ * paginated endpoint is a hang waiting for a large enough dataset.
+ *
+ * A search that runs out of pages reports "no conversation" rather than
+ * pretending certainty. The real fix is server-side filtering: §4.3 accepts only
+ * `category`, `page` and `page_size`, so there is no way to ask for "the thread
+ * on order X" and this has to walk the list. **An `?order_id=` (and a
+ * `?user_id=` on §4.1/§4.2) would collapse every search here to one request** —
+ * it is the one backend change this screen wants.
+ */
+const MAX_PAGES = 10;
+
+/** Walks an inbox page by page until `match` hits, the rows run out, or the cap. */
+async function findThread(
+  fetchPage: (page: number) => Promise<{ count: number; items: ChatThread[] } | undefined>,
+  match: (thread: ChatThread) => boolean,
+): Promise<ChatThread | null> {
+  let seen = 0;
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const result = await fetchPage(page);
+    const items = result?.items ?? [];
+    if (items.length === 0) return null;
+    const hit = items.find(match);
+    if (hit) return hit;
+    seen += items.length;
+    // `count` is the server's total; stop as soon as this page completed it
+    // rather than spending a request to discover an empty page.
+    if (result && seen >= result.count) return null;
   }
   return null;
 }
 
-/**
- * Turns a create-chat failure into something an admin can act on (§8.3).
- *
- * 403 and 409 come from the same ownership gate as every other admin action on
- * an order, so they get the panel's existing vocabulary. Both are **terminal for
- * this admin** — the fix is claiming the order or asking whoever owns it, never
- * pressing the button again — so neither is offered a retry.
- */
-function errorMessage(error: unknown): string {
-  const status = statusOf(error);
-  if (status === 403) return M.NOT_OWNER;
-  if (status === 409) return M.UNASSIGNED;
-
-  // 400 carries a real explanation — a blocked account, an admin as the target,
-  // no assignment on the order. The server's prose beats anything generic here.
-  const data = (error as { data?: unknown })?.data;
-  const detail =
-    typeof data === "object" && data !== null && "detail" in data
-      ? (data as { detail: unknown }).detail
-      : null;
-  if (typeof detail === "string" && detail) return detail;
-
-  return M.FAILED;
-}
-
 export interface StartChatApi {
   /**
-   * Opens (or reuses) the support thread with a user, then navigates to it.
+   * Opens the user's support thread and navigates to it.
    *
-   * `inbox` says which tab the thread will appear on. A partner's support thread
-   * is in the delivery inbox, not the sailor one, so landing on the default
-   * would show an empty list where the new thread is not.
+   * `inbox` says which endpoint holds it — a partner's support thread is in the
+   * delivery inbox, not the sailor one, and landing on the wrong tab would show
+   * an empty list where the thread is not.
    */
-  startSupportChat: (userId: string, inbox?: "support" | "delivery") => Promise<void>;
+  startSupportChat: (userId: string, inbox?: ChatSource) => Promise<void>;
   /**
-   * Opens (or reuses) an order thread with one side of an order.
+   * Opens the order thread for one side of an order.
    *
    * `previousPartnerId` reaches a **previous** delivery partner on a reassigned
-   * order; omit it for the current one. It is rejected with a 400 alongside
-   * `side: "customer"`, since an order has exactly one sailor.
+   * order: an order can hold several `order_delivery` threads, one per partner
+   * who has ever held it, so the order id alone is ambiguous there and the owner
+   * id disambiguates. Omit it for the current partner.
+   *
+   * `userId` is the fallback path, not the primary one — see the hook docs.
    */
   startOrderChat: (args: {
     orderId: string;
     side: ChatCounterparty;
     previousPartnerId?: string;
+    userId?: string;
   }) => Promise<void>;
-  /** True while either create is in flight. */
+  /** True while a search is in flight. */
   isStarting: boolean;
 }
 
 /**
- * Admin-initiated conversations (Flow 23 §8.3).
+ * Opens the conversation with someone the admin is already looking at.
  *
- * Both entry points start from something the admin is already looking at — an
- * order, or a user — which is why this is a hook rather than a "new message"
- * screen with a recipient picker: the recipient is never in question.
+ * ## Why this finds threads instead of creating them
  *
- * **201 and 200 are the same outcome.** A thread that already existed is not a
- * conflict and must never be reported as one; the admin asked to talk to
- * someone, and both answers mean they now can.
+ * It used to POST to `…/chat/support-chats/create/` and
+ * `…/chat/order-chats/create/`. Neither route exists. The order one returned a
+ * **400 rather than a 404** — `create` was matched as the `<chat_id>` segment of
+ * §4.4's detail route and rejected as an unparseable id — which is why it read
+ * as a payload problem for so long.
+ *
+ * They were never going to exist. Flow 23 §1, "Who may open an order thread",
+ * gives admins **"cannot open one — there is nothing to say until the other side
+ * asks"**, and the Postman collection says the same of the customer-facing
+ * create ("staff cannot open a thread on the customer's behalf"). A thread is
+ * opened by the sailor or the partner; the admin joins one that exists. So the
+ * job here is a lookup and a navigation, using the same list endpoints the
+ * inboxes already render and the same `openChatId` route state the inbox already
+ * consumes.
+ *
+ * ## What happens when there is no order thread
+ *
+ * The order thread is tried first — it is the conversation *about this order*,
+ * and the one the admin means. Where none exists yet, the caller may pass
+ * `userId` and the search falls back to that person's **support** thread, which
+ * is the only other conversation an admin can reach them through. The fallback
+ * announces itself: silently landing on a general support thread when the admin
+ * asked about an order would misrepresent which conversation they are in.
+ *
+ * With neither, nothing is opened and the toast says why. That is a real state
+ * of this system, not a failure — an order nobody has written about has no
+ * thread, and this panel cannot conjure one.
  */
 export function useStartChat(): StartChatApi {
   const navigate = useNavigate();
-  const [createSupport, supportState] = useCreateSupportChatMutation();
-  const [createOrder, orderState] = useCreateOrderChatMutation();
+  const [fetchUserChats] = useLazyGetUserChatsQuery();
+  const [fetchDeliveryChats] = useLazyGetDeliveryChatsQuery();
+  const [fetchOrderChats] = useLazyGetOrderChatsQuery();
+  // Not RTK Query's own flags: one click can span several requests across two
+  // endpoints, and any single hook's `isFetching` goes quiet between them.
+  const [isStarting, setIsStarting] = useState(false);
+
+  /** Finds a user's support thread in whichever inbox holds it. */
+  const findSupportThread = useCallback(
+    async (userId: string, inbox: ChatSource) => {
+      const fetchPage = inbox === "delivery" ? fetchDeliveryChats : fetchUserChats;
+      return findThread(
+        (page) =>
+          fetchPage({ page, limit: API_MAX_PAGE_SIZE }, true)
+            .unwrap()
+            .catch(() => undefined),
+        (thread) => matchesSupportThread(thread, userId),
+      );
+    },
+    [fetchDeliveryChats, fetchUserChats],
+  );
 
   const startSupportChat = useCallback(
-    async (userId: string, inbox: "support" | "delivery" = "support") => {
+    async (userId: string, inbox: ChatSource = "support") => {
+      if (!userId) {
+        toast.error(M.NO_PARTICIPANT);
+        return;
+      }
+      setIsStarting(true);
       try {
-        // `message` is deliberately omitted: an admin may open a thread now and
-        // write later, and pre-sending anything would put words in their mouth.
-        const result = await createSupport({ user_id: userId }).unwrap();
-        navigate(APP_ROUTES.SUPPORT, {
-          state: { openChatId: result.chatId, source: inbox },
-        });
-      } catch (error) {
-        toast.error(errorMessage(error));
+        const thread = await findSupportThread(userId, inbox);
+        if (!thread) {
+          toast.info(M.NO_SUPPORT_THREAD);
+          return;
+        }
+        navigate(APP_ROUTES.SUPPORT, { state: { openChatId: thread.id, source: inbox } });
+      } finally {
+        setIsStarting(false);
       }
     },
-    [createSupport, navigate],
+    [findSupportThread, navigate],
   );
 
   const startOrderChat = useCallback(
@@ -104,30 +166,54 @@ export function useStartChat(): StartChatApi {
       orderId,
       side,
       previousPartnerId,
-    }: { orderId: string; side: ChatCounterparty; previousPartnerId?: string }) => {
+      userId,
+    }: {
+      orderId: string;
+      side: ChatCounterparty;
+      previousPartnerId?: string;
+      userId?: string;
+    }) => {
+      if (!orderId) {
+        toast.error(M.NO_PARTICIPANT);
+        return;
+      }
+      setIsStarting(true);
       try {
-        const result = await createOrder({
-          order_id: orderId,
-          side,
-          // Only ever sent for a previous partner. Paired with `side: "customer"`
-          // it is a 400, so it is never attached on the sailor path.
-          ...(previousPartnerId && side === "delivery_partner"
-            ? { user_id: previousPartnerId }
-            : {}),
-        }).unwrap();
-        navigate(APP_ROUTES.ORDER_CHATS, { state: { openChatId: result.chatId } });
-      } catch (error) {
-        toast.error(errorMessage(error));
+        const category = orderThreadCategory(side);
+        const thread = await findThread(
+          (page) =>
+            fetchOrderChats({ category, page, limit: API_MAX_PAGE_SIZE }, true)
+              .unwrap()
+              .catch(() => undefined),
+          (t) => matchesOrderThread(t, orderId, previousPartnerId),
+        );
+        if (thread) {
+          navigate(APP_ROUTES.ORDER_CHATS, { state: { openChatId: thread.id } });
+          return;
+        }
+
+        // No order thread. Their support thread is the only other way to reach
+        // them, and it is a different conversation — so it is offered, not
+        // substituted silently.
+        if (userId) {
+          const support = await findSupportThread(userId, supportInboxFor(side));
+          if (support) {
+            toast.info(side === "customer" ? M.FELL_BACK_SAILOR : M.FELL_BACK_PARTNER);
+            navigate(APP_ROUTES.SUPPORT, {
+              state: { openChatId: support.id, source: supportInboxFor(side) },
+            });
+            return;
+          }
+        }
+        toast.info(side === "customer" ? M.NO_ORDER_THREAD_SAILOR : M.NO_ORDER_THREAD_PARTNER);
+      } finally {
+        setIsStarting(false);
       }
     },
-    [createOrder, navigate],
+    [fetchOrderChats, findSupportThread, navigate],
   );
 
-  return {
-    startSupportChat,
-    startOrderChat,
-    isStarting: supportState.isLoading || orderState.isLoading,
-  };
+  return { startSupportChat, startOrderChat, isStarting };
 }
 
 export default useStartChat;

@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { SegmentedToggle } from "@/components/common/SegmentedToggle";
 import { Button } from "@/components/ui/button";
 import { useAppSelector } from "@/hooks/useAppDispatch";
+import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { IconPencilPlus } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
@@ -105,11 +106,25 @@ export function ChatMonitorPage({ source, sources }: ChatMonitorPageProps) {
 
   // All three hooks are always called (rules of hooks); the two that don't back
   // this screen are skipped so they never fire a request.
-  const supportQuery = useGetUserChatsQuery(undefined, { skip: effectiveSource !== "support" });
-  const deliveryQuery = useGetDeliveryChatsQuery(undefined, {
-    skip: effectiveSource !== "delivery",
-  });
-  const orderQuery = useGetOrderChatsQuery({ category }, { skip: effectiveSource !== "order" });
+  //
+  // `limit` matters more than it looks. The sidebar has no paginator — it renders
+  // exactly what one request returned — so leaving it off meant the server
+  // default of **10 threads**, and an eleventh conversation was simply
+  // unreachable from this screen. It also silently broke arriving with an
+  // `openChatId`: the pane resolves the id against the loaded rows, so a thread
+  // outside those ten opened as an empty pane rather than as itself.
+  const supportQuery = useGetUserChatsQuery(
+    { limit: API_MAX_PAGE_SIZE },
+    { skip: effectiveSource !== "support" },
+  );
+  const deliveryQuery = useGetDeliveryChatsQuery(
+    { limit: API_MAX_PAGE_SIZE },
+    { skip: effectiveSource !== "delivery" },
+  );
+  const orderQuery = useGetOrderChatsQuery(
+    { category, limit: API_MAX_PAGE_SIZE },
+    { skip: effectiveSource !== "order" },
+  );
   const { data, isLoading, isError } =
     effectiveSource === "support"
       ? supportQuery
