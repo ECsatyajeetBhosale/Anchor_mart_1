@@ -1,4 +1,3 @@
-import { DynamicTabs } from "@/components/common/DynamicTabs";
 import { PageHeader } from "@/components/common/PageHeader";
 import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
@@ -12,39 +11,22 @@ import { IconBolt, IconPackage, IconPlus, IconStack2 } from "@tabler/icons-react
 import { useCallback, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useGetExpressStatsQuery } from "../api/expressApi";
-import { ExpressItemsTab } from "./ExpressItemsTab";
 import { ExpressProductsTab } from "./ExpressProductsTab";
 
 const M = MESSAGES.EXPRESS;
-const C = MESSAGES.EXPRESS.CATALOG;
-
-const TAB_PRODUCTS = "products";
-const TAB_ITEMS = "items";
 
 /**
- * Sort options for the items tab. The values are the literal phrases the API
- * validates against, prefixed with the query param they belong to because price
- * and popularity share the same two phrases.
- */
-const SORT_OPTIONS = [
-  { value: "relevance:newest_first", label: C.SORT.NEWEST },
-  { value: "relevance:oldest_first", label: C.SORT.OLDEST },
-  { value: "price:low to high", label: C.SORT.PRICE_ASC },
-  { value: "price:high to low", label: C.SORT.PRICE_DESC },
-  { value: "popularity:high to low", label: C.SORT.POPULARITY_DESC },
-  { value: "popularity:low to high", label: C.SORT.POPULARITY_ASC },
-];
-
-/**
- * The express catalog, at both grains.
+ * The express catalog, at product grain.
  *
- * **Products** leads, because that is the unit the rest of Catalog works in and
- * the unit an admin thinks in. **Items** is the SKU view underneath it: the only
- * surface that can show a variant of an express product that nobody has flagged
- * — which is precisely the set no sailor can see, so it cannot be folded away.
+ * This used to be two tabs — Products and Items, the same catalog at two grains
+ * — and the Items (SKU) tab has been removed. With one grain left there is no
+ * tab strip: a single tab is chrome that names the only thing on screen.
  *
- * The two tabs are the same catalog seen at two grains, not two screens: one
- * page header, one set of KPI cards, one URL.
+ * `ExpressItemsTab` is still in the folder, unreferenced, so the view can be
+ * restored without rebuilding it. What has to come back with it: the `?tab=`
+ * key, the sort/sourceable/active/express URL params it filtered on, and the
+ * items branch of the stats call — `express/stats/` takes the **items** filter
+ * set, and the page now only ever sends `search`.
  */
 export function ExpressPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -67,19 +49,8 @@ export function ExpressPage() {
   // Creating a product is super-admin only; editing is not.
   const { canManageCatalog } = useAdminAccess();
 
-  const tab = searchParams.get("tab") === TAB_ITEMS ? TAB_ITEMS : TAB_PRODUCTS;
-  const isItems = tab === TAB_ITEMS;
-
-  // Shared by both tabs — the same `?search=` param, sent to whichever list is
-  // showing. Both accept it, so switching tabs keeps the search term meaningful.
   const search = searchParams.get("search") ?? "";
-  // Products tab
   const categoryFilter = searchParams.get("category") ?? "all";
-  // Items tab
-  const sort = searchParams.get("sort") ?? "";
-  const sourceable = searchParams.get("sourceable") ?? "";
-  const active = searchParams.get("active") ?? "";
-  const express = searchParams.get("express") ?? "";
 
   // Stable, so the tab's effect does not re-fire on every parent render.
   const handleProductsCount = useCallback((n: number) => setProductsCount(n), []);
@@ -95,53 +66,25 @@ export function ExpressPage() {
     setSearchParams(next);
   };
 
-  /**
-   * Switching tabs drops the other tab's filters and returns to page 1.
-   *
-   * They are different vocabularies over different units — a `?sourceable=`
-   * meant for variants would silently narrow the product list too, and a
-   * `?category=` means nothing to the items endpoint. Only `search` survives,
-   * because both lists take it and mean the same thing by it.
-   */
-  const handleTabChange = (value: string) => {
-    const next = new URLSearchParams(searchParams);
-    next.set("tab", value);
-    next.set("page", "1");
-    for (const key of ["category", "status", "sort", "sourceable", "active", "express"]) {
-      next.delete(key);
-    }
-    setSearchParams(next);
-  };
-
   /** Express products use **general-scope** categories — there is no express bucket. */
-  const { data: categoriesData } = useGetCategoriesQuery(
-    { limit: API_MAX_PAGE_SIZE },
-    { skip: isItems },
-  );
+  const { data: categoriesData } = useGetCategoriesQuery({ limit: API_MAX_PAGE_SIZE });
   const categoryOptions = [
     { value: "all", label: MESSAGES.PRODUCTS.ALL_CATEGORIES },
     ...(categoriesData?.results?.data ?? []).map((c) => ({ value: c.id, label: c.name })),
   ];
 
   /**
-   * One stats call for both tabs.
+   * Only `search` is sent, and that is deliberate rather than a leftover.
    *
-   * `express/stats/` takes the **items** filter set, so the cards narrow with
-   * the items table. On the products tab only `search` is passed.
-   *
-   * ⚠️ The products bar's filters are deliberately **not** forwarded, even
-   * though most share a name. Two of them mean different things on the two
-   * sides: `is_express` is the legacy "the product is express" alias on the
-   * product list but the SKU's own flag here, and the products bar's
-   * `sourceable` is the product master while `admin_sourceable` here is the
-   * effective product-AND-variant rule. Passing either would silently narrow the
-   * variant cards to a different population than the one the operator filtered.
+   * `express/stats/` takes the **items** filter set, and the products bar's
+   * filters are not forwarded even though most share a name: `is_express` is
+   * the legacy "the product is express" alias on the product list but the SKU's
+   * own flag here, and the bar's `sourceable` is the product master while
+   * `admin_sourceable` here is the effective product-AND-variant rule. Passing
+   * either would narrow the cards to a different population than the one the
+   * operator filtered.
    */
-  const statsQuery = useGetExpressStatsQuery(
-    isItems
-      ? { search, adminSourceable: sourceable, isActive: active, isExpress: express }
-      : { search },
-  );
+  const statsQuery = useGetExpressStatsQuery({ search });
   // The `items` half only — catalog counts. The `orders` half of this payload
   // belongs to the Express Orders screen and is never mixed in here.
   const items = statsQuery.data?.items;
@@ -154,16 +97,15 @@ export function ExpressPage() {
       id: "products",
       label: M.STATS.PRODUCTS,
       /**
-       * Products **represented in the filtered variant table**, so this is
-       * bounded by the Variants card beside it — an express product with no live
-       * variant is absent from both. The unbounded figure is the row count on
-       * the Products tab, which comes from `express/products/`.
+       * The list's own row count, not `items.total_products`.
+       *
+       * That figure counts the distinct products of the filtered **variant**
+       * rows, so a product created without a SKU is missing from it while
+       * sitting right there in the table. Sourcing it from the list is right by
+       * construction, and carries its own loading state because it does not
+       * arrive with the rest of this payload.
        */
-      value: isItems
-        ? statText(cardsState, items?.total_products)
-        : // The Products tab counts rows from `express/products/`, not this
-          // payload, so it carries its own loading state.
-          statText(productsCount === undefined ? "loading" : "ready", productsCount),
+      value: statText(productsCount === undefined ? "loading" : "ready", productsCount),
       icon: <IconPackage size={19} />,
       variant: "navy" as const,
     },
@@ -183,35 +125,19 @@ export function ExpressPage() {
     },
   ];
 
-  /**
-   * The toolbar belongs to whichever tab is showing — the two take different
-   * filters over different units, so there is no shared set to hoist. Both keep
-   * it in the page header, so the layout does not shift when you switch.
-   */
-  const filters = isItems
-    ? [
-        {
-          id: "sort",
-          value: sort,
-          placeholder: C.SORT_PLACEHOLDER,
-          options: SORT_OPTIONS,
-          width: "190px",
-          onValueChange: (val: string) => setFilterParam("sort", val),
-        },
-      ]
-    : [
-        {
-          id: "category",
-          value: categoryFilter,
-          placeholder: MESSAGES.PRODUCTS.ALL_CATEGORIES,
-          options: categoryOptions,
-          width: "160px",
-          // Says "not filtering" with "all", not "" — without this the Reset
-          // button would offer itself on a pristine toolbar.
-          emptyValue: "all",
-          onValueChange: (val: string) => setFilterParam("category", val === "all" ? "" : val),
-        },
-      ];
+  const filters = [
+    {
+      id: "category",
+      value: categoryFilter,
+      placeholder: MESSAGES.PRODUCTS.ALL_CATEGORIES,
+      options: categoryOptions,
+      width: "160px",
+      // Says "not filtering" with "all", not "" — without this the Reset
+      // button would offer itself on a pristine toolbar.
+      emptyValue: "all",
+      onValueChange: (val: string) => setFilterParam("category", val === "all" ? "" : val),
+    },
+  ];
 
   return (
     <>
@@ -221,15 +147,11 @@ export function ExpressPage() {
           <SearchFilters
             searchValue={search}
             onSearchChange={(val) => setFilterParam("search", val)}
-            searchPlaceholder={
-              isItems ? C.SEARCH_PLACEHOLDER : MESSAGES.PRODUCTS.SEARCH_PLACEHOLDER
-            }
-            searchDebounceMs={isItems ? 300 : 180}
+            searchPlaceholder={MESSAGES.PRODUCTS.SEARCH_PLACEHOLDER}
+            searchDebounceMs={180}
             filters={filters}
           >
-            {/* Products only — "add" has no meaning on the variant tab, where a
-                SKU is created from inside its parent product. */}
-            {!isItems && canManageCatalog && (
+            {canManageCatalog && (
               <button type="button" className="btn btn-primary" onClick={() => setIsAddOpen(true)}>
                 <IconPlus size={16} />
                 {MESSAGES.PRODUCTS.ADD_PRODUCT}
@@ -246,18 +168,10 @@ export function ExpressPage() {
         onRetry={statsQuery.refetch}
       />
 
-      <DynamicTabs
-        value={tab}
-        onTabChange={handleTabChange}
-        tabs={[
-          {
-            value: TAB_PRODUCTS,
-            label: M.TABS.PRODUCTS,
-            content: <ExpressProductsTab onCountChange={handleProductsCount} />,
-          },
-          { value: TAB_ITEMS, label: M.TABS.ITEMS, content: <ExpressItemsTab /> },
-        ]}
-      />
+      {/* Rendered directly rather than as the sole tab of a `DynamicTabs`: with
+          Items gone there is one grain left, and a tab strip with a single tab
+          labels the only thing on screen and offers nowhere to go. */}
+      <ExpressProductsTab onCountChange={handleProductsCount} />
 
       {/*
         The shared add form, opened onto the express catalog.

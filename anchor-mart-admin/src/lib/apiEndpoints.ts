@@ -839,6 +839,37 @@ export const PORT_ENDPOINTS = {
   DELETE_PORT: (id: string) => `/superadmin/catalog/delete-port/${id}/`,
 };
 
+/**
+ * Anchorage admin CRUD — the moorings inside a port.
+ *
+ * These are **new**. Flow 29c states flatly that "there is no `/api/superadmin/`
+ * anchorage endpoint" and records the Django-admin-only arrangement as a closed
+ * product decision (GA15, 2026-07-30). That is now out of date: the backend
+ * shipped this surface, and the integration guide it came with is the contract
+ * these constants follow. The flow doc has not caught up.
+ *
+ * Three quirks are worth knowing before calling any of them:
+ *
+ * 1. **Three names for the parent port across three calls.** The list is
+ *    queried by `port_id`, create sends the FK as `port`, and each row comes
+ *    back carrying `port_code`. The first two are the same UUID; the third is
+ *    not. All of which is why this UI is reached from a port row that already
+ *    holds both the id and the code.
+ * 2. **`ANCHORAGE_DETAILS` ignores its path segment.** The view reads
+ *    `anchorage_id` from the **query string**, so the id has to be sent twice or
+ *    the path left bare. It is unused here; the list carries the same fields.
+ * 3. **Update and delete key on the path**, correctly — only the details view
+ *    has the query-string quirk.
+ */
+export const ANCHORAGE_ENDPOINTS = {
+  /** Query: `port_id` (**required**), `is_active`, `page`, `page_size` (max 50). */
+  GET_ANCHORAGES: "/superadmin/catalog/get-anchorages/",
+  /** Body: `{ port (UUID), anchorage_name, anchorage_code, is_active? }`. */
+  CREATE_ANCHORAGE: "/superadmin/catalog/create-anchorage/",
+  UPDATE_ANCHORAGE: (id: string) => `/superadmin/catalog/update-anchorage/${id}/`,
+  DELETE_ANCHORAGE: (id: string) => `/superadmin/catalog/delete-anchorage/${id}/`,
+};
+
 // The backend also serves shops (`/catalog/{add,get,update,delete}-shop*`),
 // inventory (`…-inventory*`) and `get-saved-products/` under this namespace.
 // No admin screen consumes them, so their constants are intentionally absent

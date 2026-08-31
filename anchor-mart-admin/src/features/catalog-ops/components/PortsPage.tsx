@@ -18,6 +18,7 @@ import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useDeletePortMutation, useGetPortsQuery } from "../api/portApi";
 import type { Port } from "../types/catalogOps.types";
+import { AnchorageDrawer } from "./AnchorageDrawer";
 import { PortFormDrawer } from "./PortFormDrawer";
 
 const M = MESSAGES.PORTS;
@@ -37,6 +38,8 @@ export function PortsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingPort, setEditingPort] = useState<Port | null>(null);
   const [portToDelete, setPortToDelete] = useState<Port | null>(null);
+  /** The port whose anchorages are open. Null closes the drawer. */
+  const [anchoragePort, setAnchoragePort] = useState<Port | null>(null);
 
   const [deletePort, { isLoading: isDeleting }] = useDeletePortMutation();
 
@@ -130,6 +133,19 @@ export function PortsPage() {
       actions: () =>
         canConfigurePorts
           ? {
+              /**
+               * The port's moorings. Offered on the same permission as the rest
+               * of this row: an anchorage is port configuration, and the list
+               * endpoint keys on the port's UUID, which this row is the natural
+               * place to have.
+               */
+              anchorages: {
+                title: M.ANCHORAGES.ACTION,
+                onClick: (e, row) => {
+                  e.stopPropagation();
+                  setAnchoragePort(row);
+                },
+              },
               edit: {
                 title: MESSAGES.COMMON.EDIT,
                 onClick: (e, row) => {
@@ -196,6 +212,12 @@ export function PortsPage() {
       />
 
       <PortFormDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} port={editingPort} />
+
+      <AnchorageDrawer
+        isOpen={!!anchoragePort}
+        onClose={() => setAnchoragePort(null)}
+        port={anchoragePort}
+      />
 
       <ConfirmDialog
         isOpen={!!portToDelete}

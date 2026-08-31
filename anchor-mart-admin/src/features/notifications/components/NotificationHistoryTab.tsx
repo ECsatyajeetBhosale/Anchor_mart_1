@@ -1,4 +1,4 @@
-import { IconInfoCircle } from "@tabler/icons-react";
+import { IconFilterOff, IconInfoCircle } from "@tabler/icons-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import type { DateRange } from "react-day-picker";
@@ -206,13 +206,42 @@ export function NotificationHistoryTab() {
           onValueChange={applyFilter(setType)}
           width="160px"
         />
+        {/* `h-[38px]` matches the three dropdowns beside it. `DateRangePicker`
+            renders a `size="sm"` Button at 32px, so it sat 6px short in a row
+            that reads as one control strip. The class lands after `sizeClasses`
+            in the Button's `cn()`, so twMerge drops the 32px rather than
+            stacking two heights. */}
         <DateRangePicker
           value={dateRange}
           onChange={(range) => {
             setDateRange(range);
             setPage(1);
           }}
+          className="h-[38px]"
         />
+
+        {/* Reset, in the toolbar rather than only in the empty state.
+            `hasActiveFilters` already reached `DataTable`, but that only draws a
+            reset when the table has **no rows** — so a filter that narrowed the
+            list to something still had no visible way back, and a date range is
+            the one filter here you cannot undo by re-picking "All". Shown only
+            once something is actually filtering, matching `SearchFilters`.
+
+            Plain `btn`, not `btn-sm`: the base button is already 38px, the
+            height every control in this row now uses. `SearchFilters` draws its
+            own reset at `btn-sm`/32px, which is why this row keeps a hand-rolled
+            one rather than borrowing that component. */}
+        {hasActiveFilters && (
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={clearFilters}
+            title={MESSAGES.COMMON.RESET_FILTERS}
+          >
+            <IconFilterOff size={15} />
+            {MESSAGES.COMMON.RESET}
+          </button>
+        )}
       </div>
 
       <DataTable

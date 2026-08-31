@@ -4168,6 +4168,43 @@ export const MESSAGES = {
       REGION_PLACEHOLDER: "e.g. Maharashtra",
       ACTIVE: "Active",
     },
+    /** The moorings inside a port — managed from the port's own row. */
+    ANCHORAGES: {
+      ACTION: "Manage anchorages",
+      TITLE: "Anchorages",
+      SUBTITLE: (port: string) => `Moorings inside ${port}.`,
+      /**
+       * States the constraint the form cannot show. A sailor picks a mooring at
+       * checkout, so an inactive one is not a draft — it is a delivery point
+       * that has been withdrawn.
+       */
+      HINT: "Sailors pick an anchorage when they place an order. Deactivating one withdraws it from new orders; orders already placed against it keep their address.",
+      ADD: "Add Anchorage",
+      ADD_TITLE: "New anchorage",
+      COUNT: (n: number) => (n === 1 ? "1 anchorage" : `${n} anchorages`),
+      EMPTY: "No anchorages on this port yet.",
+      FETCH_ERROR: "Failed to load anchorages.",
+      NAME: "Anchorage Name *",
+      NAME_PLACEHOLDER: "e.g. Outer Anchorage",
+      CODE: "Anchorage Code *",
+      /** Matches the shape the customer catalog returns — `EA1`, `AEFJR-A1`. */
+      CODE_PLACEHOLDER: "e.g. EA1",
+      ACTIVE: "Active",
+      SUBMIT: "Add Anchorage",
+      SAVING: "Adding…",
+      COLUMNS: { CODE: "Code", NAME: "Anchorage", STATUS: "Status", ADDED: "Added" },
+      TOAST: {
+        ADD_SUCCESS: "Anchorage created.",
+        ADD_ERROR: "Failed to create the anchorage.",
+      },
+      /**
+       * Shown once, under the list. The API returns no primary key on any read
+       * payload, so a row cannot be addressed for edit or delete — saying so
+       * beats offering buttons that cannot work.
+       */
+      READ_ONLY_NOTE:
+        "Renaming or removing an anchorage isn't available here yet — the list API doesn't return a row id for it to act on.",
+    },
     FORM: {
       ADD_TITLE: "Add Port",
       ADD_SUBTITLE: "Ports appear in vessel profiles, order locations and shop coverage.",

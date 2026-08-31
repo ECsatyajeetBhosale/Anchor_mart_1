@@ -356,11 +356,19 @@ export function ExpressOrdersPage() {
             ]}
           >
             {/* `date_from`/`date_to` filter on `payment_completed_at`, so the
-                picker is labelled by that rather than "created". */}
+                picker is labelled by that rather than "created".
+
+                `h-10` matches the search box, as on the Orders screen:
+                `DateRangePicker` renders a `size="sm"` Button at 32px while
+                `Search` is 40px, and the two sat 8px apart in a row that reads
+                as one control strip. The class lands after `sizeClasses` in the
+                Button's `cn()`, so twMerge drops the 32px instead of stacking
+                two heights. */}
             <DateRangePicker
               value={dateRange}
               onChange={handleDateRange}
               placeholder={M.ORDER_FILTERS.DATE_PLACEHOLDER}
+              className="h-10"
             />
           </SearchFilters>
         }
@@ -373,26 +381,7 @@ export function ExpressOrdersPage() {
         onRetry={statsQuery.refetch}
       />
 
-      {/* "Vessel sailed, refund owed" — the same worklist as the orders screen,
-          because express uses the same delivery machinery. Not a stat card: it
-          is a scope (status + deadline together), and the cards ignore
-          `?status=` by design. */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Button
-          variant={isSailedWorklist ? "danger" : "secondary"}
-          size="sm"
-          onClick={toggleSailedWorklist}
-          aria-pressed={isSailedWorklist}
-        >
-          <IconShipOff size={15} className="mr-1" />
-          {MESSAGES.ORDERS.SAILED_WORKLIST}
-        </Button>
-        {isSailedWorklist && (
-          <span className="text-[12px] font-medium text-[var(--t4)]">
-            {MESSAGES.ORDERS.SAILED_WORKLIST_HINT}
-          </span>
-        )}
-      </div>
+    
 
       <DataTable
         columns={columns}

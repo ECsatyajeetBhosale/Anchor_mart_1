@@ -1,4 +1,5 @@
 import {
+  IconAnchor,
   IconArrowsExchange,
   IconEdit,
   IconEye,
@@ -21,6 +22,7 @@ export type RowActionKey =
   | "view"
   | "edit"
   | "variants"
+  | "anchorages"
   | "catalog"
   | "announce"
   | "message"
@@ -39,6 +41,9 @@ const ACTION_CATALOG: Record<RowActionKey, CatalogEntry> = {
   view: { icon: <IconEye size={16} />, title: "View" },
   edit: { icon: <IconEdit size={16} />, title: "Edit" },
   variants: { icon: <IconStack2 size={16} />, title: "Manage variants" },
+  // The same parent → child-collection shape as `variants`: moorings inside a
+  // port, reached from the port's row.
+  anchorages: { icon: <IconAnchor size={16} />, title: "Manage anchorages" },
   catalog: { icon: <IconArrowsExchange size={16} />, title: "Change catalog" },
   announce: { icon: <IconSpeakerphone size={16} />, title: "Announce availability" },
   message: { icon: <IconMessage size={16} />, title: "Message" },
@@ -52,6 +57,7 @@ const ACTION_ORDER: RowActionKey[] = [
   "view",
   "edit",
   "variants",
+  "anchorages",
   "catalog",
   "announce",
   "message",

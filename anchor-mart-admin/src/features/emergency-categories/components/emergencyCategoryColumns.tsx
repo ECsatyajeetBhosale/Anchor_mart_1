@@ -1,3 +1,4 @@
+import { Thumbnail } from "@/components/common/Thumbnail";
 import {
   actionsColumn,
   badgeColumn,
@@ -6,7 +7,6 @@ import {
 } from "@/components/common/tableColumns";
 import type { Column } from "@/components/ui/data-table";
 import { Switch } from "@/components/ui/switch";
-import { mediaSrc } from "@/lib/mediaUrl";
 import { MESSAGES } from "@/lib/messages";
 import { IconCategory } from "@tabler/icons-react";
 import type React from "react";
@@ -16,20 +16,6 @@ const STATUS_FILTER_OPTIONS = [
   { label: MESSAGES.EMERGENCY_CATEGORIES.STATUS_FILTER.ACTIVE, value: "active" },
   { label: MESSAGES.EMERGENCY_CATEGORIES.STATUS_FILTER.INACTIVE, value: "inactive" },
 ];
-
-/** Category thumbnail, falling back to a category icon when no image is set. */
-function getCategoryImage(image: EmergencyCategory["image"]) {
-  if (!image) {
-    return <IconCategory size={18} />;
-  }
-  return (
-    <img
-      src={mediaSrc(image)}
-      alt={MESSAGES.EMERGENCY_CATEGORIES.IMAGE_ALT}
-      className="h-8 w-8 rounded object-cover"
-    />
-  );
-}
 
 export interface UseEmergencyCategoryColumnsOptions {
   /** Current status filter value ("", "active", "inactive") for the header dropdown. */
@@ -60,7 +46,22 @@ export function useEmergencyCategoryColumns({
     {
       id: "image",
       header: "",
-      cell: (row) => <div className="prod-thumb">{getCategoryImage(row.image)}</div>,
+      /**
+       * `Thumbnail`, not a hand-rolled `<img>` — the same swap the general
+       * categories table got, and for the same reason: a fixed `h-8 w-8` image
+       * inside `.prod-thumb`'s 40px box left a 4px ring of surface on all four
+       * sides, so the picture read as padding rather than as a framed image.
+       * `Thumbnail` fills the box edge to edge, inherits its corner radius, and
+       * falls back to the glyph when a URL is set but unreachable instead of
+       * showing the browser's broken-image icon.
+       */
+      cell: (row) => (
+        <Thumbnail
+          src={row.image ?? undefined}
+          alt={MESSAGES.EMERGENCY_CATEGORIES.IMAGE_ALT}
+          placeholder={<IconCategory size={18} />}
+        />
+      ),
       className: "w-12",
     },
     twoLineColumn({

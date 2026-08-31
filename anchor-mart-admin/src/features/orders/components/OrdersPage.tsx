@@ -1025,10 +1025,17 @@ export function OrdersPage() {
               >
                 <IconInfoCircle size={18} />
               </button>
+              {/* Matched to the search box, not to the button scale.
+                  `DateRangePicker` renders a `size="sm"` Button — 32px — while
+                  the `Search` input beside it is `h-10`, 40px, so the two sat
+                  8px apart in a row that reads as one control strip. `h-10`
+                  lands after `sizeClasses` in the Button's `cn()`, so twMerge
+                  drops the 32px rather than stacking two heights. */}
               <DateRangePicker
                 value={dateRange}
                 onChange={setDateRange}
                 placeholder={M.DATE_RANGE}
+                className="h-10"
               />
               {/* No Export button: neither the flow docs nor the API collection
                   document an orders-export endpoint, and the old one reported a
@@ -1049,13 +1056,6 @@ export function OrdersPage() {
         error={statsError(cardsState)}
         onRetry={refetchStats}
       />
-
-      {/* "Vessel sailed, refund owed".
-          Not a stat card: it is a *scope*, not a bucket — `?status=` plus
-          `?departed=`, and the cards themselves ignore `?status=` by design, so
-          a card here would sit beside six figures it is not comparable with.
-          It is the one worklist on this screen where the remainder can never
-          arrive and only an admin can close it out. */}
 
       {/* Order-type filter. Replaces the Express/Emergency cards that sat here:
           the same two numbers, but actionable, and with the complement

@@ -1,3 +1,4 @@
+import { Thumbnail } from "@/components/common/Thumbnail";
 import {
   actionsColumn,
   badgeColumn,
@@ -6,7 +7,6 @@ import {
 } from "@/components/common/tableColumns";
 import type { Column } from "@/components/ui/data-table";
 import { Switch } from "@/components/ui/switch";
-import { mediaSrc } from "@/lib/mediaUrl";
 import { MESSAGES } from "@/lib/messages";
 import { IconCategory } from "@tabler/icons-react";
 import type React from "react";
@@ -16,20 +16,6 @@ const STATUS_FILTER_OPTIONS = [
   { label: MESSAGES.CATEGORIES.STATUS_FILTER.ACTIVE, value: "active" },
   { label: MESSAGES.CATEGORIES.STATUS_FILTER.INACTIVE, value: "inactive" },
 ];
-
-/** Category thumbnail, falling back to a category icon when no image is set. */
-function getCategoryImage(image: Category["image"]) {
-  if (!image) {
-    return <IconCategory size={18} />;
-  }
-  return (
-    <img
-      src={mediaSrc(image)}
-      alt={MESSAGES.CATEGORIES.IMAGE_ALT}
-      className="h-8 w-8 rounded object-cover"
-    />
-  );
-}
 
 export interface UseCategoryColumnsOptions {
   /** Current status filter value ("", "active", "inactive") for the header dropdown. */
@@ -60,7 +46,28 @@ export function useCategoryColumns({
     {
       id: "image",
       header: "",
-      cell: (row) => <div className="prod-thumb">{getCategoryImage(row.image)}</div>,
+      /**
+       * `Thumbnail`, not a hand-rolled `<img>`.
+       *
+       * The old cell put a fixed `h-8 w-8` image inside `.prod-thumb`'s 40px
+       * box, so every category picture sat in a 4px ring of surface on all four
+       * sides and read as padding rather than as a framed image. `Thumbnail`
+       * fills the box edge to edge and inherits the container's corner radius,
+       * which is what the products, variants, express-items and saved-products
+       * tables have all been doing — this column had simply been left behind.
+       *
+       * It also brings the broken-URL fallback: a category whose image has been
+       * moved or is unreachable now shows the same glyph as one with no image,
+       * instead of the browser's broken-image icon, which reads as a broken
+       * console rather than a missing file.
+       */
+      cell: (row) => (
+        <Thumbnail
+          src={row.image ?? undefined}
+          alt={MESSAGES.CATEGORIES.IMAGE_ALT}
+          placeholder={<IconCategory size={18} />}
+        />
+      ),
       className: "w-12",
     },
     twoLineColumn({

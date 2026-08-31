@@ -159,6 +159,7 @@ export const baseApi = createApi({
     "Ratings",
     "Chats",
     "Ports",
+    "Anchorages",
     "Gifts",
     "AccountDeletions",
     "AdminUsers",
