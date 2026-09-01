@@ -33,11 +33,74 @@ export interface AttentionPanelProps {
   onClick?: () => void;
 }
 
-const SEVERITY_CLASS: Record<AttentionSeverity, string> = {
-  danger: "sev-danger",
-  warning: "sev-warning",
-  review: "sev-review",
+interface SeverityTheme {
+  /** The heavier left rule. The only place the severity hue carries weight. */
+  rule: string;
+  value: string;
+  icon: string;
+  meta: string;
+}
+
+/**
+ * Three parts of one panel move together per severity — rule, figure and icon
+ * tile — so they are declared together rather than as three parallel lookups
+ * that could drift apart.
+ */
+const SEVERITY: Record<AttentionSeverity, SeverityTheme> = {
+  danger: {
+    rule: "border-l-[color:var(--danger-icon)]",
+    value: "text-[var(--danger-text)]",
+    icon: "bg-[var(--danger-bg)] text-[var(--danger-icon)]",
+    meta: "text-[var(--danger-text)]",
+  },
+  warning: {
+    rule: "border-l-[color:var(--warning-icon)]",
+    value: "text-[var(--warning-text)]",
+    icon: "bg-[var(--warning-bg)] text-[var(--warning-icon)]",
+    meta: "text-[var(--warning-text)]",
+  },
+  review: {
+    rule: "border-l-[color:var(--purple-icon)]",
+    value: "text-[var(--purple-text)]",
+    icon: "bg-[var(--purple-bg)] text-[var(--purple-icon)]",
+    meta: "text-[var(--purple-text)]",
+  },
 };
+
+/**
+ * A zero is the good outcome here, so it is drained of severity entirely: grey
+ * rule, grey number, no coloured tile. An empty queue must not look like an
+ * alert, or the coloured ones stop meaning anything.
+ */
+const CLEAR: SeverityTheme = {
+  rule: "border-l-[color:var(--border-sm)]",
+  value: "text-[var(--t4)]",
+  icon: "bg-[var(--surface-alt)] text-[var(--t4)]",
+  // Never rendered on a cleared panel, but declared so the shape is total.
+  meta: "",
+};
+
+/**
+ * The panel shell: a near-white body carrying a heavier left rule.
+ *
+ * Three sides at a hairline and the left at 3px, which is the whole visual
+ * device — panels, not cards, so severity reads down the left edge instead of
+ * from a coloured fill.
+ */
+const PANEL =
+  "relative w-full rounded-[var(--radius-md)] " +
+  "border-y border-r border-[var(--border-sm)] border-l-[3px] bg-[var(--surface)] " +
+  "p-[15px_16px_15px_17px] text-left " +
+  "transition-[box-shadow,transform,border-color] duration-[160ms] ease-[ease]";
+
+/**
+ * Only the clickable ones lift. A hover state on a dead panel promises a click
+ * that never happens — several of these deliberately have no route.
+ */
+const CLICKABLE =
+  "cursor-pointer hover:-translate-y-px hover:shadow-[var(--sh-sm)] " +
+  "hover:border-[var(--border-lg)] motion-reduce:hover:transform-none " +
+  "focus-visible:[outline:2px_solid_var(--teal-500)] focus-visible:[outline-offset:2px]";
 
 /**
  * One item in the Needs Attention block.
@@ -58,23 +121,44 @@ export function AttentionPanel({
   onClick,
 }: AttentionPanelProps) {
   const isClear = value === "0";
-  const className = cn(
-    "occ-att",
-    isClear ? "is-clear" : SEVERITY_CLASS[severity],
-    onClick && "is-clickable",
-  );
+  const theme = isClear ? CLEAR : SEVERITY[severity];
+  const className = cn(PANEL, theme.rule, onClick && CLICKABLE);
 
   const body = (
     <>
-      <div className="occ-att-icon">{icon}</div>
-      <div className="occ-att-body">
-        <div className="occ-att-value">{value}</div>
-        <div className="occ-att-label">{label}</div>
-        <div className="occ-att-desc">{description}</div>
-        {/* Suppressed on a cleared queue: "oldest 6 days ago" beside a zero
-            describes something that is no longer there. */}
-        {meta && !isClear && <div className="occ-att-meta">{meta}</div>}
+      {/* Icon and figure share a row; everything below it runs the full width of
+          the panel. The prose used to sit in a column beside the icon, indented
+          to the figure's left edge, which read as a hanging indent — the label
+          describes the whole panel, not the number, so it starts where the panel
+          starts. `items-center` because the two are now peers on one line
+          rather than a tile beside a tall stack. */}
+      <div className="flex items-center gap-[12px]">
+        <div
+          className={cn(
+            "flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--radius-sm)]",
+            theme.icon,
+          )}
+        >
+          {icon}
+        </div>
+        <div
+          className={cn(
+            "min-w-0 text-[27px] font-extrabold leading-none tracking-[-0.02em] tabular-nums max-[620px]:text-[24px]",
+            theme.value,
+          )}
+        >
+          {value}
+        </div>
       </div>
+      <div className="mt-[5px] text-[12.5px] font-bold text-[var(--t1)]">{label}</div>
+      <div className="mt-[2px] text-[11px] leading-[1.4] text-[var(--t4)]">{description}</div>
+      {/* Suppressed on a cleared queue: "oldest 6 days ago" beside a zero
+          describes something that is no longer there. */}
+      {meta && !isClear && (
+        <div className={cn("mt-[5px] text-[10.5px] font-bold tracking-[0.02em]", theme.meta)}>
+          {meta}
+        </div>
+      )}
     </>
   );
 

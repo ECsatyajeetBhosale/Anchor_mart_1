@@ -262,10 +262,18 @@ export function DashboardPage() {
         value={dateRange?.from ? "" : activeTab}
         onChange={(v) => selectPeriod(v as TimeRange)}
       />
+      {/* Matched to the pill toggle beside it, not to the button scale.
+          `DateRangePicker` renders a `size="sm"` Button at 32px, while the
+          toggle stands at 38px (3px of border, 6px of padding and a 29.375px
+          pill), so the two sat 6px apart inside one control panel. `h-[38px]`
+          lands after `sizeClasses` in the Button's `cn()`, so twMerge drops the
+          32px rather than stacking two heights — the same fix the orders and
+          notifications filter strips use. */}
       <DateRangePicker
         value={dateRange}
         onChange={setDateRange}
         placeholder={M.DATE_RANGE_PLACEHOLDER}
+        className="h-[38px]"
       />
       {/* A custom range overrides the pills, so it needs its own way back. */}
       {dateRange?.from && (
@@ -298,10 +306,12 @@ export function DashboardPage() {
           Each panel carries a number, what it means, and a severity — and the
           two without a destination stay unclickable, exactly as the tiles they
           replace did. */}
-      <div className="occ-sec">
-        <span className="occ-sec-label">{M.OCC.ATTENTION}</span>
+      <div className="flex items-baseline gap-[9px] mt-[22px] mb-[10px]">
+        <span className="text-[10.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--t3)]">
+          {M.OCC.ATTENTION}
+        </span>
       </div>
-      <div className="occ-attention">
+      <div className="grid grid-cols-[repeat(3,1fr)] gap-[12px] max-[860px]:grid-cols-[1fr]">
         <AttentionPanel
           label="Delivery Failed"
           value={stats.deliveryFailed}
@@ -337,13 +347,15 @@ export function DashboardPage() {
           beside it are the period counts, and they are the only things on the
           screen the toggle moves — which the note now says next to the
           resolved window instead of above a filter bar. */}
-      <div className="occ-sec">
-        <span className="occ-sec-label">{M.OCC.PULSE}</span>
-        <span className="occ-sec-note">
+      <div className="flex items-baseline gap-[9px] mt-[22px] mb-[10px]">
+        <span className="text-[10.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--t3)]">
+          {M.OCC.PULSE}
+        </span>
+        <span className="text-[11.5px] text-[var(--t4)]">
           {period?.label ? M.OCC.PULSE_NOTE(period.label) : M.OCC.PULSE_NOTE_PLAIN}
         </span>
       </div>
-      <div className="occ-pulse">
+      <div className="grid grid-cols-[1.6fr_1fr_1fr_1fr] overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-sm)] bg-[var(--surface)] max-[1000px]:grid-cols-[1fr_1fr] max-[620px]:grid-cols-[1fr]">
         <PulseCell
           lead
           label={M.OCC.IN_FLIGHT}
@@ -379,10 +391,12 @@ export function DashboardPage() {
           Both were already being fetched on every dashboard load and thrown
           away. This is what "what is happening" and "what is queued" actually
           look like with real records behind them, rather than two more counts. */}
-      <div className="occ-sec">
-        <span className="occ-sec-label">{M.OCC.ACTIVITY}</span>
+      <div className="flex items-baseline gap-[9px] mt-[22px] mb-[10px]">
+        <span className="text-[10.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--t3)]">
+          {M.OCC.ACTIVITY}
+        </span>
       </div>
-      <div className="occ-split">
+      <div className="grid grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)] items-start gap-[14px] max-[1180px]:grid-cols-[1fr]">
         <LiveOrdersCard
           orders={liveOrders.items}
           count={liveOrders.count}
@@ -406,12 +420,7 @@ export function DashboardPage() {
           its click-through — including the two whose routes are deliberately
           parked. The existing StatsGrid renders them unchanged; only their
           rank on the page moved. */}
-      <div className="occ-ref">
-        <div className="occ-sec">
-          <span className="occ-sec-label">{M.OCC.REFERENCE}</span>
-        </div>
-        <p className="occ-ref-hint">{M.OCC.REFERENCE_HINT}</p>
-
+      <div className="mt-[26px]">
         <div>
           <div className="sec-label">{M.WORK_GROUP}</div>
           <StatsGrid items={workItems} className="fill" />
