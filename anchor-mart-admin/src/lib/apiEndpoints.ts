@@ -925,6 +925,27 @@ export const ANCHORAGE_ENDPOINTS = {
  * on every sign-in is both safe and the point. The backend drops a user's tokens
  * on logout, which is why there is no delete route to pair with this.
  */
+/**
+ * The admin's own notification inbox — Flow: order/intent assignment (2026-09-01).
+ *
+ * **Not a `/superadmin/` route.** Like the push mount, this sits on the shared
+ * `/api/` prefix, so it is *not* exempt from `ServerSecurityMiddleware` and the
+ * requests must carry `server-secret-key` (see `SERVER_SECRET_HEADER` in
+ * `lib/fetchUtils.ts`). The `/superadmin/notifications/…` constants above are a
+ * different thing entirely: those *compose and send* messages to sailors and
+ * partners, while these read what was sent **to this admin**.
+ *
+ * This is the recovery path for an admin who was offline when an order was
+ * assigned to them: socket frames are never replayed, but the durable
+ * `order_assigned` row waits here.
+ */
+export const NOTIFICATION_INBOX_ENDPOINTS = {
+  /** `GET` — the list, and the unread total, in one payload. */
+  INBOX: "/notifications/",
+  /** `POST` — marks one row read. */
+  MARK_READ: (id: string) => `/notifications/${id}/read/`,
+};
+
 export const PUSH_ENDPOINTS = {
   ADD_FCM_TOKEN: "/v1/user/add-fcm-token/",
 };

@@ -7,19 +7,30 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
+import { useAdminAccess } from "@/lib/roles";
 import { IconSend } from "@tabler/icons-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useGetRecipientCountQuery, useSendRoleNotificationMutation } from "../api/notificationApi";
 import {
+  BROADCAST_CHANNELS,
+  type BroadcastChannel,
   NOTIFICATION_ROLES,
   NOTIFICATION_TYPES,
   type NotificationRole,
   type NotificationType,
+  isOutboundChannel,
 } from "../types/notification.types";
 import { RecipientReachCard } from "./RecipientReachCard";
 
 const M = MESSAGES.NOTIFICATIONS;
+
+/** Same three labels the broadcast composer uses — one wording, two screens. */
+const CHANNEL_LABEL: Record<BroadcastChannel, string> = {
+  inapp: M.BROADCAST_FORM.CHANNEL_INAPP,
+  email: M.BROADCAST_FORM.CHANNEL_EMAIL,
+  whatsapp: M.BROADCAST_FORM.CHANNEL_WHATSAPP,
+};
 
 const ROLE_OPTIONS = NOTIFICATION_ROLES.map((role) => ({
   value: role,
@@ -63,10 +74,38 @@ export function RoleNotificationForm() {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [metadata, setMetadata] = useState("");
-  const [errors, setErrors] = useState<{ title?: string; message?: string; metadata?: string }>({});
+  /**
+   * This endpoint was in-app only until 2026-09-01 and now takes the same
+   * channel list as a broadcast. Omitting it still means `["inapp"]`
+   * server-side, so the default here matches what the API would have done.
+   */
+  const [channels, setChannels] = useState<BroadcastChannel[]>(["inapp"]);
+  const [errors, setErrors] = useState<{
+    title?: string;
+    message?: string;
+    metadata?: string;
+    channels?: string;
+  }>({});
   const [confirming, setConfirming] = useState(false);
 
   const [sendRoleNotification, { isLoading: isSending }] = useSendRoleNotificationMutation();
+
+  /**
+   * Email and WhatsApp need `comms.service_broadcast` here exactly as they do
+   * on a broadcast — both push into a personal inbox.
+   *
+   * The **category is not gated** on this endpoint: it is derived from the
+   * notification type rather than chosen, so gating it would silently revoke
+   * the ordinary in-app role sends every admin could always make.
+   */
+  const { can } = useAdminAccess();
+  const canBroadcast = can("comms.service_broadcast");
+
+  const toggleChannel = (channel: BroadcastChannel) => {
+    setChannels((prev) =>
+      prev.includes(channel) ? prev.filter((c) => c !== channel) : [...prev, channel],
+    );
+  };
   const { data: recipientCount } = useGetRecipientCountQuery({ role, type });
 
   const validate = (): Record<string, unknown> | null => {
@@ -76,6 +115,8 @@ export function RoleNotificationForm() {
 
     const parsed = parseMetadata(metadata);
     if ("error" in parsed) next.metadata = parsed.error;
+    // Mirrors the server: an empty list is a 400 on both endpoints.
+    if (channels.length === 0) next.channels = M.BROADCAST_FORM.CHANNELS_REQUIRED;
 
     setErrors(next);
     if (Object.keys(next).length > 0) return null;
@@ -100,6 +141,7 @@ export function RoleNotificationForm() {
         title: title.trim(),
         message: message.trim(),
         metadata: parsedMetadata,
+        channels,
       }).unwrap();
       setConfirming(false);
 
@@ -154,6 +196,32 @@ export function RoleNotificationForm() {
             />
           </FormField>
         </FormRow>
+
+        <FormField
+          label={M.BROADCAST_FORM.CHANNELS}
+          hint={M.BROADCAST_FORM.CHANNELS_HINT}
+          error={channels.length === 0 ? M.BROADCAST_FORM.CHANNELS_REQUIRED : undefined}
+        >
+          <div className="flex gap-2 pt-1">
+            {BROADCAST_CHANNELS.map((channel) => {
+              const active = channels.includes(channel);
+              const locked = isOutboundChannel(channel) && !canBroadcast;
+              return (
+                <button
+                  key={channel}
+                  type="button"
+                  onClick={() => toggleChannel(channel)}
+                  className={`btn btn-sm ${active ? "btn-primary" : "btn-secondary"}`}
+                  aria-pressed={active}
+                  disabled={locked}
+                  title={locked ? M.BROADCAST_FORM.CHANNEL_LOCKED : undefined}
+                >
+                  {CHANNEL_LABEL[channel]}
+                </button>
+              );
+            })}
+          </div>
+        </FormField>
 
         <FormField label={M.ROLE_FORM.TITLE_FIELD} error={errors.title}>
           <Input

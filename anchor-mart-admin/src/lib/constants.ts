@@ -29,7 +29,17 @@ export const APP_ROUTES = {
   PARTNERS: "/partners",
   ASSIGNMENTS: "/assignments",
   VERIFICATION: "/verification",
+  /** What the admin **sends** — compose, broadcast, and the send log. */
   NOTIFICATIONS: "/notifications",
+  /**
+   * What the admin **receives**.
+   *
+   * A separate screen rather than a tab on the one above, because the two
+   * answer opposite questions and only this one is reached from the topbar
+   * bell. It is also the recovery path for a missed assignment: socket frames
+   * are never replayed, so the durable row is the only trace.
+   */
+  NOTIFICATION_INBOX: "/notification-inbox",
   SUPPORT: "/support",
   // Flow 23 §4.3 — per-order threads. Not the same as CHAT, which is the
   // shared delivery-partner support inbox.

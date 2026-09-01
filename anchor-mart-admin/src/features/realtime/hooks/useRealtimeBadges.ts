@@ -1,4 +1,5 @@
 import { logout } from "@/features/auth/slice/authSlice";
+import { NOTIFICATION_INBOX_TAG } from "@/features/notifications";
 import { useAppDispatch, useAppSelector } from "@/hooks/useAppDispatch";
 import { baseApi } from "@/lib/fetchUtils";
 import { MESSAGES } from "@/lib/messages";
@@ -94,6 +95,14 @@ export function useRealtimeBadges(): void {
    */
   const pathnameRef = useRef(pathname);
   pathnameRef.current = pathname;
+
+  /**
+   * `dispatch` is referentially stable, but the visibility effect below mounts
+   * once with an empty dep list — the same reason `navigate` and `pathname` are
+   * held in refs above rather than listed as dependencies.
+   */
+  const dispatchRef = useRef(dispatch);
+  dispatchRef.current = dispatch;
 
   const socketRef = useRef<EventsSocket | null>(null);
 
@@ -212,6 +221,15 @@ export function useRealtimeBadges(): void {
           onView: (route) => navigateRef.current(route),
         });
 
+        // The durable half of the same event. An assignment writes an
+        // `order_assigned` row, and the inbox is the only place an admin who
+        // was offline will ever see it — frames are never replayed. Dropped
+        // rather than fetched: the bell subscribes, so RTK Query refetches only
+        // where something is actually mounted.
+        dispatch(
+          baseApi.util.invalidateTags([{ type: "Notifications", id: NOTIFICATION_INBOX_TAG }]),
+        );
+
         if (queuesForRoute(pathnameRef.current).includes(screen)) return;
         dispatch(markActivity(screen));
       },
@@ -325,6 +343,12 @@ export function useRealtimeBadges(): void {
       // and asks an open one for a fresh count.
       socketRef.current?.connect();
       socketRef.current?.sync();
+      // The counters come back over the socket; the inbox does not. A tab that
+      // slept through an assignment receives no frame for it on wake, so the
+      // durable row is the only trace and this is the moment to go and look.
+      dispatchRef.current(
+        baseApi.util.invalidateTags([{ type: "Notifications", id: NOTIFICATION_INBOX_TAG }]),
+      );
     };
 
     let timer: ReturnType<typeof setInterval> | null = null;

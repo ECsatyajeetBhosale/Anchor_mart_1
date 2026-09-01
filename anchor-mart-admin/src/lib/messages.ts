@@ -4598,6 +4598,67 @@ export const MESSAGES = {
     TITLE: "Notifications",
     SUBTITLE: "Compose and send messages to sailors, partners and staff.",
     DASH: "—",
+    /**
+     * The admin's own inbox — the other three tabs *send*, this one *receives*.
+     *
+     * It is also the recovery path the realtime contract names: socket frames
+     * are never replayed, so an admin whose panel was closed when an order was
+     * assigned to them finds the durable row here and nowhere else.
+     */
+    INBOX: {
+      /** Topbar bell, and the sidebar-adjacent screen it opens. */
+      PAGE_TITLE: "Notification Inbox",
+      PAGE_SUBTITLE: "Notifications sent to your account — including orders assigned to you.",
+      TITLE: "Your notifications",
+      EMPTY:
+        "Nothing here yet. You'll see orders assigned to you, and anything else addressed to your account.",
+      FETCH_ERROR: "Couldn't load your notifications.",
+      MARK_READ: "Mark as read",
+      MARK_READ_ERROR: "Couldn't mark that as read.",
+      UNREAD_BADGE: "New",
+      /** Bell tooltip. Plural-aware because 1 is the common case. */
+      UNREAD_TITLE: (n: number) =>
+        n === 1 ? "1 unread notification" : `${n} unread notifications`,
+      NONE_UNREAD: "Notification Inbox",
+      /** Caps the bell's number so a long backlog cannot widen the topbar. */
+      COUNT_OVERFLOW: "9+",
+      TYPE: "Type",
+      CATEGORY: "Category",
+      PRIORITY: "Priority",
+      ACTION_REQUIRED: "Action needed",
+      /** Column header — a noun, naming what the cell holds. */
+      ORDER: "Order",
+      /**
+       * Labels for the enum-ish fields. Open maps: an unrecognised value falls
+       * back to the humanised key rather than to a blank cell, because the
+       * backend adds kinds without a frontend release.
+       */
+      CATEGORY_LABELS: {
+        transactional: "Transactional",
+        promotional: "Promotional",
+      } as Record<string, string>,
+      PRIORITY_LABELS: {
+        low: "Low",
+        normal: "Normal",
+        high: "High",
+      } as Record<string, string>,
+      /** Button label — a verb, naming what the click does. */
+      VIEW_ORDER: "View order",
+      RECEIVED: "Received",
+      /** Detail drawer. */
+      DETAIL_TITLE: "Notification",
+      DETAIL_ABOUT: "About this notification",
+      ACTION_REQUIRED_HINT: "This one needs you to act — it isn't just an update.",
+      DETAIL_TYPE: "Type",
+      DETAIL_MESSAGE: "Message",
+      DETAIL_NO_MESSAGE: "No further detail was included.",
+      DETAIL_ORDER: "Related order",
+      DETAIL_RECEIVED: "Received",
+      DETAIL_STATE: "Status",
+      STATE_READ: "Read",
+      STATE_UNREAD: "Unread",
+      CLOSE: "Close",
+    },
     TABS: {
       ROLE: "Role Notification",
       BROADCAST: "Broadcast",
@@ -4670,8 +4731,22 @@ export const MESSAGES = {
       CHANNELS: "Channels",
       CHANNEL_INAPP: "In-app",
       CHANNEL_EMAIL: "Email",
+      CHANNEL_WHATSAPP: "WhatsApp",
+      /**
+       * Shown on the two outbound checkboxes when the admin lacks
+       * `comms.service_broadcast`. Disabled with a reason rather than hidden:
+       * a vanishing option is more confusing than a greyed one that explains
+       * itself, and in-app broadcasts stay open to every admin.
+       */
+      CHANNEL_LOCKED: "Only a super admin can send email or WhatsApp.",
+      CATEGORY_LOCKED: "Only a super admin can send a Service-category broadcast.",
+      /** WhatsApp free text is rejected outside the 24-hour service window. */
+      WHATSAPP_TEMPLATE_WARNING:
+        "WhatsApp sends your free text. Recipients outside the 24-hour service window will be rejected by the provider and show as failed in the delivery log.",
+      ESTIMATE_WHATSAPP: (n: number) =>
+        n === 1 ? "1 WhatsApp recipient" : `${n} WhatsApp recipients`,
       // The API rejects an empty `channels` array, so the form does too.
-      CHANNELS_HINT: "At least one is required. WhatsApp isn't offered yet.",
+      CHANNELS_HINT: "At least one is required. Any combination sends on all of them.",
       CHANNELS_REQUIRED: "Pick at least one channel.",
       EMAIL_ESTIMATE: (n: number) =>
         `About ${n.toLocaleString("en-US")} email(s) will be queued — the preference gate is already applied.`,
@@ -4715,6 +4790,7 @@ export const MESSAGES = {
       LIVE_IN_APP: "Live in-app",
       COLUMNS: {
         SENT_AT: "Created",
+        CHANNELS_STATE: "Delivery",
         TITLE: "Title",
         SHAPE: "Shape",
         AUDIENCE: "Audience",
@@ -4727,6 +4803,18 @@ export const MESSAGES = {
         promotional: "Promotional",
         service: "Service",
       } as Record<string, string>,
+      /**
+       * Status wording derived from the per-channel dispatch rows.
+       *
+       * The flat `is_dispatched` cannot separate "half sent" from "not sent",
+       * so a campaign mid-fan-out gets its own sentence rather than being
+       * rounded to either end.
+       */
+      DISPATCH_PARTIAL: (sent: number, total: number) => `Sending (${sent}/${total})`,
+      DISPATCH_FAILED_ON: (failed: number, total: number) =>
+        `Failed on ${failed} of ${total} channels`,
+      /** In-app has no per-recipient count; a `0` here would read as a failure. */
+      RECIPIENTS_NOT_MEASURED: "—",
       CHANNEL_LABELS: {
         inapp: "In-app",
         email: "Email",

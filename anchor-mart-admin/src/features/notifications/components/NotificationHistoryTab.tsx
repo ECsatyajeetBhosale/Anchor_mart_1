@@ -45,11 +45,17 @@ const TYPE_OPTIONS = [
   ...NOTIFICATION_TYPES.map((t) => ({ value: t, label: M.TYPE_LABELS[t] ?? t })),
 ];
 
-/** Dispatch state → badge colour. Only a real fan-out reads as success. */
+/**
+ * Dispatch tone → badge colour.
+ *
+ * Keyed on the tone the mapper computed rather than on the label, because two
+ * of the three labels are now sentences with numbers in them ("Sending (1/3)",
+ * "Failed on 1 of 3 channels") and could never be looked up by value.
+ */
 const DISPATCH_VARIANT: Record<string, BadgeProps["variant"]> = {
-  [H.DISPATCH_SENT]: "success",
-  [H.DISPATCH_QUEUED]: "warning",
-  [H.DISPATCH_FAILED]: "danger",
+  success: "success",
+  warning: "warning",
+  danger: "danger",
 };
 
 /**
@@ -171,7 +177,7 @@ export function NotificationHistoryTab() {
       header: H.COLUMNS.DISPATCH,
       cell: (r) => (
         <Badge
-          variant={DISPATCH_VARIANT[r.dispatchLabel] ?? "neutral"}
+          variant={DISPATCH_VARIANT[r.dispatchTone] ?? "neutral"}
           className="text-[10px] h-[24px]"
           // A failed fan-out carries the reason; surface it without a drawer.
           title={r.dispatchError || r.dispatchedAt}
@@ -179,6 +185,40 @@ export function NotificationHistoryTab() {
           {r.dispatchLabel}
         </Badge>
       ),
+    },
+    {
+      id: "channels-state",
+      header: H.COLUMNS.CHANNELS_STATE,
+      /**
+       * One chip per channel — the information the flat boolean structurally
+       * could not carry. A campaign can be out on email and still pending on
+       * WhatsApp, and that is exactly the case the single badge above has to
+       * round to one word.
+       */
+      cell: (r) =>
+        r.dispatches.length === 0 ? (
+          M.DASH
+        ) : (
+          <span className="flex flex-wrap items-center gap-1">
+            {r.dispatches.map((d) => (
+              <Badge
+                key={d.channel}
+                variant={d.dispatchError ? "danger" : d.isDispatched ? "success" : "warning"}
+                className="text-[10px] h-[22px]"
+                /* `recipients_enqueued` is null for in-app by design — an
+                   announcement row plus a topic push has no per-recipient
+                   count — so it shows a dash, never a zero that would read as
+                   nobody having received it. */
+                title={
+                  d.dispatchError ||
+                  `${d.channelLabel} · ${d.recipientsEnqueued ?? H.RECIPIENTS_NOT_MEASURED}`
+                }
+              >
+                {d.channelLabel}
+              </Badge>
+            ))}
+          </span>
+        ),
     },
   ];
 

@@ -1,3 +1,4 @@
+import { selectUnreadCount, useGetNotificationInboxQuery } from "@/features/notifications";
 import { PushToggleButton } from "@/features/push";
 import {
   ConnectionStatus,
@@ -17,6 +18,8 @@ import { useSyncExternalStore } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+const INBOX = MESSAGES.NOTIFICATIONS.INBOX;
+
 interface HeaderProps {
   collapsed: boolean;
   onToggle: () => void;
@@ -31,6 +34,22 @@ export function Header(_props: HeaderProps) {
   // is not in a component — so it is read through the store contract rather than
   // mirrored into state that could fall out of step with what actually sounds.
   const muted = useSyncExternalStore(subscribeSoundMuted, isSoundMuted, () => false);
+
+  /**
+   * Unread total behind the bell.
+   *
+   * Asks for the **unread-filtered** page, because the inbox payload carries no
+   * `unread_count` — it is a plain DRF page, so the filtered `count` is the only
+   * number that answers this. `selectUnreadCount` guards the case where the
+   * server ignores the filter, which would otherwise light the bell permanently
+   * and reinstate the hardcoded dot this replaced.
+   *
+   * Kept fresh by cache invalidation rather than a poll: the realtime layer
+   * drops this tag on every `signal` and whenever the tab returns to the
+   * foreground.
+   */
+  const { data: inbox } = useGetNotificationInboxQuery({ unreadOnly: true, limit: 10 });
+  const unreadCount = selectUnreadCount(inbox);
 
   // Find the page title based on active path
   let pageTitle = "Dashboard";
@@ -67,15 +86,23 @@ export function Header(_props: HeaderProps) {
         {pageTitle}
       </div>
 
+      {/* The dot is driven by the real unread total. It used to be hardcoded —
+          permanently lit, on every screen, for every admin — which trained
+          everyone to ignore the one control that tells them work arrived.
+
+          This is also the recovery surface for a missed assignment: socket
+          frames are never replayed, so an admin whose panel was shut when an
+          order was handed to them learns about it here. The realtime layer
+          refetches this list on every signal and on foreground. */}
       <button
         type="button"
         className="tb-action"
-        title="Notifications"
-        aria-label="Notifications"
-        onClick={() => navigate(APP_ROUTES.NOTIFICATIONS)}
+        title={unreadCount > 0 ? INBOX.UNREAD_TITLE(unreadCount) : INBOX.NONE_UNREAD}
+        aria-label={unreadCount > 0 ? INBOX.UNREAD_TITLE(unreadCount) : INBOX.NONE_UNREAD}
+        onClick={() => navigate(APP_ROUTES.NOTIFICATION_INBOX)}
       >
         <IconBell size={17} />
-        <div className="tb-notif-dot" />
+        {unreadCount > 0 && <div className="tb-notif-dot" />}
       </button>
 
       {/* Silent while the socket is healthy; speaks up only when the counts on

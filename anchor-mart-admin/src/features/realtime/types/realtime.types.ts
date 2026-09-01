@@ -67,8 +67,18 @@ export type MineCounts = Record<OwnedBadgeQueue, number>;
  * `connect` and `sync` are **not** queues: they are the full-state pushes the
  * server sends on connection and on request, and they mean "set the numbers,
  * refetch nothing".
+ *
+ * `assignment` is not a queue either, and is the only owner-scoped value: an
+ * order changed hands. The shared `counts` are unchanged by definition — the
+ * work was already on someone's desk — so the frame exists to carry the new
+ * `mine`. It refetches nothing, which {@link isBadgeQueue} already delivers by
+ * returning `false` for it.
+ *
+ * The wire list is **append-only**: an unrecognised value must refetch nothing
+ * rather than throw, which is why the handler applies `mine` *before* it tests
+ * this field.
  */
-export type BadgeChanged = BadgeQueue | "connect" | "sync";
+export type BadgeChanged = BadgeQueue | "connect" | "sync" | "assignment";
 
 /**
  * Terminal auth failures. The connection is closing when one of these arrives,
@@ -163,16 +173,20 @@ export interface EventsErrorFrame {
 /**
  * Screens a signal can name.
  *
- * A strict subset of {@link BadgeQueue} — the four an admin is ever handed work
- * on. `express_orders`, `special_requests` and `seller_requests` never appear:
- * the first has no admin hand-off inside the funnel, and the other two are not
- * orders at all. Typed as a subset so a signal can reuse the badge machinery
- * (marking, route matching, cache invalidation) without a translation layer.
+ * The full {@link BadgeQueue} vocabulary as of the 2026-09-01 contract, which
+ * widened `screen` to match `queue` exactly. It was previously the four screens
+ * work was handed over on, and that narrowness silently dropped frames: an
+ * **express order names `express_orders`, never `orders`**, so an express
+ * assignment failed {@link isSignalScreen} and produced no toast, no refetch and
+ * no marker at all.
+ *
+ * `deltas` is in the wire vocabulary but deliberately absent here — this panel
+ * has no screen for it, so it must fall through the guard rather than route
+ * somewhere it does not belong. Every value that *is* here has a route and a
+ * tag set in `badgeRefetch`, which is what lets a signal reuse the badge
+ * machinery (marking, route matching, cache invalidation) untranslated.
  */
-export type SignalScreen = Extract<
-  BadgeQueue,
-  "intents" | "verifications" | "orders" | "delivery_failed"
->;
+export type SignalScreen = BadgeQueue;
 
 /**
  * "The ball is now in your court."
@@ -277,12 +291,9 @@ export type EventsInboundFrame =
  * admin goes and looks at a screen where nothing happened.
  */
 export function isSignalScreen(screen: string): screen is SignalScreen {
-  return (
-    screen === "intents" ||
-    screen === "verifications" ||
-    screen === "orders" ||
-    screen === "delivery_failed"
-  );
+  // Same test as a badge queue: the two vocabularies are one list now, and
+  // anything outside it (`deltas`, or a queue a later server adds) is ignored.
+  return isBadgeQueue(screen);
 }
 
 /** The only message the server accepts. Rate-limited to one per 5 seconds. */

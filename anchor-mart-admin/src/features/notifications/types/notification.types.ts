@@ -71,6 +71,15 @@ export interface SendRoleNotificationPayload {
   message: string;
   /** Free-form extras carried into the FCM payload. Sent as `{}` when unused. */
   metadata: Record<string, unknown>;
+  /**
+   * Optional, defaulting to `["inapp"]` server-side — which is why an
+   * integration that predates the multi-select keeps working untouched.
+   *
+   * Unlike the broadcast endpoint there is no category to gate here: this one
+   * derives its category from `notification_type`, so only the two outbound
+   * channels need `comms.service_broadcast`.
+   */
+  channels?: BroadcastChannel[];
 }
 
 /**
@@ -86,10 +95,34 @@ export const BROADCAST_CATEGORIES = ["promotional", "service"] as const;
 export type BroadcastCategory = (typeof BROADCAST_CATEGORIES)[number];
 
 /**
- * Channels a broadcast can go out on. `whatsapp` is deliberately absent — the
- * API does not offer it yet, and sending it would be a 400.
+ * Channels a campaign can go out on — **any non-empty combination** of the
+ * three. WhatsApp joined on 2026-09-01; before that it was a 400.
+ *
+ * Both send endpoints take the same list now: the role-scoped send used to be
+ * in-app only and gained the multi-select in the same release.
+ *
+ * ⚠️ **WhatsApp sends the admin's free text.** Meta requires a pre-approved
+ * template for business-initiated messages outside the 24-hour service window,
+ * so recipients outside it are rejected by the provider. Those fail *loudly* —
+ * they land in the delivery ledger as FAILED with the provider's reason — but
+ * they do fail. Templates are not built yet.
  */
-export const BROADCAST_CHANNELS = ["inapp", "email"] as const;
+export const BROADCAST_CHANNELS = ["inapp", "email", "whatsapp"] as const;
+
+/**
+ * The two channels that push into a personal inbox.
+ *
+ * Both are gated on `comms.service_broadcast` on **either** send endpoint —
+ * same opt-out and reputational stakes — while in-app stays open to every
+ * admin. Named once here so the two composers cannot drift apart on which
+ * boxes they disable.
+ */
+export const OUTBOUND_CHANNELS = ["email", "whatsapp"] as const;
+
+/** Is this channel one of the two that needs `comms.service_broadcast`? */
+export function isOutboundChannel(channel: string): boolean {
+  return (OUTBOUND_CHANNELS as readonly string[]).includes(channel);
+}
 
 export type BroadcastChannel = (typeof BROADCAST_CHANNELS)[number];
 
@@ -138,6 +171,51 @@ export interface SendOutcome {
    * applied. Null when `email` was not among the channels (or on a role send).
    */
   estimatedEmailRecipients: number | null;
+  /**
+   * The same figure for WhatsApp, computed with its own eligibility gate.
+   *
+   * **Never add these two together.** The audiences genuinely differ — a sailor
+   * may have a number and no address, or have muted one channel and not the
+   * other — so a summed "total recipients" double-counts everyone reachable on
+   * both. Show them separately.
+   */
+  estimatedWhatsappRecipients: number | null;
+}
+
+/**
+ * One channel's fan-out state, from a history row's `dispatches` array.
+ *
+ * The array exists because `dispatched_at` used to live on the campaign, and a
+ * single flag can only express two of the three real states. With several
+ * channels selected the first one processed claimed the whole campaign and the
+ * rest returned silently — while History showed a full success. The per-channel
+ * row is what closed that.
+ */
+export interface CampaignDispatchApi {
+  channel?: string | null;
+  /** Server-rendered label ("In-app + push"). Preferred over a local map. */
+  channel_display?: string | null;
+  is_dispatched?: boolean | null;
+  dispatched_at?: string | null;
+  /** `""` when there is no error — never `null`. */
+  dispatch_error?: string | null;
+  /** `null` for `inapp` **by design** — a topic push has no per-recipient count. */
+  recipients_enqueued?: number | null;
+}
+
+/** Flat per-channel row the UI renders as a chip. */
+export interface CampaignDispatch {
+  channel: string;
+  channelLabel: string;
+  isDispatched: boolean;
+  dispatchedAt: string;
+  dispatchError: string;
+  /**
+   * `null` means **not measurable**, not zero. In-app is an announcement row
+   * plus an FCM topic push, so there is no per-recipient count to report — it
+   * must render as a dash, never `0`, which would read as a failure.
+   */
+  recipientsEnqueued: number | null;
 }
 
 /**
@@ -159,10 +237,16 @@ export interface NotificationHistoryApi {
   created_by_email?: string | null;
   is_active?: boolean | null;
   /**
-   * **The field to trust for "did this go out?"** The row is written when the
-   * campaign is *accepted*; this flips only once the fan-out actually ran.
+   * ⚠️ **Derived since 2026-09-01, and no longer safe on its own.** It is
+   * `true` only when *every* requested channel has dispatched, so a campaign
+   * that is half out reads `false` — identical to one that never started.
+   * Rendering it as a flat Sent/Not-sent badge shows a half-delivered campaign
+   * as "not sent". Drive status from {@link NotificationHistoryRow.dispatches}
+   * instead; this is kept only because older consumers read it.
    */
   is_dispatched?: boolean | null;
+  /** One entry per requested channel. Backfilled, so never missing. */
+  dispatches?: CampaignDispatchApi[] | null;
   dispatched_at?: string | null;
   dispatch_error?: string | null;
   created_at?: string | null;
@@ -187,8 +271,15 @@ export interface NotificationHistoryRow {
   /** True when a broadcast is still displayed in-app. */
   isActive: boolean;
   isDispatched: boolean;
-  /** Delivery state label — Sent / Queued / Failed. */
+  /** One entry per requested channel, sorted by the server (alphabetical). */
+  dispatches: CampaignDispatch[];
+  /**
+   * Status label derived from `dispatches`, not from `isDispatched` — the flat
+   * flag cannot distinguish "half sent" from "not sent".
+   */
   dispatchLabel: string;
+  /** `danger` when any channel errored, `success` when all are out, else `warning`. */
+  dispatchTone: "success" | "warning" | "danger";
   dispatchedAt: string;
   dispatchError: string;
   createdAt: string;
@@ -212,4 +303,95 @@ export interface GetNotificationHistoryParams {
 export interface NotificationHistoryResult {
   count: number;
   rows: NotificationHistoryRow[];
+}
+
+/* ── The admin's own inbox ────────────────────────────────────────────────────
+   Everything above composes and *sends* notifications to sailors and partners.
+   What follows reads the ones addressed **to the signed-in admin**. */
+
+/**
+ * A notification kind — `order_update`, `order_assigned`, and more to come.
+ *
+ * Left open to `string` deliberately: the backend adds kinds without a frontend
+ * release, and an unrecognised one must still render as a row rather than break
+ * the list. Displayed by humanising the key, so a new kind reads sensibly on
+ * arrival instead of showing raw snake_case.
+ */
+export type AdminNotificationType = "order_update" | "order_assigned" | (string & {});
+
+/**
+ * Consent class, mirroring the outbound side's `category`.
+ *
+ * `transactional` is operational and always delivered; `promotional` honours
+ * opt-outs. Open to `string` for the same reason as the type.
+ */
+export type AdminNotificationCategory = "transactional" | "promotional" | (string & {});
+
+/** Urgency, as the backend classifies it. */
+export type AdminNotificationPriority = "low" | "normal" | "high" | (string & {});
+
+/**
+ * One row of the inbox.
+ *
+ * Field names are taken from a live response. Read defensively all the same:
+ * only `id` is structurally required, and every display field falls back rather
+ * than throwing, because the shape is documented by a flow note rather than a
+ * schema this panel controls.
+ */
+export interface AdminNotification {
+  id: string;
+  type: AdminNotificationType;
+  category: AdminNotificationCategory;
+  priority: AdminNotificationPriority;
+  title: string;
+  /** Body copy. May be empty — not every kind writes one. */
+  message: string;
+  /**
+   * Whether the admin has to *do* something, as opposed to being informed.
+   *
+   * The one field that changes how a row should be read, which is why it earns
+   * a chip in the list rather than living only in the drawer.
+   */
+  actionRequired: boolean;
+  /**
+   * What that action is. `null` on every row seen so far, and its shape is not
+   * documented — kept as an opaque string so it can be surfaced when the
+   * backend starts populating it, without guessing at a structure now.
+   */
+  action: string | null;
+  isRead: boolean;
+  /**
+   * **Pre-formatted display string** — "August 27, 2026, 12:02 PM", not
+   * ISO-8601. Rendered verbatim; parsing it yields Invalid Date.
+   */
+  createdAt: string;
+  /**
+   * The order this points at, when the payload names one.
+   *
+   * ⚠️ **Usually absent.** The observed `order_update` rows carry no order
+   * field at all — the order number appears only inside `message` prose. Read
+   * here for the kinds that do carry it, and never relied upon: a row without
+   * one simply offers no deep link.
+   */
+  orderId: string | null;
+  orderNumber: string | null;
+}
+
+/** The inbox list plus its unread total, which the same payload carries. */
+export interface AdminNotificationInbox {
+  items: AdminNotification[];
+  /** Total rows the server reports, for paging. */
+  count: number;
+  /**
+   * The server's own unread total, or `null` when it did not send one.
+   *
+   * ⚠️ **The observed payload never sends it.** `GET /api/notifications/` is a
+   * plain DRF page — `count`, `next`, `previous`, `results` — so this is
+   * normally `null` and the bell resolves the figure from the *filtered*
+   * `count` instead. Kept so a server that starts reporting it wins
+   * immediately. Read through `selectUnreadCount`, never directly.
+   */
+  reportedUnread: number | null;
+  /** True when every row on this page is unread — i.e. the filter was applied. */
+  allUnread: boolean;
 }

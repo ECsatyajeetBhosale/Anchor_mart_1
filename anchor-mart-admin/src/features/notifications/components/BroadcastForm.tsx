@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
+import { useAdminAccess } from "@/lib/roles";
 import { IconAlertTriangle, IconBroadcast } from "@tabler/icons-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -18,6 +19,7 @@ import {
   type BroadcastCategory,
   type BroadcastChannel,
   NOTIFICATION_ROLES,
+  isOutboundChannel,
 } from "../types/notification.types";
 
 const M = MESSAGES.NOTIFICATIONS;
@@ -41,6 +43,7 @@ const CATEGORY_OPTIONS = BROADCAST_CATEGORIES.map((c) => ({
 const CHANNEL_LABEL: Record<BroadcastChannel, string> = {
   inapp: B.CHANNEL_INAPP,
   email: B.CHANNEL_EMAIL,
+  whatsapp: B.CHANNEL_WHATSAPP,
 };
 
 /**
@@ -62,6 +65,18 @@ export function BroadcastForm() {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [audience, setAudience] = useState<BroadcastAudience>("all");
+  /**
+   * `comms.service_broadcast` — the super-admin capability behind email,
+   * WhatsApp and the Service category. Read from the feature list the API
+   * hands back, never inferred from the role string.
+   */
+  const { can } = useAdminAccess();
+  const canBroadcast = can("comms.service_broadcast");
+
+  const categoryOptions = canBroadcast
+    ? CATEGORY_OPTIONS
+    : CATEGORY_OPTIONS.filter((option) => option.value !== "service");
+
   const [category, setCategory] = useState<BroadcastCategory>("promotional");
   const [channels, setChannels] = useState<BroadcastChannel[]>(["inapp"]);
   const [imagePath, setImagePath] = useState("");
@@ -153,9 +168,14 @@ export function BroadcastForm() {
             label={B.CATEGORY}
             hint={isService ? B.CATEGORY_HINT_SERVICE : B.CATEGORY_HINT_PROMOTIONAL}
           >
+            {/* Service is the elevated choice here — on this endpoint the admin
+                *picks* the category, so picking it is the act being authorised.
+                The role-scoped composer has no equivalent: its category is
+                derived from the notification type, so there is nothing to gate
+                there beyond the two channels. */}
             <DropdownSelect
               value={category}
-              options={CATEGORY_OPTIONS}
+              options={categoryOptions}
               onValueChange={(v) => setCategory(v as BroadcastCategory)}
               width="100%"
             />
@@ -166,6 +186,11 @@ export function BroadcastForm() {
           <div className="flex gap-2 pt-1">
             {BROADCAST_CHANNELS.map((channel) => {
               const active = channels.includes(channel);
+              // Email and WhatsApp are pushes into a personal inbox and need
+              // `comms.service_broadcast`. Disabled with the reason rather than
+              // hidden — a vanishing option is more confusing than a greyed one
+              // that explains itself, and in-app stays open to every admin.
+              const locked = isOutboundChannel(channel) && !canBroadcast;
               return (
                 <button
                   key={channel}
@@ -173,6 +198,8 @@ export function BroadcastForm() {
                   onClick={() => toggleChannel(channel)}
                   className={`btn btn-sm ${active ? "btn-primary" : "btn-secondary"}`}
                   aria-pressed={active}
+                  disabled={locked}
+                  title={locked ? B.CHANNEL_LOCKED : undefined}
                 >
                   {CHANNEL_LABEL[channel]}
                 </button>

@@ -3,6 +3,8 @@ import { asNumber, asString, getProp, unwrapData, unwrapList } from "@/lib/apiRe
 import { baseApi } from "@/lib/fetchUtils";
 import { MESSAGES } from "@/lib/messages";
 import type {
+  CampaignDispatch,
+  CampaignDispatchApi,
   GetNotificationHistoryParams,
   NotificationHistoryApi,
   NotificationHistoryResult,
@@ -38,22 +40,88 @@ function toSendOutcome(res: unknown): SendOutcome {
   const sent = getProp(payload, "sent");
   const retry = getProp(payload, "retry_after_seconds");
   const estimate = getProp(payload, "estimated_email_recipients");
+  // Its own gate, its own number. `null` when the channel was not selected —
+  // the same convention the email estimate already used.
+  const whatsapp = getProp(payload, "estimated_whatsapp_recipients");
   return {
     sent: sent !== false,
     message: asString(getProp(payload, "message")),
     retryAfterSeconds: typeof retry === "number" ? retry : null,
     estimatedEmailRecipients: typeof estimate === "number" ? estimate : null,
+    estimatedWhatsappRecipients: typeof whatsapp === "number" ? whatsapp : null,
   };
 }
 
+/**
+ * One channel's dispatch row.
+ *
+ * `channel_display` is preferred over a local label map: the server already
+ * words these ("In-app + push"), and a second table here would drift the moment
+ * a channel is added.
+ */
+function toDispatch(row: CampaignDispatchApi): CampaignDispatch {
+  const channel = asString(row.channel).trim();
+  return {
+    channel,
+    channelLabel:
+      asString(row.channel_display).trim() || M.HISTORY.CHANNEL_LABELS[channel] || channel,
+    isDispatched: row.is_dispatched === true,
+    dispatchedAt: dash(row.dispatched_at),
+    // `null` is "not measurable" — in-app has no per-recipient count — and must
+    // survive as null so the cell can render a dash rather than a zero.
+    recipientsEnqueued:
+      typeof row.recipients_enqueued === "number" ? row.recipients_enqueued : null,
+    dispatchError: asString(row.dispatch_error).trim(),
+  };
+}
+
+/**
+ * The campaign's status, read from the per-channel rows.
+ *
+ * Deliberately **not** from the top-level `is_dispatched`. That flag is derived
+ * — true only once every requested channel is out — so a campaign half-way
+ * through its fan-out reads `false`, indistinguishable from one that never
+ * started. Rendering it flat would show a half-delivered campaign as "not
+ * sent", which is the same false-audit-record failure the per-channel rows were
+ * introduced to close.
+ *
+ * Falls back to the flat flag only when the array is absent, which the contract
+ * says cannot happen (older campaigns were backfilled) — but a missing array
+ * must degrade to the old behaviour rather than to a blank cell.
+ */
+function toDispatchState(
+  dispatches: CampaignDispatch[],
+  fallbackDispatched: boolean,
+  fallbackError: string,
+): { label: string; tone: "success" | "warning" | "danger" } {
+  if (dispatches.length === 0) {
+    if (fallbackDispatched) return { label: M.HISTORY.DISPATCH_SENT, tone: "success" };
+    return fallbackError
+      ? { label: M.HISTORY.DISPATCH_FAILED, tone: "danger" }
+      : { label: M.HISTORY.DISPATCH_QUEUED, tone: "warning" };
+  }
+
+  const total = dispatches.length;
+  const failed = dispatches.filter((d) => d.dispatchError).length;
+  if (failed > 0) {
+    return { label: M.HISTORY.DISPATCH_FAILED_ON(failed, total), tone: "danger" };
+  }
+  const sent = dispatches.filter((d) => d.isDispatched).length;
+  return sent === total
+    ? { label: M.HISTORY.DISPATCH_SENT, tone: "success" }
+    : { label: M.HISTORY.DISPATCH_PARTIAL(sent, total), tone: "warning" };
+}
+
 /** Maps a raw history row into the flat UI row the table renders. */
-function toHistoryRow(row: NotificationHistoryApi): NotificationHistoryRow {
+export function toHistoryRow(row: NotificationHistoryApi): NotificationHistoryRow {
   const category = asString(row.category).trim();
   const notificationType = asString(row.notification_type).trim();
   const audience = asString(row.audience).trim();
   const channels = Array.isArray(row.channels) ? row.channels.map(asString).filter(Boolean) : [];
   const isDispatched = row.is_dispatched === true;
   const dispatchError = asString(row.dispatch_error).trim();
+  const dispatches = Array.isArray(row.dispatches) ? row.dispatches.map(toDispatch) : [];
+  const state = toDispatchState(dispatches, isDispatched, dispatchError);
 
   return {
     id: asString(row.id),
@@ -77,13 +145,9 @@ function toHistoryRow(row: NotificationHistoryApi): NotificationHistoryRow {
     createdByEmail: dash(row.created_by_email),
     isActive: row.is_active === true,
     isDispatched,
-    // An accepted-but-undispatched row with an error is a failed fan-out; one
-    // without is still queued (the outbox sweeper runs every 5 minutes).
-    dispatchLabel: isDispatched
-      ? M.HISTORY.DISPATCH_SENT
-      : dispatchError
-        ? M.HISTORY.DISPATCH_FAILED
-        : M.HISTORY.DISPATCH_QUEUED,
+    dispatches,
+    dispatchLabel: state.label,
+    dispatchTone: state.tone,
     dispatchedAt: dash(row.dispatched_at),
     dispatchError,
     createdAt: dash(row.created_at),

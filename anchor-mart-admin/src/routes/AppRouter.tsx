@@ -34,7 +34,7 @@ import { SpecialRequestsPage } from "@/pages/SpecialRequestsPage";
 // import { VerificationPage } from "@/pages/VerificationPage";
 
 // Notification console — role-based sends + platform broadcast
-import { NotificationsPage } from "@/features/notifications";
+import { NotificationInboxPage, NotificationsPage } from "@/features/notifications";
 
 // Chat — live support, delivery and per-order threads (Flow 23)
 import { OrderChatsPage, SupportChatsPage } from "@/features/chat";
@@ -119,6 +119,10 @@ export function AppRouter() {
             {/* <Route path={APP_ROUTES.ASSIGNMENTS} element={<AssignmentsPage />} /> */}
             {/* <Route path={APP_ROUTES.VERIFICATION} element={<VerificationPage />} /> */}
             <Route path={APP_ROUTES.NOTIFICATIONS} element={<NotificationsPage />} />
+            {/* The admin's own inbox — reached from the topbar bell, not the
+                sidebar, because it is about this account rather than a screen
+                of work. */}
+            <Route path={APP_ROUTES.NOTIFICATION_INBOX} element={<NotificationInboxPage />} />
             <Route path={APP_ROUTES.SUPPORT} element={<SupportChatsPage />} />
             <Route path={APP_ROUTES.ORDER_CHATS} element={<OrderChatsPage />} />
             <Route path={APP_ROUTES.SELLERS} element={<SellerRequestsPage />} />

@@ -14,6 +14,10 @@ const TAB_ROLE = "role";
  * The admin notification console (Flow 32) — compose, preview the audience, send,
  * and see what actually went out.
  *
+ * **Outbound only.** What this admin *receives* lives on its own screen
+ * (`NotificationInboxPage`, reached from the topbar bell) — the two answer
+ * opposite questions, and merging them made the bell open a compose form.
+ *
  * The History tab reads the real `GeneralNotification` log. An earlier version
  * of this screen rendered a *hardcoded* log, which read as an audit trail while
  * being fiction; it was removed rather than faked, and is only back now that
