@@ -3216,6 +3216,50 @@ textarea.form-input {
   font-size: 17px;
   flex-shrink: 0;
 }
+
+/* The action button ("View" on an arrival notice).
+   Sonner's own button styling is gated on `[data-styled=true]`, which the
+   `unstyled` toast option removes, so without this the button falls back to the
+   browser default — and the global reset has already zeroed its padding.
+   White-on-translucent rather than a fixed colour: the toast sits on four
+   different dark grounds (`--t1`, success, danger, amber) and this reads on all
+   of them without a variant per state. */
+.toast-action {
+  flex-shrink: 0;
+  /* Pushed to the trailing edge, away from the text it acts on. */
+  margin-left: auto;
+  padding: 5px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  /* Buttons do not inherit either of these. */
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.toast-action:hover {
+  background: rgba(255, 255, 255, 0.24);
+  border-color: rgba(255, 255, 255, 0.45);
+}
+.toast-action:active {
+  background: rgba(255, 255, 255, 0.3);
+}
+.toast-action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.55);
+}
+/* Cancel sits beside an action, so it steps back to text-only. */
+.toast-action-ghost {
+  margin-left: 0;
+  background: transparent;
+  border-color: transparent;
+  opacity: 0.8;
+}
 @keyframes toastIn {
   from {
     opacity: 0;

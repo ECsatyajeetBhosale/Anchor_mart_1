@@ -7,6 +7,7 @@ import {
   statusColumn,
   textColumn,
 } from "@/components/common/tableColumns";
+import { Badge } from "@/components/ui/badge";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,10 +18,10 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
-import { getApiMessage } from "@/lib/apiError";
+import { getApiMessage, getApiStatus } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { IconAnchor, IconInfoCircle, IconPlus } from "@tabler/icons-react";
+import { IconAlertTriangle, IconAnchor, IconInfoCircle, IconPlus } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -37,7 +38,12 @@ const M = MESSAGES.PORTS;
 const A = M.ANCHORAGES;
 const LIMIT = 50;
 
-const DEFAULTS: AnchorageFormData = { anchorage_name: "", anchorage_code: "", is_active: true };
+const DEFAULTS: AnchorageFormData = {
+  anchorage_name: "",
+  anchorage_code: "",
+  estimated_delivery_hours: undefined,
+  is_active: true,
+};
 
 export interface AnchorageDrawerProps {
   isOpen: boolean;
@@ -47,8 +53,8 @@ export interface AnchorageDrawerProps {
 }
 
 /**
- * The anchorages of one port — list plus an add/edit form, in the port's own
- * drawer.
+ * The anchorages of one port — list, add/edit form, and the controls for which
+ * one is the port's default.
  *
  * **Scoped to a port because the API is.** `get-anchorages/` requires a
  * `port_id` and there is no unscoped list, which matches the domain: a mooring
@@ -56,22 +62,25 @@ export interface AnchorageDrawerProps {
  * row rather than living on the nav, the same shape the variants drawer takes
  * under a product.
  *
- * **Edit and delete are offered per row, not per table.** Both endpoints key on
- * an `anchorage_id` UUID that the documented read payloads do not return, so
- * whether a given row can be acted on is a property of that row: it has the key
- * or it does not. Rows carrying one get the actions; rows without get an empty
- * cell and the note under the list explains why, rather than the drawer either
- * hiding a working feature or showing buttons that would 404.
+ * **The default anchorage is the shape of most of this component.** Exactly one
+ * per port, by database constraint, and the API refuses every way of removing
+ * one without a replacement: it cannot be demoted (`is_default: false` is a
+ * 400), cannot be deactivated (400), and cannot be deleted while the port has
+ * siblings (409). Promotion is the only lever, and it moves two rows at once —
+ * the incumbent is demoted in the same transaction. So the default row is shown
+ * without the controls that would fail, the promote action appears only on the
+ * rows that are not it, and the note under the list explains the asymmetry
+ * rather than leaving it to be discovered by a rejected click.
  *
- * The two write paths disagree on how a port is named: the list takes its
- * **UUID**, the create takes its **code**. Both come off the `Port` row, which
- * is another reason this belongs here and not on a standalone screen where one
- * of the two would have to be looked up.
+ * A port from before that rule has **no** default at all. Nothing was
+ * backfilled — choosing one would have been the backend deciding a delivery
+ * location — so the empty case gets a warning that names the fix.
  */
 export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps) {
   /** Open form: `null` = closed, `"new"` = add, an `Anchorage` = editing it. */
   const [formTarget, setFormTarget] = useState<Anchorage | "new" | null>(null);
   const [toDelete, setToDelete] = useState<Anchorage | null>(null);
+  const [toPromote, setToPromote] = useState<Anchorage | null>(null);
 
   const { data, isLoading, isError, refetch } = useGetAnchoragesQuery(
     { portId: port?.id ?? "", limit: LIMIT },
@@ -102,10 +111,14 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
     if (!isOpen) return;
     setFormTarget(null);
     setToDelete(null);
+    setToPromote(null);
     reset(DEFAULTS);
   }, [isOpen, reset]);
 
   const anchorages = data?.items ?? [];
+  const hasDefault = anchorages.some((row) => row.is_default);
+  /** The default may be deleted when it is the port's only mooring. */
+  const isLastAnchorage = anchorages.length === 1;
 
   const closeForm = () => {
     setFormTarget(null);
@@ -121,6 +134,9 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
     reset({
       anchorage_name: row.anchorage_name,
       anchorage_code: row.anchorage_code,
+      // `null` on the wire is "not set"; the box wants an empty string, and
+      // `undefined` is what the schema maps that back to on the way out.
+      estimated_delivery_hours: row.estimated_delivery_hours ?? undefined,
       is_active: row.is_active,
     });
     setFormTarget(row);
@@ -131,35 +147,52 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
     try {
       const response = await createAnchorage({
         portId: port.id,
-        // `port` carries the port's **UUID**: it is the plain FK field, which
-        // DRF resolves against the primary key. Not `port_code`, even though
-        // that is what the list rows come back carrying, and not `port_id`,
-        // even though that is what the list is queried by.
-        body: { port: port.id, ...values },
+        body: {
+          // The parent's **UUID**, not its `port_code` — and the port must be
+          // active, else a field-level `{"port": ["Port not found"]}`.
+          port: port.id,
+          anchorage_name: values.anchorage_name,
+          // Omitted rather than sent blank: the API defaults it to "" anyway,
+          // and an explicit "" records an empty code as a decision.
+          ...(values.anchorage_code ? { anchorage_code: values.anchorage_code } : {}),
+          ...(values.estimated_delivery_hours === undefined
+            ? {}
+            : { estimated_delivery_hours: values.estimated_delivery_hours }),
+          is_active: values.is_active,
+          // `is_default` is never sent from here. A port that already has a
+          // default should not have it silently moved by an add, and a port
+          // that has none is handled by promoting a row afterwards — which is
+          // one visible, confirmed step rather than a hidden side effect.
+        },
       }).unwrap();
       closeForm();
       toast.success(getApiMessage(response) ?? A.TOAST.ADD_SUCCESS);
     } catch (error) {
-      // The duplicate case returns a real sentence — "Anchorage already exists
-      // for this port" — which is more use than any wording here. The form
-      // stays open with the name intact so it can be corrected.
+      // The duplicate case returns a real sentence — "An anchorage with this
+      // name already exists for this port." — as a field-level error, which is
+      // more use than any wording here. The form stays open with the name
+      // intact so it can be corrected.
       toast.error(getApiMessage(error) ?? A.TOAST.ADD_ERROR);
     }
   };
 
   const onUpdate = async (row: Anchorage, values: AnchorageFormData) => {
-    // Only reachable from a row that had an id — the actions are not rendered
-    // otherwise — but the write cannot be addressed without one, so it is
-    // checked rather than asserted.
-    if (!port || !row.id) return;
+    if (!port) return;
 
-    // Send the changed fields only. The endpoint is a partial update and this
-    // form is three fields wide, so a diff costs nothing and keeps an untouched
-    // `anchorage_code` — the field the guide does not list as updatable — out
-    // of the body entirely unless it was actually edited.
+    // Send the changed fields only. The endpoint is partial, so a diff keeps
+    // untouched values out of the body entirely — which matters most for
+    // `is_active`: re-sending the default's own `true` is harmless, but the
+    // habit of sending the whole form is what turns a rename into a rejected
+    // write the first time someone edits the default.
     const patch: AnchorageUpdatePayload = {};
     if (values.anchorage_name !== row.anchorage_name) patch.anchorage_name = values.anchorage_name;
     if (values.anchorage_code !== row.anchorage_code) patch.anchorage_code = values.anchorage_code;
+    // An emptied box is `undefined` here and has to go out as an explicit
+    // `null`: a key set to `undefined` is dropped by JSON, so the request would
+    // leave the old estimate in place while the toast reported a save.
+    if (values.estimated_delivery_hours !== (row.estimated_delivery_hours ?? undefined)) {
+      patch.estimated_delivery_hours = values.estimated_delivery_hours ?? null;
+    }
     if (values.is_active !== row.is_active) patch.is_active = values.is_active;
 
     if (Object.keys(patch).length === 0) {
@@ -182,30 +215,57 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
   const onSubmit = (values: AnchorageFormData) =>
     editing ? onUpdate(editing, values) : onCreate(values);
 
+  /**
+   * Promote one anchorage to default.
+   *
+   * `is_default: true` is the whole body — the incumbent's demotion is the
+   * server's half of the same transaction, which is why the list is invalidated
+   * per port rather than per row.
+   */
+  const confirmPromote = async () => {
+    if (!port || !toPromote) return;
+    const promoted = toPromote;
+    try {
+      await updateAnchorage({
+        portId: port.id,
+        anchorageId: promoted.id,
+        body: { is_default: true },
+      }).unwrap();
+      setToPromote(null);
+      toast.success(A.TOAST.SET_DEFAULT_SUCCESS(promoted.anchorage_name));
+    } catch (error) {
+      toast.error(getApiMessage(error) ?? A.TOAST.SET_DEFAULT_ERROR);
+    }
+  };
+
   const confirmDelete = async () => {
-    if (!port || !toDelete?.id) return;
+    if (!port || !toDelete) return;
+    const target = toDelete;
     try {
       const response = await deleteAnchorage({
         portId: port.id,
-        anchorageId: toDelete.id,
+        anchorageId: target.id,
       }).unwrap();
       setToDelete(null);
       // If the row being deleted was open in the form, that form is now editing
       // something the server no longer returns.
-      if (editing?.id === toDelete.id) closeForm();
+      if (editing?.id === target.id) closeForm();
       toast.success(getApiMessage(response) ?? A.TOAST.DELETE_SUCCESS);
     } catch (error) {
-      // The dialog stays open so the reason is readable — "Anchorage not found"
-      // on a row already deleted from another tab is worth seeing rather than
-      // silently swallowing.
-      toast.error(getApiMessage(error) ?? A.TOAST.DELETE_ERROR);
+      // The 409 is the "right request, wrong moment" case — the row is the
+      // default and the port has others — and it is branched on by status
+      // rather than prose, which is free to be reworded server-side. The
+      // dialog stays open either way so the reason is readable.
+      const fallback =
+        getApiStatus(error) === 409 ? A.TOAST.DELETE_DEFAULT_BLOCKED : A.TOAST.DELETE_ERROR;
+      toast.error(getApiMessage(error) ?? fallback);
     }
   };
 
   /**
    * Enter commits from either field.
    *
-   * The form is two short identifiers and a toggle; reaching for the mouse to
+   * The form is a few short identifiers and a toggle; reaching for the mouse to
    * save that is friction with no purpose. `preventDefault` because the inputs
    * are not inside a `<form>` — the drawer submits through `handleSubmit`.
    */
@@ -219,41 +279,69 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
     idColumn({
       id: "code",
       header: A.COLUMNS.CODE,
+      // Optional and never generated, so a blank one is ordinary data.
       get: (r) => r.anchorage_code || M.DASH,
     }),
-    textColumn({
+    {
       id: "name",
       header: A.COLUMNS.NAME,
-      get: (r) => r.anchorage_name || M.DASH,
+      // The default is a property of the row, so it is marked on the row rather
+      // than in a column of its own that would be empty for everything else.
+      cell: (row) => (
+        <div className="flex items-center gap-2">
+          <span className="td-p">{row.anchorage_name || M.DASH}</span>
+          {row.is_default && (
+            <Badge variant="teal" className="text-[10px]">
+              {A.DEFAULT_BADGE}
+            </Badge>
+          )}
+        </div>
+      ),
+    },
+    textColumn({
+      id: "eta",
+      header: A.COLUMNS.ETA,
+      // `null` is "never set", which is not the same answer as `0` — that would
+      // promise immediate delivery — so it shows as absent, not as zero hours.
+      get: (r) =>
+        r.estimated_delivery_hours === null ? M.DASH : A.HOURS(r.estimated_delivery_hours),
+      cellClassName: "td-m",
     }),
     statusColumn({
       id: "status",
       header: A.COLUMNS.STATUS,
       get: (r) => r.is_active,
     }),
-    textColumn({
-      id: "added",
-      header: A.COLUMNS.ADDED,
-      // Rendered verbatim. These arrive pre-formatted ("August 14, 2026, 07:09
-      // AM"), not as ISO-8601, so the app's date helpers would return Invalid
-      // Date on them.
-      get: (r) => r.created_at || M.DASH,
-      cellClassName: "td-m",
-    }),
     actionsColumn({
       header: A.COLUMNS.ACTIONS,
-      // Both writes address `anchorage_id`. A row that arrived without one gets
-      // an empty cell; the note under the list says why.
-      actions: (row) =>
-        row.id
-          ? {
-              edit: {
-                title: MESSAGES.COMMON.EDIT,
+      actions: (row) => ({
+        // Promotion only exists in one direction, so it is offered on the rows
+        // that are not the default and nowhere else.
+        ...(row.is_default
+          ? {}
+          : {
+              setDefault: {
+                title: A.SET_DEFAULT,
                 onClick: (e) => {
                   e.stopPropagation();
-                  openEditForm(row);
+                  setToPromote(row);
                 },
               },
+            }),
+        edit: {
+          title: MESSAGES.COMMON.EDIT,
+          onClick: (e) => {
+            e.stopPropagation();
+            openEditForm(row);
+          },
+        },
+        // Deleting the default is a 409 while the port has other moorings — but
+        // allowed when it is the last one. Offering the button only where it
+        // can succeed beats explaining the refusal afterwards; the note under
+        // the list says why it is missing.
+        ...(row.is_default && !isLastAnchorage
+          ? {}
+          : {
               delete: {
                 title: MESSAGES.COMMON.DELETE,
                 onClick: (e) => {
@@ -261,20 +349,21 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
                   setToDelete(row);
                 },
               },
-            }
-          : {},
+            }),
+      }),
     }),
   ];
 
-  // Only worth saying when it is actually true of something on screen.
-  const hasUnaddressableRows = anchorages.some((row) => !row.id);
+  // Editing the default cannot deactivate it — the API refuses — so the toggle
+  // is disabled rather than offered and then rejected.
+  const isEditingDefault = Boolean(editing?.is_default);
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         side="right"
         adjustable
-        defaultWidth={560}
+        defaultWidth={620}
         className="flex flex-col gap-0 p-0 sm:max-w-none overflow-hidden bg-[var(--surface)]"
       >
         <SheetHeader className="border-b border-[var(--border-md)] p-6 pb-4">
@@ -301,6 +390,15 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
               </button>
             )}
           </div>
+
+          {/* A real state for any port created before default anchorages
+              existed, not a loading blip — so it names the fix. */}
+          {!isLoading && !isError && anchorages.length > 0 && !hasDefault && (
+            <div className="flex items-start gap-2 rounded-[var(--radius-md)] border border-[var(--amber-100)] bg-[var(--amber-50)] p-3 text-[11.5px] font-semibold leading-relaxed text-[var(--amber-700)]">
+              <IconAlertTriangle size={15} className="mt-px shrink-0" />
+              <span>{A.NO_DEFAULT_WARNING}</span>
+            </div>
+          )}
 
           {formTarget && (
             <section className="rounded-[var(--radius-md)] border border-[var(--border-md)] bg-[var(--surface-alt)] p-4">
@@ -331,12 +429,31 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
                 </FormField>
               </FormRow>
 
-              <FormField label={A.ACTIVE}>
+              <FormField
+                label={A.ETA}
+                hint={A.ETA_HINT}
+                error={errors.estimated_delivery_hours?.message}
+              >
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder={A.ETA_PLACEHOLDER}
+                  error={!!errors.estimated_delivery_hours}
+                  onKeyDown={submitOnEnter}
+                  {...register("estimated_delivery_hours")}
+                />
+              </FormField>
+
+              <FormField label={A.ACTIVE} hint={isEditingDefault ? A.DEFAULT_NOTE : undefined}>
                 <Controller
                   control={control}
                   name="is_active"
                   render={({ field }) => (
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isEditingDefault}
+                    />
                   )}
                 />
               </FormField>
@@ -370,16 +487,13 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
           )}
 
           {/* The list scrolls inside itself rather than growing the drawer: a
-              port can hold dozens of moorings, and the read-only notes below
-              have to stay reachable without scrolling past all of them. */}
+              port can hold dozens of moorings, and the notes below have to stay
+              reachable without scrolling past all of them. */}
           <div className="tbl-scroll [--tbl-scroll-h:min(52vh,420px)]">
             <DataTable
               columns={columns}
               data={anchorages}
-              // No `id` on the row, so the name is the only stable key
-              // available — and it is genuinely unique here, since the API
-              // refuses a duplicate name under the same port.
-              rowKey="anchorage_name"
+              rowKey="id"
               isLoading={isLoading}
               isError={isError}
               error={isError ? A.FETCH_ERROR : null}
@@ -392,13 +506,26 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
             <IconInfoCircle size={15} className="mt-px shrink-0" />
             <span>{A.HINT}</span>
           </div>
-          {hasUnaddressableRows && (
+          {/* Only worth saying while a default is actually on screen — it is
+              the explanation for the controls that row is missing. */}
+          {hasDefault && (
             <div className="flex items-start gap-2 text-[11.5px] font-medium leading-relaxed text-[var(--t4)]">
               <IconInfoCircle size={15} className="mt-px shrink-0" />
-              <span>{A.READ_ONLY_NOTE}</span>
+              <span>{A.DEFAULT_NOTE}</span>
             </div>
           )}
         </div>
+
+        <ConfirmDialog
+          isOpen={!!toPromote}
+          onClose={() => setToPromote(null)}
+          onConfirm={confirmPromote}
+          isLoading={isUpdating}
+          title={A.SET_DEFAULT_CONFIRM.TITLE}
+          description={A.SET_DEFAULT_CONFIRM.MESSAGE}
+          confirmText={A.SET_DEFAULT_CONFIRM.CONFIRM}
+          loadingText={A.EDIT_SAVING}
+        />
 
         <ConfirmDialog
           isOpen={!!toDelete}

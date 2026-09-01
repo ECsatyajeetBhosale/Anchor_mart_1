@@ -861,12 +861,38 @@ export const PORT_ENDPOINTS = {
  * 3. **Update and delete key on the path**, correctly — only the details view
  *    has the query-string quirk.
  */
+/**
+ * Anchorage admin CRUD. Every write is gated on `platform.port_config`.
+ *
+ * The id travels in the **URL path** on all three addressed routes. That is
+ * worth stating because it was not always true: `anchorage-details/` used to
+ * read the id from the query string while its only route carried it in the
+ * path, so every call 404'd at the router. Fixed 2026-09-01.
+ */
 export const ANCHORAGE_ENDPOINTS = {
   /** Query: `port_id` (**required**), `is_active`, `page`, `page_size` (max 50). */
   GET_ANCHORAGES: "/superadmin/catalog/get-anchorages/",
-  /** Body: `{ port (UUID), anchorage_name, anchorage_code, is_active? }`. */
+  /**
+   * Body: `{ port (UUID, must be active), anchorage_name, anchorage_code?,
+   * estimated_delivery_hours?, is_default?, is_active? }`.
+   *
+   * `port` is the parent's **id**, not its `port_code` — and note the list is
+   * *queried* by `port_id` while each row comes back with a nested `port`
+   * object. Three spellings of the same relationship across three calls.
+   */
   CREATE_ANCHORAGE: "/superadmin/catalog/create-anchorage/",
+  /**
+   * `PATCH` (or `PUT`; both are partial). Body: any of `anchorage_name`,
+   * `anchorage_code`, `estimated_delivery_hours`, `is_default: true`,
+   * `is_active`. Demoting the default, deactivating it, or moving the mooring
+   * to another port are each a 400.
+   */
   UPDATE_ANCHORAGE: (id: string) => `/superadmin/catalog/update-anchorage/${id}/`,
+  /**
+   * Soft delete. **409** when the row is the port's default and the port has
+   * other anchorages — the port's *last* anchorage may be deleted even though
+   * it is the default.
+   */
   DELETE_ANCHORAGE: (id: string) => `/superadmin/catalog/delete-anchorage/${id}/`,
 };
 

@@ -1,7 +1,7 @@
 import { PORT_ENDPOINTS } from "@/lib/apiEndpoints";
 import { type ListResult, asString, getProp, unwrapList } from "@/lib/apiResponse";
 import { baseApi } from "@/lib/fetchUtils";
-import type { Port, PortPayload } from "../types/catalogOps.types";
+import type { Port, PortCreatePayload, PortUpdatePayload } from "../types/catalogOps.types";
 
 export interface GetPortsParams {
   page?: number;
@@ -53,12 +53,24 @@ export const portApi = baseApi.injectEndpoints({
           : [{ type: "Ports", id: "PARTIAL-LIST" }],
     }),
 
-    createPort: builder.mutation<unknown, PortPayload>({
+    /**
+     * Create a port **and its default anchorage**, in one transaction.
+     *
+     * `default_anchorage` is required: the backend will not invent a delivery
+     * location, so a body carrying only port fields is a `400` naming the field
+     * it wanted. If either row fails, neither is written.
+     *
+     * The 201 echoes the created anchorage back under `anchorage`, so nothing
+     * needs to re-fetch it — but the anchorage list is per-port and cannot have
+     * been loaded for a port that did not exist a moment ago, so there is no
+     * `Anchorages` tag to invalidate here.
+     */
+    createPort: builder.mutation<unknown, PortCreatePayload>({
       query: (body) => ({ url: PORT_ENDPOINTS.ADD_PORT, method: "POST", body }),
       invalidatesTags: [{ type: "Ports", id: "PARTIAL-LIST" }],
     }),
 
-    updatePort: builder.mutation<unknown, { id: string; body: PortPayload }>({
+    updatePort: builder.mutation<unknown, { id: string; body: PortUpdatePayload }>({
       query: ({ id, body }) => ({
         url: PORT_ENDPOINTS.UPDATE_PORT(id),
         method: "PATCH",

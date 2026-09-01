@@ -1,10 +1,18 @@
 /**
- * Catalog operations — the port directory.
+ * Catalog operations — the port directory and its anchorages.
  *
- * These endpoints live under `/superadmin/catalog/` and are **not covered by
- * any flow document**, so the shapes below are taken from the API collection's
- * request bodies and the models the customer-facing catalog flow (Flow 03)
- * describes. Read them defensively.
+ * These endpoints live under `/superadmin/catalog/`. The anchorage half follows
+ * the *Anchorage Admin API — Frontend Integration Guide* (rev. 2026-09-01); the
+ * port half is still taken from the API collection's request bodies and the
+ * models the customer-facing catalog flow (Flow 03) describes, so it stays read
+ * defensively.
+ *
+ * **A port and its default anchorage are one unit.** `add-port/` requires a
+ * `default_anchorage` object and writes both rows in one transaction, exactly
+ * one anchorage per port is default (a database constraint), and the default
+ * can only ever be *replaced* by promoting another — never unset, deactivated,
+ * or deleted while siblings exist. Those three refusals are the reason several
+ * of the shapes below are narrower than the endpoint technically accepts.
  */
 
 /** A port in the directory. */
@@ -20,44 +28,106 @@ export interface Port {
   updated_at: string;
 }
 
-/** Create/update body for a port. Both verbs are partial. */
-export interface PortPayload {
+/**
+ * The default anchorage, as sent **inside** a port create.
+ *
+ * Deliberately not an `AnchorageCreatePayload`: there is no `port` to name yet
+ * (the port is being created in the same request) and no `is_default` to send —
+ * this one *is* the default by construction.
+ */
+export interface DefaultAnchoragePayload {
+  /** Max 100 chars. */
+  anchorage_name: string;
+  /** Max 20 chars. Optional, and **not** generated — omitted means empty. */
+  anchorage_code?: string;
+  /** Hours to reach a vessel at this mooring; feeds the delivery SLA / ETA. */
+  estimated_delivery_hours?: number;
+  /** Defaults to `true`. */
+  is_active?: boolean;
+}
+
+/**
+ * Create body for a port — `POST add-port/`.
+ *
+ * **`default_anchorage` is required.** The backend will not invent one, on the
+ * grounds that a fabricated delivery location is worse than a rejected request,
+ * so a body carrying only port fields is a `400`. Both rows are written in one
+ * transaction: if either fails, neither exists.
+ */
+export interface PortCreatePayload {
   port_code: string;
   port_name: string;
   country: string;
   region: string;
   is_active?: boolean;
+  default_anchorage: DefaultAnchoragePayload;
 }
 
 /**
- * A mooring inside a port.
+ * Update body for a port — partial.
  *
- * ⚠️ **`id` is not guaranteed.** The documented list row is
- * `{ port_code, anchorage_name, is_active, created_at, updated_at }` — the
- * primary key is absent there and from the details payload; only the update
- * response returns one. Update and delete both key on that `anchorage_id` UUID,
- * so a row can only be edited or deleted when the serializer actually sends it.
- * The drawer reads `id` per row and offers the actions on the rows that have
- * one, rather than assuming either way — see `AnchorageDrawer`.
+ * No `default_anchorage`: the port create is the only call that takes one. Once
+ * a port exists its default changes by *promoting* one of its anchorages, which
+ * is an anchorage write.
  */
+export interface PortUpdatePayload {
+  port_code?: string;
+  port_name?: string;
+  country?: string;
+  region?: string;
+  is_active?: boolean;
+}
+
+/**
+ * The parent port, as embedded in an anchorage row.
+ *
+ * The list and details payloads nest the **whole port object** here rather than
+ * the bare `port_code` the older revision returned. The panel reads a port from
+ * its own row when it has one, so only the identifying fields are typed; the
+ * rest of the object is present on the wire and simply unused.
+ */
+export interface AnchoragePortRef {
+  id: string;
+  port_code: string;
+  port_name: string;
+}
+
+/** A mooring inside a port. */
 export interface Anchorage {
   /**
-   * The row's primary key, when the serializer sends it. `undefined` on a
-   * payload that omits it — which is what the integration guide documents, so
-   * every caller must handle its absence rather than assert it.
+   * Primary key, returned on every read. Details, update and delete all address
+   * the anchorage by this value **in the URL path**.
    */
-  id?: string;
-  /** The parent port's code, e.g. "INMUM". The list is fetched by port **UUID**. */
-  port_code: string;
+  id: string;
+  /** The parent port, nested. Never editable — an anchorage cannot be moved. */
+  port: AnchoragePortRef;
   anchorage_name: string;
   /**
-   * The mooring's own short code, e.g. `"EA1"` or `"AEFJR-A1"`.
+   * The mooring's own short code, e.g. `"OA-1"`.
    *
-   * Absent from the admin integration guide's example rows but present on the
-   * customer-facing anchorage list (Flow 03 API 11), and required on create —
-   * so it is read defensively here rather than assumed.
+   * **Frequently empty.** It is optional on create and is *not* generated, so a
+   * row that was created without one carries `""` — a missing code is normal
+   * data here, not a failed read.
    */
   anchorage_code: string;
+  /**
+   * Hours to reach a vessel at this mooring, feeding the delivery SLA / ETA.
+   * `null` when never set — distinct from `0`, which would promise immediate
+   * delivery.
+   */
+  estimated_delivery_hours: number | null;
+  /**
+   * The port's primary anchorage. Exactly one per port, by database constraint.
+   *
+   * It is the one row in the list that cannot be deactivated, cannot be
+   * deleted while siblings exist, and cannot be demoted — the only way it stops
+   * being the default is another anchorage being promoted over it.
+   *
+   * **Ports created before 2026-09-01 have none.** Nothing was backfilled, so a
+   * list where no row carries this flag is expected rather than broken, and the
+   * fix is an operator promoting one.
+   */
+  is_default: boolean;
   is_active: boolean;
   /**
    * **Pre-formatted display strings**, e.g. `"August 14, 2026, 07:09 AM"` —
@@ -68,46 +138,62 @@ export interface Anchorage {
 }
 
 /**
- * Create body.
+ * Create body — `POST create-anchorage/`.
  *
- * `port` is the port's **UUID**, not its code — the plain FK field name, which
- * DRF resolves against the primary key. The read side disagrees with it twice
- * over and both are worth holding in mind: the list is *queried* by `port_id`,
- * and each row comes back carrying `port_code`. Three names for the same
- * relationship across three calls.
+ * `port` is the parent's **UUID**, not its `port_code`, and the port must be
+ * active (`400 {"port": ["Port not found"]}` otherwise). Note the read side
+ * disagrees with it twice over: the list is *queried* by `port_id`, and each
+ * row comes back carrying a nested `port` object.
  */
-export interface AnchoragePayload {
-  /** The parent port's UUID. */
+export interface AnchorageCreatePayload {
+  /** The parent port's UUID. Must be an **active** port. */
   port: string;
+  /** Max 100 chars. Unique per port among non-deleted rows. */
   anchorage_name: string;
-  /** The mooring's own short code. Required on create. */
-  anchorage_code: string;
+  /** Max 20 chars. Optional, and **not** generated — omitted means empty. */
+  anchorage_code?: string;
+  estimated_delivery_hours?: number;
   /**
-   * Optional, defaulting to the model's `true`. Kept on the payload — the guide
-   * lists it as accepted, and the form's Active toggle is what writes it.
+   * `true` promotes this anchorage on creation, demoting the port's incumbent
+   * default in the same transaction. Defaults to `false`.
    */
+  is_default?: boolean;
+  /** Defaults to `true`. */
   is_active?: boolean;
 }
 
 /**
  * Update body — `PATCH update-anchorage/<anchorage_id>/`.
  *
- * Every field optional: the endpoint is an `UpdateAPIView` and partial updates
- * are the documented path, so only what the form actually changed is sent.
+ * Every field optional, and `PUT` is partial too, so only what the form
+ * actually changed is sent.
  *
- * `port` is deliberately absent. Moving a mooring between ports is not
- * something this drawer can express — it is opened *from* a port — and the
- * guide lists no field for it.
+ * Two fields are narrower than the endpoint's signature, because two of its
+ * three states are refused:
  *
- * `anchorage_code` is **not** in the guide's update table, which lists only
- * `anchorage_name` and `is_active`. It is sent anyway because the same guide
- * omits it from the create table too, and create demonstrably requires it — the
- * documented field lists trail the serializer. Worst case DRF ignores it, and
- * the list refetch that follows shows the truth rather than the optimistic
- * value.
+ * - **`is_default` is `true` or absent.** `false` is a `400` — "A port must
+ *   have a default anchorage" — since demotion only happens as the side effect
+ *   of promoting a sibling. Typing the literal keeps that call unwritable.
+ * - **`is_active` cannot be `false` on the default.** That one is a value the
+ *   type cannot express, so it is the caller's job not to offer the toggle on
+ *   the default row.
+ *
+ * `port` is absent entirely: an anchorage cannot be moved between ports.
  */
 export interface AnchorageUpdatePayload {
   anchorage_name?: string;
   anchorage_code?: string;
+  /**
+   * `null` clears a previously-set estimate.
+   *
+   * The guide types this as an integer and says nothing about clearing one, but
+   * the read side returns `null` for "never set", so `null` is the only value
+   * that can mean it. The alternative — dropping the key when the operator
+   * empties the box — silently discards an edit and then reports success, which
+   * is the worse failure: a rejected `null` at least says so.
+   */
+  estimated_delivery_hours?: number | null;
+  /** Promotion only — see above. */
+  is_default?: true;
   is_active?: boolean;
 }

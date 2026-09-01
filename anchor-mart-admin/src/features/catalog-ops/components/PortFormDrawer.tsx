@@ -13,15 +13,18 @@ import { Switch } from "@/components/ui/switch";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { IconAnchor, IconCheck } from "@tabler/icons-react";
+import { IconAnchor, IconCheck, IconInfoCircle } from "@tabler/icons-react";
 import { useEffect } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, type Resolver, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useCreatePortMutation, useUpdatePortMutation } from "../api/portApi";
-import { type PortFormData, portSchema } from "../schemas/catalogOps.schema";
-import type { Port } from "../types/catalogOps.types";
+import { type PortFormData, portEditSchema, portSchema } from "../schemas/catalogOps.schema";
+import type { DefaultAnchoragePayload, Port } from "../types/catalogOps.types";
 
 const M = MESSAGES.PORTS;
+const DA = M.DEFAULT_ANCHORAGE;
+/** The anchorage drawer's own wording, reused so the ETA field reads alike in both. */
+const A = M.ANCHORAGES;
 
 const DEFAULTS: PortFormData = {
   port_code: "",
@@ -29,7 +32,31 @@ const DEFAULTS: PortFormData = {
   country: "",
   region: "",
   is_active: true,
+  default_anchorage: {
+    anchorage_name: "",
+    anchorage_code: "",
+    estimated_delivery_hours: undefined,
+    is_active: true,
+  },
 };
+
+/**
+ * Trim the nested anchorage down to what the API takes.
+ *
+ * An untouched code box is `""`, and an untouched hours box is `undefined`.
+ * Both are dropped rather than sent: the API defaults them, and a literal `""`
+ * would record an empty code as a deliberate choice instead of an omission.
+ */
+function toDefaultAnchorage(form: PortFormData["default_anchorage"]): DefaultAnchoragePayload {
+  return {
+    anchorage_name: form.anchorage_name,
+    ...(form.anchorage_code ? { anchorage_code: form.anchorage_code } : {}),
+    ...(form.estimated_delivery_hours === undefined
+      ? {}
+      : { estimated_delivery_hours: form.estimated_delivery_hours }),
+    is_active: form.is_active,
+  };
+}
 
 export interface PortFormDrawerProps {
   isOpen: boolean;
@@ -38,7 +65,20 @@ export interface PortFormDrawerProps {
   port: Port | null;
 }
 
-/** Add/edit drawer for a port. One form serves both — the write body is identical. */
+/**
+ * Add/edit drawer for a port.
+ *
+ * **Add and edit are no longer the same form.** Creating a port also creates its
+ * default anchorage — `add-port/` requires a `default_anchorage` object and
+ * writes both rows in one transaction — so the add form carries a second
+ * section that the edit form has no equivalent for. Editing a port cannot
+ * change its default; that happens by promoting one of its anchorages, in the
+ * anchorage drawer.
+ *
+ * The two also validate differently: `country` and `region` are required on
+ * create because the endpoint requires them, and optional on edit because ports
+ * created before that rule can be missing either.
+ */
 export function PortFormDrawer({ isOpen, onClose, port }: PortFormDrawerProps) {
   const isEdit = Boolean(port);
   const [createPort, { isLoading: isCreating }] = useCreatePortMutation();
@@ -52,7 +92,11 @@ export function PortFormDrawer({ isOpen, onClose, port }: PortFormDrawerProps) {
     reset,
     formState: { errors },
   } = useForm<PortFormData>({
-    resolver: zodResolver(portSchema),
+    // Edit drops the `default_anchorage` branch and relaxes country/region. The
+    // form type stays the add-shaped one so the fields can be registered
+    // unconditionally; the extra branch is simply not rendered or read in edit
+    // mode.
+    resolver: zodResolver(isEdit ? portEditSchema : portSchema) as Resolver<PortFormData>,
     defaultValues: DEFAULTS,
   });
 
@@ -63,6 +107,7 @@ export function PortFormDrawer({ isOpen, onClose, port }: PortFormDrawerProps) {
     reset(
       port
         ? {
+            ...DEFAULTS,
             port_code: port.port_code,
             port_name: port.port_name,
             country: port.country ?? "",
@@ -74,10 +119,17 @@ export function PortFormDrawer({ isOpen, onClose, port }: PortFormDrawerProps) {
   }, [isOpen, port, reset]);
 
   const onSubmit = async (data: PortFormData) => {
+    const { default_anchorage, ...portFields } = data;
     try {
       const response = port
-        ? await updatePort({ id: port.id, body: data }).unwrap()
-        : await createPort(data).unwrap();
+        ? await updatePort({ id: port.id, body: portFields }).unwrap()
+        : await createPort({
+            ...portFields,
+            // Sent whole: the endpoint validates it as a nested object and
+            // reports failures the same way — `{ default_anchorage: {
+            // anchorage_name: [...] } }` — which `getApiMessage` walks.
+            default_anchorage: toDefaultAnchorage(default_anchorage),
+          }).unwrap();
       onClose();
       toast.success(
         getApiMessage(response) ?? (isEdit ? M.TOAST.UPDATE_SUCCESS : M.TOAST.ADD_SUCCESS),
@@ -132,11 +184,27 @@ export function PortFormDrawer({ isOpen, onClose, port }: PortFormDrawerProps) {
             </FormRow>
 
             <FormRow>
-              <FormField label={M.FIELDS.COUNTRY} error={errors.country?.message}>
-                <Input placeholder={M.FIELDS.COUNTRY_PLACEHOLDER} {...register("country")} />
+              {/* Required on create, optional on edit — the label follows the
+                  schema so the star is never a lie in either direction. */}
+              <FormField
+                label={isEdit ? M.FIELDS.COUNTRY_OPTIONAL : M.FIELDS.COUNTRY}
+                error={errors.country?.message}
+              >
+                <Input
+                  placeholder={M.FIELDS.COUNTRY_PLACEHOLDER}
+                  error={!!errors.country}
+                  {...register("country")}
+                />
               </FormField>
-              <FormField label={M.FIELDS.REGION} error={errors.region?.message}>
-                <Input placeholder={M.FIELDS.REGION_PLACEHOLDER} {...register("region")} />
+              <FormField
+                label={isEdit ? M.FIELDS.REGION_OPTIONAL : M.FIELDS.REGION}
+                error={errors.region?.message}
+              >
+                <Input
+                  placeholder={M.FIELDS.REGION_PLACEHOLDER}
+                  error={!!errors.region}
+                  {...register("region")}
+                />
               </FormField>
             </FormRow>
 
@@ -150,6 +218,59 @@ export function PortFormDrawer({ isOpen, onClose, port }: PortFormDrawerProps) {
               />
             </FormField>
           </section>
+
+          {/* Add only. A port is created together with its default anchorage —
+              one transaction, and the backend refuses to invent the mooring —
+              so this is part of creating a port rather than a follow-up step.
+              An existing port's default is changed by promoting one of its
+              anchorages, which lives in the anchorage drawer. */}
+          {!isEdit && (
+            <section className="prod-tab">
+              <div className="mb-1 text-[12.5px] font-bold text-[var(--t2)]">{DA.TITLE}</div>
+              <div className="mb-3 flex items-start gap-2 text-[11.5px] font-medium leading-relaxed text-[var(--t4)]">
+                <IconInfoCircle size={15} className="mt-px shrink-0" />
+                <span>{DA.NOTE}</span>
+              </div>
+
+              <FormRow>
+                <FormField
+                  label={DA.NAME}
+                  error={errors.default_anchorage?.anchorage_name?.message}
+                >
+                  <Input
+                    placeholder={DA.NAME_PLACEHOLDER}
+                    error={!!errors.default_anchorage?.anchorage_name}
+                    {...register("default_anchorage.anchorage_name")}
+                  />
+                </FormField>
+                <FormField
+                  label={DA.CODE}
+                  error={errors.default_anchorage?.anchorage_code?.message}
+                >
+                  <Input
+                    className="mono"
+                    placeholder={DA.CODE_PLACEHOLDER}
+                    error={!!errors.default_anchorage?.anchorage_code}
+                    {...register("default_anchorage.anchorage_code")}
+                  />
+                </FormField>
+              </FormRow>
+
+              <FormField
+                label={A.ETA}
+                hint={A.ETA_HINT}
+                error={errors.default_anchorage?.estimated_delivery_hours?.message}
+              >
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder={A.ETA_PLACEHOLDER}
+                  error={!!errors.default_anchorage?.estimated_delivery_hours}
+                  {...register("default_anchorage.estimated_delivery_hours")}
+                />
+              </FormField>
+            </section>
+          )}
         </div>
 
         <SheetFooter className="border-t border-[var(--border-md)] bg-[var(--surface)] p-6">

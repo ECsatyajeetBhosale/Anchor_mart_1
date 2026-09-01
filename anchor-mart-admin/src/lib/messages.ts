@@ -4162,11 +4162,35 @@ export const MESSAGES = {
       CODE_PLACEHOLDER: "e.g. INMUM",
       NAME: "Port Name *",
       NAME_PLACEHOLDER: "e.g. Mumbai Port",
-      COUNTRY: "Country",
+      /**
+       * Starred on add, bare on edit. `add-port/` requires both; ports created
+       * before that rule can be missing either, and an admin toggling such a
+       * port's status is not made to invent a region first.
+       */
+      COUNTRY: "Country *",
+      COUNTRY_OPTIONAL: "Country",
       COUNTRY_PLACEHOLDER: "e.g. India",
-      REGION: "Region",
+      REGION: "Region *",
+      REGION_OPTIONAL: "Region",
       REGION_PLACEHOLDER: "e.g. Maharashtra",
       ACTIVE: "Active",
+    },
+    /**
+     * The default anchorage, collected on the **add port** form.
+     *
+     * Not a separate step: `add-port/` requires it and writes both rows in one
+     * transaction. The backend refuses to invent one on the grounds that a
+     * fabricated delivery location is worse than a rejected request, and the
+     * section header says as much — otherwise this reads as an odd demand from
+     * a form that only claims to be about ports.
+     */
+    DEFAULT_ANCHORAGE: {
+      TITLE: "Default anchorage",
+      NOTE: "Every port needs one mooring to deliver to. It's created with the port, and you can add more or promote a different one afterwards.",
+      NAME: "Anchorage Name *",
+      NAME_PLACEHOLDER: "e.g. Mumbai Outer",
+      CODE: "Anchorage Code",
+      CODE_PLACEHOLDER: "e.g. MO-1",
     },
     /** The moorings inside a port — managed from the port's own row. */
     ANCHORAGES: {
@@ -4187,9 +4211,14 @@ export const MESSAGES = {
       FETCH_ERROR: "Failed to load anchorages.",
       NAME: "Anchorage Name *",
       NAME_PLACEHOLDER: "e.g. Outer Anchorage",
-      CODE: "Anchorage Code *",
-      /** Matches the shape the customer catalog returns — `EA1`, `AEFJR-A1`. */
-      CODE_PLACEHOLDER: "e.g. EA1",
+      /** Optional, and never generated — an empty code is ordinary data. */
+      CODE: "Anchorage Code",
+      /** Matches the shape the API's own examples use — `OA-1`, `KO-1`. */
+      CODE_PLACEHOLDER: "e.g. OA-1",
+      ETA: "Delivery Estimate (hours)",
+      ETA_PLACEHOLDER: "e.g. 6",
+      ETA_HINT:
+        "How long it takes to reach a vessel moored here. Feeds the delivery estimate a sailor is shown. Leave blank if unknown.",
       ACTIVE: "Active",
       SUBMIT: "Add Anchorage",
       SAVING: "Adding…",
@@ -4198,22 +4227,34 @@ export const MESSAGES = {
       COLUMNS: {
         CODE: "Code",
         NAME: "Anchorage",
+        ETA: "Est. delivery",
         STATUS: "Status",
-        ADDED: "Added",
         ACTIONS: "",
       },
-      TOAST: {
-        ADD_SUCCESS: "Anchorage created.",
-        ADD_ERROR: "Failed to create the anchorage.",
-        UPDATE_SUCCESS: "Anchorage updated.",
-        UPDATE_ERROR: "Failed to update the anchorage.",
-        DELETE_SUCCESS: "Anchorage deleted.",
-        DELETE_ERROR: "Failed to delete the anchorage.",
-        /**
-         * Nothing changed, so nothing is sent. Says which rather than a bare
-         * "saved" that would imply a write the server never saw.
-         */
-        NO_CHANGES: "No changes to save.",
+      /** Row-level marks for the port's primary mooring. */
+      DEFAULT_BADGE: "Default",
+      /** Hours are stored as a bare integer; the unit belongs in the cell. */
+      HOURS: (n: number) => (n === 1 ? "1 hr" : `${n} hrs`),
+      SET_DEFAULT: "Set as default",
+      /**
+       * Why the default row has fewer controls than its siblings. Shown under
+       * the list only while a default is actually on screen — the rule is
+       * invisible otherwise and the sentence would be noise.
+       */
+      DEFAULT_NOTE:
+        "The default anchorage can't be deactivated or deleted. To replace it, set another anchorage as default first — the old one is demoted automatically.",
+      /**
+       * Ports created before the default-anchorage rule were not backfilled:
+       * picking one would have been the backend choosing a delivery location.
+       * So this is a real state an operator has to resolve, not a loading blip.
+       */
+      NO_DEFAULT_WARNING:
+        "This port has no default anchorage. Ports created before default anchorages existed weren't given one — set one below.",
+      SET_DEFAULT_CONFIRM: {
+        TITLE: "Set as the default anchorage?",
+        MESSAGE:
+          "This becomes the port's primary mooring and the current default is demoted in the same step. Existing orders keep the address they were placed against.",
+        CONFIRM: "Set as Default",
       },
       DELETE_CONFIRM: {
         TITLE: "Delete this anchorage?",
@@ -4227,13 +4268,28 @@ export const MESSAGES = {
           "It stops being offered to sailors and disappears from this list — there's no undo here. To withdraw it reversibly, edit it and turn Active off instead. Orders already placed against it keep their address.",
         CONFIRM: "Delete Anchorage",
       },
-      /**
-       * Shown only under a list whose rows came back **without** a primary key.
-       * Edit and delete both address an `anchorage_id`, so those rows cannot be
-       * acted on — saying which beats an empty actions column with no reason.
-       */
-      READ_ONLY_NOTE:
-        "Some rows can't be edited or deleted: the list API returned them without a row id, which those actions need to address.",
+      TOAST: {
+        ADD_SUCCESS: "Anchorage created.",
+        ADD_ERROR: "Failed to create the anchorage.",
+        UPDATE_SUCCESS: "Anchorage updated.",
+        UPDATE_ERROR: "Failed to update the anchorage.",
+        DELETE_SUCCESS: "Anchorage deleted.",
+        DELETE_ERROR: "Failed to delete the anchorage.",
+        SET_DEFAULT_SUCCESS: (name: string) => `${name} is now the default anchorage.`,
+        SET_DEFAULT_ERROR: "Failed to change the default anchorage.",
+        /**
+         * The 409 on deleting a default. The server's own sentence is good, but
+         * this one names the row, and the dialog it replaces has already
+         * scrolled away by the time the toast is read.
+         */
+        DELETE_DEFAULT_BLOCKED:
+          "That's the port's default anchorage. Set another one as default first, then delete it.",
+        /**
+         * Nothing changed, so nothing is sent. Says which rather than a bare
+         * "saved" that would imply a write the server never saw.
+         */
+        NO_CHANGES: "No changes to save.",
+      },
     },
     FORM: {
       ADD_TITLE: "Add Port",

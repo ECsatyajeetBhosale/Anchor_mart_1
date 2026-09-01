@@ -11,11 +11,20 @@ export {
   useDeletePortMutation,
 } from "./api/portApi";
 
-export { useGetAnchoragesQuery, useCreateAnchorageMutation } from "./api/anchorageApi";
+export {
+  useGetAnchoragesQuery,
+  useCreateAnchorageMutation,
+  useUpdateAnchorageMutation,
+  useDeleteAnchorageMutation,
+} from "./api/anchorageApi";
 
 export type {
   Anchorage,
-  AnchoragePayload,
+  AnchorageCreatePayload,
+  AnchoragePortRef,
+  AnchorageUpdatePayload,
+  DefaultAnchoragePayload,
   Port,
-  PortPayload,
+  PortCreatePayload,
+  PortUpdatePayload,
 } from "./types/catalogOps.types";

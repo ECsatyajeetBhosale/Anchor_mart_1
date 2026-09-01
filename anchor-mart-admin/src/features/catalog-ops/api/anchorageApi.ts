@@ -3,7 +3,8 @@ import { type ListResult, asString, getProp, unwrapList } from "@/lib/apiRespons
 import { baseApi } from "@/lib/fetchUtils";
 import type {
   Anchorage,
-  AnchoragePayload,
+  AnchorageCreatePayload,
+  AnchoragePortRef,
   AnchorageUpdatePayload,
 } from "../types/catalogOps.types";
 
@@ -17,17 +18,40 @@ export interface GetAnchoragesParams {
   limit?: number;
 }
 
+/**
+ * The nested parent port.
+ *
+ * Falls back to a flat `port_code` on the row: that is the shape the endpoint
+ * returned before 2026-09-01, and a row read through the old serializer should
+ * degrade to a port with no id rather than to a crash on `port.id`.
+ */
+function toPortRef(row: unknown): AnchoragePortRef {
+  const port = getProp(row, "port");
+  if (port && typeof port === "object") {
+    return {
+      id: asString(getProp(port, "id")),
+      port_code: asString(getProp(port, "port_code")),
+      port_name: asString(getProp(port, "port_name")),
+    };
+  }
+  return { id: "", port_code: asString(getProp(row, "port_code")), port_name: "" };
+}
+
 function toAnchorage(row: unknown): Anchorage {
+  const hours = getProp(row, "estimated_delivery_hours");
   return {
-    // Absent from the documented payload, so this is a hopeful read rather than
-    // a guaranteed one — see the note on `Anchorage`. Left undefined instead of
-    // `""` so the row actions can test it honestly. `anchorage_id` is checked
-    // as well: it is the name the write routes use for the same value, and a
-    // serializer that exposes the key at all may expose it under either.
-    id: asString(getProp(row, "id")) || asString(getProp(row, "anchorage_id")) || undefined,
-    port_code: asString(getProp(row, "port_code")),
+    id: asString(getProp(row, "id")),
+    port: toPortRef(row),
     anchorage_name: asString(getProp(row, "anchorage_name")),
+    // Legitimately empty on a row created without one — codes are not generated.
     anchorage_code: asString(getProp(row, "anchorage_code")),
+    // `null` and `0` are different answers: never set, versus set to immediate.
+    // Only a real number survives, so `null`, `""` and a missing key all read as
+    // "not set" rather than collapsing into zero.
+    estimated_delivery_hours: typeof hours === "number" ? hours : null,
+    // Absent on a port that predates the default-anchorage rule, and absent from
+    // rows read through the older serializer — both mean "not the default".
+    is_default: getProp(row, "is_default") === true,
     // Anything but an explicit `false` counts as active, matching how `toPort`
     // reads the same flag: a row that omits it is live.
     is_active: getProp(row, "is_active") !== false,
@@ -39,18 +63,17 @@ function toAnchorage(row: unknown): Anchorage {
 /**
  * Anchorage admin CRUD (see `ANCHORAGE_ENDPOINTS` for the contract's quirks).
  *
- * **The write routes key on an `anchorage_id` UUID the read routes may not
- * return.** The documented list row is `{ port_code, anchorage_name, is_active,
- * created_at, updated_at }` and the details payload matches it, so `id` is read
- * defensively in `toAnchorage` and the drawer offers edit/delete per row — on
- * the rows that came back with one. The mutations below are written against the
- * contract regardless: a UI that can only act on some rows still needs the call
- * to exist, and if the serializer starts sending the key nothing here changes.
+ * **Every write is gated on `platform.port_config`** — the same super-admin
+ * feature that gates the port writes themselves. Anchorage writes were open to
+ * every admin tier until 2026-09-01; they are not any more, so a caller that
+ * renders these without checking will hand a sub-admin a 403.
  *
- * Every write invalidates by **port**, not by row. The list is fetched per port
+ * **Every write invalidates by port, not by row.** The list is fetched per port
  * and there is no unscoped one, so the port tag is the only cache entry a
- * mooring can appear in — and a rename has to move it there, not just refresh a
- * detail view this feature does not have.
+ * mooring can appear in. It has to be the unit of invalidation for a second
+ * reason too: promotion is a *two-row* change — the incumbent default is
+ * demoted in the same transaction — so a write here can alter a row the caller
+ * never named.
  */
 export const anchorageApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -77,11 +100,13 @@ export const anchorageApi = baseApi.injectEndpoints({
     /**
      * Create one mooring under a port.
      *
-     * A duplicate `port_code` + `anchorage_name` is a **400** carrying
-     * `non_field_errors: ["Anchorage already exists for this port"]` — a real
-     * message worth showing rather than replacing with a generic failure.
+     * A duplicate name under the same port is a **400** carrying a field-level
+     * `anchorage_name` error — "An anchorage with this name already exists for
+     * this port." — which is a real sentence worth showing rather than
+     * replacing with a generic failure. The same name under a *different* port
+     * is fine, and a soft-deleted row does not reserve its name.
      */
-    createAnchorage: builder.mutation<unknown, { portId: string; body: AnchoragePayload }>({
+    createAnchorage: builder.mutation<unknown, { portId: string; body: AnchorageCreatePayload }>({
       query: ({ body }) => ({
         url: ANCHORAGE_ENDPOINTS.CREATE_ANCHORAGE,
         method: "POST",
@@ -95,16 +120,18 @@ export const anchorageApi = baseApi.injectEndpoints({
     }),
 
     /**
-     * Rename a mooring or toggle its status.
+     * Rename a mooring, retime it, toggle its status, or promote it to default.
      *
-     * `PATCH` rather than `PUT`: the view accepts both, and a partial body is
-     * the documented recommendation — it also means a field the serializer
-     * happens to require but this form does not collect can't be blanked by
-     * omission.
+     * `PATCH` rather than `PUT` — though the two behave identically here, both
+     * being partial since 2026-09-01.
      *
-     * The 200 body is the updated row (`{ anchorage_name, is_active, id }`),
-     * not the usual `{ message }` envelope, so there is no server sentence to
-     * surface on success — the caller supplies its own.
+     * Three bodies are refused with a `400` and a usable sentence, and the
+     * caller is expected to not offer them rather than to explain them after
+     * the fact: `is_default: false` (demote), `is_active: false` on the default,
+     * and any `port` (moving the mooring).
+     *
+     * The 200 body is the updated row, not the usual `{ message }` envelope, so
+     * there is no server sentence to surface on success.
      */
     updateAnchorage: builder.mutation<
       unknown,
@@ -121,12 +148,16 @@ export const anchorageApi = baseApi.injectEndpoints({
     /**
      * Soft-delete a mooring: `is_deleted=True`, `is_active=False`, with
      * `deleted_at`/`deleted_by` recorded. The row is retained server-side but
-     * drops out of every read — the list and the details view both treat a
-     * deleted anchorage as a 404 — so from this panel it is gone for good.
+     * drops out of the list and details endpoints and can no longer be updated
+     * — so from this panel it is gone for good.
      *
-     * A second attempt on the same id is a **404**, not a no-op, which is what
-     * a stale row in an open drawer will produce. The caller shows the server's
-     * "Anchorage not found" for exactly that case.
+     * Two failures are worth distinguishing by status rather than by prose:
+     *
+     * - **409** — the row is the port's default and the port has other
+     *   anchorages. Promote one of those first. Deleting a port's *last*
+     *   anchorage is allowed even though it is the default.
+     * - **404** — already deleted, which is what a stale row in an open drawer
+     *   produces. A second attempt is an error, not a no-op.
      */
     deleteAnchorage: builder.mutation<
       { message?: string },

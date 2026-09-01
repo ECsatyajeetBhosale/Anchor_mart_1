@@ -28,6 +28,17 @@ export function Providers({ children }: ProvidersProps) {
           info: <IconInfoCircle size={17} />,
         }}
         toastOptions={{
+          /**
+           * The design system owns the toast, so sonner's own styles are off.
+           *
+           * That is all-or-nothing: every part it would have styled needs a
+           * class here, or it renders with none. The action button is the one
+           * that bites — sonner gates its `[data-button]` rule on
+           * `[data-styled=true]`, which `unstyled` removes, and the global
+           * reset zeroes button padding, so a missing class leaves a
+           * browser-default grey box on a dark toast rather than something
+           * merely unbranded.
+           */
           unstyled: true,
           classNames: {
             toast: "toast",
@@ -35,6 +46,8 @@ export function Providers({ children }: ProvidersProps) {
             error: "danger",
             warning: "warning",
             info: "info",
+            actionButton: "toast-action",
+            cancelButton: "toast-action toast-action-ghost",
           },
         }}
       />

@@ -2,6 +2,7 @@ import {
   IconAnchor,
   IconArrowsExchange,
   IconEdit,
+  IconStarFilled,
   IconEye,
   IconMessage,
   IconSpeakerphone,
@@ -23,6 +24,7 @@ export type RowActionKey =
   | "edit"
   | "variants"
   | "anchorages"
+  | "setDefault"
   | "catalog"
   | "announce"
   | "message"
@@ -44,6 +46,9 @@ const ACTION_CATALOG: Record<RowActionKey, CatalogEntry> = {
   // The same parent → child-collection shape as `variants`: moorings inside a
   // port, reached from the port's row.
   anchorages: { icon: <IconAnchor size={16} />, title: "Manage anchorages" },
+  // Promotion, not a toggle: the catalogs that have a "default" concept enforce
+  // exactly one, so this only ever appears on the rows that are *not* it.
+  setDefault: { icon: <IconStarFilled size={16} />, title: "Set as default" },
   catalog: { icon: <IconArrowsExchange size={16} />, title: "Change catalog" },
   announce: { icon: <IconSpeakerphone size={16} />, title: "Announce availability" },
   message: { icon: <IconMessage size={16} />, title: "Message" },
@@ -58,6 +63,7 @@ const ACTION_ORDER: RowActionKey[] = [
   "edit",
   "variants",
   "anchorages",
+  "setDefault",
   "catalog",
   "announce",
   "message",
