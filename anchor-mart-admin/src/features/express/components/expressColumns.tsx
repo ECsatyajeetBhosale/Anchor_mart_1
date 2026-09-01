@@ -78,13 +78,13 @@ export function useExpressColumns({
       header: M.COLUMNS.ORDER,
       cell: (row) => (
         <div className="max-w-[160px]">
-          <div className="td-p mono trunc" title={row.order_number}>
+          <div className="td-p font-mono truncate" title={row.order_number}>
             {row.order_number}
           </div>
           {/* Placed-at, as sent. This screen sorts on it (`-created_at`) rather
               than on payment, because it spans both sides of payment and the
               payment sort put every unpaid order above every paid one. */}
-          <div className="td-m trunc" title={row.created_at ?? ""}>
+          <div className="td-m truncate" title={row.created_at ?? ""}>
             {dateTimeText(row.created_at)}
           </div>
         </div>
@@ -95,10 +95,10 @@ export function useExpressColumns({
       header: M.COLUMNS.CUSTOMER,
       cell: (row) => (
         <div className="max-w-[200px]">
-          <div className="td-p trunc" title={row.customer_name}>
+          <div className="td-p truncate" title={row.customer_name}>
             {row.customer_name || DASH}
           </div>
-          <div className="td-m trunc" title={row.customer_email}>
+          <div className="td-m truncate" title={row.customer_email}>
             {row.customer_email || DASH}
           </div>
         </div>
@@ -116,10 +116,10 @@ export function useExpressColumns({
         const anchorage = row.shipping_address?.anchorage_name;
         return (
           <div className="max-w-[200px]">
-            <div className="td-p trunc" title={port ?? ""}>
+            <div className="td-p truncate" title={port ?? ""}>
               {port || DASH}
             </div>
-            <div className="td-m trunc" title={anchorage ?? ""}>
+            <div className="td-m truncate" title={anchorage ?? ""}>
               {anchorage || DASH}
             </div>
           </div>
@@ -199,7 +199,7 @@ export function useExpressColumns({
       header: M.COLUMNS.PARTNER,
       cell: (row) =>
         row.partner_allocated && row.partner_name ? (
-          <span className="td-p trunc block max-w-[140px]" title={row.partner_name}>
+          <span className="td-p truncate block max-w-[140px]" title={row.partner_name}>
             {row.partner_name}
           </span>
         ) : (

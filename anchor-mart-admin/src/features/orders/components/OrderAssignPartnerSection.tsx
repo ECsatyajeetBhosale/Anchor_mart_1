@@ -275,7 +275,7 @@ export function OrderAssignPartnerSection({
     // The scroll target for the §4.3 reallocation prompt further down the
     // drawer. An attribute rather than an id: the drawer renders one order at a
     // time, but ids are global and this section is not the only thing on a page.
-    <div className="mt16" data-assign-partner-section>
+    <div className="mt-[16px]" data-assign-partner-section>
       <div className="sec-label flex items-center gap-1.5">
         <IconTruckDelivery size={13} className="inline" />
         {M.SECTION}
@@ -293,7 +293,7 @@ export function OrderAssignPartnerSection({
               </div>
             </div>
           ) : (
-            <span className="c4">{M.NONE}</span>
+            <span className="text-[var(--t4)]!">{M.NONE}</span>
           )}
         </div>
       </div>
@@ -360,11 +360,13 @@ export function OrderAssignPartnerSection({
               {pastAssignments.map((row) => (
                 <div className="flex items-center gap-2" key={row.id}>
                   <div className="min-w-0 flex-1">
-                    <div className="trunc text-[12.5px] font-semibold text-[var(--t2)]">
+                    <div className="truncate text-[12.5px] font-semibold text-[var(--t2)]">
                       {row.partnerName}
                       {row.partnerCode ? ` · ${row.partnerCode}` : ""}
                     </div>
-                    {row.assignedAt && <div className="xs c4">{row.assignedAt}</div>}
+                    {row.assignedAt && (
+                      <div className="text-[11px] text-[var(--t4)]!">{row.assignedAt}</div>
+                    )}
                   </div>
                   <Badge variant="neutral">{row.statusDisplay || row.status}</Badge>
                 </div>

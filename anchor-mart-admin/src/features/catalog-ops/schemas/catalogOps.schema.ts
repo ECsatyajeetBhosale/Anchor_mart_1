@@ -1,23 +1,6 @@
 import { z } from "zod";
 
 /**
- * Optional whole hours — the `estimated_delivery_hours` box.
- *
- * An empty box means "not set" (`undefined`), not `0`: the API distinguishes
- * the two, and `0` on a delivery estimate is a promise of immediate arrival.
- * `z.coerce` cannot express that — `Number("")` is `0` — so the empty cases are
- * mapped before the number schema ever sees them.
- */
-const optionalHours = z.preprocess(
-  (value) => (value === "" || value === null || value === undefined ? undefined : Number(value)),
-  z
-    .number({ invalid_type_error: "Enter a whole number of hours" })
-    .int("Enter a whole number of hours")
-    .min(0, "Hours cannot be negative")
-    .optional(),
-);
-
-/**
  * The default anchorage, collected **on the port add form**.
  *
  * `add-port/` requires it: a port and its primary mooring are created in one
@@ -27,7 +10,6 @@ const optionalHours = z.preprocess(
 export const defaultAnchorageSchema = z.object({
   anchorage_name: z.string().trim().min(1, "Anchorage name is required").max(100, "Max 100 chars"),
   anchorage_code: z.string().trim().max(20, "Max 20 chars").default(""),
-  estimated_delivery_hours: optionalHours,
   is_active: z.boolean().default(true),
 });
 
@@ -76,7 +58,6 @@ export const anchorageSchema = z.object({
    * ordinary data rather than an incomplete row.
    */
   anchorage_code: z.string().trim().max(20, "Max 20 chars").default(""),
-  estimated_delivery_hours: optionalHours,
   is_active: z.boolean().default(true),
 });
 

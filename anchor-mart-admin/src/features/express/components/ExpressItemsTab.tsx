@@ -177,7 +177,7 @@ export function ExpressItemsTab() {
       // variant serializer carries no category at all (express products use
       // general-scope categories — there is no express category bucket).
       cell: (r) => (
-        <div className="flex aic g8">
+        <div className="flex items-center gap-[8px]">
           <Thumbnail
             src={r.imageUrl}
             alt={C.IMAGE_ALT}
@@ -185,7 +185,7 @@ export function ExpressItemsTab() {
             className="h-8 w-8"
           />
           <span
-            className="trunc block max-w-[200px] text-[12.5px] font-medium"
+            className="truncate block max-w-[200px] text-[12.5px] font-medium"
             title={r.about || r.name}
           >
             {r.name}
@@ -200,7 +200,7 @@ export function ExpressItemsTab() {
       // it is worth knowing which one you are looking at.
       cell: (r) => (
         <div className="flex flex-col gap-0.5">
-          <span className="mono text-[12px]">{r.sku}</span>
+          <span className="font-mono text-[12px]">{r.sku}</span>
           {r.isPrimary && (
             <Badge variant="neutral" className="w-fit">
               {C.PRIMARY}

@@ -89,7 +89,7 @@ export function OwnerCell({
   if (!onHandover) {
     return (
       <span
-        className="trunc block max-w-[150px] text-[12.5px] font-semibold"
+        className="truncate block max-w-[150px] text-[12.5px] font-semibold"
         title={`${assignedAdmin.name} · ${assignedAdmin.email}`}
       >
         {label}
@@ -102,7 +102,7 @@ export function OwnerCell({
       className="flex max-w-[170px] items-center gap-1.5 text-[12.5px] font-semibold"
       title={`${assignedAdmin.name} · ${assignedAdmin.email}`}
     >
-      <span className="trunc">{label}</span>
+      <span className="truncate">{label}</span>
       <button
         type="button"
         title={M.HANDOVER.TITLE}

@@ -300,10 +300,10 @@ export function SpecialRequestsPage() {
       // the table could not say where any of this was going.
       cell: (r) => (
         <div className="max-w-[180px]">
-          <div className="td-p trunc" title={r.vessel}>
+          <div className="td-p truncate" title={r.vessel}>
             {r.vessel}
           </div>
-          <div className="td-m trunc" title={r.location}>
+          <div className="td-m truncate" title={r.location}>
             {r.location}
           </div>
         </div>

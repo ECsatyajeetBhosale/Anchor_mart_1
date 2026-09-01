@@ -246,10 +246,10 @@ export function SuggestReplacementPanel({
         const isOpen = openLineId === line.orderItemId;
         return (
           <div className="ecard flex flex-col gap-2" key={line.orderItemId}>
-            <div className="flex aic g12">
-              <div className="f1">
-                <div className="sm w7 c1">{line.name}</div>
-                <div className="xs c4">
+            <div className="flex items-center gap-[12px]">
+              <div className="flex-1">
+                <div className="text-[12.5px] font-bold text-[var(--t1)]!">{line.name}</div>
+                <div className="text-[11px] text-[var(--t4)]!">
                   {S.REQUESTED(line.requestedQty)}
                   {line.availableQty !== null ? ` · ${S.AVAILABLE_QTY(line.availableQty)}` : ""}
                   {line.note ? ` · ${line.note}` : ""}
@@ -271,7 +271,7 @@ export function SuggestReplacementPanel({
             {isOpen && (
               <div className="flex flex-col gap-2 border-t border-[var(--border-xs)] pt-2">
                 {/* Existing vs new-product toggle. */}
-                <div className="flex g8">
+                <div className="flex gap-[8px]">
                   <Button
                     variant={mode === "existing" ? "teal" : "secondary"}
                     size="xs"
@@ -295,7 +295,7 @@ export function SuggestReplacementPanel({
                     </div>
                   ) : (
                     <>
-                      <div className="flex g8">
+                      <div className="flex gap-[8px]">
                         <Input
                           placeholder={S.SEARCH_PRODUCTS}
                           value={search}
@@ -404,7 +404,7 @@ export function SuggestReplacementPanel({
                     </FormField>
                     <FormField label={S.NP_ATTRIBUTES} hint={S.NP_ATTRIBUTES_HINT}>
                       <Textarea
-                        className="mono h-20"
+                        className="font-mono h-20"
                         placeholder={S.NP_ATTRIBUTES_PLACEHOLDER}
                         value={npAttributes}
                         onChange={(e) => setNpAttributes(e.target.value)}
@@ -437,7 +437,7 @@ export function SuggestReplacementPanel({
       })}
 
       {/* Staged / released suggestions */}
-      <div className="sec-label mt16">{S.STAGED_TITLE}</div>
+      <div className="sec-label mt-[16px]">{S.STAGED_TITLE}</div>
       {/* Why the release button will refuse, said before it is pressed rather
           than as a 409 afterwards. The count comes from the rows themselves. */}
       {blockedCount > 0 && (
@@ -451,18 +451,18 @@ export function SuggestReplacementPanel({
       ) : (
         <div className="flex flex-col gap-2">
           {staged.map((s) => (
-            <div className="ecard flex aic g12" key={s.suggestionId}>
-              <div className="f1">
+            <div className="ecard flex items-center gap-[12px]" key={s.suggestionId}>
+              <div className="flex-1">
                 {/* The original name is not on the suggestion — it is joined in
                     from the verification line by `order_item_id`. Without the
                     report loaded the arrow would have nothing on its left, so
                     the replacement stands alone instead. */}
-                <div className="sm w7 c1">
+                <div className="text-[12.5px] font-bold text-[var(--t1)]!">
                   {originalNameFor(s.orderItemId)
                     ? `${originalNameFor(s.orderItemId)} → ${s.suggestedName}`
                     : s.suggestedName}
                 </div>
-                <div className="xs c4">
+                <div className="text-[11px] text-[var(--t4)]!">
                   {s.suggestedSku ? `${s.suggestedSku} · ` : ""}
                   {S.QTY} {s.quantity}
                   {s.unitPrice ? ` · $${s.unitPrice}` : ""}

@@ -675,7 +675,7 @@ export function IntentsPage() {
             </div>
             <div className="min-w-0">
               <span
-                className="trunc block max-w-[170px] text-[12.5px] font-medium text-[var(--t3)]"
+                className="truncate block max-w-[170px] text-[12.5px] font-medium text-[var(--t3)]"
                 title={i.it}
               >
                 {i.it}
@@ -854,11 +854,16 @@ export function IntentsPage() {
         onRetry={refetchStats}
       />
 
-
       {/* Order-type filter — same control and semantics as the orders screen. */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <span className="sec-label !mb-0">{M.TYPE_FILTER.LABEL}</span>
+        {/* Pinned to 38px, the app's default control height. Left to itself
+            `.pill-toggle` lands on 38.375px — 3px of border, 6px of padding and
+            a 29.375px pill (12.5px text on the inherited 1.55 line-height) — so
+            the box never quite matched the buttons and inputs beside it. The
+            pills stretch into the shorter box, so nothing else moves. */}
         <PillToggle
+          className="h-[38px]"
           options={typeOptions}
           value={typeFilter}
           onChange={(value) => setParam("type", value === "all" ? "" : value)}

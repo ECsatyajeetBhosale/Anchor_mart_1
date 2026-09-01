@@ -23,8 +23,6 @@ import type { DefaultAnchoragePayload, Port } from "../types/catalogOps.types";
 
 const M = MESSAGES.PORTS;
 const DA = M.DEFAULT_ANCHORAGE;
-/** The anchorage drawer's own wording, reused so the ETA field reads alike in both. */
-const A = M.ANCHORAGES;
 
 const DEFAULTS: PortFormData = {
   port_code: "",
@@ -35,7 +33,6 @@ const DEFAULTS: PortFormData = {
   default_anchorage: {
     anchorage_name: "",
     anchorage_code: "",
-    estimated_delivery_hours: undefined,
     is_active: true,
   },
 };
@@ -51,9 +48,6 @@ function toDefaultAnchorage(form: PortFormData["default_anchorage"]): DefaultAnc
   return {
     anchorage_name: form.anchorage_name,
     ...(form.anchorage_code ? { anchorage_code: form.anchorage_code } : {}),
-    ...(form.estimated_delivery_hours === undefined
-      ? {}
-      : { estimated_delivery_hours: form.estimated_delivery_hours }),
     is_active: form.is_active,
   };
 }
@@ -255,20 +249,6 @@ export function PortFormDrawer({ isOpen, onClose, port }: PortFormDrawerProps) {
                   />
                 </FormField>
               </FormRow>
-
-              <FormField
-                label={A.ETA}
-                hint={A.ETA_HINT}
-                error={errors.default_anchorage?.estimated_delivery_hours?.message}
-              >
-                <Input
-                  type="number"
-                  min={0}
-                  placeholder={A.ETA_PLACEHOLDER}
-                  error={!!errors.default_anchorage?.estimated_delivery_hours}
-                  {...register("default_anchorage.estimated_delivery_hours")}
-                />
-              </FormField>
             </section>
           )}
         </div>

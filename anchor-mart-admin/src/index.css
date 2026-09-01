@@ -2834,9 +2834,6 @@ textarea.form-input {
 .je {
   justify-content: flex-end;
 }
-.f1 {
-  flex: 1;
-}
 .mw0 {
   min-width: 0;
 }
@@ -2861,9 +2858,6 @@ textarea.form-input {
 .g10 {
   gap: 10px;
 }
-.g12 {
-  gap: 12px;
-}
 .g14 {
   gap: 14px;
 }
@@ -2875,12 +2869,6 @@ textarea.form-input {
 }
 .mb8 {
   margin-bottom: 8px;
-}
-.mb12 {
-  margin-bottom: 12px;
-}
-.mb16 {
-  margin-bottom: 16px;
 }
 .mb20 {
   margin-bottom: 20px;
@@ -2911,9 +2899,6 @@ textarea.form-input {
 }
 .sm {
   font-size: 12.5px;
-}
-.lg {
-  font-size: 16px;
 }
 .xl {
   font-size: 19px;
@@ -2948,17 +2933,11 @@ textarea.form-input {
 .cnavy {
   color: var(--navy-700);
 }
-.camber {
-  color: var(--amber-600);
-}
 .csuccess {
   color: var(--success-text);
 }
 .cdanger {
   color: var(--danger-text);
-}
-.cwarning {
-  color: var(--warning-text);
 }
 .mono {
   font-family: var(--font-mono);
@@ -2970,9 +2949,6 @@ textarea.form-input {
 }
 /* Tabular (equal-width) figures for numbers rendered outside tables/stat cards,
    e.g. inline counts, totals, prices. Same treatment as .stat-val. */
-.num {
-  font-variant-numeric: tabular-nums;
-}
 
 /* ══════════════════════════════════════
    MODAL / DRAWER / TOAST SYSTEM
@@ -3327,23 +3303,6 @@ textarea.form-input {
 }
 
 /* Uploaded-image placeholder (special-request detail modal) */
-.srq-img {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 22px;
-  border: 1.5px dashed var(--border-md);
-  border-radius: var(--radius-md);
-  background: var(--surface-alt);
-  color: var(--teal-700);
-  font-size: 12.5px;
-  font-weight: 600;
-}
-.srq-img.empty {
-  color: var(--t4);
-}
 .fg-label {
   display: block;
   font-size: 11.5px;

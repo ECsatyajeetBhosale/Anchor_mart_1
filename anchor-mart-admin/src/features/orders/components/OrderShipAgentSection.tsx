@@ -129,7 +129,7 @@ export function OrderShipAgentSection({
   const isUnchanged = selectedId === (current?.id ?? "");
 
   return (
-    <div className="mt16">
+    <div className="mt-[16px]">
       <div className="sec-label flex items-center gap-1.5">
         <IconAnchor size={13} className="inline" />
         {M.SECTION}
@@ -145,7 +145,7 @@ export function OrderShipAgentSection({
               <div className="td-m">{contactLine(current)}</div>
             </div>
           ) : (
-            <span className="c4">{M.NONE}</span>
+            <span className="text-[var(--t4)]!">{M.NONE}</span>
           )}
         </div>
       </div>

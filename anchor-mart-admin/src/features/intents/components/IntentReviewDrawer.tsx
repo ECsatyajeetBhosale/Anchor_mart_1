@@ -65,6 +65,16 @@ const S = MESSAGES.INTENTS.SUBSTITUTION;
 const T = MESSAGES.INTENTS.TOAST;
 const R = MESSAGES.INTENTS.REVIEW;
 
+/**
+ * How wide the review drawer opens, and the most it can be stretched to.
+ *
+ * This drawer is the widest in the app because it is the only one carrying a
+ * line-item table beside the verification detail — at 860px the item rows
+ * wrapped. `SheetContent` still applies `max-width: 100%`, so a viewport
+ * narrower than this shrinks it rather than overflowing.
+ */
+const DRAWER_WIDTH = 1200;
+
 const TAB_OVERVIEW = "overview";
 const TAB_ITEMS = "items";
 const TAB_FULFILMENT = "fulfilment";
@@ -467,10 +477,10 @@ export function IntentReviewDrawer({
       header: R.ITEM_COLUMNS.ITEM,
       cell: (row) => (
         <div className="min-w-0 max-w-[230px]">
-          <div className="td-p trunc" title={row.name}>
+          <div className="td-p truncate" title={row.name}>
             {row.name}
           </div>
-          {row.sku && <div className="td-id trunc">{row.sku}</div>}
+          {row.sku && <div className="td-id truncate">{row.sku}</div>}
         </div>
       ),
     },
@@ -510,7 +520,14 @@ export function IntentReviewDrawer({
       <SheetContent
         side="right"
         adjustable
-        defaultWidth={860}
+        // Opens fully stretched. `DRAWER_WIDTH` is passed as both the starting
+        // width and the resize ceiling, so the drawer begins at the widest it
+        // can be dragged to and the handle only narrows it. Both are given
+        // explicitly rather than leaning on `SheetContent`'s own 1200 default,
+        // so the two can never drift apart and leave the drawer opening short
+        // of its own limit.
+        defaultWidth={DRAWER_WIDTH}
+        maxWidth={DRAWER_WIDTH}
         className="flex flex-col gap-0 p-0 sm:max-w-none overflow-hidden bg-[var(--surface)]"
       >
         {/* One scroll container for the whole drawer — header, summary strip,
@@ -779,7 +796,7 @@ export function IntentReviewDrawer({
                         className={
                           detail.paymentStatus?.toLowerCase().includes("paid") ||
                           detail.paymentStatus?.toLowerCase().includes("completed")
-                            ? "csuccess"
+                            ? "text-[var(--success-text)]"
                             : detail.paymentStatus?.toLowerCase().includes("pending")
                               ? "text-[var(--warning-text)]"
                               : ""
@@ -802,7 +819,7 @@ export function IntentReviewDrawer({
                               <IconTruckDelivery size={18} />
                             </div>
                             <div className="min-w-0">
-                              <div className="trunc text-[14px] font-bold text-[var(--t1)]">
+                              <div className="truncate text-[14px] font-bold text-[var(--t1)]">
                                 {detail.partnerName}
                               </div>
                               {detail.partnerStatus && (

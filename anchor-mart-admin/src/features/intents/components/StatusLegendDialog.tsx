@@ -63,7 +63,7 @@ export function StatusLegendDialog({ isOpen, onClose }: StatusLegendDialogProps)
                 key={s.key}
                 className="flex gap-3 border-b border-[var(--border-xs)] pb-3 last:border-0 last:pb-0"
               >
-                <span className="mono mt-0.5 w-5 shrink-0 text-right text-[12px] font-bold text-[var(--t4)]">
+                <span className="font-mono mt-0.5 w-5 shrink-0 text-right text-[12px] font-bold text-[var(--t4)]">
                   {s.order}
                 </span>
                 <div className="min-w-0 flex-1">

@@ -41,7 +41,6 @@ const LIMIT = 50;
 const DEFAULTS: AnchorageFormData = {
   anchorage_name: "",
   anchorage_code: "",
-  estimated_delivery_hours: undefined,
   is_active: true,
 };
 
@@ -134,9 +133,6 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
     reset({
       anchorage_name: row.anchorage_name,
       anchorage_code: row.anchorage_code,
-      // `null` on the wire is "not set"; the box wants an empty string, and
-      // `undefined` is what the schema maps that back to on the way out.
-      estimated_delivery_hours: row.estimated_delivery_hours ?? undefined,
       is_active: row.is_active,
     });
     setFormTarget(row);
@@ -155,9 +151,6 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
           // Omitted rather than sent blank: the API defaults it to "" anyway,
           // and an explicit "" records an empty code as a decision.
           ...(values.anchorage_code ? { anchorage_code: values.anchorage_code } : {}),
-          ...(values.estimated_delivery_hours === undefined
-            ? {}
-            : { estimated_delivery_hours: values.estimated_delivery_hours }),
           is_active: values.is_active,
           // `is_default` is never sent from here. A port that already has a
           // default should not have it silently moved by an add, and a port
@@ -187,12 +180,6 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
     const patch: AnchorageUpdatePayload = {};
     if (values.anchorage_name !== row.anchorage_name) patch.anchorage_name = values.anchorage_name;
     if (values.anchorage_code !== row.anchorage_code) patch.anchorage_code = values.anchorage_code;
-    // An emptied box is `undefined` here and has to go out as an explicit
-    // `null`: a key set to `undefined` is dropped by JSON, so the request would
-    // leave the old estimate in place while the toast reported a save.
-    if (values.estimated_delivery_hours !== (row.estimated_delivery_hours ?? undefined)) {
-      patch.estimated_delivery_hours = values.estimated_delivery_hours ?? null;
-    }
     if (values.is_active !== row.is_active) patch.is_active = values.is_active;
 
     if (Object.keys(patch).length === 0) {
@@ -428,21 +415,6 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
                   />
                 </FormField>
               </FormRow>
-
-              <FormField
-                label={A.ETA}
-                hint={A.ETA_HINT}
-                error={errors.estimated_delivery_hours?.message}
-              >
-                <Input
-                  type="number"
-                  min={0}
-                  placeholder={A.ETA_PLACEHOLDER}
-                  error={!!errors.estimated_delivery_hours}
-                  onKeyDown={submitOnEnter}
-                  {...register("estimated_delivery_hours")}
-                />
-              </FormField>
 
               <FormField label={A.ACTIVE} hint={isEditingDefault ? A.DEFAULT_NOTE : undefined}>
                 <Controller

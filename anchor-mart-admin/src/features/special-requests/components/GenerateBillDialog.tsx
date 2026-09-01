@@ -206,8 +206,10 @@ export function GenerateBillDialog({
           </div>
 
           {/* What the sailor is actually billed, using the backend's own maths. */}
-          <div className="mb16 rounded-[var(--radius-md)] bg-[var(--navy-25)] px-4 py-2.5">
-            <span className="sm c3 w6">{B.TOTAL_PREVIEW(total.toFixed(2), qty)}</span>
+          <div className="mb-[16px] rounded-[var(--radius-md)] bg-[var(--navy-25)] px-4 py-2.5">
+            <span className="text-[12.5px] text-[var(--t3)]! font-semibold">
+              {B.TOTAL_PREVIEW(total.toFixed(2), qty)}
+            </span>
           </div>
 
           <FormField label={B.ADMIN_RESPONSE} error={errors.admin_response?.message}>

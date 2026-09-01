@@ -1137,7 +1137,7 @@ export function OrdersPage() {
                   point is that the admin reads it before assigning, not after
                   a partner is already committed to a deadline they cannot make. */}
               {openOrder.delivery_window_infeasible && (
-                <div className="mb12 flex items-start gap-2 rounded-[var(--radius-md)] border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-[12px] text-[var(--danger-text)]">
+                <div className="mb-[12px] flex items-start gap-2 rounded-[var(--radius-md)] border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-[12px] text-[var(--danger-text)]">
                   <IconAlertTriangle size={15} className="mt-0.5 shrink-0" />
                   <div className="min-w-0">
                     <div className="font-bold">{M.INFEASIBLE.TITLE}</div>

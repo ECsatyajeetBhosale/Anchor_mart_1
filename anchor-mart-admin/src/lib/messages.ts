@@ -4215,10 +4215,6 @@ export const MESSAGES = {
       CODE: "Anchorage Code",
       /** Matches the shape the API's own examples use — `OA-1`, `KO-1`. */
       CODE_PLACEHOLDER: "e.g. OA-1",
-      ETA: "Delivery Estimate (hours)",
-      ETA_PLACEHOLDER: "e.g. 6",
-      ETA_HINT:
-        "How long it takes to reach a vessel moored here. Feeds the delivery estimate a sailor is shown. Leave blank if unknown.",
       ACTIVE: "Active",
       SUBMIT: "Add Anchorage",
       SAVING: "Adding…",

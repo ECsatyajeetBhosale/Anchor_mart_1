@@ -381,8 +381,6 @@ export function ExpressOrdersPage() {
         onRetry={statsQuery.refetch}
       />
 
-    
-
       <DataTable
         columns={columns}
         data={orders}

@@ -40,8 +40,6 @@ export interface DefaultAnchoragePayload {
   anchorage_name: string;
   /** Max 20 chars. Optional, and **not** generated — omitted means empty. */
   anchorage_code?: string;
-  /** Hours to reach a vessel at this mooring; feeds the delivery SLA / ETA. */
-  estimated_delivery_hours?: number;
   /** Defaults to `true`. */
   is_active?: boolean;
 }
@@ -114,6 +112,10 @@ export interface Anchorage {
    * Hours to reach a vessel at this mooring, feeding the delivery SLA / ETA.
    * `null` when never set — distinct from `0`, which would promise immediate
    * delivery.
+   *
+   * **Read-only from this panel.** The endpoints still accept it on create and
+   * update, but no form collects it any more, so none of the write payloads
+   * below carry it. The list still displays whatever the API returns.
    */
   estimated_delivery_hours: number | null;
   /**
@@ -152,7 +154,6 @@ export interface AnchorageCreatePayload {
   anchorage_name: string;
   /** Max 20 chars. Optional, and **not** generated — omitted means empty. */
   anchorage_code?: string;
-  estimated_delivery_hours?: number;
   /**
    * `true` promotes this anchorage on creation, demoting the port's incumbent
    * default in the same transaction. Defaults to `false`.
@@ -183,16 +184,6 @@ export interface AnchorageCreatePayload {
 export interface AnchorageUpdatePayload {
   anchorage_name?: string;
   anchorage_code?: string;
-  /**
-   * `null` clears a previously-set estimate.
-   *
-   * The guide types this as an integer and says nothing about clearing one, but
-   * the read side returns `null` for "never set", so `null` is the only value
-   * that can mean it. The alternative — dropping the key when the operator
-   * empties the box — silently discards an edit and then reports success, which
-   * is the worse failure: a rejected `null` at least says so.
-   */
-  estimated_delivery_hours?: number | null;
   /** Promotion only — see above. */
   is_default?: true;
   is_active?: boolean;

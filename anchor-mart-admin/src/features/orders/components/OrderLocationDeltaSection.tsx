@@ -209,7 +209,7 @@ export function OrderLocationDeltaSection({
   return (
     <>
       {/* ── Location reports ──────────────────────────────────────── */}
-      <div className="mt16">
+      <div className="mt-[16px]">
         <div className="sec-label flex items-center gap-1.5">
           <IconMapPin size={13} className="inline" />
           {L.SECTION}
@@ -340,7 +340,7 @@ export function OrderLocationDeltaSection({
       </div>
 
       {/* ── Delta surcharges ──────────────────────────────────────── */}
-      <div className="mt16">
+      <div className="mt-[16px]">
         <div className="sec-label flex items-center gap-1.5">
           <IconReceipt size={13} className="inline" />
           {D.SECTION}

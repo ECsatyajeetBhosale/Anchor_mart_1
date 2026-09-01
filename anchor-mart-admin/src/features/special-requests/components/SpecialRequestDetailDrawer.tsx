@@ -378,7 +378,7 @@ export function SpecialRequestDetailDrawer({
                         <Row
                           label={D.REFERENCE}
                           value={dash(detail.reference)}
-                          className="mono cteal"
+                          className="font-mono text-[var(--teal-700)]"
                         />
                         <Row
                           label={D.SAILOR}
@@ -395,7 +395,7 @@ export function SpecialRequestDetailDrawer({
                         <Row label={D.REQUESTED} value={dash(detail.created_at)} />
                         <Row label={D.UPDATED} value={dash(detail.updated_at)} />
 
-                        <div className="sec-label mt16">{D.ITEM_DETAILS}</div>
+                        <div className="sec-label mt-[16px]">{D.ITEM_DETAILS}</div>
                         <Row label={D.PRODUCT_NAME} value={productName} />
                         <Row label={D.BRAND} value={dash(detail.brand)} />
                         <Row label={D.QUANTITY} value={dash(detail.quantity)} />
@@ -451,7 +451,7 @@ export function SpecialRequestDetailDrawer({
                         <Row label={D.PORT} value={dash(placeLabel(detail.port))} />
                         <Row label={D.ANCHORAGE} value={dash(placeLabel(detail.anchorage))} />
 
-                        <div className="sec-label mt16">{D.SCHEDULE}</div>
+                        <div className="sec-label mt-[16px]">{D.SCHEDULE}</div>
                         <Row label={D.SHIP_ARRIVAL} value={formatDate(detail.ship_arrival_date)} />
                         <Row
                           label={D.EXPECTED_DEPARTURE}
@@ -460,7 +460,9 @@ export function SpecialRequestDetailDrawer({
                         <Row
                           label={D.FASTEST_DELIVERY}
                           value={detail.is_fastest_delivery ? D.YES : D.NO}
-                          className={detail.is_fastest_delivery ? "camber" : undefined}
+                          className={
+                            detail.is_fastest_delivery ? "text-[var(--amber-600)]" : undefined
+                          }
                         />
                         <Row
                           label={D.REBILL}
@@ -469,7 +471,9 @@ export function SpecialRequestDetailDrawer({
                             detail.rebill_count ?? 0,
                             detail.rebill_cap ?? 0,
                           )}
-                          className={detail.rebill_requested ? "cwarning" : undefined}
+                          className={
+                            detail.rebill_requested ? "text-[var(--warning-text)]" : undefined
+                          }
                         />
 
                         {/* What the sailor is asking to change, against what is
@@ -479,7 +483,7 @@ export function SpecialRequestDetailDrawer({
                             a before/after and the admin re-quotes on facts. */}
                         {pending && (
                           <>
-                            <div className="sec-label mt16">{D.PENDING_CHANGES}</div>
+                            <div className="sec-label mt-[16px]">{D.PENDING_CHANGES}</div>
                             {pending.shipping_address && (
                               <DiffRow
                                 label={D.ADDRESS_LABEL}
@@ -565,7 +569,7 @@ export function SpecialRequestDetailDrawer({
                               <span className="flex flex-wrap items-center gap-2">
                                 <Link
                                   to={`/orders?search=${encodeURIComponent(detail.order.order_number)}`}
-                                  className="mono cteal hover:underline"
+                                  className="font-mono text-[var(--teal-700)] hover:underline"
                                 >
                                   {detail.order.order_number}
                                 </Link>
@@ -581,10 +585,12 @@ export function SpecialRequestDetailDrawer({
 
                         {/* Quoted total — only once a quote exists. */}
                         {total !== null && (
-                          <div className="mt16 rounded-[var(--radius-md)] bg-[var(--navy-25)] px-4 py-3.5">
-                            <div className="flex jb aic">
-                              <span className="sm c3 w6">{D.QUOTED_TOTAL}</span>
-                              <span className="lg w8 num">
+                          <div className="mt-[16px] rounded-[var(--radius-md)] bg-[var(--navy-25)] px-4 py-3.5">
+                            <div className="flex justify-between items-center">
+                              <span className="text-[12.5px] text-[var(--t3)]! font-semibold">
+                                {D.QUOTED_TOTAL}
+                              </span>
+                              <span className="text-[16px] font-extrabold tabular-nums">
                                 {`${symbolFor(currency)}${total.toFixed(2)}`}
                               </span>
                             </div>
@@ -598,7 +604,7 @@ export function SpecialRequestDetailDrawer({
                     label: D.TABS.IMAGES(images.length),
                     content:
                       images.length === 0 ? (
-                        <div className="srq-img empty">
+                        <div className="flex flex-col items-center justify-center gap-[6px] rounded-[var(--radius-md)] border-[1.5px] border-dashed border-[var(--border-md)] bg-[var(--surface-alt)] p-[22px] text-[12.5px] font-semibold text-[var(--t4)]">
                           <IconPhotoOff size={26} />
                           <span>{D.NO_IMAGE}</span>
                         </div>
@@ -616,7 +622,7 @@ export function SpecialRequestDetailDrawer({
                           )}
                           {adminImages.length > 0 && (
                             <>
-                              <div className="sec-label mt16">{D.IMAGES_BY_ADMIN}</div>
+                              <div className="sec-label mt-[16px]">{D.IMAGES_BY_ADMIN}</div>
                               <Gallery srcs={adminImages} productName={productName} />
                             </>
                           )}
