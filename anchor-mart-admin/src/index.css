@@ -1135,6 +1135,21 @@ body {
   margin: 0;
   font-size: 18px;
 }
+
+/* Collapsed: the activity marker leaves the flex row.
+   In flow it carries `margin-left:auto`, which swallows all the free space on
+   the 72px rail and shunts the icon to the left — so an item with new activity
+   sat out of line with every item without one. Taking it out of flow leaves
+   each item with the same content (icon + the zero-width label span), which is
+   what keeps every icon on one axis. The item is already `position:relative`.
+   Offsets place it just off the icon's top-right corner: the item is 56px wide
+   inside its 8px margins, and the 17px icon centres at 15–32px from its left. */
+.app-shell.collapsed .nav-dot {
+  position: absolute;
+  top: 4px;
+  right: 16px;
+  margin-left: 0;
+}
 .app-shell.collapsed .nav-item span.nav-badge {
   display: none;
 }

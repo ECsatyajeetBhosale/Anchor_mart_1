@@ -122,10 +122,14 @@ export function TrafficByPlatformCard({ params }: TrafficByPlatformCardProps) {
                       className="h-2 w-2 shrink-0 rounded-[2px]"
                       style={{ backgroundColor: platformColor(row.platform) }}
                     />
-                    <span className="font-semibold text-[var(--t3)]! min-w-0 flex-1 truncate text-[12.5px]">
+                    {/* Share sits directly beside its label rather than being
+                        pushed to the column edge: the label no longer stretches,
+                        so the two read as one phrase ("App 45%") instead of as
+                        two columns the eye has to bridge. */}
+                    <span className="font-semibold text-[var(--t3)]! min-w-0 truncate text-[12.5px]">
                       {row.label}
                     </span>
-                    <span className="font-bold text-[var(--t1)]! tabular-nums text-[12.5px]">
+                    <span className="font-bold text-[var(--t1)]! shrink-0 tabular-nums text-[12.5px]">
                       {row.share_pct}%
                     </span>
                   </li>
@@ -136,21 +140,25 @@ export function TrafficByPlatformCard({ params }: TrafficByPlatformCardProps) {
 
           <div className="tbl-wrap overflow-x-auto">
             <table className="w-full border-collapse text-[12.5px]">
+              {/* The numeric headers carry `text-right!` because the global
+                  `thead th` rule is unlayered and sets `text-align: left`,
+                  which beats a plain layered utility outright — without the
+                  `!` the headings sat left while their figures sat right. */}
               <thead>
                 <tr className="border-[var(--border-sm)] border-b">
                   <th className="font-bold! text-[var(--t3)]! px-2 py-1.5 text-left">
                     {P.COL_PLATFORM}
                   </th>
-                  <th className="font-bold! text-[var(--t3)]! px-2 py-1.5 text-right">
+                  <th className="font-bold! text-[var(--t3)]! px-2 py-1.5 text-right!">
                     {P.COL_PAID}
                   </th>
-                  <th className="font-bold! text-[var(--t3)]! px-2 py-1.5 text-right">
+                  <th className="font-bold! text-[var(--t3)]! px-2 py-1.5 text-right!">
                     {P.COL_REVENUE}
                   </th>
-                  <th className="font-bold! text-[var(--t3)]! px-2 py-1.5 text-right">
+                  <th className="font-bold! text-[var(--t3)]! px-2 py-1.5 text-right!">
                     {P.COL_DELIVERED}
                   </th>
-                  <th className="font-bold! text-[var(--t3)]! px-2 py-1.5 text-right">
+                  <th className="font-bold! text-[var(--t3)]! px-2 py-1.5 text-right!">
                     {P.COL_CANCELLED}
                   </th>
                 </tr>
