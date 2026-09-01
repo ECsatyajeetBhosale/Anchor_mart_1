@@ -32,16 +32,20 @@ export interface PortPayload {
 /**
  * A mooring inside a port.
  *
- * ⚠️ **The list payload carries no `id`.** The documented row is
+ * ⚠️ **`id` is not guaranteed.** The documented list row is
  * `{ port_code, anchorage_name, is_active, created_at, updated_at }` — the
- * primary key is absent, and the details endpoint omits it too. Only the update
- * response returns one. Since update and delete both key on an `anchorage_id`
- * UUID, **neither can be driven from a row**, which is why this feature ships
- * with list and create only. `id` is typed optional so the moment the serializer
- * starts sending it, the row actions can be wired without a type change.
+ * primary key is absent there and from the details payload; only the update
+ * response returns one. Update and delete both key on that `anchorage_id` UUID,
+ * so a row can only be edited or deleted when the serializer actually sends it.
+ * The drawer reads `id` per row and offers the actions on the rows that have
+ * one, rather than assuming either way — see `AnchorageDrawer`.
  */
 export interface Anchorage {
-  /** Absent from every documented read payload — see the note above. */
+  /**
+   * The row's primary key, when the serializer sends it. `undefined` on a
+   * payload that omits it — which is what the integration guide documents, so
+   * every caller must handle its absence rather than assert it.
+   */
   id?: string;
   /** The parent port's code, e.g. "INMUM". The list is fetched by port **UUID**. */
   port_code: string;
@@ -82,5 +86,28 @@ export interface AnchoragePayload {
    * Optional, defaulting to the model's `true`. Kept on the payload — the guide
    * lists it as accepted, and the form's Active toggle is what writes it.
    */
+  is_active?: boolean;
+}
+
+/**
+ * Update body — `PATCH update-anchorage/<anchorage_id>/`.
+ *
+ * Every field optional: the endpoint is an `UpdateAPIView` and partial updates
+ * are the documented path, so only what the form actually changed is sent.
+ *
+ * `port` is deliberately absent. Moving a mooring between ports is not
+ * something this drawer can express — it is opened *from* a port — and the
+ * guide lists no field for it.
+ *
+ * `anchorage_code` is **not** in the guide's update table, which lists only
+ * `anchorage_name` and `is_active`. It is sent anyway because the same guide
+ * omits it from the create table too, and create demonstrably requires it — the
+ * documented field lists trail the serializer. Worst case DRF ignores it, and
+ * the list refetch that follows shows the truth rather than the optimistic
+ * value.
+ */
+export interface AnchorageUpdatePayload {
+  anchorage_name?: string;
+  anchorage_code?: string;
   is_active?: boolean;
 }

@@ -4181,6 +4181,7 @@ export const MESSAGES = {
       HINT: "Sailors pick an anchorage when they place an order. Deactivating one withdraws it from new orders; orders already placed against it keep their address.",
       ADD: "Add Anchorage",
       ADD_TITLE: "New anchorage",
+      EDIT_TITLE: "Edit anchorage",
       COUNT: (n: number) => (n === 1 ? "1 anchorage" : `${n} anchorages`),
       EMPTY: "No anchorages on this port yet.",
       FETCH_ERROR: "Failed to load anchorages.",
@@ -4192,18 +4193,47 @@ export const MESSAGES = {
       ACTIVE: "Active",
       SUBMIT: "Add Anchorage",
       SAVING: "Adding…",
-      COLUMNS: { CODE: "Code", NAME: "Anchorage", STATUS: "Status", ADDED: "Added" },
+      EDIT_SUBMIT: "Save Changes",
+      EDIT_SAVING: "Saving…",
+      COLUMNS: {
+        CODE: "Code",
+        NAME: "Anchorage",
+        STATUS: "Status",
+        ADDED: "Added",
+        ACTIONS: "",
+      },
       TOAST: {
         ADD_SUCCESS: "Anchorage created.",
         ADD_ERROR: "Failed to create the anchorage.",
+        UPDATE_SUCCESS: "Anchorage updated.",
+        UPDATE_ERROR: "Failed to update the anchorage.",
+        DELETE_SUCCESS: "Anchorage deleted.",
+        DELETE_ERROR: "Failed to delete the anchorage.",
+        /**
+         * Nothing changed, so nothing is sent. Says which rather than a bare
+         * "saved" that would imply a write the server never saw.
+         */
+        NO_CHANGES: "No changes to save.",
+      },
+      DELETE_CONFIRM: {
+        TITLE: "Delete this anchorage?",
+        /**
+         * The soft delete is invisible from here: the row is retained
+         * server-side but every read treats it as gone, so there is no undo in
+         * this panel. Deactivating is the reversible option and the sentence
+         * points at it, the same way the port dialog names its cascade.
+         */
+        MESSAGE:
+          "It stops being offered to sailors and disappears from this list — there's no undo here. To withdraw it reversibly, edit it and turn Active off instead. Orders already placed against it keep their address.",
+        CONFIRM: "Delete Anchorage",
       },
       /**
-       * Shown once, under the list. The API returns no primary key on any read
-       * payload, so a row cannot be addressed for edit or delete — saying so
-       * beats offering buttons that cannot work.
+       * Shown only under a list whose rows came back **without** a primary key.
+       * Edit and delete both address an `anchorage_id`, so those rows cannot be
+       * acted on — saying which beats an empty actions column with no reason.
        */
       READ_ONLY_NOTE:
-        "Renaming or removing an anchorage isn't available here yet — the list API doesn't return a row id for it to act on.",
+        "Some rows can't be edited or deleted: the list API returned them without a row id, which those actions need to address.",
     },
     FORM: {
       ADD_TITLE: "Add Port",
