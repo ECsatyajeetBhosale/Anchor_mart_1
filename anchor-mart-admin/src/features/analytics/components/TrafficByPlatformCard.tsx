@@ -106,8 +106,10 @@ export function TrafficByPlatformCard({ params }: TrafficByPlatformCardProps) {
 
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <div>
-                <div className="xs c4 w7 uppercase tracking-wide">{P.TOTAL}</div>
-                <div className="w8 c1 text-[22px] tabular-nums">
+                <div className="text-[11px] text-[var(--t4)]! font-bold uppercase tracking-wide">
+                  {P.TOTAL}
+                </div>
+                <div className="font-extrabold text-[var(--t1)]! text-[22px] tabular-nums">
                   {(total ?? 0).toLocaleString()}
                 </div>
               </div>
@@ -120,8 +122,12 @@ export function TrafficByPlatformCard({ params }: TrafficByPlatformCardProps) {
                       className="h-2 w-2 shrink-0 rounded-[2px]"
                       style={{ backgroundColor: platformColor(row.platform) }}
                     />
-                    <span className="w6 c3 min-w-0 flex-1 truncate text-[12.5px]">{row.label}</span>
-                    <span className="w7 c1 tabular-nums text-[12.5px]">{row.share_pct}%</span>
+                    <span className="font-semibold text-[var(--t3)]! min-w-0 flex-1 truncate text-[12.5px]">
+                      {row.label}
+                    </span>
+                    <span className="font-bold text-[var(--t1)]! tabular-nums text-[12.5px]">
+                      {row.share_pct}%
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -132,11 +138,21 @@ export function TrafficByPlatformCard({ params }: TrafficByPlatformCardProps) {
             <table className="w-full border-collapse text-[12.5px]">
               <thead>
                 <tr className="border-[var(--border-sm)] border-b">
-                  <th className="w7 c3 px-2 py-1.5 text-left">{P.COL_PLATFORM}</th>
-                  <th className="w7 c3 px-2 py-1.5 text-right">{P.COL_PAID}</th>
-                  <th className="w7 c3 px-2 py-1.5 text-right">{P.COL_REVENUE}</th>
-                  <th className="w7 c3 px-2 py-1.5 text-right">{P.COL_DELIVERED}</th>
-                  <th className="w7 c3 px-2 py-1.5 text-right">{P.COL_CANCELLED}</th>
+                  <th className="font-bold! text-[var(--t3)]! px-2 py-1.5 text-left">
+                    {P.COL_PLATFORM}
+                  </th>
+                  <th className="font-bold! text-[var(--t3)]! px-2 py-1.5 text-right">
+                    {P.COL_PAID}
+                  </th>
+                  <th className="font-bold! text-[var(--t3)]! px-2 py-1.5 text-right">
+                    {P.COL_REVENUE}
+                  </th>
+                  <th className="font-bold! text-[var(--t3)]! px-2 py-1.5 text-right">
+                    {P.COL_DELIVERED}
+                  </th>
+                  <th className="font-bold! text-[var(--t3)]! px-2 py-1.5 text-right">
+                    {P.COL_CANCELLED}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -145,7 +161,7 @@ export function TrafficByPlatformCard({ params }: TrafficByPlatformCardProps) {
                     key={row.platform}
                     className="border-[var(--border-xs)] border-b last:border-0"
                   >
-                    <td className="w6 c2 px-2 py-1.5">
+                    <td className="font-semibold! text-[var(--t2)]! px-2 py-1.5">
                       <span className="flex items-center gap-2">
                         <span
                           className="h-2 w-2 shrink-0 rounded-[2px]"
@@ -154,13 +170,17 @@ export function TrafficByPlatformCard({ params }: TrafficByPlatformCardProps) {
                         {row.label}
                       </span>
                     </td>
-                    <td className="c2 px-2 py-1.5 text-right tabular-nums">{row.paid_orders}</td>
+                    <td className="text-[var(--t2)]! px-2 py-1.5 text-right tabular-nums">
+                      {row.paid_orders}
+                    </td>
                     {/* JSON numbers, not strings — formatted, never parsed. */}
-                    <td className="c2 px-2 py-1.5 text-right tabular-nums">
+                    <td className="text-[var(--t2)]! px-2 py-1.5 text-right tabular-nums">
                       {formatCurrency(row.gross_revenue)}
                     </td>
-                    <td className="c2 px-2 py-1.5 text-right tabular-nums">{row.deliveries}</td>
-                    <td className="c2 px-2 py-1.5 text-right tabular-nums">
+                    <td className="text-[var(--t2)]! px-2 py-1.5 text-right tabular-nums">
+                      {row.deliveries}
+                    </td>
+                    <td className="text-[var(--t2)]! px-2 py-1.5 text-right tabular-nums">
                       {row.cancelled_orders}
                     </td>
                   </tr>
@@ -169,7 +189,9 @@ export function TrafficByPlatformCard({ params }: TrafficByPlatformCardProps) {
             </table>
           </div>
 
-          <p className="xs c4 w6 leading-relaxed">{P.UNKNOWN_NOTE}</p>
+          <p className="text-[11px] text-[var(--t4)]! font-semibold leading-relaxed">
+            {P.UNKNOWN_NOTE}
+          </p>
         </div>
       </ChartState>
     </SectionCard>

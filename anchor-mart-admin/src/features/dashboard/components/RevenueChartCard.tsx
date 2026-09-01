@@ -76,10 +76,12 @@ export function RevenueChartCard({ dateRange }: RevenueChartCardProps) {
       }
     >
       {/* Metrics summary row — single "Total" like the mockup */}
-      <div className="metric-row">
-        <div className="metric-item">
-          <div className="metric-lbl">{M.METRICS.TOTAL}</div>
-          <div className="metric-val text-[var(--green-text)]!">
+      <div className="flex items-center gap-[22px] border-b border-[var(--border-xs)] p-[15px_20px]">
+        <div className="flex flex-col gap-[3px]">
+          <div className="text-[10.5px] font-extrabold uppercase tracking-[1px] text-[var(--t4)]">
+            {M.METRICS.TOTAL}
+          </div>
+          <div className="text-[22px] font-extrabold tracking-[-1px] text-[var(--green-text)]">
             {totals ? formatCurrency(totals.net) : PLACEHOLDER}
           </div>
         </div>

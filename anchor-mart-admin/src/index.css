@@ -2620,38 +2620,6 @@ textarea.form-input {
 }
 
 /* Metric row */
-.metric-row {
-  display: flex;
-  align-items: center;
-  gap: 22px;
-  padding: 15px 20px;
-  border-bottom: 1px solid var(--border-xs);
-}
-.metric-item {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.metric-lbl {
-  font-size: 10.5px;
-  font-weight: 800;
-  color: var(--t4);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-.metric-val {
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--t1);
-  letter-spacing: -1px;
-}
-.metric-sep {
-  width: 1px;
-  height: 34px;
-  background: var(--border-sm);
-  flex-shrink: 0;
-}
-
 /* Delivery step */
 .dstep {
   display: flex;
@@ -2828,11 +2796,6 @@ textarea.form-input {
 }
 
 /* Utility grid / flex */
-.grid-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
 .grid-3 {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;

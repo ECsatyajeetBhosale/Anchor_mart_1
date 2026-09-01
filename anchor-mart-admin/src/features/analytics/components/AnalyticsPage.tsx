@@ -88,7 +88,12 @@ export function AnalyticsPage() {
               value={period}
               onChange={selectPeriod}
             />
-            <DateRangePicker value={dateRange} onChange={setDateRange} />
+            {/* Matched to the pill toggle beside it. `DateRangePicker`
+                renders a `size="sm"` Button at 32px while the toggle stands at
+                38px, so the two sat 6px apart in one control strip. `h-[38px]`
+                lands after `sizeClasses` in the Button's `cn()`, so twMerge
+                drops the 32px rather than stacking two heights. */}
+            <DateRangePicker value={dateRange} onChange={setDateRange} className="h-[38px]" />
             {/* A custom range overrides the period pills, so clearing it is the
                 only way back to a named window. */}
             {dateRange?.from && (
@@ -108,7 +113,7 @@ export function AnalyticsPage() {
 
       <StatsGrid items={statCards} />
 
-      <div className="grid-2 mb20">
+      <div className="mb-[20px] grid grid-cols-[1fr_1fr] gap-[16px]">
         <SalesTrendCard params={params} />
         <OrdersByCategoryCard params={params} />
       </div>
@@ -122,10 +127,10 @@ export function AnalyticsPage() {
           until adjacent columns are no longer separable. The breakdown card
           above it carries a five-column table that reads better with the room
           too, so neither loses anything by taking the whole line. */}
-      <div className="mb20">
+      <div className="mb-[20px]">
         <TrafficByPlatformCard params={params} />
       </div>
-      <div className="mb20">
+      <div className="mb-[20px]">
         <PlatformTrendCard params={params} />
       </div>
 

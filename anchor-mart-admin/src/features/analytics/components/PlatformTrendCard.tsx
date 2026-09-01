@@ -74,7 +74,9 @@ export function PlatformTrendCard({ params }: PlatformTrendCardProps) {
                 className="h-2 w-2 shrink-0 rounded-[2px]"
                 style={{ backgroundColor: platformColor(key) }}
               />
-              <span className="w6 c3 text-[12px]">{seriesLabel(key)}</span>
+              <span className="font-semibold text-[var(--t3)]! text-[12px]">
+                {seriesLabel(key)}
+              </span>
             </span>
           ))}
         </div>
