@@ -94,7 +94,7 @@ export function ChatMessagePane({ thread, socket, onlineUsers }: ChatMessagePane
     return (
       <div className="card flex items-center justify-center">
         <EmptyState
-          icon={<IconMessages size={36} style={{ color: "var(--t4)" }} />}
+          icon={<IconMessages size={36} className="text-[var(--t4)]" />}
           title={M.MESSAGES.PLACEHOLDER_TITLE}
           description={M.MESSAGES.PLACEHOLDER_BODY}
         />

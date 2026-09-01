@@ -93,7 +93,10 @@ export function FaqEditDrawer({ isOpen, onClose, faq }: FaqEditDrawerProps) {
         <div className="flex-1 overflow-y-auto p-6 pt-4 flex flex-col gap-6">
           <section>
             <div className="sec-label">{MESSAGES.SETTINGS.FAQ.SECTIONS.CONTENT}</div>
-            <FormField label="Category *" error={errors.faq_type?.message}>
+            <FormField
+              label={MESSAGES.SETTINGS.FAQ.FIELDS.CATEGORY}
+              error={errors.faq_type?.message}
+            >
               <Controller
                 control={control}
                 name="faq_type"
@@ -102,26 +105,35 @@ export function FaqEditDrawer({ isOpen, onClose, faq }: FaqEditDrawerProps) {
                     options={typeOptions}
                     value={field.value}
                     onValueChange={field.onChange}
-                    placeholder="Select a category"
+                    placeholder={MESSAGES.SETTINGS.FAQ.FIELDS.CATEGORY_PLACEHOLDER}
                     width="100%"
                   />
                 )}
               />
             </FormField>
-            <FormField label="Question *" error={errors.question?.message}>
+            <FormField
+              label={MESSAGES.SETTINGS.FAQ.FIELDS.QUESTION}
+              error={errors.question?.message}
+            >
               <Input error={!!errors.question} {...register("question")} />
             </FormField>
-            <FormField label="Answer *" error={errors.answer?.message}>
+            <FormField label={MESSAGES.SETTINGS.FAQ.FIELDS.ANSWER} error={errors.answer?.message}>
               <Textarea className="h-40" error={!!errors.answer} {...register("answer")} />
             </FormField>
           </section>
 
           <section>
             <div className="sec-label">{MESSAGES.SETTINGS.FAQ.SECTIONS.RECORD}</div>
-            <FormField label="Created" hint="Read-only — not sent on update">
+            <FormField
+              label={MESSAGES.SETTINGS.FAQ.FIELDS.CREATED}
+              hint={MESSAGES.SETTINGS.FAQ.FIELDS.READ_ONLY_HINT}
+            >
               <Input value={source.created_at ?? ""} disabled readOnly />
             </FormField>
-            <FormField label="Last updated" hint="Read-only — not sent on update">
+            <FormField
+              label={MESSAGES.SETTINGS.FAQ.FIELDS.LAST_UPDATED}
+              hint={MESSAGES.SETTINGS.FAQ.FIELDS.READ_ONLY_HINT}
+            >
               <Input value={source.updated_at ?? ""} disabled readOnly />
             </FormField>
           </section>

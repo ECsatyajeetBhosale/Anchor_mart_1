@@ -1,5 +1,5 @@
 import type { UnreadCategory } from "@/features/chat/slice/chatUnreadSlice";
-import type { BadgeQueue } from "@/features/realtime/types/realtime.types";
+import type { BadgeQueue } from "@/features/realtime";
 import { APP_ROUTES } from "@/lib/constants";
 import {
   IconAnchor,

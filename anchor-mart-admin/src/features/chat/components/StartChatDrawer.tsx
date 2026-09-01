@@ -8,8 +8,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { useGetOrderAssignmentsQuery } from "@/features/assignments/api/assignmentApi";
-import { useGetOrdersQuery } from "@/features/orders/api/orderApi";
+import { useGetOrderAssignmentsQuery } from "@/features/assignments";
+import { useGetOrdersQuery } from "@/features/orders";
 import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { IconSearch } from "@tabler/icons-react";

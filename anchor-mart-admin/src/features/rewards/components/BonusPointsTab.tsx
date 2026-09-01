@@ -283,7 +283,6 @@ export function BonusPointsTab() {
                   debounceMs={300}
                   loading={sailorsFetching}
                   className="w-full"
-                  style={{ width: "100%" }}
                 />
               </div>
               <DropdownSelect

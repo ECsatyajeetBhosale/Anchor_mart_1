@@ -1,7 +1,7 @@
 import { SegmentedToggle } from "@/components/common/SegmentedToggle";
 import { Input } from "@/components/ui/input";
-import { useGetPartnersQuery } from "@/features/partners/api/partnerApi";
-import { useGetSailorsQuery } from "@/features/sailors/api/sailorApi";
+import { useGetPartnersQuery } from "@/features/partners";
+import { useGetSailorsQuery } from "@/features/sailors";
 import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { IconCheck, IconSearch } from "@tabler/icons-react";

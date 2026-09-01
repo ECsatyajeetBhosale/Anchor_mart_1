@@ -124,7 +124,7 @@ export function SetVariantExpressDialog({
                 type="number"
                 step="0.01"
                 min="0.01"
-                placeholder="0.00"
+                placeholder={M.PRICE_PLACEHOLDER}
                 value={price}
                 error={!!error}
                 onChange={(e) => {
@@ -135,9 +135,7 @@ export function SetVariantExpressDialog({
             </FormField>
           </div>
         ) : (
-          <p className="fg-hint mt-3" style={{ color: "var(--amber-700)" }}>
-            {M.OFF_WARNING}
-          </p>
+          <p className="fg-hint mt-3 text-[var(--amber-700)]!">{M.OFF_WARNING}</p>
         )}
 
         <DialogFooter className="mt-4">

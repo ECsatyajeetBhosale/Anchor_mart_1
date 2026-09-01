@@ -74,15 +74,40 @@ ChartContainer.displayName = "ChartContainer";
 /** Re-export of Recharts' Tooltip — pair with {@link ChartTooltipContent}. */
 export const ChartTooltip = RechartsPrimitive.Tooltip;
 
+/**
+ * One entry of Recharts' tooltip payload — narrowed to the fields this
+ * component actually reads.
+ *
+ * Recharts types its payload loosely and injects it by cloning the `content`
+ * element at runtime, so nothing here is checked against the library. A
+ * structural subset is therefore both safe and more useful than `any`: it
+ * documents the contract this tooltip depends on, and a rename upstream shows
+ * up as a type error instead of `undefined` on screen.
+ */
+export interface ChartTooltipItem {
+  dataKey?: string | number;
+  name?: string;
+  value?: number | string;
+  color?: string;
+  /**
+   * The original datum. `fill` is the slice/bar colour Recharts resolved;
+   * `label` is the field the pie charts point `nameKey` at and read back in
+   * `labelFormatter`. Anything else on the row stays `unknown` — a caller that
+   * wants it has to narrow, which is the point.
+   */
+  payload?: { fill?: string; label?: React.ReactNode } & Record<string, unknown>;
+}
+
 export interface ChartTooltipContentProps {
   active?: boolean;
-  // biome-ignore lint/suspicious/noExplicitAny: Recharts payload is loosely typed.
-  payload?: any[];
+  payload?: ChartTooltipItem[];
   label?: React.ReactNode;
-  // biome-ignore lint/suspicious/noExplicitAny: Recharts label/payload are loosely typed.
-  labelFormatter?: (label: any, payload: any[]) => React.ReactNode;
-  // biome-ignore lint/suspicious/noExplicitAny: Recharts value/item are loosely typed.
-  formatter?: (value: any, name: string, item: any) => React.ReactNode;
+  labelFormatter?: (label: React.ReactNode, payload: ChartTooltipItem[]) => React.ReactNode;
+  formatter?: (
+    value: ChartTooltipItem["value"],
+    name: string | undefined,
+    item: ChartTooltipItem,
+  ) => React.ReactNode;
   hideLabel?: boolean;
   hideIndicator?: boolean;
   className?: string;

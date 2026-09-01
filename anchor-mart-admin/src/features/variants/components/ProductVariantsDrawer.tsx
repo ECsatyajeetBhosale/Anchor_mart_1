@@ -290,7 +290,7 @@ export function ProductVariantsDrawer({
             ) : (
               <span className="td-m">{M.EXPRESS.NOT_EXPRESS}</span>
             )}
-            <IconPencil size={13} style={{ color: "var(--t4)" }} />
+            <IconPencil size={13} className="text-[var(--t4)]" />
           </button>
         );
       },

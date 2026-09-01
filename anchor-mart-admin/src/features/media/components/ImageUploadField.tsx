@@ -1,5 +1,6 @@
 import { Input } from "@/components/ui/input";
 import { mediaSrc } from "@/lib/mediaUrl";
+import { MESSAGES } from "@/lib/messages";
 import { IconPhoto, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useRef, useState } from "react";
 import { toStoredPath } from "../lib/storagePath";
@@ -129,7 +130,7 @@ export function ImageUploadField({
                 className="btn btn-ghost btn-sm btn-icon"
                 onClick={clear}
                 disabled={disabled || isUploading}
-                title="Remove image"
+                title={MESSAGES.MEDIA.REMOVE_IMAGE}
               >
                 <IconTrash size={16} />
               </button>

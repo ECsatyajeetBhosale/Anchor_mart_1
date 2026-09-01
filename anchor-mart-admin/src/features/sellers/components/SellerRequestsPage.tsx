@@ -170,7 +170,7 @@ export function SellerRequestsPage() {
           <Button
             variant="ghost"
             size="xs"
-            title="Review"
+            title={M.ACTION_REVIEW}
             onClick={(e) => {
               e.stopPropagation();
               openDetail(r);

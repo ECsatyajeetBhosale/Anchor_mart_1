@@ -11,7 +11,7 @@ export interface EmptyStateProps {
 export function EmptyState({
   title = "No data available",
   description,
-  icon = <IconBoxSeam size={36} style={{ color: "var(--t4)" }} />,
+  icon = <IconBoxSeam size={36} className="text-[var(--t4)]" />,
   action,
 }: EmptyStateProps) {
   return (

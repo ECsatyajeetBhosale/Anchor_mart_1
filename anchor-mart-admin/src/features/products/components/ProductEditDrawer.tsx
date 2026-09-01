@@ -336,7 +336,7 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
             <div className="prod-tab mt-4">
               <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.DETAILS}</div>
               <FormRow>
-                <FormField label="Product Name *" error={errors.name?.message}>
+                <FormField label={MESSAGES.PRODUCTS.FIELDS.NAME} error={errors.name?.message}>
                   <Input
                     error={!!errors.name}
                     // 255 in the database, uncapped in the serializer.
@@ -344,7 +344,10 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                     {...register("name")}
                   />
                 </FormField>
-                <FormField label="Category *" error={errors.category?.message}>
+                <FormField
+                  label={MESSAGES.PRODUCTS.FIELDS.CATEGORY}
+                  error={errors.category?.message}
+                >
                   <Controller
                     control={control}
                     name="category"
@@ -353,7 +356,7 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                         value={field.value}
                         onValueChange={field.onChange}
                         options={categoryOptions}
-                        placeholder="Select category…"
+                        placeholder={MESSAGES.PRODUCTS.FIELDS.CATEGORY_PLACEHOLDER}
                         width="100%"
                       />
                     )}
@@ -361,7 +364,10 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                 </FormField>
               </FormRow>
 
-              <FormField label="Description *" error={errors.description?.message}>
+              <FormField
+                label={MESSAGES.PRODUCTS.FIELDS.DESCRIPTION}
+                error={errors.description?.message}
+              >
                 <Textarea
                   className="h-28"
                   error={!!errors.description}
@@ -372,8 +378,8 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
               <div className="sec-label mt-2">{MESSAGES.PRODUCTS.SECTIONS.PRICING}</div>
               <FormRow>
                 <FormField
-                  label="Base Price *"
-                  hint="A display 'from' figure — it does not change any variant's price."
+                  label={MESSAGES.PRODUCTS.FIELDS.BASE_PRICE}
+                  hint={MESSAGES.PRODUCTS.FIELDS.BASE_PRICE_HINT_EDIT}
                   error={errors.base_price?.message}
                 >
                   <Input
@@ -392,8 +398,8 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                 */}
                 {isExpress && (
                   <FormField
-                    label="Express Price *"
-                    hint="Also updates the primary variant's express price."
+                    label={MESSAGES.PRODUCTS.FIELDS.EXPRESS_PRICE}
+                    hint={MESSAGES.PRODUCTS.FIELDS.EXPRESS_PRICE_HINT_EDIT}
                     error={errors.express_price?.message}
                   >
                     <Input
@@ -409,8 +415,8 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
 
               <div className="sec-label mt-2">{MESSAGES.PRODUCTS.SECTIONS.MEDIA}</div>
               <FormField
-                label="Product Images"
-                hint="Sending images replaces the whole set — the first is the primary. Leave alone to keep them."
+                label={MESSAGES.PRODUCTS.FIELDS.IMAGES}
+                hint={MESSAGES.PRODUCTS.FIELDS.IMAGES_HINT_EDIT}
                 error={errors.images?.message}
               >
                 <ImageListField

@@ -86,7 +86,7 @@ export function LoginPage() {
               xmlns="http://www.w3.org/2000/svg"
               className="logo-graphic"
               role="img"
-              aria-label="AnchorMart"
+              aria-label={MESSAGES.AUTH.BRAND_NAME}
             >
               <path
                 d="M29.7119 27.6538L36.5562 7.45733H40.0661L46.9324 27.6538H43.2031L37.5873 9.8232H38.9912L33.3535 27.6538H29.7119ZM33.1341 23.326L34.0774 19.7772H41.9746L42.9399 23.326H33.1341Z"
@@ -172,13 +172,13 @@ export function LoginPage() {
           <form onSubmit={handleSubmit(onSubmit)}>
             {/* Email Field */}
             <div className="fg">
-              <span className="fg-label">Email Address</span>
+              <span className="fg-label">{MESSAGES.AUTH.EMAIL_LABEL}</span>
               <div className="fi-wrap">
                 <IconMail className="fi-il" />
                 <input
                   type="email"
                   className={`fi ${errors.email ? "err" : ""}`}
-                  placeholder="admin@anchormart.io"
+                  placeholder={MESSAGES.AUTH.EMAIL_PLACEHOLDER}
                   {...register("email")}
                 />
               </div>
@@ -190,13 +190,13 @@ export function LoginPage() {
 
             {/* Password Field */}
             <div className="fg">
-              <span className="fg-label">Password</span>
+              <span className="fg-label">{MESSAGES.AUTH.PASSWORD_LABEL}</span>
               <div className="fi-wrap">
                 <IconLock className="fi-il" />
                 <input
                   type={showPassword ? "text" : "password"}
                   className={`fi ${errors.password ? "err" : ""}`}
-                  placeholder="Your password"
+                  placeholder={MESSAGES.AUTH.PASSWORD_PLACEHOLDER}
                   {...register("password")}
                 />
                 <button

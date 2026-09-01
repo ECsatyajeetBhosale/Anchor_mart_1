@@ -247,7 +247,7 @@ export function ExpressItemsTab() {
                 {C.EXPRESS_PENDING}
               </Badge>
             )}
-            <IconPencil size={13} style={{ color: "var(--t4)" }} />
+            <IconPencil size={13} className="text-[var(--t4)]" />
           </button>
         );
       },

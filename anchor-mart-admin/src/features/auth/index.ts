@@ -19,6 +19,7 @@ export {
   type OtpCodeFormData,
 } from "./schemas/auth.schema";
 export type {
+  AdminFeature,
   AdminUser,
   AuthState,
   LoginRequest,

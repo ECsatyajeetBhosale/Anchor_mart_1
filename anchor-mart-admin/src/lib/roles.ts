@@ -1,4 +1,4 @@
-import type { AdminFeature } from "@/features/auth/types/auth.types";
+import type { AdminFeature } from "@/features/auth";
 import { useAppSelector } from "@/hooks/useAppDispatch";
 
 /**

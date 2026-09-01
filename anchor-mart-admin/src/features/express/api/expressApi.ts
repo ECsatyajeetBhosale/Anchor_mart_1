@@ -1,4 +1,4 @@
-import type { ProductListResponse } from "@/features/products/types/product.types";
+import type { ProductListResponse } from "@/features/products";
 import { EXPRESS_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
 import { formatMoney } from "@/lib/money";

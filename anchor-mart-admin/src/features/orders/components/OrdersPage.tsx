@@ -35,7 +35,6 @@ import {
   IconCircleCheck,
   IconInfoCircle,
   IconReceiptRefund,
-  IconShipOff,
   IconTruckDelivery,
 } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
@@ -716,26 +715,6 @@ export function OrdersPage() {
   const orders = (data?.results ?? []).map(toOrderRow);
 
   // Changing a filter resets to page 1; clearing it drops the param.
-  /**
-   * The sailed worklist is two params at once — the status and the deadline —
-   * so it is one control rather than asking the operator to line both up.
-   * Toggling off clears both rather than leaving a half-applied scope.
-   */
-  const isSailedWorklist = statusFilter === "partially_delivered" && departed === true;
-
-  const toggleSailedWorklist = () => {
-    const next = new URLSearchParams(searchParams);
-    next.set("page", "1");
-    if (isSailedWorklist) {
-      next.delete("status");
-      next.delete("departed");
-    } else {
-      next.set("status", "partially_delivered");
-      next.set("departed", "true");
-    }
-    setSearchParams(next);
-  };
-
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(searchParams);
     next.set("page", "1");

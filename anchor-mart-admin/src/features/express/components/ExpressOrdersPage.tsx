@@ -3,7 +3,6 @@ import {
   IconCircleCheck,
   IconClockDollar,
   IconReceiptRefund,
-  IconShipOff,
   IconShoppingCart,
   IconTruckDelivery,
   IconTruckOff,
@@ -19,7 +18,6 @@ import { OrderDetailDrawer } from "@/components/common/OrderDetailDrawer";
 import { PageHeader } from "@/components/common/PageHeader";
 import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
-import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import {
   OrderAssignPartnerSection,
@@ -70,6 +68,11 @@ export function ExpressOrdersPage() {
     limit: LIMIT,
     search: searchTerm,
     status: statusFilter,
+    // The sailed-partial worklist, identical to the orders screen: a partial
+    // delivery is resumable only while the vessel is alongside, and once it has
+    // gone the remainder can never arrive. Server-filtered — the row's
+    // departure is a pre-formatted wall-clock string, so comparing it here is
+    // exactly what the datetime contract forbids.
     departed: searchParams.get("departed") === "true" ? true : undefined,
     dateFrom,
     dateTo,
@@ -300,29 +303,6 @@ export function ExpressOrdersPage() {
     } catch (error) {
       toast.error(getApiMessage(error, { labelFields: false }) ?? MESSAGES.ORDERS.SLIP_FAILED);
     }
-  };
-
-  /**
-   * The sailed-partial worklist, identical to the orders screen: a partial
-   * delivery is resumable only while the vessel is alongside, and once it has
-   * gone the remainder can never arrive. Server-filtered — the row's departure
-   * is a pre-formatted wall-clock string, so comparing it here is exactly what
-   * the datetime contract forbids.
-   */
-  const departedParam = searchParams.get("departed");
-  const isSailedWorklist = statusFilter === "partially_delivered" && departedParam === "true";
-
-  const toggleSailedWorklist = () => {
-    const next = new URLSearchParams(searchParams);
-    next.set("page", "1");
-    if (isSailedWorklist) {
-      next.delete("status");
-      next.delete("departed");
-    } else {
-      next.set("status", "partially_delivered");
-      next.set("departed", "true");
-    }
-    setSearchParams(next);
   };
 
   const columns = useExpressColumns({

@@ -5,12 +5,14 @@
  */
 export const MESSAGES = {
   AUTH: {
+    /** Accessible name for the logo mark on the auth screens. */
+    BRAND_NAME: "AnchorMart",
     LOGIN_TITLE: "Welcome back",
     LOGIN_SUB: "Sign in to your admin account",
     EMAIL_LABEL: "Email Address",
     EMAIL_PLACEHOLDER: "admin@anchormart.io",
     PASSWORD_LABEL: "Password",
-    PASSWORD_PLACEHOLDER: "Enter your password",
+    PASSWORD_PLACEHOLDER: "Your password",
     LOGIN_BUTTON: "Sign In",
     LOGGING_IN: "Signing in…",
     INVALID_CREDENTIALS: "Invalid email or password. Please try again.",
@@ -1717,6 +1719,8 @@ export const MESSAGES = {
     },
   },
   SELLERS: {
+    /** Row action opening the request detail drawer. */
+    ACTION_REVIEW: "Review",
     // Page chrome
     TITLE: "Seller Applications",
     SEARCH_PLACEHOLDER: "Search applications...",
@@ -2183,6 +2187,7 @@ export const MESSAGES = {
       OFF_WARNING:
         "This clears the SKU's express price — putting it back means quoting it again. If it is the product's last express SKU, the product leaves the express shelf too.",
       PRICE_LABEL: "Express price *",
+      PRICE_PLACEHOLDER: "0.00",
       PRICE_HINT: "What the express shelf charges for this SKU. Separate from its regular price.",
       PRICE_REQUIRED: "An express SKU needs an express price.",
       ON_CONFIRM: "Make express",
@@ -2317,6 +2322,43 @@ export const MESSAGES = {
   PRODUCTS: {
     // Page chrome
     TITLE: "Products & Catalog",
+    /**
+     * Form labels and placeholders, shared by the add and edit drawers.
+     *
+     * The edit drawer omits SKU and the attribute rows — SKU is fixed after
+     * creation and attributes live on the variant — so it uses the subset it
+     * needs rather than a second copy.
+     */
+    FIELDS: {
+      NAME: "Product Name *",
+      NAME_PLACEHOLDER: "e.g. Mooring Rope 24mm",
+      CATEGORY: "Category *",
+      CATEGORY_PLACEHOLDER: "Select category…",
+      DESCRIPTION: "Description *",
+      DESCRIPTION_PLACEHOLDER: "What it is, and anything the crew needs to know.",
+      BASE_PRICE: "Base Price *",
+      EXPRESS_PRICE: "Express Price *",
+      PRICE_PLACEHOLDER: "0.00",
+      SKU: "SKU *",
+      SKU_PLACEHOLDER: "e.g. SKU-ROPE-24MM-220",
+      ATTR_NAME_PLACEHOLDER: "Name — e.g. diameter",
+      ATTR_VALUE_PLACEHOLDER: "Value — e.g. 24mm",
+      IMAGES: "Product Images",
+      /**
+       * Field hints. The add and edit drawers word several of these
+       * differently on purpose — add creates the first variant, edit acts on an
+       * existing one — so each has its own key rather than sharing a vaguer one.
+       */
+      EXPRESS_PRICE_HINT_ADD: "What the express shelf charges.",
+      EXPRESS_PRICE_HINT_EDIT: "Also updates the primary variant's express price.",
+      BASE_PRICE_HINT_EDIT: "A display 'from' figure — it does not change any variant's price.",
+      SKU_HINT:
+        "Creates the product's first variant. Unique across every variant, including deleted ones.",
+      IMAGES_HINT_ADD:
+        "Upload files, or paste a stored path (e.g. product_images/example.png). The first is the primary image.",
+      IMAGES_HINT_EDIT:
+        "Sending images replaces the whole set — the first is the primary. Leave alone to keep them.",
+    },
     /** `?search=` matches the product **name** only — not SKU, not description. */
     SEARCH_PLACEHOLDER: "Search by product name…",
     ALL_CATEGORIES: "All Categories",
@@ -2695,6 +2737,19 @@ export const MESSAGES = {
       ACTION_EDIT: "Edit FAQ",
       ACTION_REMOVE: "Delete FAQ",
       UPDATED_PREFIX: "Updated",
+      /** Form labels and placeholders, shared by the add and edit drawers. */
+      FIELDS: {
+        CATEGORY: "Category *",
+        CATEGORY_PLACEHOLDER: "Select a category",
+        QUESTION: "Question *",
+        QUESTION_PLACEHOLDER: "e.g. Can I change my location after ordering?",
+        ANSWER: "Answer *",
+        ANSWER_PLACEHOLDER: "Write the answer sailors will see…",
+        CREATED: "Created",
+        LAST_UPDATED: "Last updated",
+        /** Shown on the timestamps, which the update endpoint does not accept. */
+        READ_ONLY_HINT: "Read-only — not sent on update",
+      },
       STATS: {
         TOTAL: "Total FAQs",
         CATEGORIES: "Categories",
@@ -2758,6 +2813,15 @@ export const MESSAGES = {
     FETCH_ERROR: "Failed to fetch categories",
     EMPTY: "No categories found.",
     IMAGE_ALT: "Category",
+    /** Form labels, placeholders and hints. Shared by the add and edit drawers. */
+    FIELDS: {
+      NAME: "Category Name *",
+      NAME_PLACEHOLDER: "e.g. Apparel",
+      DESCRIPTION: "Description",
+      DESCRIPTION_PLACEHOLDER: "Describe the category…",
+      IMAGE: "Category Image",
+      IMAGE_HINT: "Upload a file, or paste a stored path (e.g. category_images/example.jpg).",
+    },
     ACTIVE_HINT:
       "Hides the category from the customer's browse list. Its products stay on sale and remain findable by search.",
     /**
@@ -2876,6 +2940,15 @@ export const MESSAGES = {
     FETCH_ERROR: "Failed to fetch emergency categories",
     EMPTY: "No emergency categories found.",
     IMAGE_ALT: "Emergency category",
+    /** Form labels, placeholders and hints. Shared by the add and edit drawers. */
+    FIELDS: {
+      NAME: "Category Name *",
+      NAME_PLACEHOLDER: "e.g. Engine-Mechanical",
+      DESCRIPTION: "Description",
+      DESCRIPTION_PLACEHOLDER: "Describe the category…",
+      IMAGE: "Category Image",
+      IMAGE_HINT: "Upload a file, or paste a stored path (e.g. category_images/example.jpg).",
+    },
     ACTIVE_HINT:
       "Hides the category from the customer's browse list. Its spares stay on sale and remain findable by search.",
     /** Scoped to the marine taxonomy and following the list's filters since 2026-08-17. */
@@ -4793,6 +4866,19 @@ export const MESSAGES = {
    */
   ACCOUNT_MANAGEMENT: {
     TITLE: "Account Management",
+    /** Create-user form labels and placeholders. */
+    FIELDS: {
+      ROLE: "Role *",
+      FIRST_NAME: "First Name *",
+      FIRST_NAME_PLACEHOLDER: "e.g. Satyajeet",
+      LAST_NAME: "Last Name",
+      LAST_NAME_PLACEHOLDER: "e.g. Bhosle",
+      EMAIL: "Email Address *",
+      EMAIL_PLACEHOLDER: "e.g. specialist@anchormart.io",
+      COUNTRY_CODE: "Country Code *",
+      WHATSAPP: "WhatsApp Number *",
+      WHATSAPP_PLACEHOLDER: "9989091840",
+    },
     SUBTITLE: "Provision accounts, and review requests to erase them.",
     /**
      * Page titles. These were tab labels on one combined screen until Account
@@ -5216,6 +5302,12 @@ export const MESSAGES = {
     },
   },
   /** Flow 29c §5 — customer wishlist rows (`SavedProduct`). */
+  /** Shared image upload / list field controls (`features/media`). */
+  MEDIA: {
+    OPEN_FULL_SIZE: "Open full size",
+    REMOVE: "Remove",
+    REMOVE_IMAGE: "Remove image",
+  },
   SAVED_PRODUCTS: {
     TITLE: "Saved Products",
     SUBTITLE: "What sailors have wishlisted — demand signal, not catalog data.",

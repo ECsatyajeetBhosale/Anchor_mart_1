@@ -1,3 +1,4 @@
+import { MESSAGES } from "@/lib/messages";
 import type { ReactNode } from "react";
 
 /**
@@ -28,7 +29,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
               xmlns="http://www.w3.org/2000/svg"
               className="logo-graphic"
               role="img"
-              aria-label="AnchorMart"
+              aria-label={MESSAGES.AUTH.BRAND_NAME}
             >
               <path
                 d="M29.7119 27.6538L36.5562 7.45733H40.0661L46.9324 27.6538H43.2031L37.5873 9.8232H38.9912L33.3535 27.6538H29.7119ZM33.1341 23.326L34.0774 19.7772H41.9746L42.9399 23.326H33.1341Z"

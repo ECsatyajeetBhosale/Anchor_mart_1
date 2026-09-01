@@ -83,7 +83,10 @@ export function FaqAddDrawer({ isOpen, onClose }: FaqAddDrawerProps) {
         <div className="flex-1 overflow-y-auto p-6 pt-4 flex flex-col gap-6">
           <section>
             <div className="sec-label">{MESSAGES.SETTINGS.FAQ.SECTIONS.CONTENT}</div>
-            <FormField label="Category *" error={errors.faq_type?.message}>
+            <FormField
+              label={MESSAGES.SETTINGS.FAQ.FIELDS.CATEGORY}
+              error={errors.faq_type?.message}
+            >
               <Controller
                 control={control}
                 name="faq_type"
@@ -92,22 +95,25 @@ export function FaqAddDrawer({ isOpen, onClose }: FaqAddDrawerProps) {
                     options={typeOptions}
                     value={field.value}
                     onValueChange={field.onChange}
-                    placeholder="Select a category"
+                    placeholder={MESSAGES.SETTINGS.FAQ.FIELDS.CATEGORY_PLACEHOLDER}
                     width="100%"
                   />
                 )}
               />
             </FormField>
-            <FormField label="Question *" error={errors.question?.message}>
+            <FormField
+              label={MESSAGES.SETTINGS.FAQ.FIELDS.QUESTION}
+              error={errors.question?.message}
+            >
               <Input
-                placeholder="e.g. Can I change my location after ordering?"
+                placeholder={MESSAGES.SETTINGS.FAQ.FIELDS.QUESTION_PLACEHOLDER}
                 error={!!errors.question}
                 {...register("question")}
               />
             </FormField>
-            <FormField label="Answer *" error={errors.answer?.message}>
+            <FormField label={MESSAGES.SETTINGS.FAQ.FIELDS.ANSWER} error={errors.answer?.message}>
               <Textarea
-                placeholder="Write the answer sailors will see…"
+                placeholder={MESSAGES.SETTINGS.FAQ.FIELDS.ANSWER_PLACEHOLDER}
                 className="h-40"
                 error={!!errors.answer}
                 {...register("answer")}

@@ -139,12 +139,19 @@ export function CategoryEditDrawer({ isOpen, onClose, category }: CategoryEditDr
         <div className="flex-1 overflow-y-auto p-6 pt-4 flex flex-col gap-6">
           <section className="prod-tab">
             <div className="sec-label">{MESSAGES.CATEGORIES.SECTIONS.BASIC}</div>
-            <FormField label="Category Name *" error={errors.name?.message}>
-              <Input placeholder="e.g. Apparel" error={!!errors.name} {...register("name")} />
+            <FormField label={MESSAGES.CATEGORIES.FIELDS.NAME} error={errors.name?.message}>
+              <Input
+                placeholder={MESSAGES.CATEGORIES.FIELDS.NAME_PLACEHOLDER}
+                error={!!errors.name}
+                {...register("name")}
+              />
             </FormField>
-            <FormField label="Description" error={errors.description?.message}>
+            <FormField
+              label={MESSAGES.CATEGORIES.FIELDS.DESCRIPTION}
+              error={errors.description?.message}
+            >
               <Textarea
-                placeholder="Describe the category…"
+                placeholder={MESSAGES.CATEGORIES.FIELDS.DESCRIPTION_PLACEHOLDER}
                 className="h-24"
                 error={!!errors.description}
                 {...register("description")}
@@ -155,8 +162,8 @@ export function CategoryEditDrawer({ isOpen, onClose, category }: CategoryEditDr
           <section className="prod-tab">
             <div className="sec-label">{MESSAGES.CATEGORIES.SECTIONS.MEDIA}</div>
             <FormField
-              label="Category Image"
-              hint="Upload a file, or paste a stored path (e.g. category_images/example.jpg)."
+              label={MESSAGES.CATEGORIES.FIELDS.IMAGE}
+              hint={MESSAGES.CATEGORIES.FIELDS.IMAGE_HINT}
             >
               <Controller
                 control={control}

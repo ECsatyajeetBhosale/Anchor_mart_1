@@ -1,5 +1,6 @@
 import { Input } from "@/components/ui/input";
 import { mediaSrc } from "@/lib/mediaUrl";
+import { MESSAGES } from "@/lib/messages";
 import { IconPhoto, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useRef, useState } from "react";
 import type { FileLocation } from "../types/media.types";
@@ -93,7 +94,7 @@ export function ImageListField({
               target="_blank"
               rel="noreferrer"
               className="shrink-0 rounded border border-[var(--border-sm)] overflow-hidden"
-              title="Open full size"
+              title={MESSAGES.MEDIA.OPEN_FULL_SIZE}
             >
               <img
                 src={previewFor(value)}
@@ -119,7 +120,7 @@ export function ImageListField({
             className="btn btn-ghost btn-sm btn-icon"
             onClick={() => removeAt(index)}
             disabled={disabled}
-            title="Remove"
+            title={MESSAGES.MEDIA.REMOVE}
           >
             <IconTrash size={16} />
           </button>

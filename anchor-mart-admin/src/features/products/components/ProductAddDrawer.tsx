@@ -241,9 +241,9 @@ export function ProductAddDrawer({
           <section className="prod-tab">
             <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.BASIC}</div>
             <FormRow>
-              <FormField label="Product Name *" error={errors.name?.message}>
+              <FormField label={MESSAGES.PRODUCTS.FIELDS.NAME} error={errors.name?.message}>
                 <Input
-                  placeholder="e.g. Mooring Rope 24mm"
+                  placeholder={MESSAGES.PRODUCTS.FIELDS.NAME_PLACEHOLDER}
                   error={!!errors.name}
                   // Column is 255 and the serializer does not cap it — an
                   // over-long name reaches Postgres as a 500, not a 400.
@@ -251,7 +251,7 @@ export function ProductAddDrawer({
                   {...register("name")}
                 />
               </FormField>
-              <FormField label="Category *" error={errors.category?.message}>
+              <FormField label={MESSAGES.PRODUCTS.FIELDS.CATEGORY} error={errors.category?.message}>
                 <Controller
                   control={control}
                   name="category"
@@ -260,16 +260,19 @@ export function ProductAddDrawer({
                       value={field.value}
                       onValueChange={field.onChange}
                       options={categoryOptions}
-                      placeholder="Select category…"
+                      placeholder={MESSAGES.PRODUCTS.FIELDS.CATEGORY_PLACEHOLDER}
                       width="100%"
                     />
                   )}
                 />
               </FormField>
             </FormRow>
-            <FormField label="Description *" error={errors.description?.message}>
+            <FormField
+              label={MESSAGES.PRODUCTS.FIELDS.DESCRIPTION}
+              error={errors.description?.message}
+            >
               <Textarea
-                placeholder="What it is, and anything the crew needs to know."
+                placeholder={MESSAGES.PRODUCTS.FIELDS.DESCRIPTION_PLACEHOLDER}
                 className="h-24"
                 error={!!errors.description}
                 {...register("description")}
@@ -280,12 +283,15 @@ export function ProductAddDrawer({
           <section className="prod-tab">
             <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.INVENTORY_PRICING}</div>
             <FormRow>
-              <FormField label="Base Price *" error={errors.base_price?.message}>
+              <FormField
+                label={MESSAGES.PRODUCTS.FIELDS.BASE_PRICE}
+                error={errors.base_price?.message}
+              >
                 <Input
                   type="number"
                   step="0.01"
                   min="0.01"
-                  placeholder="0.00"
+                  placeholder={MESSAGES.PRODUCTS.FIELDS.PRICE_PLACEHOLDER}
                   error={!!errors.base_price}
                   {...register("base_price")}
                 />
@@ -298,15 +304,15 @@ export function ProductAddDrawer({
               */}
               {isExpress && (
                 <FormField
-                  label="Express Price *"
-                  hint="What the express shelf charges."
+                  label={MESSAGES.PRODUCTS.FIELDS.EXPRESS_PRICE}
+                  hint={MESSAGES.PRODUCTS.FIELDS.EXPRESS_PRICE_HINT_ADD}
                   error={errors.express_price?.message}
                 >
                   <Input
                     type="number"
                     step="0.01"
                     min="0.01"
-                    placeholder="0.00"
+                    placeholder={MESSAGES.PRODUCTS.FIELDS.PRICE_PLACEHOLDER}
                     error={!!errors.express_price}
                     {...register("express_price")}
                   />
@@ -316,13 +322,13 @@ export function ProductAddDrawer({
             {/* Sending a SKU is what makes the product orderable: add-product
                 creates the first variant from it in the same transaction. */}
             <FormField
-              label="SKU *"
-              hint="Creates the product's first variant. Unique across every variant, including deleted ones."
+              label={MESSAGES.PRODUCTS.FIELDS.SKU}
+              hint={MESSAGES.PRODUCTS.FIELDS.SKU_HINT}
               error={errors.sku?.message}
             >
               <Input
                 className="mono"
-                placeholder="e.g. SKU-ROPE-24MM-220"
+                placeholder={MESSAGES.PRODUCTS.FIELDS.SKU_PLACEHOLDER}
                 error={!!errors.sku}
                 maxLength={100}
                 {...register("sku")}
@@ -338,7 +344,7 @@ export function ProductAddDrawer({
                 <div key={row.id} className="flex items-start gap-2">
                   <div className="flex-1">
                     <Input
-                      placeholder="Name — e.g. diameter"
+                      placeholder={MESSAGES.PRODUCTS.FIELDS.ATTR_NAME_PLACEHOLDER}
                       error={!!errors.attributes?.[index]?.key}
                       {...register(`attributes.${index}.key` as const)}
                     />
@@ -348,7 +354,7 @@ export function ProductAddDrawer({
                   </div>
                   <div className="flex-1">
                     <Input
-                      placeholder="Value — e.g. 24mm"
+                      placeholder={MESSAGES.PRODUCTS.FIELDS.ATTR_VALUE_PLACEHOLDER}
                       {...register(`attributes.${index}.value` as const)}
                     />
                   </div>
@@ -380,8 +386,8 @@ export function ProductAddDrawer({
           <section className="prod-tab">
             <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.MEDIA}</div>
             <FormField
-              label="Product Images"
-              hint="Upload files, or paste a stored path (e.g. product_images/example.png). The first is the primary image."
+              label={MESSAGES.PRODUCTS.FIELDS.IMAGES}
+              hint={MESSAGES.PRODUCTS.FIELDS.IMAGES_HINT_ADD}
               error={errors.images?.message}
             >
               <Controller

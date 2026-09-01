@@ -188,7 +188,7 @@ export function CreateUserDrawer({ isOpen, onClose, lockedRole }: CreateUserDraw
           <section>
             <div className="sec-label">{MESSAGES.ACCOUNT_MANAGEMENT.PROVISION.SECTIONS.ROLE}</div>
             <FormField
-              label="Role *"
+              label={MESSAGES.ACCOUNT_MANAGEMENT.FIELDS.ROLE}
               error={errors.role?.message}
               hint={lockedRole ? MESSAGES.ACCOUNT_MANAGEMENT.PROVISION.ROLE_LOCKED_HINT : undefined}
             >
@@ -231,21 +231,33 @@ export function CreateUserDrawer({ isOpen, onClose, lockedRole }: CreateUserDraw
               {MESSAGES.ACCOUNT_MANAGEMENT.PROVISION.SECTIONS.IDENTITY}
             </div>
             <FormRow>
-              <FormField label="First Name *" error={errors.first_name?.message}>
+              <FormField
+                label={MESSAGES.ACCOUNT_MANAGEMENT.FIELDS.FIRST_NAME}
+                error={errors.first_name?.message}
+              >
                 <Input
-                  placeholder="e.g. Satyajeet"
+                  placeholder={MESSAGES.ACCOUNT_MANAGEMENT.FIELDS.FIRST_NAME_PLACEHOLDER}
                   error={!!errors.first_name}
                   {...register("first_name")}
                 />
               </FormField>
-              <FormField label="Last Name" error={errors.last_name?.message}>
-                <Input placeholder="e.g. Bhosle" {...register("last_name")} />
+              <FormField
+                label={MESSAGES.ACCOUNT_MANAGEMENT.FIELDS.LAST_NAME}
+                error={errors.last_name?.message}
+              >
+                <Input
+                  placeholder={MESSAGES.ACCOUNT_MANAGEMENT.FIELDS.LAST_NAME_PLACEHOLDER}
+                  {...register("last_name")}
+                />
               </FormField>
             </FormRow>
-            <FormField label="Email Address *" error={errors.email?.message}>
+            <FormField
+              label={MESSAGES.ACCOUNT_MANAGEMENT.FIELDS.EMAIL}
+              error={errors.email?.message}
+            >
               <Input
                 type="email"
-                placeholder="e.g. specialist@anchormart.io"
+                placeholder={MESSAGES.ACCOUNT_MANAGEMENT.FIELDS.EMAIL_PLACEHOLDER}
                 error={!!errors.email}
                 {...register("email")}
               />
@@ -257,16 +269,22 @@ export function CreateUserDrawer({ isOpen, onClose, lockedRole }: CreateUserDraw
               {MESSAGES.ACCOUNT_MANAGEMENT.PROVISION.SECTIONS.CONTACT}
             </div>
             <FormRow>
-              <FormField label="Country Code *" error={errors.country_code?.message}>
+              <FormField
+                label={MESSAGES.ACCOUNT_MANAGEMENT.FIELDS.COUNTRY_CODE}
+                error={errors.country_code?.message}
+              >
                 <Input
                   placeholder="+91"
                   error={!!errors.country_code}
                   {...register("country_code")}
                 />
               </FormField>
-              <FormField label="WhatsApp Number *" error={errors.whatsapp_number?.message}>
+              <FormField
+                label={MESSAGES.ACCOUNT_MANAGEMENT.FIELDS.WHATSAPP}
+                error={errors.whatsapp_number?.message}
+              >
                 <Input
-                  placeholder="9989091840"
+                  placeholder={MESSAGES.ACCOUNT_MANAGEMENT.FIELDS.WHATSAPP_PLACEHOLDER}
                   error={!!errors.whatsapp_number}
                   {...register("whatsapp_number")}
                 />

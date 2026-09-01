@@ -279,7 +279,7 @@ export function SetCatalogTypeDialog({ product, isOpen, onClose }: SetCatalogTyp
                 type="number"
                 step="0.01"
                 min="0.01"
-                placeholder="0.00"
+                placeholder={MESSAGES.PRODUCTS.FIELDS.PRICE_PLACEHOLDER}
                 value={expressPrice}
                 error={!!expressPriceError}
                 onChange={(e) => {
@@ -339,9 +339,7 @@ export function SetCatalogTypeDialog({ product, isOpen, onClose }: SetCatalogTyp
 
           {/* Irreversible in one direction: leaving clears every express price. */}
           {leavingExpress && (
-            <p className="fg-hint mt-3" style={{ color: "var(--amber-700)" }}>
-              {M.LEAVING_EXPRESS}
-            </p>
+            <p className="fg-hint mt-3 text-[var(--amber-700)]!">{M.LEAVING_EXPRESS}</p>
           )}
 
           {showCategory && (

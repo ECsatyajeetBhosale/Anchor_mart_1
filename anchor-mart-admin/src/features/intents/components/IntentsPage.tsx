@@ -1,6 +1,5 @@
 import {
   IconBan,
-  IconCheck,
   IconClipboardCheck,
   IconClock,
   IconInbox,
@@ -38,7 +37,7 @@ import { getApiMessage, getApiStatus } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
-import { statText, statsError, statsState, statusText } from "@/lib/stats";
+import { statsError, statsState, statusText } from "@/lib/stats";
 import { toast } from "sonner";
 import {
   useCreateBillMutation,
