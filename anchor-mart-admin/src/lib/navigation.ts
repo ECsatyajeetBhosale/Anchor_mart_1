@@ -109,24 +109,24 @@ export interface NavSection {
  * genuinely are products, at which point the two non-products stood out enough
  * to be worth their own heading.
  *
- * **Section order is reactive work first, then planned work.** Orders &
- * Delivery and Operations are the two sections where work *arrives* — a queue
- * fills, a message lands, a request waits on a reply — so they sit together at
- * the top. Everything below is work an admin chooses to go and do: what is
- * sold, where it ships to, what promotes it, who holds an account, and the
- * system itself.
+ * **Section order runs from the order funnel outwards.** Orders & Delivery
+ * leads: it is where work arrives unbidden and where most of a shift is spent.
+ * Then what an admin goes and administers — what is sold (Catalog), where it
+ * ships to (Ports & Agents), what promotes it (Marketing) — then who holds an
+ * account, then the conversational inboxes, then the system itself.
  *
- * That order is about *arrival*, not about badges, and the two no longer line
- * up: the live counters (`ws/events/`) cover Orders & Delivery's six entries
- * and Seller Requests over in Account Management, while Operations carries
- * none — Notifications and Support have no counter in the badge contract, and
- * the hardcoded pills they once showed were fabricated. A section is placed
- * here by whether work lands in it unbidden; whether the backend counts that
- * work is a separate question with a different answer.
+ * Operations sits below Account Management by decision (2026-09-02), not by the
+ * arrival rule. It is reactive work and by that rule belonged beside Orders &
+ * Delivery, where it used to be; it reads better low, next to System, and the
+ * two inboxes in it are reached deliberately rather than scanned for. Anything
+ * genuinely urgent in there announces itself through the header, not the nav.
  *
- * That is the axis, not raw frequency. Catalog is edited often but never
- * *waits* on anyone; Operations may be quiet for an hour and then need an answer
- * within minutes.
+ * Placement is not about badges, and the two do not line up: the live counters
+ * (`ws/events/`) cover Orders & Delivery's six entries and Seller Requests over
+ * in Account Management, while Operations carries none — Notifications and
+ * Support have no counter in the badge contract, and the hardcoded pills they
+ * once showed were fabricated. Whether the backend counts a section's work is a
+ * separate question from where the section sits.
  */
 export const NAV_SECTIONS: NavSection[] = [
   {
@@ -215,60 +215,6 @@ export const NAV_SECTIONS: NavSection[] = [
       //   label: "Assignments",
       //   icon: IconClipboardList,
       //   path: APP_ROUTES.ASSIGNMENTS,
-      // },
-    ],
-  },
-  {
-    // Four inboxes: what the platform sends out, and what comes back in.
-    // Directly under the order funnel because both are reactive — someone is
-    // waiting on the other end of each — and they are the two sections carrying
-    // live counts.
-    //
-    // The two account-review queues that used to sit here moved to Account
-    // Management. They are inboxes too, but the question they answer is about a
-    // person rather than a conversation.
-    label: "Operations",
-    items: [
-      {
-        key: "notifications",
-        label: "Notifications",
-        icon: IconBell,
-        path: APP_ROUTES.NOTIFICATIONS,
-      },
-      {
-        key: "support",
-        label: "Support",
-        icon: IconLifebuoy,
-        path: APP_ROUTES.SUPPORT,
-        // Both support inboxes. The screen carries a Sailors / Partners toggle:
-        // they are two endpoints but one desk, and the separate "Chat Monitor"
-        // entry that used to hold the partner half named neither audience —
-        // beside "Support" it read as a duplicate of it.
-        //
-        // `group` is deliberately **not** here. No admin list endpoint returns
-        // group threads, so a group dot would send an admin to a screen the
-        // thread is not on — worse than no dot at all.
-        chatUnreadKeys: ["user_support", "delivery_support"],
-      },
-      {
-        // Flow 23 §4.3 — per-order threads, deliberately separate from Chat
-        // Monitor: that one is the shared partner support inbox, this one is
-        // scoped to the orders you own (super admins see all).
-        key: "order-chats",
-        label: "Order Chats",
-        icon: IconMessage2,
-        path: APP_ROUTES.ORDER_CHATS,
-        // Both sides of an order: the sailor's thread and the partner's are
-        // separate conversations but land on the same screen.
-        chatUnreadKeys: ["order", "order_delivery"],
-      },
-      // Parked, not removed — see the note on Assignments above.
-      // {
-      //   // Flow 22 §3.1 — the outbound email/WhatsApp delivery log.
-      //   key: "messages",
-      //   label: "Message Log",
-      //   icon: IconMailFast,
-      //   path: APP_ROUTES.MESSAGES,
       // },
     ],
   },
@@ -457,6 +403,60 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: IconUserMinus,
         path: APP_ROUTES.DELETION_REQUESTS,
       },
+    ],
+  },
+  {
+    // Four inboxes: what the platform sends out, and what comes back in.
+    // Reactive work — someone is waiting on the other end of each — and the
+    // section carrying the live counts, which is what makes it findable
+    // wherever it sits.
+    //
+    // The two account-review queues that used to sit here moved to Account
+    // Management. They are inboxes too, but the question they answer is about a
+    // person rather than a conversation.
+    label: "Operations",
+    items: [
+      {
+        key: "notifications",
+        label: "Notifications",
+        icon: IconBell,
+        path: APP_ROUTES.NOTIFICATIONS,
+      },
+      {
+        key: "support",
+        label: "Support",
+        icon: IconLifebuoy,
+        path: APP_ROUTES.SUPPORT,
+        // Both support inboxes. The screen carries a Sailors / Partners toggle:
+        // they are two endpoints but one desk, and the separate "Chat Monitor"
+        // entry that used to hold the partner half named neither audience —
+        // beside "Support" it read as a duplicate of it.
+        //
+        // `group` is deliberately **not** here. No admin list endpoint returns
+        // group threads, so a group dot would send an admin to a screen the
+        // thread is not on — worse than no dot at all.
+        chatUnreadKeys: ["user_support", "delivery_support"],
+      },
+      {
+        // Flow 23 §4.3 — per-order threads, deliberately separate from Chat
+        // Monitor: that one is the shared partner support inbox, this one is
+        // scoped to the orders you own (super admins see all).
+        key: "order-chats",
+        label: "Order Chats",
+        icon: IconMessage2,
+        path: APP_ROUTES.ORDER_CHATS,
+        // Both sides of an order: the sailor's thread and the partner's are
+        // separate conversations but land on the same screen.
+        chatUnreadKeys: ["order", "order_delivery"],
+      },
+      // Parked, not removed — see the note on Assignments above.
+      // {
+      //   // Flow 22 §3.1 — the outbound email/WhatsApp delivery log.
+      //   key: "messages",
+      //   label: "Message Log",
+      //   icon: IconMailFast,
+      //   path: APP_ROUTES.MESSAGES,
+      // },
     ],
   },
   {
