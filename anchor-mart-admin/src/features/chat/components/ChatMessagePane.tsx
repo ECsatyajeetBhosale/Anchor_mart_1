@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
+import { isMediaUploadEnabled } from "@/lib/appEnv";
 import { mediaSrc } from "@/lib/mediaUrl";
 import { MESSAGES } from "@/lib/messages";
 import { cn } from "@/lib/utils";
@@ -517,7 +518,18 @@ export function ChatMessagePane({
         onSubmitEdit={socket.editMessage}
         onTyping={socket.notifyTyping}
         onStoppedTyping={socket.notifyStoppedTyping}
-        onAttach={handleAttach}
+        /*
+          Media upload is production-only (`isMediaUploadEnabled`). Passing
+          undefined is what hides the paperclip rather than disabling it — the
+          composer already treats "caller cannot take an upload" that way, and a
+          disabled button would only invite someone to work out how to enable it.
+
+          These bytes go to our own API server, not to S3, so nothing about the
+          bucket forces this. It is gated alongside the presigned path so that
+          "media upload" means one thing across the panel. Text messages are
+          untouched.
+        */
+        onAttach={isMediaUploadEnabled() ? handleAttach : undefined}
         isUploading={isUploading}
       />
 

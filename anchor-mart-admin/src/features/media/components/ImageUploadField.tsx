@@ -1,7 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { mediaSrc } from "@/lib/mediaUrl";
 import { MESSAGES } from "@/lib/messages";
-import { IconPhoto, IconTrash, IconUpload } from "@tabler/icons-react";
+import { IconAlertTriangle, IconPhoto, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useRef, useState } from "react";
 import { toStoredPath } from "../lib/storagePath";
 import type { FileLocation } from "../types/media.types";
@@ -57,7 +57,7 @@ export function ImageUploadField({
   previewUrl,
 }: ImageUploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { upload, isUploading, error } = useMediaUpload();
+  const { upload, isUploading, error, uploadsToStorage } = useMediaUpload();
   /**
    * The last file uploaded from this field. An arbitrary stored path can't be
    * turned into a URL client-side (the CloudFront domain isn't exposed to the
@@ -159,6 +159,28 @@ export function ImageUploadField({
       />
 
       {error && <div className="text-[11px] font-semibold text-[var(--danger-text)]">{error}</div>}
+
+      {/*
+        Two different statements, and only one of them is ever true.
+
+        Before a file is picked, the rule is stated flatly so the admin knows
+        the button will not do what it says. After one is picked, it becomes a
+        warning about *this* record — the path in the box is about to be saved
+        with nothing behind it. Anchored to `lastUpload.path === value` so it
+        clears the moment the path is edited or replaced, exactly like the
+        thumbnail does.
+      */}
+      {!uploadsToStorage &&
+        (lastUpload && !lastUpload.uploaded && lastUpload.path === value ? (
+          <div className="flex items-start gap-1.5 text-[11px] font-semibold text-[var(--amber-700)]">
+            <IconAlertTriangle size={13} className="mt-px shrink-0" />
+            <span>
+              {MESSAGES.MEDIA.NOT_UPLOADED} {MESSAGES.MEDIA.NOT_UPLOADED_HINT}
+            </span>
+          </div>
+        ) : (
+          <div className="fg-hint text-[11px]">{MESSAGES.MEDIA.STORAGE_OFF}</div>
+        ))}
     </div>
   );
 }

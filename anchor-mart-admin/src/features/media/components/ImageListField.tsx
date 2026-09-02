@@ -1,7 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { mediaSrc } from "@/lib/mediaUrl";
 import { MESSAGES } from "@/lib/messages";
-import { IconPhoto, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
+import { IconAlertTriangle, IconPhoto, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useRef, useState } from "react";
 import type { FileLocation } from "../types/media.types";
 import { useMediaUpload } from "./useMediaUpload";
@@ -46,7 +46,15 @@ export function ImageListField({
   previewUrls,
 }: ImageListFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { upload, isUploading, error } = useMediaUpload();
+  const { upload, isUploading, error, uploadsToStorage } = useMediaUpload();
+  /**
+   * Paths added this session whose bytes never left the browser. Tracked as a
+   * set of paths rather than a count so the warning follows the actual rows —
+   * removing the offending row clears it, and it cannot outlive what it
+   * describes.
+   */
+  const [unsentPaths, setUnsentPaths] = useState<Set<string>>(new Set());
+  const unsentShown = values.filter((v) => unsentPaths.has(v)).length;
   /**
    * Preview URLs for images uploaded in this session. The presign slip already
    * carries `file_future_url`; it used to be discarded, so a just-uploaded image
@@ -70,6 +78,9 @@ export function ImageListField({
       uploaded.push(result.path);
       if (result.previewUrl) {
         setUploadedUrls((prev) => ({ ...prev, [result.path]: result.previewUrl }));
+      }
+      if (!result.uploaded) {
+        setUnsentPaths((prev) => new Set(prev).add(result.path));
       }
     }
     if (uploaded.length > 0) onChange([...values, ...uploaded]);
@@ -159,6 +170,20 @@ export function ImageListField({
       />
 
       {error && <div className="text-[11px] font-semibold text-[var(--danger-text)]">{error}</div>}
+
+      {/* Same two-state notice as the single-image field: the standing rule
+          until something is actually affected by it, then the warning. */}
+      {!uploadsToStorage &&
+        (unsentShown > 0 ? (
+          <div className="flex items-start gap-1.5 text-[11px] font-semibold text-[var(--amber-700)]">
+            <IconAlertTriangle size={13} className="mt-px shrink-0" />
+            <span>
+              {MESSAGES.MEDIA.NOT_UPLOADED} {MESSAGES.MEDIA.NOT_UPLOADED_HINT}
+            </span>
+          </div>
+        ) : (
+          <div className="fg-hint text-[11px]">{MESSAGES.MEDIA.STORAGE_OFF}</div>
+        ))}
     </div>
   );
 }

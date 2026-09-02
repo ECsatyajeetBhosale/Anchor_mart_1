@@ -5425,6 +5425,19 @@ export const MESSAGES = {
     OPEN_FULL_SIZE: "Open full size",
     REMOVE: "Remove",
     REMOVE_IMAGE: "Remove image",
+    /**
+     * Shown outside production, where the presigned slip is still minted but
+     * the bytes are never sent to S3 (`isMediaUploadEnabled`). The saved path
+     * is real and submits fine; the object behind it does not exist, so the
+     * record reads back as a broken image until re-saved against production.
+     * Said at upload time because that is the only moment it is still cheap to
+     * act on.
+     */
+    NOT_UPLOADED: "Preview only — not sent to storage outside production.",
+    NOT_UPLOADED_HINT:
+      "The path is saved, but no image exists behind it yet. Re-upload on production to fill it in.",
+    /** Sits under the picker before a file is chosen, so the rule is not a surprise. */
+    STORAGE_OFF: "Storage upload is off outside production.",
   },
   SAVED_PRODUCTS: {
     TITLE: "Saved Products",

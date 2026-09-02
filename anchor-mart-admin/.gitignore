@@ -1,7 +1,11 @@
 node_modules
 dist
 .env
-.env.local
+# Every real env file is gitignored; `.env.example` is the committed
+# template. `.env.*` covers .env.development, .env.production and the
+# .local overrides in one line.
+.env.*
+!.env.example
 backend
 
 # Build artifacts that must never sit beside their source.

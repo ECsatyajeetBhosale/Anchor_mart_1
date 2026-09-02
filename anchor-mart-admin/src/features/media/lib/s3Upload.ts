@@ -38,6 +38,45 @@ export function validateUploadSize(file: File): string | null {
 }
 
 /**
+ * Image types the panel accepts.
+ *
+ * Nothing server-side enforces this on the presigned path (Flow 26 §3): the
+ * signed policy's only Content-Type condition is `["starts-with", "", ""]`,
+ * which matches every MIME type, and the `file_type` we declare is a form
+ * default rather than a constraint. There is no extension allow-list, no
+ * sniffing and no transcode either — so an `.exe` renamed to `.jpg`, or even
+ * left as `.exe`, would be accepted and stored.
+ *
+ * This list is therefore the *only* type check on the whole path. It is a
+ * usability guard, not a security control — a determined caller can still POST
+ * anything to a minted slip — but it stops the ordinary mistake of putting a
+ * PDF where a product photo goes.
+ */
+export const ALLOWED_IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp"] as const;
+
+/** Lowercase extension without the dot, or "" when the name has none. */
+function extensionOf(name: string): string {
+  const dot = name.lastIndexOf(".");
+  return dot > 0 ? name.slice(dot + 1).toLowerCase() : "";
+}
+
+/**
+ * Rejects a file whose extension is not an image we accept.
+ *
+ * Checked against the **extension**, not `file.type`: browsers leave `type`
+ * empty for unrecognised files, and it is trivially wrong for a renamed one, so
+ * the extension is what the stored object will actually be read back as.
+ */
+export function validateFileType(file: File): string | null {
+  const ext = extensionOf(file.name);
+  if (!ext) return "File needs an extension (e.g. .jpg).";
+  if (!ALLOWED_IMAGE_EXTENSIONS.includes(ext as (typeof ALLOWED_IMAGE_EXTENSIONS)[number])) {
+    return `${ext.toUpperCase()} files aren't supported — use ${ALLOWED_IMAGE_EXTENSIONS.join(", ")}.`;
+  }
+  return null;
+}
+
+/**
  * The backend requires a `file_name` containing a `.` that doesn't start with
  * one, so a dotfile or an extension-less name is rejected before we spend a
  * round-trip on it.
@@ -83,8 +122,18 @@ export async function uploadToS3(presigned: PresignedPost, file: File): Promise<
     // S3 replies with an XML <Error> body; surface its <Message> when present.
     const body = await response.text().catch(() => "");
     const message = /<Message>([^<]+)<\/Message>/.exec(body)?.[1];
-    throw new MediaUploadError(
-      message ?? `Upload was rejected by storage (HTTP ${response.status}).`,
-    );
+    if (message) throw new MediaUploadError(message);
+
+    // A 403 here reads as an auth problem and is almost never one — the slip is
+    // the credential, and it fails for exactly three reasons (Flow 26 §2). Say
+    // which three, because "forbidden" sends people to look at their login.
+    if (response.status === 403) {
+      throw new MediaUploadError(
+        `Storage rejected the upload. The file may be outside the ${formatBytes(
+          MIN_UPLOAD_BYTES,
+        )}–${formatBytes(MAX_UPLOAD_BYTES)} range, or the upload slip expired — try again.`,
+      );
+    }
+    throw new MediaUploadError(`Upload was rejected by storage (HTTP ${response.status}).`);
   }
 }

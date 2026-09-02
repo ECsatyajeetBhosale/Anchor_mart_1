@@ -1,7 +1,27 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  /** Django backend, ending in `/api`. Used verbatim in production builds. */
+  /**
+   * Which environment this build targets, set per env file: `local` in
+   * `.env.development`, `production` in `.env.production`.
+   *
+   * Distinct from Vite's own `MODE`/`DEV`/`PROD`, which describe how the bundle
+   * was compiled. This describes which backend it was pointed at, so a build
+   * can be identified without inferring it from the API URL.
+   *
+   * **Gates media upload** (Flow 26) — see `src/lib/appEnv.ts`. Read it through
+   * `isProductionEnv()` / `isMediaUploadEnabled()` rather than comparing this
+   * string at a call site, so the rule lives in one place.
+   */
+  readonly VITE_APP_ENV: "local" | "production";
+  /**
+   * Django backend, ending in `/api`. Lives in the mode files, not `.env` —
+   * it is the value that differs between environments.
+   *
+   * Used verbatim in production builds. In dev the app calls the relative
+   * `/api` instead and `vite.config.ts` proxies it here, which is what avoids
+   * CORS; this value is the proxy target rather than a request URL.
+   */
   readonly VITE_API_BASE_URL: string;
   readonly VITE_APP_NAME: string;
   /**
