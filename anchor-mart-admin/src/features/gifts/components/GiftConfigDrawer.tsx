@@ -72,7 +72,6 @@ export function GiftConfigDrawer({ isOpen, onClose }: GiftConfigDrawerProps) {
       <SheetContent
         side="right"
         adjustable
-        defaultWidth={520}
         className="flex flex-col gap-0 p-0 sm:max-w-none overflow-hidden bg-[var(--surface)]"
       >
         <SheetHeader className="border-b border-[var(--border-md)] p-6 pb-4">

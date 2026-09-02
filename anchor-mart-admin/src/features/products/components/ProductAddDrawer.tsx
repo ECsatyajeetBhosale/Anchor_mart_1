@@ -210,7 +210,6 @@ export function ProductAddDrawer({
       <SheetContent
         side="right"
         adjustable
-        defaultWidth={800}
         className="flex flex-col gap-0 p-0 sm:max-w-none overflow-hidden bg-[var(--surface)]"
       >
         <SheetHeader className="p-6 pb-2 border-b border-[var(--border-md)]">

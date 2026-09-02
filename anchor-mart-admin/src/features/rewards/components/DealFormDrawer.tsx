@@ -145,7 +145,6 @@ export function DealFormDrawer({ deal, isOpen, onClose }: DealFormDrawerProps) {
       <SheetContent
         side="right"
         adjustable
-        defaultWidth={620}
         className="flex flex-col gap-0 p-0 sm:max-w-none overflow-hidden bg-[var(--surface)]"
       >
         <SheetHeader className="p-6 pb-4 border-b border-[var(--border-md)]">

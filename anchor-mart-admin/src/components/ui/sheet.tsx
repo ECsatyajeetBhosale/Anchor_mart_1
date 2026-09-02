@@ -60,9 +60,21 @@ const SheetContent = React.forwardRef<
       className,
       children,
       adjustable,
-      defaultWidth = 600,
       minWidth = 300,
       maxWidth = 1200,
+      // Every drawer opens fully stretched, then narrows by the handle.
+      //
+      // It used to open at 600 and each drawer named its own starting width,
+      // which produced fifteen different widths across the app — a detail
+      // drawer at 480, its neighbour at 800 — so the panel jumped size as an
+      // admin moved between screens and no width was the *expected* one. The
+      // review drawer had already settled on opening at its ceiling; this is
+      // that behaviour made general.
+      //
+      // Defaulting to `maxWidth` rather than a second constant keeps the two
+      // from drifting apart: the drawer cannot open wider than it can be
+      // dragged, whatever a caller passes for either.
+      defaultWidth = maxWidth,
       style,
       ...props
     },

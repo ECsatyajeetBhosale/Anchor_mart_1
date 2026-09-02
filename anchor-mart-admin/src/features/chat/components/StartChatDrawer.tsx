@@ -120,7 +120,7 @@ export function StartChatDrawer({ isOpen, onClose, mode }: StartChatDrawerProps)
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" adjustable defaultWidth={440}>
+      <SheetContent side="right" adjustable>
         <SheetHeader>
           <SheetTitle>{mode === "support" ? M.NEW_SUPPORT : M.NEW_ORDER}</SheetTitle>
           <SheetDescription>

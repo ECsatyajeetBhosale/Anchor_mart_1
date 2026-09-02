@@ -78,7 +78,6 @@ export function LoyaltyConfigDrawer({
       <SheetContent
         side="right"
         adjustable
-        defaultWidth={480}
         className="flex flex-col gap-0 p-0 sm:max-w-none overflow-hidden bg-[var(--surface)]"
       >
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col h-full">

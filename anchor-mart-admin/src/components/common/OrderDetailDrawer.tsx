@@ -396,7 +396,6 @@ export function OrderDetailDrawer({
       <SheetContent
         side="right"
         adjustable
-        defaultWidth={640}
         className="flex flex-col gap-0 p-0 sm:max-w-none overflow-hidden bg-[var(--surface)]"
       >
         {order && (
