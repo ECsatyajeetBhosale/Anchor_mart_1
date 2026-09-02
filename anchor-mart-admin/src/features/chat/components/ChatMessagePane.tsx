@@ -1,16 +1,27 @@
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { mediaSrc } from "@/lib/mediaUrl";
 import { MESSAGES } from "@/lib/messages";
+import { cn } from "@/lib/utils";
 import {
+  IconArrowLeft,
+  IconCheck,
+  IconClock,
+  IconDotsVertical,
   IconMessages,
   IconPaperclip,
   IconPencil,
   IconRefresh,
   IconTrash,
 } from "@tabler/icons-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   MESSAGE_PAGE_SIZE,
@@ -25,12 +36,63 @@ import { OrderContextStrip } from "./OrderContextStrip";
 
 const M = MESSAGES.CHAT;
 
-/** Formats one message's timestamp for the hover meta line. */
+/** Formats one message's timestamp for the line inside its bubble. */
 function formatTime(iso: string): string {
   if (!iso) return "";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+/** Local calendar day of a timestamp — the key messages are grouped under. */
+function dayKey(date: Date): string {
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+/**
+ * The separator's caption. The two most recent days are named rather than
+ * dated: "Today" is read at a glance, where its date has to be worked out.
+ */
+function formatDayLabel(date: Date): string {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  if (dayKey(date) === dayKey(today)) return M.MESSAGES.DAY_TODAY;
+  if (dayKey(date) === dayKey(yesterday)) return M.MESSAGES.DAY_YESTERDAY;
+  return date.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+}
+
+interface DayGroup {
+  key: string;
+  label: string;
+  items: ChatMessage[];
+}
+
+/**
+ * Splits a transcript into consecutive same-day runs.
+ *
+ * Runs, not buckets: the list arrives in order, so a day is closed as soon as
+ * the next message falls on a different one. An unparseable timestamp joins the
+ * run it arrived in rather than opening a group captioned with a bad date.
+ */
+function groupByDay(messages: ChatMessage[]): DayGroup[] {
+  const groups: DayGroup[] = [];
+
+  for (const message of messages) {
+    const date = new Date(message.createdAt);
+    if (Number.isNaN(date.getTime())) {
+      if (groups.length > 0) groups[groups.length - 1].items.push(message);
+      continue;
+    }
+
+    const key = dayKey(date);
+    const current = groups[groups.length - 1];
+    if (current?.key === key) current.items.push(message);
+    else groups.push({ key, label: formatDayLabel(date), items: [message] });
+  }
+
+  return groups;
 }
 
 export interface ChatMessagePaneProps {
@@ -41,16 +103,29 @@ export interface ChatMessagePaneProps {
    * receives no presence frames, so the connection cannot answer this.
    */
   onlineUsers: ReadonlySet<string>;
+  /**
+   * Returns to the thread list. Only rendered below `lg`, where the two panes
+   * stack and opening a thread covers the list entirely.
+   */
+  onBack?: () => void;
+  /** Lets the page hide this pane when the two panes stack into one column. */
+  className?: string;
 }
 
 /**
  * One thread: its history over REST, everything after that over the socket.
  *
- * Laid out to match the AnchorMart-1 chat monitor — admin replies right-aligned
- * in navy, the counterparty left in grey. Which side a message lands on is
- * decided against the thread **owner**, not a hardcoded id; see `isFromAdmin`.
+ * Admin replies sit right in soft navy, the counterparty left in grey. Which
+ * side a message lands on is decided against the thread **owner**, not a
+ * hardcoded id; see `isFromAdmin`.
  */
-export function ChatMessagePane({ thread, socket, onlineUsers }: ChatMessagePaneProps) {
+export function ChatMessagePane({
+  thread,
+  socket,
+  onlineUsers,
+  onBack,
+  className,
+}: ChatMessagePaneProps) {
   const chatId = thread?.id;
   const { data, isLoading, isError, isFetching, refetch } = useGetChatMessagesQuery(
     { chatId: chatId ?? "", page: 1, limit: MESSAGE_PAGE_SIZE },
@@ -62,7 +137,8 @@ export function ChatMessagePane({ thread, socket, onlineUsers }: ChatMessagePane
   const bottomRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<{ id: string; content: string } | null>(null);
   const [toDelete, setToDelete] = useState<ChatMessage | null>(null);
-  const messages = data?.items ?? [];
+  const messages = useMemo(() => data?.items ?? [], [data]);
+  const dayGroups = useMemo(() => groupByDay(messages), [messages]);
   const messageCount = messages.length;
   const hasMessages = messageCount > 0;
 
@@ -92,7 +168,7 @@ export function ChatMessagePane({ thread, socket, onlineUsers }: ChatMessagePane
 
   if (!thread) {
     return (
-      <div className="card flex items-center justify-center">
+      <div className={cn("card flex items-center justify-center", className)}>
         <EmptyState
           icon={<IconMessages size={36} className="text-[var(--t4)]" />}
           title={M.MESSAGES.PLACEHOLDER_TITLE}
@@ -155,13 +231,23 @@ export function ChatMessagePane({ thread, socket, onlineUsers }: ChatMessagePane
     : (thread.email ?? M.DASH);
 
   return (
-    <div className="card flex flex-col overflow-hidden">
-      {/* Thread header — avatar, name + role badge, presence line, then the
-          identifier and the live/refresh controls. */}
-      <div
-        className="flex items-center gap-3 border-b border-[var(--border-xs)]"
-        style={{ padding: "13px 18px" }}
-      >
+    <div className={cn("card flex min-h-0 flex-col overflow-hidden", className)}>
+      {/* Thread header — avatar, name + role, presence line, and the thread menu.
+          Kept to who this is: the order and its detail live in the strip below,
+          which is where an admin looks for them. */}
+      <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border-xs)] px-[18px] py-[13px]">
+        {onBack && (
+          <button
+            type="button"
+            className="-ml-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-[var(--t3)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--t1)] lg:hidden"
+            onClick={onBack}
+            title={M.THREADS.BACK}
+            aria-label={M.THREADS.BACK}
+          >
+            <IconArrowLeft size={18} />
+          </button>
+        )}
+
         <div className={`av ${role.avatarClass} shrink-0`}>
           {thread.name.charAt(0).toUpperCase()}
         </div>
@@ -170,36 +256,48 @@ export function ChatMessagePane({ thread, socket, onlineUsers }: ChatMessagePane
           <div className="mb-[3px] flex items-center gap-2">
             <span className="w7 c1 trunc">{thread.name}</span>
             <Badge variant={role.badgeVariant}>{role.label}</Badge>
-            {/* Shown **only** on a confirmed-true presence result. Nothing is
-                rendered otherwise: the endpoint answers for the ids it was
-                asked about, so "not online" also covers "never asked", and
-                labelling that "Offline" would state something the server never
-                said. A missing marker means "no claim", not "away". */}
-            {isOnline && (
-              <span
-                className="sdot on xs csuccess shrink-0"
-                title={M.PRESENCE.RECENT_HINT}
-                aria-label={M.PRESENCE.RECENT}
-              >
-                {M.PRESENCE.RECENT}
-              </span>
-            )}
           </div>
-          <div className="xs c4 w6 trunc">{contextLine}</div>
+
+          {/* Shown **only** on a confirmed-true presence result. The context
+              line takes the slot otherwise: the endpoint answers for the ids it
+              was asked about, so "not online" also covers "never asked", and
+              labelling that "Offline" would state something the server never
+              said. A missing marker means "no claim", not "away". */}
+          {isOnline ? (
+            <span
+              className="sdot on xs csuccess"
+              title={M.PRESENCE.RECENT_HINT}
+              aria-label={M.PRESENCE.RECENT}
+            >
+              {M.PRESENCE.RECENT}
+            </span>
+          ) : (
+            <div className="xs c4 w6 trunc">{contextLine}</div>
+          )}
         </div>
 
         {thread.orderNumber && (
           <span className="badge badge-neutral mono shrink-0">{thread.orderNumber}</span>
         )}
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm shrink-0"
-          onClick={() => refetch()}
-          disabled={isFetching}
-          title={M.MESSAGES.REFRESH}
-        >
-          <IconRefresh size={15} />
-        </button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-[var(--t3)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--t1)]"
+              title={M.MESSAGES.THREAD_ACTIONS}
+              aria-label={M.MESSAGES.THREAD_ACTIONS}
+            >
+              <IconDotsVertical size={17} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onSelect={() => refetch()} disabled={isFetching}>
+              <IconRefresh size={15} />
+              {M.MESSAGES.REFRESH}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* §5 — the order, pinned between the header and the messages. Present
@@ -207,7 +305,7 @@ export function ChatMessagePane({ thread, socket, onlineUsers }: ChatMessagePane
           It renders from this row immediately and never gates the pane below. */}
       {thread.order && <OrderContextStrip chatId={thread.id} order={thread.order} />}
 
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
         {isError ? (
           <p className="text-center text-[12.5px] font-semibold text-[var(--danger-text)]">
             {M.MESSAGES.FETCH_ERROR}
@@ -221,75 +319,104 @@ export function ChatMessagePane({ thread, socket, onlineUsers }: ChatMessagePane
             {M.MESSAGES.EMPTY}
           </p>
         ) : (
-          messages.map((msg) => {
-            const sent = isFromAdmin(msg, ownerId);
-            return (
-              <div
-                key={msg.id}
-                className={`group flex flex-col gap-1 ${msg.pending ? "opacity-60" : ""}`}
-                style={{ alignItems: sent ? "flex-end" : "flex-start" }}
-              >
-                <div className={`chat-bubble ${sent ? "sent" : "recv"}`}>
-                  {msg.isDeleted ? (
-                    <span className="italic opacity-70">{M.MESSAGES.DELETED}</span>
-                  ) : (
-                    <>
-                      {msg.content && <span className="whitespace-pre-wrap">{msg.content}</span>}
-                      {msg.media &&
-                        (msg.messageType === "image" ? (
-                          <img
-                            src={mediaSrc(msg.media)}
-                            alt={M.MESSAGES.ATTACHMENT}
-                            className="mt-1.5 max-h-[220px] rounded-[var(--radius-sm)]"
-                          />
-                        ) : (
-                          <a
-                            href={mediaSrc(msg.media)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-1 inline-flex items-center gap-1.5 font-bold underline"
-                          >
-                            <IconPaperclip size={14} />
-                            {M.MESSAGES.ATTACHMENT}
-                          </a>
-                        ))}
-                    </>
-                  )}
-                </div>
-
-                {/* Meta + moderation, revealed on hover so the transcript stays
-                    clean. An admin may edit or delete any message in a thread
-                    they can already reach; the server treats an id outside the
-                    thread as not-found, so it cannot probe another conversation. */}
-                <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                  <span className="xs c4 w6">
-                    {isSelf(msg) ? M.MESSAGES.YOU : msg.senderName} · {formatTime(msg.createdAt)}
-                  </span>
-                  {msg.isEdited && <span className="xs c4 italic">{M.COMPOSER.EDITED}</span>}
-                  {!msg.isDeleted && !msg.pending && (
-                    <>
-                      <button
-                        type="button"
-                        title={M.COMPOSER.EDIT}
-                        className="text-[var(--t4)] hover:text-[var(--teal-600)]"
-                        onClick={() => setEditing({ id: msg.id, content: msg.content })}
-                      >
-                        <IconPencil size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        title={M.COMPOSER.DELETE}
-                        className="text-[var(--t4)] hover:text-[var(--danger-text)]"
-                        onClick={() => setToDelete(msg)}
-                      >
-                        <IconTrash size={13} />
-                      </button>
-                    </>
-                  )}
-                </div>
+          dayGroups.map((group) => (
+            <div key={group.key} className="flex flex-col gap-3">
+              <div className="flex justify-center">
+                <span className="rounded-full border border-[var(--border-xs)] bg-[var(--surface-alt)] px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.6px] text-[var(--t4)]">
+                  {group.label}
+                </span>
               </div>
-            );
-          })
+
+              {group.items.map((msg) => {
+                const sent = isFromAdmin(msg, ownerId);
+                return (
+                  <div
+                    key={msg.id}
+                    className={`group flex flex-col gap-1 ${msg.pending ? "opacity-60" : ""} ${
+                      sent ? "items-end" : "items-start"
+                    }`}
+                  >
+                    <div className={`chat-bubble ${sent ? "sent" : "recv"}`}>
+                      {msg.isDeleted ? (
+                        <span className="italic opacity-70">{M.MESSAGES.DELETED}</span>
+                      ) : (
+                        <>
+                          {msg.content && (
+                            <span className="whitespace-pre-wrap break-words">{msg.content}</span>
+                          )}
+                          {msg.media &&
+                            (msg.messageType === "image" ? (
+                              <img
+                                src={mediaSrc(msg.media)}
+                                alt={M.MESSAGES.ATTACHMENT}
+                                className="mt-1.5 max-h-[220px] rounded-[var(--radius-sm)]"
+                              />
+                            ) : (
+                              <a
+                                href={mediaSrc(msg.media)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mt-1 inline-flex items-center gap-1.5 font-bold underline"
+                              >
+                                <IconPaperclip size={14} />
+                                {M.MESSAGES.ATTACHMENT}
+                              </a>
+                            ))}
+                        </>
+                      )}
+
+                      {/* Time sits inside the bubble, where a chat reader looks
+                          for it. The marker beside it means **accepted by the
+                          server**, not read — no endpoint reports per-message
+                          read state, so a second "seen" tick would be invented. */}
+                      <span className="mt-1 flex items-center justify-end gap-1 text-[10.5px] font-semibold text-[var(--t4)]">
+                        {formatTime(msg.createdAt)}
+                        {sent &&
+                          !msg.isDeleted &&
+                          (msg.pending ? (
+                            <IconClock size={12} aria-label={M.MESSAGES.SENDING} />
+                          ) : (
+                            <IconCheck size={12} aria-label={M.MESSAGES.SENT_TICK} />
+                          ))}
+                      </span>
+                    </div>
+
+                    {/* Author + moderation, revealed on hover so the transcript
+                        stays clean. An admin may edit or delete any message in a
+                        thread they can already reach; the server treats an id
+                        outside the thread as not-found, so it cannot probe
+                        another conversation. */}
+                    <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                      <span className="xs c4 w6">
+                        {isSelf(msg) ? M.MESSAGES.YOU : msg.senderName}
+                      </span>
+                      {msg.isEdited && <span className="xs c4 italic">{M.COMPOSER.EDITED}</span>}
+                      {!msg.isDeleted && !msg.pending && (
+                        <>
+                          <button
+                            type="button"
+                            title={M.COMPOSER.EDIT}
+                            className="text-[var(--t4)] hover:text-[var(--teal-600)]"
+                            onClick={() => setEditing({ id: msg.id, content: msg.content })}
+                          >
+                            <IconPencil size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            title={M.COMPOSER.DELETE}
+                            className="text-[var(--t4)] hover:text-[var(--danger-text)]"
+                            onClick={() => setToDelete(msg)}
+                          >
+                            <IconTrash size={13} />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))
         )}
 
         {typingCount > 0 && (

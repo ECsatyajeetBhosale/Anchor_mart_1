@@ -1,10 +1,8 @@
 import { PageHeader } from "@/components/common/PageHeader";
 import { SegmentedToggle } from "@/components/common/SegmentedToggle";
-import { Button } from "@/components/ui/button";
 import { useAppSelector } from "@/hooks/useAppDispatch";
 import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
-import { IconPencilPlus } from "@tabler/icons-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import {
@@ -168,57 +166,70 @@ export function ChatMonitorPage({ source, sources }: ChatMonitorPageProps) {
 
   return (
     <div className="page-enter">
-      <PageHeader
-        title={copy.TITLE}
-        actions={
-          <div className="flex items-center gap-2.5">
-            {/* Sailors / Partners. Two endpoints, one desk — the audiences are
-                answered by the same people and were previously split across two
-                nav entries, one of which named neither audience. */}
-            {sources && (
-              <SegmentedToggle
-                value={effectiveSource}
-                options={sources}
-                onChange={(next) => {
-                  setActiveSource(next);
-                  // The open thread belongs to the inbox being left.
-                  setActiveId(null);
-                }}
-              />
-            )}
+      {/* The support desk drops the page header entirely. Its title restated the
+          nav item that is still highlighted two inches to the left, and once the
+          inbox tabs moved down into the panel they scope, nothing was left up
+          there to carry — so it was 50px of chrome above a screen whose content
+          wants the whole viewport. The order inbox keeps its header: it has a
+          filter that scopes the screen rather than the panel. */}
+      {!sources && (
+        <PageHeader
+          title={copy.TITLE}
+          actions={
+            <div className="flex items-center gap-2.5">
+              {/* Three short, mutually exclusive options fit on a line, and a
+                  dropdown would hide two of them behind a click. */}
+              {effectiveSource === "order" && (
+                <SegmentedToggle
+                  value={category}
+                  options={CATEGORY_OPTIONS}
+                  onChange={(next) => {
+                    setCategory(next);
+                    // The open thread may not survive into the narrowed list.
+                    setActiveId(null);
+                  }}
+                />
+              )}
+            </div>
+          }
+        />
+      )}
 
-            {/* Same control as the support toggle above, for the same reason:
-                three short, mutually exclusive options fit on a line, and a
-                dropdown would hide two of them behind a click. */}
-            {effectiveSource === "order" && (
-              <SegmentedToggle
-                value={category}
-                options={CATEGORY_OPTIONS}
-                onChange={(next) => {
-                  setCategory(next);
-                  // The open thread may not survive into the narrowed list.
-                  setActiveId(null);
-                }}
-              />
-            )}
-            {/* §8.3 — the doc's two entry points start from an order or a user
-                the admin is already looking at, and those still exist. This is
-                the same two endpoints reached from the inbox itself, which is
-                where an admin goes when the conversation is the errand. */}
-            <Button variant="primary" size="sm" onClick={() => setStartOpen(true)}>
-              <IconPencilPlus size={15} className="mr-1" />
-              {M.START.NEW}
-            </Button>
-          </div>
-        }
-      />
+      {/* Height follows the viewport rather than a fixed 580px box: this is the
+          one layout on the app where the content genuinely wants the whole page,
+          scrolling the thread list and the message history internally instead.
 
-      {/* Height follows the viewport rather than a fixed 580px box. The old
-          fixed height left dead space below the panes on a normal screen while
-          scrolling the thread list and message history internally against it —
-          the one layout on the app where the content genuinely wants the whole
-          page. `min-h` keeps it usable on short windows. */}
-      <div className="grid h-[calc(100vh-230px)] min-h-[480px] grid-cols-1 gap-4 lg:grid-cols-[290px_1fr]">
+          The support desk trades the standard page padding for a much tighter
+          one. `.main-content` pads every screen on all four sides — right for a
+          page of cards and tables, too generous for a two-pane conversation
+          view, where it only shrinks the transcript and leaves a wide frame of
+          empty surface around it. The padding is cancelled with a matching
+          negative margin and a small one re-added here, rather than by editing
+          `.main-content`, which owns spacing for every other page
+          (PROJECT_RULES); the tokens keep the two halves in step.
+
+          ⚠️ The negation must be a `calc`, not a `-mx-[var(…)]` prefix: Tailwind
+          renders that as `-var(…)`, which is invalid CSS, so the utility is
+          dropped and the padding silently stays. Height then answers to the
+          topbar alone, the padding sitting inside it under `border-box`.
+
+          The order inbox keeps the standard padding and its page header — it is
+          a different screen with a header to sit under, and is not what this
+          change was about. `min-h` keeps both usable on a short window, where
+          scrolling is the better answer.
+
+          The list takes a share of the width rather than a fixed 290px, so it
+          keeps its proportion on a wide monitor instead of leaving the pane to
+          absorb every extra pixel. Below `lg` the two stack into one column and
+          only one is shown at a time — side by side at phone width, neither is
+          usable. */}
+      <div
+        className={`grid min-h-[480px] grid-cols-1 gap-4 lg:grid-cols-[minmax(280px,27%)_1fr] ${
+          sources
+            ? "mx-[calc(var(--main-pad-x)*-1)] my-[calc(var(--main-pad-y)*-1)] h-[calc(100vh-var(--topbar-h))] p-2.5"
+            : "h-[calc(100vh-var(--topbar-h)-var(--main-pad-y)*2-50px)]"
+        }`}
+      >
         <ChatThreadList
           threads={visibleThreads}
           activeId={activeId}
@@ -230,9 +241,31 @@ export function ChatMonitorPage({ source, sources }: ChatMonitorPageProps) {
           isLoading={isLoading}
           isError={isError}
           onlineUsers={presence.onlineUsers}
+          onNewConversation={() => setStartOpen(true)}
+          newConversationLabel={M.START.NEW}
+          // Sailors / Partners. Two endpoints, one desk — the audiences are
+          // answered by the same people, and these scope the list they sit in.
+          sourceTabs={
+            sources && {
+              value: effectiveSource,
+              options: sources,
+              onChange: (next: ChatSource) => {
+                setActiveSource(next);
+                // The open thread belongs to the inbox being left.
+                setActiveId(null);
+              },
+            }
+          }
+          className={activeThread ? "hidden lg:flex" : "flex"}
         />
 
-        <ChatMessagePane thread={activeThread} socket={socket} onlineUsers={presence.onlineUsers} />
+        <ChatMessagePane
+          thread={activeThread}
+          socket={socket}
+          onlineUsers={presence.onlineUsers}
+          onBack={() => setActiveId(null)}
+          className={activeThread ? "flex" : "hidden lg:flex"}
+        />
       </div>
 
       <StartChatDrawer

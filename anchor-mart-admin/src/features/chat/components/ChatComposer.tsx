@@ -1,5 +1,8 @@
+import { Button } from "@/components/ui/button";
+import { EmojiPicker } from "@/components/ui/emoji-picker";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MESSAGES } from "@/lib/messages";
-import { IconLoader2, IconPaperclip, IconSend, IconX } from "@tabler/icons-react";
+import { IconLoader2, IconMoodSmile, IconPaperclip, IconSend, IconX } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import {
   UPLOAD_FILE_TYPES,
@@ -61,6 +64,7 @@ export function ChatComposer({
 }: ChatComposerProps) {
   const [text, setText] = useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -97,6 +101,23 @@ export function ChatComposer({
       onTyping();
       scheduleStoppedTyping();
     }
+  };
+
+  /** Drops an emoji at the caret rather than at the end, and restores focus. */
+  const insertEmoji = (emoji: string) => {
+    const el = inputRef.current;
+    const start = el?.selectionStart ?? text.length;
+    const end = el?.selectionEnd ?? text.length;
+    const next = text.slice(0, start) + emoji + text.slice(end);
+
+    handleChange(next);
+    setEmojiOpen(false);
+    // The caret has to be repositioned after React has written the new value.
+    requestAnimationFrame(() => {
+      const caret = start + emoji.length;
+      el?.focus();
+      el?.setSelectionRange(caret, caret);
+    });
   };
 
   /**
@@ -159,10 +180,7 @@ export function ChatComposer({
   };
 
   return (
-    <div
-      className="border-t border-[var(--border-xs)] bg-[var(--surface)]"
-      style={{ padding: "13px" }}
-    >
+    <div className="shrink-0 border-t border-[var(--border-xs)] bg-[var(--surface)] p-3">
       {editing && (
         <div className="mb-2 flex items-center justify-between rounded-[var(--radius-sm)] bg-[var(--amber-50)] px-2.5 py-1.5">
           <span className="text-[11.5px] font-bold text-[var(--amber-700)]">
@@ -178,7 +196,9 @@ export function ChatComposer({
         </div>
       )}
 
-      <div className="flex items-end gap-2">
+      {/* Attachment and emoji sit on their own row above the box, so the input
+          line holds only the two things that end a reply: the text and Send. */}
+      <div className="mb-2 flex items-center gap-1">
         {/* §4.4 — upload goes to `/api/chat/`, the one mount outside
             `/superadmin/` and so the one call carrying `server-secret-key`.
             Hidden rather than disabled when the caller cannot take an upload:
@@ -194,21 +214,40 @@ export function ChatComposer({
             />
             <button
               type="button"
-              className="btn btn-secondary btn-sm btn-icon"
-              style={{ height: "40px", width: "40px" }}
+              className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--t4)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--t2)] disabled:cursor-not-allowed disabled:opacity-45"
               onClick={() => fileRef.current?.click()}
               disabled={disabled || isUploading}
               title={M.COMPOSER.ATTACH}
+              aria-label={M.COMPOSER.ATTACH}
             >
               {isUploading ? (
-                <IconLoader2 size={15} className="animate-spin" />
+                <IconLoader2 size={17} className="animate-spin" />
               ) : (
-                <IconPaperclip size={15} />
+                <IconPaperclip size={17} />
               )}
             </button>
           </>
         )}
 
+        <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--t4)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--t2)] disabled:cursor-not-allowed disabled:opacity-45"
+              disabled={disabled}
+              title={M.COMPOSER.EMOJI}
+              aria-label={M.COMPOSER.EMOJI}
+            >
+              <IconMoodSmile size={17} />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-[312px] overflow-hidden p-0">
+            <EmojiPicker onSelect={insertEmoji} />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      <div className="flex items-end gap-2">
         <textarea
           ref={inputRef}
           rows={1}
@@ -219,25 +258,23 @@ export function ChatComposer({
           onKeyDown={(e) => {
             // Shift+Enter keeps the newline; plain Enter sends, which is what
             // every chat client trains people to expect.
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              submit();
-            }
+            if (e.key !== "Enter" || e.shiftKey) return;
+            e.preventDefault();
+            submit();
           }}
-          className="max-h-[120px] flex-1 resize-y rounded-[var(--radius-md)] border-[1.5px] border-[var(--border-md)] bg-[var(--surface-input)] px-3 py-[9px] text-[13.5px] font-medium text-[var(--t1)] outline-none transition-colors placeholder:text-[var(--t4)] focus:border-[var(--teal-500)] focus:shadow-[var(--sh-focus-teal)] disabled:cursor-not-allowed disabled:opacity-50"
-          style={{ minHeight: "40px" }}
+          className="max-h-[120px] min-h-[40px] flex-1 resize-y rounded-[var(--radius-md)] border-[1.5px] border-[var(--border-md)] bg-[var(--surface-input)] px-3 py-[9px] text-[13.5px] font-medium text-[var(--t1)] outline-none transition-colors placeholder:text-[var(--t4)] focus:border-[var(--teal-500)] focus:shadow-[var(--sh-focus-teal)] disabled:cursor-not-allowed disabled:opacity-50"
         />
 
-        <button
-          type="button"
-          className="btn btn-primary btn-icon"
-          style={{ height: "40px", width: "40px" }}
+        <Button
+          variant="primary"
+          className="h-10 shrink-0"
           onClick={submit}
           disabled={disabled || !text.trim()}
           title={M.COMPOSER.SEND}
         >
           <IconSend size={16} />
-        </button>
+          {M.COMPOSER.SEND}
+        </Button>
       </div>
 
       {/* The connection marker lives here, and **only** when something is wrong.
@@ -261,7 +298,6 @@ export function ChatComposer({
             className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--amber-500)]"
           />
         )}
-        {uploadError ?? offlineNotice ?? (isUploading ? M.COMPOSER.UPLOADING : M.COMPOSER.HINT)}
       </p>
     </div>
   );

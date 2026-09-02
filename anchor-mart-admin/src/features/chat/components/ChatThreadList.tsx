@@ -1,5 +1,9 @@
 import { Search } from "@/components/common/Search";
+import { type SegmentedOption, SegmentedToggle } from "@/components/common/SegmentedToggle";
+import { Button } from "@/components/ui/button";
 import { MESSAGES } from "@/lib/messages";
+import { cn } from "@/lib/utils";
+import { IconPlus } from "@tabler/icons-react";
 import { useMemo } from "react";
 import { CHAT_ROLES, type ChatRoleKey, resolveChatRole } from "../lib/chatRoles";
 import type { ChatThread } from "../types/chat.types";
@@ -27,7 +31,20 @@ function formatAge(iso: string): string {
   return date.toLocaleDateString("en-US", { day: "numeric", month: "short" });
 }
 
-export interface ChatThreadListProps {
+/**
+ * The inbox tabs, when the screen covers more than one.
+ *
+ * Generic over the value type for the same reason `SegmentedToggle` is: the
+ * caller keeps its own `ChatSource` union rather than having it widened to
+ * `string` on the way through this component.
+ */
+export interface ChatThreadListTabs<S extends string> {
+  value: S;
+  options: readonly SegmentedOption<S>[];
+  onChange: (value: S) => void;
+}
+
+export interface ChatThreadListProps<S extends string = string> {
   threads: ChatThread[];
   activeId: string | null;
   onSelect: (id: string) => void;
@@ -43,6 +60,27 @@ export interface ChatThreadListProps {
    * no presence frames.
    */
   onlineUsers: ReadonlySet<string>;
+  /**
+   * Opens the start-a-conversation drawer.
+   *
+   * The button sits at the head of this panel rather than in the page header:
+   * starting a thread and picking one out of the list are the same errand, and
+   * the header is shared with controls that scope the whole screen.
+   */
+  onNewConversation: () => void;
+  /** Label for that button — the caller owns the copy. */
+  newConversationLabel: string;
+  /** Lets the page hide this panel when the two panes stack into one column. */
+  className?: string;
+  /**
+   * Inbox tabs, rendered under the search box. Omitted on a screen backed by a
+   * single endpoint, where there is nothing to switch between.
+   *
+   * They sit here rather than in the page header because they scope this panel
+   * and nothing else: the header is the page's, and a control up there read as
+   * applying to the whole screen — including the open thread, which it does not.
+   */
+  sourceTabs?: ChatThreadListTabs<S>;
 }
 
 /** Section order — partners first, as in the AnchorMart-1 monitor. */
@@ -59,7 +97,7 @@ const SECTION_TITLES: Record<ChatRoleKey, string> = {
  * support inboxes stay flat while the order inbox — which mixes both sides of
  * the same order — gets the split that makes it readable.
  */
-export function ChatThreadList({
+export function ChatThreadList<S extends string>({
   threads,
   activeId,
   onSelect,
@@ -70,7 +108,11 @@ export function ChatThreadList({
   isLoading,
   isError,
   onlineUsers,
-}: ChatThreadListProps) {
+  onNewConversation,
+  newConversationLabel,
+  className,
+  sourceTabs,
+}: ChatThreadListProps<S>) {
   const sections = useMemo(() => {
     const grouped: Record<ChatRoleKey, ChatThread[]> = { partner: [], sailor: [] };
     for (const thread of threads) grouped[resolveChatRole(thread).key].push(thread);
@@ -79,9 +121,21 @@ export function ChatThreadList({
     );
   }, [threads]);
 
+  // A heading earns its place by telling one run of rows apart from another, so
+  // it is drawn only where there is in fact more than one. On the support
+  // inboxes every row is the same role — the tab above already named it — and
+  // the heading was restating the tab. The order inbox mixes both sides of the
+  // same order, and there the split is the thing that makes the list readable.
+  const showSectionTitles = sections.length > 1;
+
   return (
-    <div className="card flex flex-col overflow-hidden">
-      <div className="border-b border-[var(--border-xs)] p-3">
+    <div className={cn("card flex min-h-0 flex-col overflow-hidden", className)}>
+      <div className="flex flex-col gap-2.5 border-b border-[var(--border-xs)] p-3">
+        <Button variant="primary" className="w-full" onClick={onNewConversation}>
+          <IconPlus size={16} />
+          {newConversationLabel}
+        </Button>
+
         <Search
           placeholder={searchPlaceholder}
           value={search}
@@ -90,9 +144,18 @@ export function ChatThreadList({
           loading={isLoading}
           style={{ width: "100%" }}
         />
+
+        {sourceTabs && (
+          <SegmentedToggle
+            fill
+            value={sourceTabs.value}
+            options={sourceTabs.options}
+            onChange={sourceTabs.onChange}
+          />
+        )}
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {isError ? (
           <p className="p-4 text-center text-[12.5px] font-semibold text-[var(--danger-text)]">
             {M.THREADS.FETCH_ERROR}
@@ -108,9 +171,11 @@ export function ChatThreadList({
         ) : (
           sections.map((section) => (
             <div key={section.key}>
-              <div className="sec-label" style={{ padding: "14px 14px 7px", margin: 0 }}>
-                {SECTION_TITLES[section.key]}
-              </div>
+              {showSectionTitles && (
+                <div className="px-3.5 pt-3.5 pb-[7px] text-[10px] font-extrabold uppercase tracking-[1.6px] text-[var(--t4)]">
+                  {SECTION_TITLES[section.key]}
+                </div>
+              )}
 
               {section.rows.map((thread) => {
                 const role = CHAT_ROLES[section.key];
@@ -122,8 +187,12 @@ export function ChatThreadList({
                     key={thread.id}
                     type="button"
                     onClick={() => onSelect(thread.id)}
-                    className="flex w-full items-center gap-2.5 border-b border-[var(--border-xs)] px-3.5 py-[11px] text-left transition-colors"
-                    style={{ background: isActive ? "var(--navy-25)" : "transparent" }}
+                    aria-current={isActive}
+                    className={`flex w-full items-center gap-2.5 border-b border-[var(--border-xs)] px-3.5 py-[11px] text-left transition-colors ${
+                      isActive
+                        ? "bg-[var(--navy-25)]"
+                        : "bg-transparent hover:bg-[var(--surface-alt)]"
+                    }`}
                   >
                     <div className="relative shrink-0">
                       <div className={`av ${role.avatarClass}`}>
@@ -132,13 +201,7 @@ export function ChatThreadList({
                       {/* Presence pip, mirroring AnchorMart-1: an 8px dot ringed
                           in the surface colour so it reads on any row state. */}
                       {isOnline && (
-                        <span
-                          className="absolute -bottom-px -right-px h-2 w-2 rounded-full"
-                          style={{
-                            background: "var(--green-icon)",
-                            border: "2px solid var(--surface)",
-                          }}
-                        />
+                        <span className="absolute -right-px -bottom-px h-2 w-2 rounded-full border-2 border-[var(--surface)] bg-[var(--green-icon)]" />
                       )}
                     </div>
 
@@ -154,10 +217,7 @@ export function ChatThreadList({
                         <span className="xs c4 w6">{formatAge(thread.lastMessageAt)}</span>
                       )}
                       {thread.unreadCount > 0 && (
-                        <span
-                          className="badge badge-danger"
-                          style={{ padding: "1px 5px", fontSize: "10px" }}
-                        >
+                        <span className="badge badge-danger px-[5px] py-px text-[10px]">
                           {thread.unreadCount}
                         </span>
                       )}

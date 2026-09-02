@@ -4472,9 +4472,10 @@ export const MESSAGES = {
       RECENT_HINT: "Seen in the last few minutes — not a guarantee they are reading now.",
     },
     COMPOSER: {
-      PLACEHOLDER: "Write a reply…",
+      PLACEHOLDER: "Type your message…",
       SEND: "Send",
       HINT: "Enter to send · Shift+Enter for a new line",
+      EMOJI: "Insert emoji",
       ATTACH: "Attach an image or PDF (max 10 MB)",
       UPLOADING: "Uploading…",
       // Pre-flight failures, phrased as the rule that was broken. A bare 413 or
@@ -4578,6 +4579,9 @@ export const MESSAGES = {
       FETCH_ERROR: "Failed to load conversations.",
       UNREAD: (n: number) => `${n} unread`,
       NO_PREVIEW: "No messages yet",
+      // Below `lg` the two panes stack into one column, so opening a thread
+      // replaces the list and this is the only way back to it.
+      BACK: "Back to conversations",
     },
     MESSAGES: {
       PLACEHOLDER_TITLE: "Select a conversation",
@@ -4588,6 +4592,16 @@ export const MESSAGES = {
       ATTACHMENT: "Attachment",
       REFRESH: "Refresh",
       ORDER_PREFIX: "Order",
+      THREAD_ACTIONS: "Thread actions",
+      // Day separators in the transcript. The two nearest days are named
+      // because "Today" is read faster than the date it resolves to.
+      DAY_TODAY: "Today",
+      DAY_YESTERDAY: "Yesterday",
+      // Marks an outbound message as accepted by the server (the socket echo
+      // arrived). ⚠️ Deliberately *not* a read receipt — no endpoint reports
+      // per-message read state, so a second "seen" tick would be invented.
+      SENT_TICK: "Sent",
+      SENDING: "Sending…",
       // Your own messages read "You" rather than your email address. Applied
       // only once the socket has identified you — another admin replying in a
       // shared inbox keeps their own name.
@@ -5439,6 +5453,27 @@ export const MESSAGES = {
     EMAIL_INVALID: "Enter a valid email address",
   },
   COMMON: {
+    /** The shared emoji picker (`components/ui/emoji-picker.tsx`). */
+    EMOJI_PICKER: {
+      SEARCH_PLACEHOLDER: "Search emoji…",
+      EMPTY: "No emoji found.",
+      // The emoji set is fetched, so it can fail — offline, or a blocked CDN.
+      FETCH_ERROR: "Couldn't load emoji.",
+      // The jump-to-category row. These name Emojibase's own groups, in its
+      // order — they are the tab tooltips, not the headings inside the list,
+      // which come from the data itself.
+      CATEGORY: {
+        SMILEYS: "Smileys & Emotion",
+        PEOPLE: "People & Body",
+        ANIMALS: "Animals & Nature",
+        FOOD: "Food & Drink",
+        TRAVEL: "Travel & Places",
+        ACTIVITIES: "Activities",
+        OBJECTS: "Objects",
+        SYMBOLS: "Symbols",
+        FLAGS: "Flags",
+      },
+    },
     /**
      * The whole-catalog product picker, shared by Analytics and the deal form.
      *
