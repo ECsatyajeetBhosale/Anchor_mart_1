@@ -1,10 +1,9 @@
 import { Search } from "@/components/common/Search";
-import { type SegmentedOption, SegmentedToggle } from "@/components/common/SegmentedToggle";
 import { Button } from "@/components/ui/button";
 import { MESSAGES } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 import { IconPlus } from "@tabler/icons-react";
-import { useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 import { CHAT_ROLES, type ChatRoleKey, resolveChatRole } from "../lib/chatRoles";
 import type { ChatThread } from "../types/chat.types";
 
@@ -31,20 +30,7 @@ function formatAge(iso: string): string {
   return date.toLocaleDateString("en-US", { day: "numeric", month: "short" });
 }
 
-/**
- * The inbox tabs, when the screen covers more than one.
- *
- * Generic over the value type for the same reason `SegmentedToggle` is: the
- * caller keeps its own `ChatSource` union rather than having it widened to
- * `string` on the way through this component.
- */
-export interface ChatThreadListTabs<S extends string> {
-  value: S;
-  options: readonly SegmentedOption<S>[];
-  onChange: (value: S) => void;
-}
-
-export interface ChatThreadListProps<S extends string = string> {
+export interface ChatThreadListProps {
   threads: ChatThread[];
   activeId: string | null;
   onSelect: (id: string) => void;
@@ -73,14 +59,16 @@ export interface ChatThreadListProps<S extends string = string> {
   /** Lets the page hide this panel when the two panes stack into one column. */
   className?: string;
   /**
-   * Inbox tabs, rendered under the search box. Omitted on a screen backed by a
-   * single endpoint, where there is nothing to switch between.
+   * Filter control rendered under the search box — the inbox toggle on Support,
+   * the category toggle on Order Chats. A slot rather than typed props because
+   * the two switch on different unions; the caller owns the control and keeps
+   * its own value type intact.
    *
-   * They sit here rather than in the page header because they scope this panel
-   * and nothing else: the header is the page's, and a control up there read as
-   * applying to the whole screen — including the open thread, which it does not.
+   * It sits here rather than in a page header because it scopes this panel and
+   * nothing else: a control up there read as applying to the whole screen,
+   * including the open thread, which it never did.
    */
-  sourceTabs?: ChatThreadListTabs<S>;
+  tabs?: ReactNode;
 }
 
 /** Section order — partners first, as in the AnchorMart-1 monitor. */
@@ -97,7 +85,7 @@ const SECTION_TITLES: Record<ChatRoleKey, string> = {
  * support inboxes stay flat while the order inbox — which mixes both sides of
  * the same order — gets the split that makes it readable.
  */
-export function ChatThreadList<S extends string>({
+export function ChatThreadList({
   threads,
   activeId,
   onSelect,
@@ -111,8 +99,8 @@ export function ChatThreadList<S extends string>({
   onNewConversation,
   newConversationLabel,
   className,
-  sourceTabs,
-}: ChatThreadListProps<S>) {
+  tabs,
+}: ChatThreadListProps) {
   const sections = useMemo(() => {
     const grouped: Record<ChatRoleKey, ChatThread[]> = { partner: [], sailor: [] };
     for (const thread of threads) grouped[resolveChatRole(thread).key].push(thread);
@@ -145,14 +133,7 @@ export function ChatThreadList<S extends string>({
           style={{ width: "100%" }}
         />
 
-        {sourceTabs && (
-          <SegmentedToggle
-            fill
-            value={sourceTabs.value}
-            options={sourceTabs.options}
-            onChange={sourceTabs.onChange}
-          />
-        )}
+        {tabs}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">

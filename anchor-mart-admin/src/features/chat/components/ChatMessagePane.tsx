@@ -7,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { mediaSrc } from "@/lib/mediaUrl";
 import { MESSAGES } from "@/lib/messages";
 import { cn } from "@/lib/utils";
@@ -21,7 +22,7 @@ import {
   IconRefresh,
   IconTrash,
 } from "@tabler/icons-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   MESSAGE_PAGE_SIZE,
@@ -29,12 +30,21 @@ import {
   useUploadChatMediaMutation,
 } from "../api/chatApi";
 import type { ChatSocketApi } from "../hooks/useChatSocket";
-import { isFromAdmin, resolveChatRole } from "../lib/chatRoles";
+import {
+  canEditMessage,
+  canModerateMessage,
+  isFromAdmin,
+  isOwnMessage,
+  resolveChatRole,
+} from "../lib/chatRoles";
 import type { ChatMessage, ChatThread, UploadMessageType } from "../types/chat.types";
 import { ChatComposer } from "./ChatComposer";
 import { OrderContextStrip } from "./OrderContextStrip";
 
 const M = MESSAGES.CHAT;
+
+/** How often the window is re-checked, so Edit disappears while the pane is open. */
+const EDIT_WINDOW_TICK_MS = 30_000;
 
 /** Formats one message's timestamp for the line inside its bubble. */
 function formatTime(iso: string): string {
@@ -134,20 +144,49 @@ export function ChatMessagePane({
 
   const [uploadMedia, { isLoading: isUploading }] = useUploadChatMediaMutation();
 
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  /** The thread the pane has already jumped to the bottom of. */
+  const landedOn = useRef<string | undefined>(undefined);
   const [editing, setEditing] = useState<{ id: string; content: string } | null>(null);
   const [toDelete, setToDelete] = useState<ChatMessage | null>(null);
+  const [preview, setPreview] = useState<{ src: string; alt: string } | null>(null);
+  // Re-read on a timer rather than at render: nothing else changes when a
+  // message crosses twenty minutes, so without this the Edit button would sit
+  // there until an unrelated update happened to repaint the pane.
+  const [now, setNow] = useState(() => Date.now());
   const messages = useMemo(() => data?.items ?? [], [data]);
   const dayGroups = useMemo(() => groupByDay(messages), [messages]);
   const messageCount = messages.length;
   const hasMessages = messageCount > 0;
 
-  // Jump to the newest message when the thread changes or new ones arrive.
-  // Guarded so an empty thread doesn't scroll a pane with nothing in it.
+  /**
+   * Puts the newest message at the bottom of the pane.
+   *
+   * Sets `scrollTop` on the container rather than calling `scrollIntoView` on
+   * a trailing element: that walks up the tree and scrolls **every** scrollable
+   * ancestor, which on this screen also nudged the page itself.
+   */
+  const scrollToLatest = useCallback((behavior: ScrollBehavior) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
+  }, []);
+
+  // Opening a thread lands **at** the bottom; later messages animate down to
+  // it. Smooth on open meant watching the whole history scroll past, and on a
+  // long thread the animation was still running when the reply was typed.
   useEffect(() => {
     if (!chatId || messageCount === 0) return;
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatId, messageCount]);
+    const isOpening = landedOn.current !== chatId;
+    landedOn.current = chatId;
+    scrollToLatest(isOpening ? "auto" : "smooth");
+  }, [chatId, messageCount, scrollToLatest]);
+
+  useEffect(() => {
+    if (!chatId) return;
+    const timer = setInterval(() => setNow(Date.now()), EDIT_WINDOW_TICK_MS);
+    return () => clearInterval(timer);
+  }, [chatId]);
 
   // Opening a thread marks it read, which is what clears the sidebar badge.
   // Held until the history has actually landed — claiming to have read a
@@ -181,15 +220,14 @@ export function ChatMessagePane({
   const role = resolveChatRole(thread);
   const ownerId = thread.ownerId;
 
-  /**
-   * Whether *this* admin wrote the message, which is narrower than "the admin
-   * side wrote it": support and order inboxes are worked by more than one
-   * person, and labelling a colleague's reply "You" would misattribute it.
-   * An optimistic row is ours by construction; anything else has to match the
-   * id the socket learned for us, and stays under its author's name until it does.
-   */
-  const isSelf = (msg: ChatMessage) =>
-    Boolean(msg.pending || (socket.selfUserId && msg.senderId === socket.selfUserId));
+  // Bound to this admin's id once, so each row asks the same three questions
+  // of the shared rules rather than restating them. Gating on *whose* message
+  // it is — not which side of the pane it sits on — is the point: the desk is
+  // worked by several admins, and a colleague's wording is theirs to change.
+  const selfId = socket.selfUserId;
+  const isSelf = (msg: ChatMessage) => isOwnMessage(msg, selfId);
+  const canModerate = (msg: ChatMessage) => canModerateMessage(msg, selfId);
+  const canEdit = (msg: ChatMessage) => canEditMessage(msg, selfId, now);
 
   /**
    * Sends an attachment (§4.4).
@@ -305,7 +343,7 @@ export function ChatMessagePane({
           It renders from this row immediately and never gates the pane below. */}
       {thread.order && <OrderContextStrip chatId={thread.id} order={thread.order} />}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
+      <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
         {isError ? (
           <p className="text-center text-[12.5px] font-semibold text-[var(--danger-text)]">
             {M.MESSAGES.FETCH_ERROR}
@@ -346,11 +384,28 @@ export function ChatMessagePane({
                           )}
                           {msg.media &&
                             (msg.messageType === "image" ? (
-                              <img
-                                src={mediaSrc(msg.media)}
-                                alt={M.MESSAGES.ATTACHMENT}
-                                className="mt-1.5 max-h-[220px] rounded-[var(--radius-sm)]"
-                              />
+                              <button
+                                type="button"
+                                title={M.MESSAGES.VIEW_IMAGE}
+                                onClick={() =>
+                                  setPreview({
+                                    src: mediaSrc(msg.media as string),
+                                    alt: msg.content || M.MESSAGES.ATTACHMENT,
+                                  })
+                                }
+                                className="mt-1.5 block cursor-zoom-in overflow-hidden rounded-[var(--radius-sm)]"
+                              >
+                                <img
+                                  src={mediaSrc(msg.media)}
+                                  alt={M.MESSAGES.ATTACHMENT}
+                                  // An image arrives with no height, so the
+                                  // pane has already scrolled by the time it
+                                  // paints and the newest message is pushed
+                                  // back out of view. Re-pin once it lands.
+                                  onLoad={() => scrollToLatest("auto")}
+                                  className="max-h-[220px] transition-transform hover:scale-[1.02]"
+                                />
+                              </button>
                             ) : (
                               <a
                                 href={mediaSrc(msg.media)}
@@ -365,11 +420,25 @@ export function ChatMessagePane({
                         </>
                       )}
 
-                      {/* Time sits inside the bubble, where a chat reader looks
-                          for it. The marker beside it means **accepted by the
-                          server**, not read — no endpoint reports per-message
-                          read state, so a second "seen" tick would be invented. */}
-                      <span className="mt-1 flex items-center justify-end gap-1 text-[10.5px] font-semibold text-[var(--t4)]">
+                      {/* Time rides in the bubble's bottom corner — trailing
+                          edge on each side, so it settles under the end of the
+                          text rather than across the gutter from it. Held at
+                          10.5px and `--t4` so it stays clearly secondary to the
+                          message, and pushed off the last line by `ml-auto`
+                          rather than a fixed indent, which keeps a one-word
+                          message and a paragraph looking alike.
+
+                          The marker beside it means **accepted by the server**,
+                          not read — no endpoint reports per-message read state,
+                          so a second "seen" tick would be inventing one. */}
+                      <span
+                        className={`mt-1 flex w-full items-center gap-1 text-[10.5px] font-semibold text-[var(--t4)] ${
+                          sent ? "justify-end" : "justify-start"
+                        }`}
+                      >
+                        {msg.isEdited && !msg.isDeleted && (
+                          <span className="italic">{M.COMPOSER.EDITED}</span>
+                        )}
                         {formatTime(msg.createdAt)}
                         {sent &&
                           !msg.isDeleted &&
@@ -381,35 +450,46 @@ export function ChatMessagePane({
                       </span>
                     </div>
 
-                    {/* Author + moderation, revealed on hover so the transcript
-                        stays clean. An admin may edit or delete any message in a
-                        thread they can already reach; the server treats an id
-                        outside the thread as not-found, so it cannot probe
-                        another conversation. */}
+                    {/* Author, and — on one's own messages only — the two
+                        moderation controls. Revealed on hover so the transcript
+                        stays clean.
+
+                        The attribution is worth keeping on both sides: this is
+                        a shared desk, and "who on our side said this" is not
+                        answerable from the bubble's position alone. What is
+                        *not* offered on someone else's message is any way to
+                        change it — there is no hover control, no menu and no
+                        context menu, because a colleague's wording is theirs. */}
                     <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                       <span className="xs c4 w6">
                         {isSelf(msg) ? M.MESSAGES.YOU : msg.senderName}
                       </span>
-                      {msg.isEdited && <span className="xs c4 italic">{M.COMPOSER.EDITED}</span>}
-                      {!msg.isDeleted && !msg.pending && (
-                        <>
-                          <button
-                            type="button"
-                            title={M.COMPOSER.EDIT}
-                            className="text-[var(--t4)] hover:text-[var(--teal-600)]"
-                            onClick={() => setEditing({ id: msg.id, content: msg.content })}
-                          >
-                            <IconPencil size={13} />
-                          </button>
-                          <button
-                            type="button"
-                            title={M.COMPOSER.DELETE}
-                            className="text-[var(--t4)] hover:text-[var(--danger-text)]"
-                            onClick={() => setToDelete(msg)}
-                          >
-                            <IconTrash size={13} />
-                          </button>
-                        </>
+
+                      {/* Edit goes away twenty minutes in; Delete does not,
+                          because withdrawing something said in error has no
+                          equivalent deadline — and it leaves a tombstone
+                          everyone can see rather than a silent rewrite. */}
+                      {canEdit(msg) && (
+                        <button
+                          type="button"
+                          title={M.COMPOSER.EDIT}
+                          aria-label={M.COMPOSER.EDIT}
+                          className="text-[var(--t4)] hover:text-[var(--teal-600)]"
+                          onClick={() => setEditing({ id: msg.id, content: msg.content })}
+                        >
+                          <IconPencil size={13} />
+                        </button>
+                      )}
+                      {canModerate(msg) && (
+                        <button
+                          type="button"
+                          title={M.COMPOSER.DELETE}
+                          aria-label={M.COMPOSER.DELETE}
+                          className="text-[var(--t4)] hover:text-[var(--danger-text)]"
+                          onClick={() => setToDelete(msg)}
+                        >
+                          <IconTrash size={13} />
+                        </button>
                       )}
                     </div>
                   </div>
@@ -424,7 +504,6 @@ export function ChatMessagePane({
             {typingCount === 1 ? M.COMPOSER.TYPING_ONE : M.COMPOSER.TYPING_MANY(typingCount)}
           </p>
         )}
-        <div ref={bottomRef} />
       </div>
 
       <ChatComposer
@@ -440,6 +519,12 @@ export function ChatMessagePane({
         onStoppedTyping={socket.notifyStoppedTyping}
         onAttach={handleAttach}
         isUploading={isUploading}
+      />
+
+      <ImageLightbox
+        src={preview?.src ?? null}
+        alt={preview?.alt}
+        onClose={() => setPreview(null)}
       />
 
       <ConfirmDialog

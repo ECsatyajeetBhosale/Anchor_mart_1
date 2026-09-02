@@ -4417,9 +4417,11 @@ export const MESSAGES = {
       SUBTITLE: "Queries about a specific order. You see the orders you own; admins see all.",
       SEARCH_PLACEHOLDER: "Search order threads…",
       EMPTY: "No order threads yet.",
-      CATEGORY_ALL: "Both sides",
-      CATEGORY_ORDER: "From sailors",
-      CATEGORY_DELIVERY: "From partners",
+      // Named for the audience, matching the Support inbox's tabs — the tab
+      // sits inside the list it filters, so "from" was saying what the panel
+      // it lives in already says.
+      CATEGORY_ORDER: "Sailors",
+      CATEGORY_DELIVERY: "Partners",
       COUNTERPARTY: {
         customer: "Sailor",
         delivery_partner: "Partner",
@@ -4590,6 +4592,7 @@ export const MESSAGES = {
       FETCH_ERROR: "Failed to load messages.",
       DELETED: "This message was deleted.",
       ATTACHMENT: "Attachment",
+      VIEW_IMAGE: "Click to view full size",
       REFRESH: "Refresh",
       ORDER_PREFIX: "Order",
       THREAD_ACTIONS: "Thread actions",
@@ -5453,6 +5456,13 @@ export const MESSAGES = {
     EMAIL_INVALID: "Enter a valid email address",
   },
   COMMON: {
+    /** The full-size image viewer (`components/ui/image-lightbox.tsx`). */
+    LIGHTBOX: {
+      // The dialog's accessible name when the image carries no description of
+      // its own — said to a screen reader, not drawn on screen.
+      TITLE: "Image preview",
+      OPEN_ORIGINAL: "Open original",
+    },
     /** The shared emoji picker (`components/ui/emoji-picker.tsx`). */
     EMOJI_PICKER: {
       SEARCH_PLACEHOLDER: "Search emoji…",
