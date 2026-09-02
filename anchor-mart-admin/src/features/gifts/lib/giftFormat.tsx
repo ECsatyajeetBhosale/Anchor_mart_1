@@ -1,7 +1,29 @@
 import { Badge } from "@/components/ui/badge";
 import { MESSAGES } from "@/lib/messages";
 
+import type { GiftHandoverStatus } from "../types/gift.types";
+
 const M = MESSAGES.GIFTS;
+const D = M.DETAIL;
+
+/**
+ * Badge per handover state.
+ *
+ * `revoked` and `void` are here for completeness only — the API nulls them and
+ * `toGift` drops them a second time, so a gift in either state never reaches
+ * this component. A lookup covering every member of the union is still what
+ * keeps the next added state from silently reading as one of these.
+ */
+export const HANDOVER_BADGE: Record<
+  GiftHandoverStatus,
+  { variant: "amber" | "info" | "success" | "neutral"; label: string }
+> = {
+  pending: { variant: "amber", label: D.HANDOVER_PENDING },
+  collected: { variant: "info", label: D.HANDOVER_COLLECTED },
+  delivered: { variant: "success", label: D.HANDOVER_DELIVERED },
+  revoked: { variant: "neutral", label: D.HANDOVER_REVOKED },
+  void: { variant: "neutral", label: D.HANDOVER_VOID },
+};
 
 /** A departure this close makes the decision urgent. */
 const URGENT_DAYS = 2;

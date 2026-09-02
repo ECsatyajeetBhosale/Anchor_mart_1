@@ -47,6 +47,11 @@ export const AUDIT_ORDER_ACTIONS = [
   "bill_generated",
   "payment_link",
   "gift_granted",
+  // The partner's two pickup answers (2026-09-02). `gift_not_collected` is the
+  // one worth filtering for: it means the gift is still open and waiting on an
+  // admin, where `gift_collected` is just the parcel moving as expected.
+  "gift_collected",
+  "gift_not_collected",
 ] as const;
 
 export const AUDIT_OPERATIONAL_ACTIONS = [

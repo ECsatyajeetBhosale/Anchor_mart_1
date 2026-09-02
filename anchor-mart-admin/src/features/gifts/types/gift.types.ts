@@ -50,6 +50,16 @@ export interface GiftShip {
    */
   order_count: number;
   sailor_count: number;
+  /**
+   * Gifted sailors **among those counted in `sailor_count`** — i.e. keyed to
+   * recipients who still hold a live giftable order, not to every live gift in
+   * the group.
+   *
+   * The distinction is load-bearing: the ratio of these two is what
+   * `gift_status=none|partial|all` filters on. Counting gifts whose recipient
+   * had since moved on made ships read `all` while an un-gifted sailor was
+   * still aboard, and the `partial` filter then hid them.
+   */
   gifted_sailor_count: number;
   /** Display badge only — gates nothing. */
   total_value: string;
@@ -76,8 +86,19 @@ export interface GiftShip {
   is_dismissed: boolean;
 }
 
-/** Handover state of a granted gift. Renamed from `status` on 2026-07-28. */
-export type GiftHandoverStatus = "pending" | "delivered" | "revoked" | "void";
+/**
+ * Handover state of a granted gift. Renamed from `status` on 2026-07-28.
+ *
+ * `collected` was added 2026-09-02 with the partner's two checkpoints. Pickup
+ * and handover fail independently — the warehouse may have had nothing to give,
+ * or the parcel may ride along and never cross the rail — so the partner is
+ * asked twice and the answers are separate states.
+ *
+ * ⚠️ `collected` is **open, not inactive**: a parcel on the van is as live as
+ * one on the shelf, so the per-sailor constraint still holds against it. Only
+ * `revoked` and `void` free a sailor to be gifted again.
+ */
+export type GiftHandoverStatus = "pending" | "collected" | "delivered" | "revoked" | "void";
 
 /** Which grant path produced the gift. */
 export type GiftSource = "bulk" | "manual";
@@ -86,8 +107,13 @@ export type GiftSource = "bulk" | "manual";
 export interface SailorGift {
   id: string;
   /**
-   * Tracks exactly one thing — whether the delivery partner has physically
-   * handed the parcel over. Not approval or payment state.
+   * Where the parcel is, as the partner's two checkpoints report it: picked up
+   * with the items, then handed to the sailor. Not approval or payment state.
+   *
+   * It stopped tracking one thing on 2026-09-02. Pickup and handover fail
+   * independently — the warehouse may have had nothing to give, or the parcel
+   * may ride along and never cross the rail — so a single "handed over yet?"
+   * left a partially-delivered order's gift `pending` for ever.
    */
   handover_status: GiftHandoverStatus;
   /** The order carrying the gift; may no longer be in the live list. */
@@ -96,6 +122,17 @@ export interface SailorGift {
   source: GiftSource;
   granted_by_name: string | null;
   granted_at: string | null;
+  /** When the partner confirmed pickup, and who confirmed it. */
+  collected_at: string | null;
+  collected_by_name: string | null;
+  /**
+   * Who handed the parcel over.
+   *
+   * Read **against** `collected_at`: collected with no handover is a parcel
+   * that left the warehouse and never arrived, which is the one state ops has
+   * to chase. Neither field answers that alone.
+   */
+  delivered_by_name: string | null;
 }
 
 /** One of a sailor's orders on the vessel. */

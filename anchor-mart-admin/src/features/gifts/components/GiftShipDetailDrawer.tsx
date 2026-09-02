@@ -17,7 +17,7 @@ import { IconAlertTriangle, IconGift, IconGiftOff, IconShip, IconUser } from "@t
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useGetGiftShipQuery } from "../api/giftApi";
-import { DepartureValue, GiftProgress, shortDate } from "../lib/giftFormat";
+import { DepartureValue, GiftProgress, HANDOVER_BADGE, shortDate } from "../lib/giftFormat";
 import type { GiftShipOrder, GiftShipSailor } from "../types/gift.types";
 import { useShipGiftActions } from "./useShipGiftActions";
 
@@ -218,12 +218,16 @@ export function GiftShipDetailDrawer({ imo, isOpen, onClose }: GiftShipDetailDra
                 {D.PREVIOUSLY_GIFTED(sailor.previously_gifted_count)}
               </Badge>
             )}
+            {/* Three states, not two. The old binary read anything that was not
+                `delivered` as "awaiting handover", so once the partner's pickup
+                checkpoint shipped, a parcel already out on the van was reported
+                to admins as still sitting on our shelf. */}
             {gift && (
               <Badge
-                variant={gift.handover_status === "delivered" ? "success" : "amber"}
+                variant={HANDOVER_BADGE[gift.handover_status].variant}
                 className="h-[20px] px-1.5 text-[9px]"
               >
-                {gift.handover_status === "delivered" ? D.HANDOVER_DELIVERED : D.HANDOVER_PENDING}
+                {HANDOVER_BADGE[gift.handover_status].label}
               </Badge>
             )}
           </div>
@@ -246,6 +250,19 @@ export function GiftShipDetailDrawer({ imo, isOpen, onClose }: GiftShipDetailDra
                   ? D.GIFT_SOURCE_BULK
                   : D.GIFT_SOURCE_MANUAL}
             </span>
+            {/* Who moved the parcel, once anyone has. Kept beside the grant
+                rather than behind the badge: "collected, never handed over" is
+                only visible when both halves are on the same line. */}
+            {gift.collected_at && gift.collected_by_name && (
+              <span className="text-[11.5px] font-medium text-[var(--teal-700)] opacity-80">
+                {D.GIFT_COLLECTED_BY(gift.collected_by_name, shortDate(gift.collected_at))}
+              </span>
+            )}
+            {gift.delivered_by_name && (
+              <span className="text-[11.5px] font-medium text-[var(--teal-700)] opacity-80">
+                {D.GIFT_DELIVERED_BY(gift.delivered_by_name)}
+              </span>
+            )}
           </div>
         )}
 
@@ -269,7 +286,6 @@ export function GiftShipDetailDrawer({ imo, isOpen, onClose }: GiftShipDetailDra
         <SheetContent
           side="right"
           adjustable
-          defaultWidth={720}
           className="flex flex-col gap-0 p-0 sm:max-w-none overflow-hidden bg-[var(--surface)]"
         >
           <SheetHeader className="border-b border-[var(--border-md)] p-6 pb-4">
@@ -408,7 +424,7 @@ export function GiftShipDetailDrawer({ imo, isOpen, onClose }: GiftShipDetailDra
       {/* Ship-wide revoke. `reason` is required and non-blank on every
           underlying call, so this is a form rather than a plain confirm. */}
       <Sheet open={confirmShipRevoke} onOpenChange={(open) => !open && setConfirmShipRevoke(false)}>
-        <SheetContent side="right" defaultWidth={460} className="flex flex-col gap-0 p-0">
+        <SheetContent side="right" className="flex flex-col gap-0 p-0">
           <SheetHeader className="border-b border-[var(--border-md)] p-6 pb-4">
             <SheetTitle>{D.REVOKE_SHIP_TITLE}</SheetTitle>
             <SheetDescription>{D.REVOKE_SHIP_HINT}</SheetDescription>

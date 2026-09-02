@@ -11,6 +11,7 @@ import { baseApi } from "@/lib/fetchUtils";
 import type {
   GetGiftShipsParams,
   GiftConfig,
+  GiftHandoverStatus,
   GiftShip,
   GiftShipDetail,
   GiftShipOrder,
@@ -53,6 +54,28 @@ function toShip(row: unknown): GiftShip {
   };
 }
 
+/** Every handover state the API can send, as a set the parser can check against. */
+const HANDOVER_STATUSES: readonly GiftHandoverStatus[] = [
+  "pending",
+  "collected",
+  "delivered",
+  "revoked",
+  "void",
+];
+
+/**
+ * Narrows the raw string to a known state, falling back to `pending`.
+ *
+ * A checked lookup rather than a cast. The cast this replaces let any string
+ * through as a valid union member, so when the backend added `collected` the
+ * compiler stayed silent and the screen quietly labelled those gifts
+ * "Awaiting handover" — the one reading that was certainly wrong.
+ */
+function toHandoverStatus(value: unknown): GiftHandoverStatus {
+  const raw = asString(value);
+  return HANDOVER_STATUSES.find((status) => status === raw) ?? "pending";
+}
+
 /**
  * A `revoked` or `void` gift reads as **null** — those sailors are giftable
  * again, and the backend already nulls them. This is a belt-and-braces guard so
@@ -60,16 +83,19 @@ function toShip(row: unknown): GiftShip {
  */
 function toGift(value: unknown): SailorGift | null {
   if (!value || typeof value !== "object") return null;
-  const handover = asString(getProp(value, "handover_status")) as SailorGift["handover_status"];
+  const handover = toHandoverStatus(getProp(value, "handover_status"));
   if (handover === "revoked" || handover === "void") return null;
   return {
     id: asString(getProp(value, "id")),
-    handover_status: handover || "pending",
+    handover_status: handover,
     carrier_order_id: (getProp(value, "carrier_order_id") as string | null) ?? null,
     carrier_order_number: (getProp(value, "carrier_order_number") as string | null) ?? null,
     source: asString(getProp(value, "source")) === "bulk" ? "bulk" : "manual",
     granted_by_name: (getProp(value, "granted_by_name") as string | null) ?? null,
     granted_at: (getProp(value, "granted_at") as string | null) ?? null,
+    collected_at: (getProp(value, "collected_at") as string | null) ?? null,
+    collected_by_name: (getProp(value, "collected_by_name") as string | null) ?? null,
+    delivered_by_name: (getProp(value, "delivered_by_name") as string | null) ?? null,
   };
 }
 
@@ -116,6 +142,16 @@ function toShipDetail(res: unknown): GiftShipDetail {
     sailors: Array.isArray(sailors) ? sailors.map(toSailor) : [],
   };
 }
+
+/**
+ * Parsers exposed for unit tests.
+ *
+ * The handover state is the one piece of this payload with real consequences —
+ * it decides the badge an admin acts on — and it is decided here rather than in
+ * the component, so this is where it can be pinned down without mounting a
+ * drawer and a store.
+ */
+export const giftTestables = { toGift };
 
 export const giftApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({

@@ -4183,8 +4183,21 @@ export const MESSAGES = {
       GIFT_CARRIER: "Carries the gift",
       GIFT_SOURCE_BULK: "Whole-ship grant",
       GIFT_SOURCE_MANUAL: "Chosen order",
-      HANDOVER_PENDING: "Awaiting handover",
+      // The three live handover states, as the partner's two checkpoints leave
+      // them. "Awaiting pickup" and "With partner" are genuinely different
+      // situations — one is a parcel still on our shelf, the other is one in a
+      // van — and collapsing them told ops the wrong thing about both.
+      HANDOVER_PENDING: "Awaiting pickup",
+      HANDOVER_COLLECTED: "With partner",
       HANDOVER_DELIVERED: "Handed over",
+      // Unreachable in practice — the API nulls a freed gift — but the badge
+      // map covers the whole union so a new state cannot borrow another's label.
+      HANDOVER_REVOKED: "Revoked",
+      HANDOVER_VOID: "Void",
+      // Shown against the collected/delivered pair: a parcel that left the
+      // warehouse and never arrived is the one state worth chasing.
+      GIFT_COLLECTED_BY: (who: string, when: string) => `picked up by ${who} · ${when}`,
+      GIFT_DELIVERED_BY: (who: string) => `handed over by ${who}`,
       NO_ORDERS: "No live orders.",
       GRANT_ORDER: "Gift this order",
       REVOKE: "Revoke gift",
