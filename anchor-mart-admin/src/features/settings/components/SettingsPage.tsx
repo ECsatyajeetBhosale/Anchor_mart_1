@@ -1,5 +1,3 @@
-import { PageHeader } from "@/components/common/PageHeader";
-import { MESSAGES } from "@/lib/messages";
 import { OrderConfigCard } from "./OrderConfigCard";
 
 /**
@@ -21,7 +19,8 @@ import { OrderConfigCard } from "./OrderConfigCard";
 export function SettingsPage() {
   return (
     <div>
-      <PageHeader title={MESSAGES.SETTINGS.TITLE} />
+      {/* Named by the top bar rather than here: one card under a heading of the
+          same word, beside a highlighted nav entry of that word again. */}
       <OrderConfigCard />
     </div>
   );

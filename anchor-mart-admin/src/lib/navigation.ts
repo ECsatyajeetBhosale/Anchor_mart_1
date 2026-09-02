@@ -128,6 +128,31 @@ export interface NavSection {
  * once showed were fabricated. Whether the backend counts a section's work is a
  * separate question from where the section sits.
  */
+/**
+ * The routes whose page name is supplied by the **top bar**.
+ *
+ * Everywhere else the top bar shows no name at all, because the screen already
+ * carries its own heading and the sidebar entry beside it is highlighted — a
+ * third copy of the same word taught people to stop reading that bar. On a few
+ * screens the reverse is true: they are a single continuous surface with no
+ * room for a heading of their own (the two chat desks are two full-height
+ * panes; Notifications and Settings open straight onto their tabs), so the top
+ * bar is the only place the name can live.
+ *
+ * Keep the two in step: a screen listed here must **not** render a
+ * `PageHeader` title, and a screen with one must not be listed here.
+ */
+export const TOPBAR_TITLE_ROUTES: readonly string[] = [
+  // The dashboard names itself inside its own hero banner rather than through
+  // `PageHeader`, and is listed here only because its top-bar title was never
+  // part of the change that removed the others.
+  APP_ROUTES.DASHBOARD,
+  APP_ROUTES.NOTIFICATIONS,
+  APP_ROUTES.SUPPORT,
+  APP_ROUTES.ORDER_CHATS,
+  APP_ROUTES.SETTINGS,
+];
+
 export const NAV_SECTIONS: NavSection[] = [
   {
     label: "Overview",

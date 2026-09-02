@@ -12,7 +12,7 @@ import { useAppDispatch } from "@/hooks/useAppDispatch";
 import { APP_ROUTES } from "@/lib/constants";
 import { baseApi } from "@/lib/fetchUtils";
 import { MESSAGES } from "@/lib/messages";
-import { NAV_SECTIONS } from "@/lib/navigation";
+import { NAV_SECTIONS, TOPBAR_TITLE_ROUTES } from "@/lib/navigation";
 import { IconBell, IconRefresh, IconVolume, IconVolumeOff } from "@tabler/icons-react";
 import { useSyncExternalStore } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -51,13 +51,24 @@ export function Header(_props: HeaderProps) {
   const { data: inbox } = useGetNotificationInboxQuery({ unreadOnly: true, limit: 10 });
   const unreadCount = selectUnreadCount(inbox);
 
-  // Find the page title based on active path
-  let pageTitle = "Dashboard";
-  for (const section of NAV_SECTIONS) {
-    const matched = section.items.find((item) => item.path === location.pathname);
-    if (matched) {
-      pageTitle = matched.label;
-      break;
+  /**
+   * The page name, but only on the few screens that carry no heading of their
+   * own (`TOPBAR_TITLE_ROUTES`).
+   *
+   * Everywhere else this bar showed the same word the page's own `<h1>` and the
+   * highlighted sidebar entry were already showing — three copies of "Settings"
+   * on one screen — which is how a bar earns being ignored. The name is taken
+   * from the nav entry so it cannot drift from the item highlighted beside it.
+   */
+  const showsTitle = TOPBAR_TITLE_ROUTES.includes(location.pathname);
+  let pageTitle = "";
+  if (showsTitle) {
+    for (const section of NAV_SECTIONS) {
+      const matched = section.items.find((item) => item.path === location.pathname);
+      if (matched) {
+        pageTitle = matched.label;
+        break;
+      }
     }
   }
 
@@ -82,9 +93,16 @@ export function Header(_props: HeaderProps) {
 
   return (
     <header className="topbar">
-      <div className="topbar-title" id="tb-title">
-        {pageTitle}
-      </div>
+      {/* `.topbar-title` is `flex: 1`, so it doubles as the spacer holding the
+          actions against the right edge. Without a title there still has to be
+          one, or all four icons slide to the left of the bar. */}
+      {pageTitle ? (
+        <div className="topbar-title" id="tb-title">
+          {pageTitle}
+        </div>
+      ) : (
+        <div className="flex-1" />
+      )}
 
       {/* The dot is driven by the real unread total. It used to be hardcoded —
           permanently lit, on every screen, for every admin — which trained

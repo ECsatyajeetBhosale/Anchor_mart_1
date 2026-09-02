@@ -1,5 +1,4 @@
 import { DynamicTabs } from "@/components/common/DynamicTabs";
-import { PageHeader } from "@/components/common/PageHeader";
 import { MESSAGES } from "@/lib/messages";
 import { useState } from "react";
 import { BroadcastForm } from "./BroadcastForm";
@@ -28,8 +27,8 @@ export function NotificationsPage() {
 
   return (
     <div className="page-enter">
-      <PageHeader title={M.TITLE} />
-
+      {/* Named by the top bar rather than here — the screen opens straight onto
+          its tabs, and a heading above them only repeated the nav entry. */}
       <DynamicTabs
         value={activeTab}
         onTabChange={setActiveTab}

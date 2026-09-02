@@ -153,7 +153,17 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
                     // `Slot` merge when used as `TooltipTrigger asChild`. React
                     // Router auto-appends the `active` class, so active state is
                     // preserved without a function className.
-                    <NavLink to={item.path} className="nav-item">
+                    //
+                    // `end` makes the match exact. Without it a `NavLink` also
+                    // lights up for any path *below* its own, so Help & FAQ
+                    // (`/settings/faqs`) lit Settings (`/settings`) as well and
+                    // the sidebar claimed to be on two screens at once.
+                    //
+                    // Safe for every entry, not just that pair: each one
+                    // addresses a single screen, and detail is opened in a
+                    // drawer rather than at a nested route — there is no child
+                    // path anywhere in the router for a parent to stay lit for.
+                    <NavLink to={item.path} end className="nav-item">
                       <Icon size={17} />
                       <span>{item.label}</span>
                       {hasActivity && (
