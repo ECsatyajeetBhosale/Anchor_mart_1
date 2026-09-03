@@ -13,6 +13,23 @@ vi.mock("../api/mediaApi", () => ({
   useCreatePresignedUrlMutation: () => [createPresignedUrl],
 }));
 
+/**
+ * The session's capability list, mocked for the same reason as the mutation:
+ * what is under test is what the hook does with a `media.upload` grant, not how
+ * the auth slice comes to hold one. Reading it for real would need the whole
+ * store behind a `<Provider>`.
+ */
+const mockFeatures: string[] = [];
+vi.mock("@/lib/roles", () => ({
+  useAdminAccess: () => ({
+    role: "admin",
+    isSuperAdmin: false,
+    can: (feature: string) => mockFeatures.includes(feature),
+    canManageCatalog: true,
+  }),
+}));
+
+import { MESSAGES } from "@/lib/messages";
 import { FILE_LOCATIONS } from "../types/media.types";
 import { type UploadedFile, useMediaUpload } from "./useMediaUpload";
 
@@ -51,6 +68,7 @@ function imageFile(name = "photo.jpg") {
 let fetchSpy: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
+  mockFeatures.splice(0, mockFeatures.length, "media.upload");
   unwrap.mockResolvedValue(SLIP);
   fetchSpy = vi.fn().mockResolvedValue({ ok: true, status: 204, text: async () => "" });
   vi.stubGlobal("fetch", fetchSpy);
@@ -150,5 +168,25 @@ describe("useMediaUpload — client-side validation", () => {
     expect(createPresignedUrl).not.toHaveBeenCalled();
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(result.current.error).toBeTruthy();
+  });
+});
+
+describe("useMediaUpload — capability gate", () => {
+  beforeEach(() => vi.stubEnv("VITE_APP_ENV", "production"));
+
+  it("refuses to mint a slip without media.upload", async () => {
+    mockFeatures.length = 0;
+    const { uploaded, result } = await runUpload(imageFile());
+
+    expect(uploaded).toBeNull();
+    // Refused here, so the endpoint that would answer 403 is never called.
+    expect(createPresignedUrl).not.toHaveBeenCalled();
+    expect(result.current.error).toBe(MESSAGES.MEDIA.NO_PERMISSION);
+    expect(result.current.canUpload).toBe(false);
+  });
+
+  it("reports the capability through canUpload", () => {
+    const { result } = renderHook(() => useMediaUpload());
+    expect(result.current.canUpload).toBe(true);
   });
 });

@@ -54,6 +54,19 @@ export function validateUploadSize(file: File): string | null {
  */
 export const ALLOWED_IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp"] as const;
 
+/**
+ * The picker's `accept` filter, derived from the same list the upload is
+ * checked against.
+ *
+ * It used to be `image/*`, which is wider than what we accept: the OS dialog
+ * offered SVG, BMP, HEIC and TIFF, and the file was only rejected after the
+ * admin had chosen it. Narrowing the dialog turns that error into a file that
+ * simply cannot be picked. Still a convenience, never the authority — a
+ * determined picker can always switch the dialog to "all files", which is why
+ * {@link validateFileType} runs regardless.
+ */
+export const IMAGE_ACCEPT = ALLOWED_IMAGE_EXTENSIONS.map((ext) => `.${ext}`).join(",");
+
 /** Lowercase extension without the dot, or "" when the name has none. */
 function extensionOf(name: string): string {
   const dot = name.lastIndexOf(".");

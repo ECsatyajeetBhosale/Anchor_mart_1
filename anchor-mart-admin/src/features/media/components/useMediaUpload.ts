@@ -1,5 +1,7 @@
 import { getApiMessage } from "@/lib/apiError";
 import { isMediaUploadEnabled } from "@/lib/appEnv";
+import { MESSAGES } from "@/lib/messages";
+import { useAdminAccess } from "@/lib/roles";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useCreatePresignedUrlMutation } from "../api/mediaApi";
 import {
@@ -47,6 +49,17 @@ export interface UseMediaUploadResult {
    * can explain itself before the user picks a file, not only after.
    */
   uploadsToStorage: boolean;
+  /**
+   * Whether this session holds `media.upload`, the capability the presigned
+   * endpoint now requires (`HasFeature(Feature.MEDIA_UPLOAD)`) on top of
+   * `IsAdminUser`.
+   *
+   * Both admin tiers hold it today, so nothing is hidden in practice — the
+   * point is that the console stops offering a button whose request the server
+   * would refuse the moment that stops being true. A UX gate, never a security
+   * one: the server is the authority either way.
+   */
+  canUpload: boolean;
 }
 
 /**
@@ -57,6 +70,8 @@ export interface UseMediaUploadResult {
  * what validates the directory prefix.
  */
 export function useMediaUpload(): UseMediaUploadResult {
+  const { can } = useAdminAccess();
+  const canUpload = can("media.upload");
   const [createPresignedUrl] = useCreatePresignedUrlMutation();
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +92,13 @@ export function useMediaUpload(): UseMediaUploadResult {
   const upload = useCallback(
     async (file: File, fileLocation: FileLocation): Promise<UploadedFile | null> => {
       if (inFlight.current) return null;
+
+      // The endpoint would answer 403; saying so here costs no round-trip and
+      // names the reason, which the DRF default body does not.
+      if (!canUpload) {
+        setError(MESSAGES.MEDIA.NO_PERMISSION);
+        return null;
+      }
 
       // Fail fast on every rule we can check without a round-trip. Type is one
       // of them by necessity: nothing on the presigned path validates it
@@ -137,7 +159,7 @@ export function useMediaUpload(): UseMediaUploadResult {
         setIsUploading(false);
       }
     },
-    [createPresignedUrl],
+    [createPresignedUrl, canUpload],
   );
 
   return {
@@ -146,5 +168,6 @@ export function useMediaUpload(): UseMediaUploadResult {
     error,
     clearError: () => setError(null),
     uploadsToStorage: isMediaUploadEnabled(),
+    canUpload,
   };
 }

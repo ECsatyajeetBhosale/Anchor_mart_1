@@ -386,7 +386,6 @@ export function VariantForm({ productId, variant, productCatalogType, onDone }: 
             values={images}
             onChange={setImages}
             fileLocation={FILE_LOCATIONS.VARIANT_IMAGES}
-            placeholder={F.IMAGES_PLACEHOLDER}
             previewUrls={imagePreviewUrls}
           />
         </FormField>

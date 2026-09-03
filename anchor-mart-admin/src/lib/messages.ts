@@ -2260,8 +2260,7 @@ export const MESSAGES = {
       ATTRIBUTES: "Attributes (JSON)",
       ATTRIBUTES_HINT:
         "Anything worth recording against this SKU — size, grade, pack. Names are yours to choose.",
-      IMAGES: "Image paths",
-      IMAGES_PLACEHOLDER: "variant_images/example.png",
+      IMAGES: "Images",
       ACTIVE: "Active",
       SAVE: "Save Variant",
       CANCEL: "Cancel",
@@ -2354,8 +2353,7 @@ export const MESSAGES = {
       BASE_PRICE_HINT_EDIT: "A display 'from' figure — it does not change any variant's price.",
       SKU_HINT:
         "Creates the product's first variant. Unique across every variant, including deleted ones.",
-      IMAGES_HINT_ADD:
-        "Upload files, or paste a stored path (e.g. product_images/example.png). The first is the primary image.",
+      IMAGES_HINT_ADD: "Upload one or more files. The first is the primary image.",
       IMAGES_HINT_EDIT:
         "Sending images replaces the whole set — the first is the primary. Leave alone to keep them.",
     },
@@ -2820,7 +2818,7 @@ export const MESSAGES = {
       DESCRIPTION: "Description",
       DESCRIPTION_PLACEHOLDER: "Describe the category…",
       IMAGE: "Category Image",
-      IMAGE_HINT: "Upload a file, or paste a stored path (e.g. category_images/example.jpg).",
+      IMAGE_HINT: "Upload an image file.",
     },
     ACTIVE_HINT:
       "Hides the category from the customer's browse list. Its products stay on sale and remain findable by search.",
@@ -2947,7 +2945,7 @@ export const MESSAGES = {
       DESCRIPTION: "Description",
       DESCRIPTION_PLACEHOLDER: "Describe the category…",
       IMAGE: "Category Image",
-      IMAGE_HINT: "Upload a file, or paste a stored path (e.g. category_images/example.jpg).",
+      IMAGE_HINT: "Upload an image file.",
     },
     ACTIVE_HINT:
       "Hides the category from the customer's browse list. Its spares stay on sale and remain findable by search.",
@@ -5422,8 +5420,6 @@ export const MESSAGES = {
   /** Flow 29c §5 — customer wishlist rows (`SavedProduct`). */
   /** Shared image upload / list field controls (`features/media`). */
   MEDIA: {
-    OPEN_FULL_SIZE: "Open full size",
-    REMOVE: "Remove",
     REMOVE_IMAGE: "Remove image",
     /**
      * Shown outside production, where the presigned slip is still minted but
@@ -5438,6 +5434,21 @@ export const MESSAGES = {
       "The path is saved, but no image exists behind it yet. Re-upload on production to fill it in.",
     /** Sits under the picker before a file is chosen, so the rule is not a surprise. */
     STORAGE_OFF: "Storage upload is off outside production.",
+    /**
+     * The accepted types and the size window, stated before a file is picked.
+     *
+     * The **1 KB floor** is the one worth saying out loud: it is enforced by the
+     * signed S3 policy, so an icon or a small thumbnail is rejected by storage
+     * itself — as a 403 that reads like an auth problem and is not (Flow 26 §2).
+     * Said up front, it is a rule; said after the pick, it is a failure.
+     */
+    ACCEPTED_HINT: (types: string, min: string, max: string) => `${types} · ${min}–${max}`,
+    /**
+     * Shown in place of the upload button when the session does not hold
+     * `media.upload`. The manual path box stays usable, which is the whole
+     * reason the button can be withdrawn without stranding the form.
+     */
+    NO_PERMISSION: "Your role can't upload files.",
   },
   SAVED_PRODUCTS: {
     TITLE: "Saved Products",
@@ -5487,7 +5498,6 @@ export const MESSAGES = {
       // The dialog's accessible name when the image carries no description of
       // its own — said to a screen reader, not drawn on screen.
       TITLE: "Image preview",
-      OPEN_ORIGINAL: "Open original",
     },
     /** The shared emoji picker (`components/ui/emoji-picker.tsx`). */
     EMOJI_PICKER: {

@@ -1,6 +1,5 @@
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { MESSAGES } from "@/lib/messages";
-import { IconExternalLink, IconX } from "@tabler/icons-react";
 
 const M = MESSAGES.COMMON.LIGHTBOX;
 
@@ -20,15 +19,18 @@ export interface ImageLightboxProps {
  * trapping and restoration, and — the reason `Dialog` itself is on Radix —
  * correct nesting when it is opened from inside a drawer.
  *
- * The panel's chrome is stripped back to nothing: an inline thumbnail is
- * opened to *see the image*, and a card border, padding and background around
- * it would only shrink it and frame it in furniture.
+ * **The image is the entire dialog.** No chrome, no buttons: it is dismissed by
+ * clicking anywhere off the picture, or with Escape. That is the whole reason
+ * the panel is sized `w-auto max-w-fit` — the dialog box hugs the image, so
+ * every pixel that is not the picture belongs to Radix's overlay and closes on
+ * click. Give this box any width of its own and a band of dead space appears
+ * beside the image that looks dismissible and is not.
  */
 export function ImageLightbox({ src, alt, onClose }: ImageLightboxProps) {
   return (
     <Dialog open={Boolean(src)} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="max-w-[min(92vw,1100px)] border-none bg-transparent p-0 shadow-none"
+        className="w-auto max-w-fit border-none bg-transparent p-0 shadow-none"
         // The image is the content; nothing inside wants initial focus, and
         // focusing it would draw a ring around the picture on open.
         onOpenAutoFocus={(event) => event.preventDefault()}
@@ -38,41 +40,13 @@ export function ImageLightbox({ src, alt, onClose }: ImageLightboxProps) {
             than shown. */}
         <DialogTitle className="sr-only">{alt || M.TITLE}</DialogTitle>
 
-        <div className="flex flex-col items-center gap-2">
-          {src && (
-            <img
-              src={src}
-              alt={alt || M.TITLE}
-              className="max-h-[82vh] w-auto max-w-full rounded-[var(--radius-lg)] object-contain shadow-[var(--shadow-lg)]"
-            />
-          )}
-
-          <div className="flex items-center gap-2">
-            {/* Opening the original covers what this view deliberately does
-                not: full resolution, zoom, and the browser's own save. */}
-            {src && (
-              <a
-                href={src}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1.5 rounded-[var(--radius-md)] bg-black/55 px-3 py-1.5 text-[12px] font-bold text-white backdrop-blur-sm transition-colors hover:bg-black/70"
-              >
-                <IconExternalLink size={14} />
-                {M.OPEN_ORIGINAL}
-              </a>
-            )}
-
-            <button
-              type="button"
-              onClick={onClose}
-              title={MESSAGES.COMMON.CLOSE}
-              aria-label={MESSAGES.COMMON.CLOSE}
-              className="flex size-8 items-center justify-center rounded-[var(--radius-md)] bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
-            >
-              <IconX size={16} />
-            </button>
-          </div>
-        </div>
+        {src && (
+          <img
+            src={src}
+            alt={alt || M.TITLE}
+            className="max-h-[85vh] w-auto max-w-[92vw] rounded-[var(--radius-lg)] object-contain shadow-[var(--shadow-lg)]"
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

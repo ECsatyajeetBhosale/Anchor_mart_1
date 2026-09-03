@@ -315,8 +315,29 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
           </div>
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto p-6 pt-2">
-          <div className="sticky top-0 bg-[var(--surface)] z-10 mb-[18px] pt-[10px]">
+        <div className="flex-1 overflow-y-auto px-6 pb-6">
+          {/*
+            The pinned tab bar, and the reason each piece of this is here:
+            fields were visibly sliding through the gaps around it as the body
+            scrolled. An opaque band has to cover every side of the bar, and
+            three separate things were leaking.
+
+            • `-mx-6 px-6` — the bar's background used to stop at the body's
+              24px side padding, so content passed through the strips either
+              side of it. Full-bleed to the drawer edges, text still aligned.
+            • `pt-4` — the gap under the drawer header *and* the band that
+              covers content scrolling up behind the bar. The body's own
+              `pt-2` used to sit in this space; padding on the scroll container
+              scrolls away with the content, so that 8px was a window.
+            • `pb-5` with `listClassName="!mb-0"` — the bar's bottom spacing was
+              `TabsList`'s own margin, which is transparent by definition, so a
+              20px strip of scrolling content showed directly beneath the tab
+              underline. Same gap, moved inside the opaque box.
+
+            The result is one solid block pinned flush under the header, which
+            is what `sticky top-0` was always meant to give.
+          */}
+          <div className="sticky top-0 z-10 -mx-6 bg-[var(--surface)] px-6 pt-4 pb-5">
             <DynamicTabs
               tabs={[
                 // Two tabs: what this endpoint writes, and what the variant
@@ -327,12 +348,15 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
               ]}
               value={activeTab}
               onTabChange={setActiveTab}
+              // The bar's own margin is transparent; the wrapper's `pb-5`
+              // replaces it with padding that the background actually covers.
+              listClassName="!mb-0"
             />
           </div>
 
           {/* Basic Info — exactly the nine keys update-product accepts. */}
           {activeTab === "pt-basic" && (
-            <div className="prod-tab mt-4">
+            <div className="prod-tab">
               <div className="sec-label">{MESSAGES.PRODUCTS.SECTIONS.DETAILS}</div>
               <FormRow>
                 <FormField label={MESSAGES.PRODUCTS.FIELDS.NAME} error={errors.name?.message}>
@@ -501,7 +525,7 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
           {/* Read-only here: variants carry their own contract and are edited
               from the Products list (row menu → Manage variants). */}
           {activeTab === "pt-variants" && (
-            <div className="prod-tab mt-4">
+            <div className="prod-tab">
               <div className="sec-label">
                 {MESSAGES.PRODUCTS.SECTIONS.VARIANTS}
                 <span className="td-m ml-2">{VT.COUNT(variants.length)}</span>
