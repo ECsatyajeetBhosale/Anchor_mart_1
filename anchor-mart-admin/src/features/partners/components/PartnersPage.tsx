@@ -15,6 +15,7 @@ import {
 } from "@/components/common/tableColumns";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
+import { useStartChat } from "@/features/chat";
 import { getApiMessage, getApiStatus } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
@@ -33,6 +34,10 @@ const M = MESSAGES.PARTNERS;
 
 export function PartnersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  // Opens the partner's existing support thread. Admins cannot *create* one —
+  // Flow 23 gives that to the partner — so this is a lookup and a navigation,
+  // and it says so itself when the partner has never written in.
+  const { startSupportChat } = useStartChat();
 
   // URL-driven list state (shareable, refresh-safe) — mirrors the other list pages.
   const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
@@ -174,13 +179,9 @@ export function PartnersPage() {
     actionsColumn({
       header: M.COLUMNS.ACTIONS,
       actions: () => ({
-        view: {
-          title: M.ACTIONS.VIEW,
-          onClick: (e, r) => {
-            e.stopPropagation();
-            openHistory(r);
-          },
-        },
+        // No `view` action: the eye opened the history drawer, which is exactly
+        // what clicking the row already does (`onRowClick={openHistory}`), so it
+        // was a second button for the same thing.
         edit: {
           title: M.ACTIONS.EDIT,
           onClick: (e, r) => {
@@ -192,7 +193,10 @@ export function PartnersPage() {
           title: M.ACTIONS.MESSAGE,
           onClick: (e, r) => {
             e.stopPropagation();
-            toast.success(M.TOAST.MESSAGE_OPENED(r.n));
+            // A partner's support thread lives in the **delivery** inbox, not
+            // the sailor one — landing on the wrong tab would show an empty
+            // list exactly where the thread is not.
+            void startSupportChat(r.userId, "delivery");
           },
         },
         delete: {

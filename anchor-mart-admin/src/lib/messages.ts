@@ -1851,7 +1851,6 @@ export const MESSAGES = {
     },
     // Row actions
     ACTIONS: {
-      VIEW: "View Profile",
       MESSAGE: "Message",
       EDIT: "Edit Info",
       DELETE: "Delete Partner",
@@ -2044,7 +2043,6 @@ export const MESSAGES = {
        */
       DELETE_BLOCKED:
         "This partner still holds an order. Reassign or finish it before deleting them.",
-      MESSAGE_OPENED: (name: string) => `Chat session opened with ${name}`,
     },
   },
   // Product catalog / merchandising flags (set-catalog-type, top-rated,
