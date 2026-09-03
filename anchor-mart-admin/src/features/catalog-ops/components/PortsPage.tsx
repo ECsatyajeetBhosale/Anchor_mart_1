@@ -126,13 +126,24 @@ export function PortsPage() {
         onChange: (v) => setParam("is_active", v),
       },
     }),
-    actionsColumn({
-      header: M.COLUMNS.ACTIONS,
-      // Only the keys present here render, so a sub-admin gets an empty cell
-      // rather than controls the server will refuse.
-      actions: () =>
-        canConfigurePorts
-          ? {
+    /*
+      The whole column, not just its buttons, is conditional.
+
+      It used to render for everyone and hand a sub-admin an empty `actions: {}`
+      — so the table carried a header and a fixed `w-24` cell of nothing on
+      every row, and the columns that do have something to say were squeezed to
+      make room for it. Port configuration is `platform.port_config`, which no
+      operator holds, so for them there is no action here at all and the column
+      has nothing to be.
+
+      Dropping it also lets the remaining columns take the width back: the table
+      is auto-layout, so this needs no other spacing change.
+    */
+    ...(canConfigurePorts
+      ? [
+          actionsColumn<Port>({
+            header: M.COLUMNS.ACTIONS,
+            actions: () => ({
               /**
                * The port's moorings. Offered on the same permission as the rest
                * of this row: an anchorage is port configuration, and the list
@@ -160,9 +171,10 @@ export function PortsPage() {
                   setPortToDelete(row);
                 },
               },
-            }
-          : {},
-    }),
+            }),
+          }),
+        ]
+      : []),
   ];
 
   return (
