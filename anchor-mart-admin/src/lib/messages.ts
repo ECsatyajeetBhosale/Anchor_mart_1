@@ -5493,6 +5493,19 @@ export const MESSAGES = {
     EMAIL_INVALID: "Enter a valid email address",
   },
   COMMON: {
+    /**
+     * The last-resort screen when a render throws
+     * (`components/common/ErrorBoundary.tsx`).
+     *
+     * Worded for an operator, not a developer: it says the panel is at fault
+     * rather than their data, and that reloading is safe — the alternative
+     * reading of a blank screen is "I broke something and may have lost work".
+     */
+    ERROR_BOUNDARY: {
+      TITLE: "Something went wrong",
+      BODY: "This screen hit an unexpected error. Reloading usually fixes it — nothing you saved has been lost.",
+      RELOAD: "Reload the page",
+    },
     /** The full-size image viewer (`components/ui/image-lightbox.tsx`). */
     LIGHTBOX: {
       // The dialog's accessible name when the image carries no description of

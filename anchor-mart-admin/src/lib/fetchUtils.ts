@@ -68,8 +68,21 @@ const rawBaseQuery = fetchBaseQuery({
     if (!headers.has("Accept")) {
       headers.set("Accept", "application/json");
     }
-    // Skip ngrok browser interstitial in development
-    headers.set("ngrok-skip-browser-warning", "true");
+    /**
+     * Skips the ngrok interstitial — **development only**.
+     *
+     * In dev this is free: the Vite proxy makes every call same-origin, so no
+     * preflight is involved. In production the panel and the API are on
+     * different origins by design, and this is not a CORS-safelisted header —
+     * so the browser requires the backend to name it in
+     * `Access-Control-Allow-Headers` or the preflight fails and the request
+     * never happens. django-cors-headers' default list does not include it,
+     * which would have failed *every* API call on a deployment that had not
+     * been told about a header only a dev tunnel ever needed.
+     */
+    if (import.meta.env.DEV) {
+      headers.set("ngrok-skip-browser-warning", "true");
+    }
     return headers;
   },
 });
