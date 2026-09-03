@@ -117,6 +117,21 @@ export function SellerRequestDetailDrawer({
 
   const isBusy = isSaving;
 
+  /**
+   * Already approved, so there is nothing left to approve.
+   *
+   * Read from the detail response first and the list row only as a fallback:
+   * the row is whatever the last list fetch returned, which can lag a decision
+   * another admin recorded a moment ago, while the detail query is refetched on
+   * open. Both are lowercased because the status token's casing comes from the
+   * API and is not something this screen should depend on.
+   *
+   * **Approve only.** Reject stays available on an approved application — the
+   * endpoint accepts it, and withdrawing an approval that turns out to be wrong
+   * is a real thing an admin needs to do.
+   */
+  const isApproved = (detail?.status ?? seller.status ?? "").toLowerCase() === "approved";
+
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
@@ -240,16 +255,22 @@ export function SellerRequestDetailDrawer({
               <IconX size={15} className="mr-1" />
               {M.DETAIL.REJECT}
             </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              loading={pending === "approve"}
-              disabled={isBusy}
-              onClick={handleApprove}
-            >
-              <IconCheck size={15} className="mr-1" />
-              {M.DETAIL.APPROVE}
-            </Button>
+            {/* Hidden rather than disabled: a greyed Approve on an already-
+                approved application reads as "blocked for some reason" and
+                invites someone to work out how to enable it. The status badge
+                at the top of the drawer already says why it is gone. */}
+            {!isApproved && (
+              <Button
+                variant="primary"
+                size="sm"
+                loading={pending === "approve"}
+                disabled={isBusy}
+                onClick={handleApprove}
+              >
+                <IconCheck size={15} className="mr-1" />
+                {M.DETAIL.APPROVE}
+              </Button>
+            )}
           </div>
         </SheetFooter>
       </SheetContent>
