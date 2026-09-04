@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { FILE_LOCATIONS, ImageUploadField, toStoredPath } from "@/features/media";
 import { MESSAGES } from "@/lib/messages";
 import { type CouponFormData, couponSchema } from "../schemas/coupon.schema";
 import type { Coupon } from "../types/reward.types";
@@ -104,7 +105,11 @@ export function CouponFormDrawer({
         code: raw.code,
         title: raw.title ?? "",
         description: raw.description ?? "",
-        image: raw.image ?? "",
+        // Reads come back as an absolute CloudFront URL; writes take the
+        // media-root relative path, and the serializer rejects anything that
+        // does not start with `coupon_images/`. Convert on the way in so an
+        // untouched image re-submits as the path it was stored as.
+        image: toStoredPath(raw.image ?? ""),
         discount_type: raw.discount_type as CouponFormData["discount_type"],
         applies_to: raw.applies_to as CouponFormData["applies_to"],
         discount_value: Number(raw.discount_value),
@@ -173,11 +178,24 @@ export function CouponFormDrawer({
                   {...register("description")}
                 />
               </FormField>
-              <FormField label={M.FORM.IMAGE} error={errors.image?.message}>
-                <Input
-                  className="mono"
-                  placeholder={M.FORM.IMAGE_PLACEHOLDER}
-                  {...register("image")}
+              <FormField label={M.FORM.IMAGE} hint={M.FORM.IMAGE_HINT}>
+                <Controller
+                  control={control}
+                  name="image"
+                  render={({ field }) => (
+                    <ImageUploadField
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      fileLocation={FILE_LOCATIONS.COUPON_IMAGES}
+                      // The form holds the stored path because that is what
+                      // submits; this is the same image's read URL, so an
+                      // existing coupon shows its picture rather than an empty
+                      // frame. Dropped by the field when the two stop matching,
+                      // so replacing the image cannot leave the old thumbnail
+                      // asserting it is the new one.
+                      previewUrl={coupon?.raw?.image ?? ""}
+                    />
+                  )}
                 />
               </FormField>
             </section>

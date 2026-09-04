@@ -3794,7 +3794,7 @@ export const MESSAGES = {
       DESCRIPTION: "Description",
       DESCRIPTION_PLACEHOLDER: "Short description shown to sailors",
       IMAGE: "Image Path",
-      IMAGE_PLACEHOLDER: "coupon_images/example.png",
+      IMAGE_HINT: "Upload an image file.",
       DISCOUNT_TYPE: "Discount Type",
       APPLIES_TO: "Applies To",
       DISCOUNT_VALUE: "Discount Value",

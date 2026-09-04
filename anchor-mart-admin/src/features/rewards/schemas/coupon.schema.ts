@@ -1,6 +1,22 @@
 import { z } from "zod";
 
 /**
+ * The coupon `image` is a stored media-root relative path, not a file upload
+ * and not a URL — the same contract the category image follows. Mirroring the
+ * server-side prefix check here turns a round-trip 400 into an inline message;
+ * it is not the safety boundary.
+ */
+const COUPON_IMAGE_PREFIX = "coupon_images/";
+
+const couponImageSchema = z
+  .string()
+  .trim()
+  .default("")
+  .refine((v) => v === "" || v.startsWith(COUPON_IMAGE_PREFIX), {
+    message: `Image path must start with "${COUPON_IMAGE_PREFIX}"`,
+  });
+
+/**
  * Validation schema for the coupon add/edit form. Mirrors the create payload
  * (POST /superadmin/promotion/coupons/add/). Numbers use `z.coerce.number()`
  * so the text/number inputs round-trip; dates are `YYYY-MM-DD` strings from
@@ -10,7 +26,8 @@ export const couponSchema = z.object({
   code: z.string().trim().min(1, "Coupon code is required"),
   title: z.string().trim().default(""),
   description: z.string().trim().default(""),
-  image: z.string().trim().default(""),
+  // Stored image path (e.g. "coupon_images/example.png") — not a file upload.
+  image: couponImageSchema,
   discount_type: z.enum(["percentage", "fixed", "free_shipping"]),
   applies_to: z.enum(["delivery", "order_total", "items"]),
   discount_value: z.coerce

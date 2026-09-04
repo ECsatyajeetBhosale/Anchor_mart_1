@@ -8,13 +8,15 @@
  */
 
 /**
- * The five directories `FILE_DIR_CHOICES` accepts. The comparison is an exact
- * string match **including the trailing slash** — `"category_images"` without
- * it is a 400.
+ * The directories `FILE_DIR_CHOICES` accepts. The comparison is an exact string
+ * match **including the trailing slash** — `"category_images"` without it is a
+ * 400.
  *
- * There are 17 `*_DIR_PATH` settings on the backend but only these five are
- * mintable; a consuming endpoint may accept a path elsewhere, yet no slip can
- * be issued for it.
+ * There are 17 `*_DIR_PATH` settings on the backend but only these are mintable;
+ * a consuming endpoint may accept a path elsewhere, yet no slip can be issued
+ * for it. Adding an entry here does **not** make it mintable — this list has to
+ * track `FILE_DIR_CHOICES`, and a directory the backend has not added answers
+ * the mint call with a 400 naming `file_location`.
  */
 export const FILE_LOCATIONS = {
   CATEGORY_IMAGES: "category_images/",
@@ -22,6 +24,7 @@ export const FILE_LOCATIONS = {
   VARIANT_IMAGES: "variant_images/",
   PROFILE_PICTURES: "profile_pictures/",
   SHOP_IMAGES: "shop_images/",
+  COUPON_IMAGES: "coupon_images/",
 } as const;
 
 export type FileLocation = (typeof FILE_LOCATIONS)[keyof typeof FILE_LOCATIONS];
