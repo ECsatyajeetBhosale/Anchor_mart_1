@@ -30,6 +30,7 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       open: true,
+      host: true,
       // Allow the dev server to be reached through an ngrok tunnel (Vite 6 blocks
       // unknown hosts by default, otherwise showing a "Blocked request" page).
       // Free ngrok tunnels now use *.ngrok-free.dev.
