@@ -4,3 +4,11 @@ AnchorMart-1-react-migration/
 # Backend-supplied API specs — reference only, never part of this repo.
 # Path is relative to this .gitignore, so no "Anchor_mart_1/" prefix.
 help folder/
+
+# macOS Finder metadata. Five of these were committed; they are noise in every
+# diff and mean nothing to anyone on another platform.
+.DS_Store
+
+# TypeScript's incremental build cache. Rewritten by every `tsc -b`, so tracking
+# it dirtied the working tree after each build for no benefit.
+tsconfig.tsbuildinfo
