@@ -225,7 +225,7 @@ export function AdminUserDetailDrawer({ user, isOpen, onClose }: AdminUserDetail
                 {isActive ? M.STATUS.ACTIVE : M.STATUS.INACTIVE}
               </Badge>
             </div>
-            <FormRow className="!mb-0" columns={3}>
+            <FormRow className="!mb-0" columns={2}>
               <div className="mini-stat">
                 <div className="mini-stat-val !text-[16px]">
                   <Badge variant={record?.role === "super_admin" ? "danger" : "info"}>
@@ -237,10 +237,6 @@ export function AdminUserDetailDrawer({ user, isOpen, onClose }: AdminUserDetail
               <div className="mini-stat">
                 <div className="mini-stat-val !text-[16px]">{record?.joined}</div>
                 <div className="mini-stat-lbl">{D.JOINED}</div>
-              </div>
-              <div className="mini-stat">
-                <div className="mini-stat-val !text-[16px]">{record?.lastLogin}</div>
-                <div className="mini-stat-lbl">{D.LAST_LOGIN}</div>
               </div>
             </FormRow>
           </div>
@@ -284,16 +280,6 @@ export function AdminUserDetailDrawer({ user, isOpen, onClose }: AdminUserDetail
               <Input error={!!errors.whatsapp_number} {...register("whatsapp_number")} />
             </FormField>
           </FormRow>
-
-          {/* Account facts that explain the security section below it. */}
-          <div className="sec-label mt-4">{D.ACCOUNT}</div>
-          <FormField label={D.DJANGO_ADMIN} hint={D.DJANGO_ADMIN_HINT}>
-            <div className="ecard">
-              <Badge variant={record?.isStaff ? "info" : "neutral"}>
-                {record?.isStaff ? D.DJANGO_ADMIN_YES : D.DJANGO_ADMIN_NO}
-              </Badge>
-            </div>
-          </FormField>
 
           {/* Security — the three actions that are not "save my edits". */}
           {canManageAdmins && (

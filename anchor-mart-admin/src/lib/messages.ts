@@ -5053,15 +5053,8 @@ export const MESSAGES = {
         CONTACT: "Contact",
         COUNTRY_CODE: "Country Code",
         WHATSAPP: "WhatsApp Number",
-        ACCOUNT: "Account",
         TIER: "Tier",
         JOINED: "Joined",
-        LAST_LOGIN: "Last Sign-in",
-        DJANGO_ADMIN: "Django Admin",
-        DJANGO_ADMIN_YES: "Yes",
-        DJANGO_ADMIN_NO: "No",
-        DJANGO_ADMIN_HINT:
-          "Admin-tier accounts created with a real email get a generated password and Django-admin access.",
         // The tier is fixed at creation, exactly as it is for a sailor.
         TIER_LOCKED_HINT: "Set when the account was created and cannot be changed here.",
         SECURITY: "Security",
