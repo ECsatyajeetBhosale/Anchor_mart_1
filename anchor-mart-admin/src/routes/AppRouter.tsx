@@ -3,6 +3,7 @@ import { Layout } from "@/components/common/Layout";
 import { APP_ROUTES } from "@/lib/constants";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "./ProtectedRoute";
+import { PublicRoute } from "./PublicRoute";
 
 // Auth — from feature
 import { LoginPage, OtpLoginPage } from "@/features/auth";
@@ -86,10 +87,14 @@ export function AppRouter() {
         {/* Root redirect */}
         <Route path="/" element={<Navigate to={APP_ROUTES.DASHBOARD} replace />} />
 
-        {/* Auth routes (unauthenticated) */}
-        <Route element={<AuthLayout />}>
-          <Route path={APP_ROUTES.LOGIN} element={<LoginPage />} />
-          <Route path={APP_ROUTES.LOGIN_OTP} element={<OtpLoginPage />} />
+        {/* Auth routes — unauthenticated only. `PublicRoute` bounces a
+            signed-in admin back to the dashboard, so Back out of a session
+            cannot land on a login form that has already been satisfied. */}
+        <Route element={<PublicRoute />}>
+          <Route element={<AuthLayout />}>
+            <Route path={APP_ROUTES.LOGIN} element={<LoginPage />} />
+            <Route path={APP_ROUTES.LOGIN_OTP} element={<OtpLoginPage />} />
+          </Route>
         </Route>
 
         {/* Protected dashboard routes */}
