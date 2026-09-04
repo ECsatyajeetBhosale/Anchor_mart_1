@@ -37,16 +37,33 @@ function initialState(): PushState {
  * best-effort and carries no counts. An admin who never enables push loses
  * nothing they had before.
  *
- * ## Why enabling is a button, not something this does on sign-in
+ * ## Registration is automatic on sign-in
  *
- * It re-registers silently whenever permission is **already** granted — token
- * rotation means yesterday's token is not guaranteed to still be the one FCM
- * will deliver to, so "already enabled" still has to send. But it never raises
- * the permission prompt on its own. Chrome ignores a prompt not tied to a user
- * gesture, and Firefox blocks it outright; a blocked prompt is recorded as a
- * denial the admin never saw and cannot undo from script. Spending the one
- * chance at that prompt on a page load is how a panel ends up permanently unable
- * to ask. {@link enable} is the gesture-backed path, wired to the header button.
+ * Every sign-in registers, in one of two ways depending on what the browser has
+ * already been asked:
+ *
+ *  - permission **granted** — mint and send straight away. Token rotation means
+ *    yesterday's token is not guaranteed to still be the one FCM will deliver
+ *    to, so "already enabled" still has to send.
+ *  - permission **default** — raise the prompt, then send if it is granted.
+ *
+ * The prompt is raised without a user gesture, which browsers treat unequally:
+ *
+ *  - **Chrome** shows it. It may use the quieter UI for a user who habitually
+ *    blocks notifications, but the prompt is not suppressed.
+ *  - **Firefox / Safari** require a gesture and resolve to `"default"` without
+ *    showing anything. Crucially that is *not* a denial — permission is left
+ *    untouched, so nothing is burned and a later gesture could still ask.
+ *
+ * So the auto-path is best-effort and never destructive: the worst case on a
+ * gesture-strict browser is that nothing happens and push stays off there. A
+ * `"denied"` answer is respected and never re-asked, since script cannot undo
+ * it — only the admin can, in browser settings.
+ *
+ * {@link enable} is that gesture-backed path. Nothing calls it today — the
+ * header toggle it belonged to was removed — and it is kept because it is the
+ * only way push can ever be turned on in Firefox and Safari, so a future
+ * control has something to call.
  */
 export function usePushNotifications() {
   const token = useAppSelector((s) => s.auth.token);
@@ -76,7 +93,8 @@ export function usePushNotifications() {
     }
   }, [registerFcmToken]);
 
-  // Silent re-registration for a browser that has already granted permission.
+  // Silent registration on sign-in — prompting first if the browser has not
+  // been asked yet.
   useEffect(() => {
     if (!token) {
       // Signed out: let the next sign-in register again. The backend drops this
@@ -85,12 +103,39 @@ export function usePushNotifications() {
       registeredFor.current = null;
       return;
     }
-    if (state !== "enabled" || registeredFor.current === token) return;
+    // "unsupported" / "unconfigured" / "denied" / "error" are all dead ends here
+    // — nothing this effect can do changes them.
+    if (state !== "enabled" && state !== "prompt") return;
+    // Claimed before the first await so the state changes below, which re-run
+    // this effect, cannot start a second registration for the same sign-in.
+    if (registeredFor.current === token) return;
     registeredFor.current = token;
+
     let cancelled = false;
-    void sendToken().then((ok) => {
-      if (!cancelled && !ok) setState("error");
-    });
+    void (async () => {
+      if (state === "prompt") {
+        const permission = await requestPermission();
+        if (cancelled) return;
+        if (permission !== "granted") {
+          // Released rather than left claimed: on a gesture-strict browser this
+          // is a prompt that was never shown, so nothing about this sign-in has
+          // actually been attempted yet.
+          registeredFor.current = null;
+          // No state change on "default" — it is already "prompt", and writing
+          // it back would be a no-op React discards anyway.
+          if (permission === "denied") setState("denied");
+          return;
+        }
+      }
+      const ok = await sendToken();
+      if (cancelled) return;
+      // Deliberately the *only* state write on the happy path. Flipping to
+      // "enabled" before the send would re-run this effect, and its cleanup
+      // would mark this very closure cancelled while the POST was still in
+      // flight — losing the result of the send it was in the middle of.
+      setState(ok ? "enabled" : "error");
+    })();
+
     return () => {
       cancelled = true;
     };

@@ -1,5 +1,4 @@
 import { selectUnreadCount, useGetNotificationInboxQuery } from "@/features/notifications";
-import { PushToggleButton } from "@/features/push";
 import {
   ConnectionStatus,
   isSoundMuted,
@@ -140,13 +139,6 @@ export function Header(_props: HeaderProps) {
       >
         {muted ? <IconVolumeOff size={17} /> : <IconVolume size={17} />}
       </button>
-
-      {/* Push sits beside the chime for the same reason the chime sits beside
-          the connection state: all three answer "will this console tell me when
-          something happens?". This one is the only one that still answers yes
-          with the tab closed. Renders nothing where push is unsupported or the
-          deployment has no Firebase config. */}
-      <PushToggleButton />
 
       <button type="button" className="tb-action" title="Refresh data" onClick={handleRefresh}>
         <IconRefresh size={17} />

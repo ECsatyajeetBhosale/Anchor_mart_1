@@ -99,10 +99,12 @@ async function getMessagingInstance() {
 /**
  * Asks the browser for permission, if it has not already answered.
  *
- * **Must be called from a user gesture.** Chrome ignores — and Firefox now
- * outright blocks — a permission prompt raised on page load, and a blocked
- * prompt counts as a denial the user never saw. This is why the panel puts push
- * behind a header button instead of enabling it automatically at sign-in.
+ * The panel calls this **without** a user gesture, from the sign-in effect in
+ * `usePushNotifications`. Browsers differ on that: Chrome shows the prompt
+ * anyway (possibly in its quieter UI), while Firefox and Safari require a
+ * gesture and resolve to `"default"` without showing anything. That is not a
+ * denial — permission is left untouched — so the silent no-op on those browsers
+ * costs nothing beyond push staying off there.
  */
 export async function requestPermission(): Promise<NotificationPermission> {
   if (!isPushSupported()) return "denied";
