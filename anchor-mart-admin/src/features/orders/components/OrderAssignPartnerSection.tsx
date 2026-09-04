@@ -189,22 +189,8 @@ export function OrderAssignPartnerSection({
       delivery_partner_id: selectedId,
       confirm: isReassign || forceReassign,
     };
-    // Traced end-to-end: the picker's capability/port scoping is relaxed, so an
-    // assignment can legitimately be rejected server-side. Logging the exact
-    // request and the raw failure makes those rejections diagnosable — dev only,
-    // so the trace never reaches a production console.
-    if (import.meta.env.DEV)
-      console.log("[assign-order] POST /superadmin/partner/assign-order/", {
-        body,
-        partner: { id: selectedId, label: partnerName },
-        order: { id: orderId, status },
-        currentAssignment: current
-          ? { partner: current.partner_name, status: current.status }
-          : null,
-      });
     try {
       const res = await assignOrder(body).unwrap();
-      if (import.meta.env.DEV) console.log("[assign-order] success", res);
       // A 200 carrying `already_assigned` created no assignment and moved no
       // order (see `AssignOrderResponse`). It is the reply a both-capable
       // partner's *completed verification* provokes when they are then picked
@@ -225,14 +211,6 @@ export function OrderAssignPartnerSection({
       // delivery capability), so the backend's sentence stands on its own —
       // `labelFields: false` drops the `delivery_partner_id:` prefix.
       const reason = getApiMessage(err, { labelFields: false });
-      if (import.meta.env.DEV)
-        console.error("[assign-order] failed", {
-          status: e?.status,
-          data: e?.data,
-          message: reason,
-          body,
-          error: err,
-        });
       if (e?.status === 409 && e?.data?.requires_confirmation) {
         setForceReassign(true);
         toast.error(M.CONFIRM_REASSIGN);

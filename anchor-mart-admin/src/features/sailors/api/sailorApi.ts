@@ -206,17 +206,6 @@ export const sailorApi = baseApi.injectEndpoints({
       }),
       transformResponse: (res: unknown): SailorListResult => {
         const { count, rows } = extractList(res);
-        // If a non-empty payload yields no rows, the shape is unexpected — surface
-        // it in dev so the real response structure is visible at a glance.
-        if (
-          import.meta.env.DEV &&
-          rows.length === 0 &&
-          res &&
-          typeof res === "object" &&
-          Object.keys(res as Record<string, unknown>).length > 0
-        ) {
-          console.warn("[sailors] sailors-list returned no parsable rows. Raw response:", res);
-        }
         return { count, sailors: rows.map(toSailorData) };
       },
       providesTags: (result) =>

@@ -193,10 +193,6 @@ export function useRealtimeBadges(): void {
        *    as well would announce work they can already see.
        */
       onSignal: (frame) => {
-        if (import.meta.env.DEV) {
-          console.info(`[events] signal screen=${frame.screen} stage=${frame.stage}`);
-        }
-
         // Validated, not trusted: an unrecognised screen from a future server
         // must be ignored rather than guessed at, since marking the wrong queue
         // sends the admin to look at somewhere nothing happened.
@@ -249,10 +245,6 @@ export function useRealtimeBadges(): void {
        * `order_id`.
        */
       onArrival: (frame) => {
-        if (import.meta.env.DEV) {
-          console.info(`[events] arrival queue=${frame.queue} entity=${frame.entity ?? "order"}`);
-        }
-
         // Validated, not trusted, and the ignore path here is a normal outcome
         // rather than an error. One socket serves three vocabularies plus
         // `deltas`, which this panel has no Delta Payments screen for — and the
@@ -260,9 +252,6 @@ export function useRealtimeBadges(): void {
         // anywhere is worse than no dot: it sends the admin looking for a screen
         // that does not exist.
         if (!isBadgeQueue(frame.queue)) {
-          if (import.meta.env.DEV) {
-            console.info(`[events] arrival ignored: no screen for queue=${frame.queue}`);
-          }
           return;
         }
         const queue = frame.queue;
@@ -311,10 +300,12 @@ export function useRealtimeBadges(): void {
         // to login, and `logout()` flips `isAuthenticated`. Navigating here as
         // well would race that and risk a double history entry.
       },
-      onError: (code, detail) => {
+      onError: () => {
         // `rate_limited` and `unknown_type` leave the connection up and are not
-        // the admin's problem; log rather than toast.
-        if (import.meta.env.DEV) console.warn(`[events] ${code}: ${detail}`);
+        // the admin's problem, so they are swallowed rather than surfaced.
+        // The handler itself must stay: `onError` is a required handler and
+        // `eventsSocket` calls it unconditionally, so omitting it would throw
+        // on the first error frame.
       },
     });
 

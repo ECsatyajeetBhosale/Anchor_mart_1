@@ -1,6 +1,6 @@
 import { MESSAGES } from "@/lib/messages";
 import { IconAlertTriangle, IconRefresh } from "@tabler/icons-react";
-import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Component, type ReactNode } from "react";
 
 const M = MESSAGES.COMMON.ERROR_BOUNDARY;
 
@@ -18,9 +18,8 @@ interface ErrorBoundaryState {
  *
  * **The one place this codebase uses a class component.** `PROJECT_RULES.md`
  * says functional-only, and this is the documented exception rather than a
- * lapse: React exposes error boundaries through `componentDidCatch` /
- * `getDerivedStateFromError` and has no hook equivalent, so a boundary cannot
- * be written any other way.
+ * lapse: React exposes error boundaries through `getDerivedStateFromError` and
+ * has no hook equivalent, so a boundary cannot be written any other way.
  *
  * Without one, a single bad row — a field the API sent as null where the type
  * says string — unmounts the entire app. React's default for an uncaught render
@@ -44,17 +43,6 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { error };
-  }
-
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    // Dev only, matching every other diagnostic in this app. In production the
-    // component stack is the one thing worth having, so this is where a real
-    // reporter (Sentry and friends) is wired in when there is one — it is
-    // intentionally not a bare `console.error`, which would only add noise a
-    // deployed panel has nobody to read.
-    if (import.meta.env.DEV) {
-      console.error("[error-boundary] render failed", error, info.componentStack);
-    }
   }
 
   render() {

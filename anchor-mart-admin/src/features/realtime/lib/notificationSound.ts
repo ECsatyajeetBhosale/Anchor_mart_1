@@ -40,17 +40,6 @@ let lastPlayedAt = Number.NEGATIVE_INFINITY;
 let ctx: AudioContext | null = null;
 let muted = loadMuted();
 
-/**
- * Says why a chime did not sound, in dev only.
- *
- * Every early return below is a deliberate decision, which makes silence
- * indistinguishable from a bug from the outside — the marker lights either way.
- * This is the difference.
- */
-function debug(reason: string): void {
-  if (import.meta.env.DEV) console.info(`[notification-sound] silent: ${reason}`);
-}
-
 /** Listeners for the header toggle, so the icon tracks the real state. */
 const subscribers = new Set<() => void>();
 
@@ -145,11 +134,9 @@ export function installAudioUnlock(): () => void {
  */
 export function playNotificationSound(now: number = Date.now()): boolean {
   if (muted) {
-    debug("muted");
     return false;
   }
   if (now - lastPlayedAt < MIN_GAP_MS) {
-    debug("throttled — a chime already played within the last 3s");
     return false;
   }
 
@@ -158,7 +145,6 @@ export function playNotificationSound(now: number = Date.now()): boolean {
 
   const audio = ensureContext();
   if (!audio) {
-    debug("no AudioContext — this browser has no WebAudio");
     return false;
   }
 
@@ -173,7 +159,7 @@ export function playNotificationSound(now: number = Date.now()): boolean {
     audio
       .resume()
       .then(() => emit(audio))
-      .catch(() => debug("resume refused — no user gesture yet"));
+      .catch(() => {});
     return true;
   }
 
@@ -202,10 +188,9 @@ function emit(audio: AudioContext): boolean {
       osc.stop(at + 0.2);
     }
     return true;
-  } catch (err) {
+  } catch {
     // Audio is a courtesy on top of the marker, which has already been raised.
     // Never let it take the frame handler down with it.
-    debug(`could not schedule the chime: ${String(err)}`);
     return false;
   }
 }

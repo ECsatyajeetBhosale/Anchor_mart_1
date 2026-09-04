@@ -58,19 +58,6 @@ export function useChatPresence(
       if (thread.ownerId) ids.add(thread.ownerId);
     }
 
-    // An empty roster on a non-empty list is a **silent total failure**: the
-    // query is skipped, nobody is ever reported online, and every row renders
-    // exactly as it would if everyone happened to be away. There is no error to
-    // notice and no empty state to see, so it is called out here instead —
-    // this is the shape the bug took the first time, and it went unseen.
-    if (import.meta.env.DEV && enabled && threads.length > 0 && ids.size === 0) {
-      console.warn(
-        "[chat] presence disabled: no user id on any thread row. " +
-          "The list payload needs `owner.id` (or a flat `user_id`) per row — " +
-          "without it the presence endpoint is never called and every user shows offline.",
-      );
-    }
-
     return [...ids].sort().slice(0, PRESENCE_MAX_IDS);
   }, [threads, enabled]);
 
