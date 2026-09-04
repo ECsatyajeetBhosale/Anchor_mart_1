@@ -12,3 +12,13 @@ help folder/
 # TypeScript's incremental build cache. Rewritten by every `tsc -b`, so tracking
 # it dirtied the working tree after each build for no benefit.
 tsconfig.tsbuildinfo
+
+# Documentation and notes — kept locally, never pushed. This repo carries the
+# application source and nothing else.
+#
+# Covers everything: the flow specs under anchor-mart-admin/flows/, the audit
+# and backend-question notes, PROJECT_RULES.md, CLAUDE.md and README.md. They
+# stay on disk and remain in git history, but a fresh clone will not have them —
+# so a code comment citing "Flow 26" or "§4.1" points at a file the reader has
+# to be given separately.
+*.md
