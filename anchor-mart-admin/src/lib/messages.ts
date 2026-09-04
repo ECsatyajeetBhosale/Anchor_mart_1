@@ -5491,6 +5491,9 @@ export const MESSAGES = {
     EMAIL_INVALID: "Enter a valid email address",
   },
   COMMON: {
+    /** Mobile nav drawer — the scrim's accessible name, and the header button's. */
+    OPEN_NAVIGATION: "Open navigation",
+    CLOSE_NAVIGATION: "Close navigation",
     /**
      * The last-resort screen when a render throws
      * (`components/common/ErrorBoundary.tsx`).

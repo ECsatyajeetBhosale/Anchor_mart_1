@@ -37,6 +37,9 @@ const TabsList = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivEl
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
+      // `TabsTrigger` already renders `role="tab"`, which is only valid inside a
+      // tablist — so this was a genuine a11y gap, not just a styling hook.
+      role="tablist"
       className={cn("flex border-b-[1.5px] border-[var(--border-sm)] mb-5", className)}
       {...props}
     />

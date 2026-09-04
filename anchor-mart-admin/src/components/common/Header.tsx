@@ -12,7 +12,7 @@ import { APP_ROUTES } from "@/lib/constants";
 import { baseApi } from "@/lib/fetchUtils";
 import { MESSAGES } from "@/lib/messages";
 import { NAV_SECTIONS, TOPBAR_TITLE_ROUTES } from "@/lib/navigation";
-import { IconBell, IconRefresh, IconVolume, IconVolumeOff } from "@tabler/icons-react";
+import { IconBell, IconMenu2, IconRefresh, IconVolume, IconVolumeOff } from "@tabler/icons-react";
 import { useSyncExternalStore } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -22,9 +22,11 @@ const INBOX = MESSAGES.NOTIFICATIONS.INBOX;
 interface HeaderProps {
   collapsed: boolean;
   onToggle: () => void;
+  /** Opens the mobile nav drawer. Ignored above 900px, where the button is hidden. */
+  onOpenNav?: () => void;
 }
 
-export function Header(_props: HeaderProps) {
+export function Header({ onOpenNav }: HeaderProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -92,6 +94,19 @@ export function Header(_props: HeaderProps) {
 
   return (
     <header className="topbar">
+      {/* Below 900px the sidebar is off-canvas, so this is the only way back to
+          the navigation. Hidden by default and revealed in the mobile media
+          query, rather than the reverse, so the desktop bar is unchanged. */}
+      <button
+        type="button"
+        className="tb-action tb-burger"
+        title={MESSAGES.COMMON.OPEN_NAVIGATION}
+        aria-label={MESSAGES.COMMON.OPEN_NAVIGATION}
+        onClick={onOpenNav}
+      >
+        <IconMenu2 size={18} />
+      </button>
+
       {/* `.topbar-title` is `flex: 1`, so it doubles as the spacer holding the
           actions against the right edge. Without a title there still has to be
           one, or all four icons slide to the left of the bar. */}

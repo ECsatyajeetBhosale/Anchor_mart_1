@@ -15,11 +15,19 @@ import { toast } from "sonner";
 interface AppSidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  /**
+   * Fired when a nav entry is chosen, so the mobile drawer can shut.
+   *
+   * Layout already closes on a `pathname` change; this covers the case that
+   * does not produce one — tapping the entry for the screen you are already on,
+   * which would otherwise leave the drawer sitting there looking stuck.
+   */
+  onNavigate?: () => void;
 }
 
 const NAV = MESSAGES.REALTIME;
 
-export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
+export function AppSidebar({ collapsed, onToggle, onNavigate }: AppSidebarProps) {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const user = useAppSelector((s) => s.auth.user);
@@ -163,7 +171,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
                     // addresses a single screen, and detail is opened in a
                     // drawer rather than at a nested route — there is no child
                     // path anywhere in the router for a parent to stay lit for.
-                    <NavLink to={item.path} end className="nav-item">
+                    <NavLink to={item.path} end className="nav-item" onClick={onNavigate}>
                       <Icon size={17} />
                       <span>{item.label}</span>
                       {hasActivity && (

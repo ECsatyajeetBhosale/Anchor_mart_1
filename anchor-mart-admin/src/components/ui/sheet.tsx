@@ -146,13 +146,13 @@ const SheetContent = React.forwardRef<
           {adjustable && side === "right" && (
             <div
               onMouseDown={handleMouseDown}
-              className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-teal-500/50 transition-colors z-50"
+              className="sheet-resize-handle absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-teal-500/50 transition-colors z-50"
             />
           )}
           {adjustable && side === "left" && (
             <div
               onMouseDown={handleMouseDown}
-              className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-teal-500/50 transition-colors z-50"
+              className="sheet-resize-handle absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-teal-500/50 transition-colors z-50"
             />
           )}
           {children}

@@ -835,7 +835,14 @@ body {
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
   grid-template-rows: var(--topbar-h) 1fr;
+  /* `100vh` on a phone is the LARGE viewport — the height the page would have
+     if the URL bar were hidden — so the last ~15% of a 100vh box sits behind
+     browser chrome and cannot be reached. `100dvh` tracks the viewport as the
+     chrome comes and goes. Declared second so a browser without `dvh` keeps the
+     `vh` line instead of ending up with no height at all; on desktop the two
+     are identical, so this changes nothing there. */
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   opacity: 0;
   transform: scale(0.985);
@@ -844,6 +851,23 @@ body {
 .app-shell.in {
   opacity: 1;
   transform: scale(1);
+}
+
+/* Mobile-only chrome, hidden by default.
+ *
+ * Both of these MUST declare `display:none` outside the media query, not merely
+ * omit themselves from it. `.app-shell` is a grid, so an unstyled `.nav-scrim`
+ * is not invisible — it is an in-flow grid item that claims the first free cell
+ * and pushes the header and the content track out of theirs, wrecking the
+ * desktop layout entirely. `.tb-burger` is milder but the same mistake: it
+ * inherits `display` from `.tb-action` and shows a stray hamburger.
+ *
+ * The mobile query below turns each one back on. */
+.nav-scrim {
+  display: none;
+}
+.tb-burger {
+  display: none;
 }
 
 /* ── SIDEBAR ── */
@@ -1114,36 +1138,43 @@ body {
   color: #fca5a5;
 }
 
-/* Sidebar collapsed */
-.app-shell.collapsed {
-  grid-template-columns: 72px 1fr;
-}
-.app-shell.collapsed .sidebar {
-  width: 72px;
-}
-.app-shell.collapsed .sb-logo {
-  padding: 0;
-  justify-content: center;
-  gap: 1px;
-}
-.app-shell.collapsed .sb-toggle {
-  margin-left: 0;
-}
-.app-shell.collapsed .sb-section {
-  display: none;
-}
-.app-shell.collapsed .nav-item {
-  justify-content: center;
-  padding: 8.5px 0;
-  font-size: 0;
-  position: relative;
-}
-.app-shell.collapsed .nav-item i {
-  margin: 0;
-  font-size: 18px;
-}
+/* Sidebar collapsed — desktop only.
+   Below 900px the rail becomes an off-canvas drawer (see RESPONSIVE at the
+   end of this file), where every one of these rules is actively wrong: they
+   pin the width to 72px and hide the labels, the section headings and the
+   footer. A drawer the admin deliberately opened must show all of it, so the
+   collapsed state simply does not exist at that size — hence the min-width
+   guard rather than fifteen overrides fighting it. */
+@media (min-width: 901px) {
+  .app-shell.collapsed {
+    grid-template-columns: 72px 1fr;
+  }
+  .app-shell.collapsed .sidebar {
+    width: 72px;
+  }
+  .app-shell.collapsed .sb-logo {
+    padding: 0;
+    justify-content: center;
+    gap: 1px;
+  }
+  .app-shell.collapsed .sb-toggle {
+    margin-left: 0;
+  }
+  .app-shell.collapsed .sb-section {
+    display: none;
+  }
+  .app-shell.collapsed .nav-item {
+    justify-content: center;
+    padding: 8.5px 0;
+    font-size: 0;
+    position: relative;
+  }
+  .app-shell.collapsed .nav-item i {
+    margin: 0;
+    font-size: 18px;
+  }
 
-/* Collapsed: the activity marker leaves the flex row.
+  /* Collapsed: the activity marker leaves the flex row.
    In flow it carries `margin-left:auto`, which swallows all the free space on
    the 72px rail and shunts the icon to the left — so an item with new activity
    sat out of line with every item without one. Taking it out of flow leaves
@@ -1151,51 +1182,52 @@ body {
    what keeps every icon on one axis. The item is already `position:relative`.
    Offsets place it just off the icon's top-right corner: the item is 56px wide
    inside its 8px margins, and the 17px icon centres at 15–32px from its left. */
-.app-shell.collapsed .nav-dot {
-  position: absolute;
-  top: 4px;
-  right: 16px;
-  margin-left: 0;
-}
-.app-shell.collapsed .nav-item span.nav-badge {
-  display: none;
-}
-.app-shell.collapsed .nav-item::after {
-  content: attr(data-tooltip);
-  display: block;
-  position: absolute;
-  left: 100%;
-  top: 50%;
-  transform: translate(10px, -50%);
-  white-space: nowrap;
-  background: rgba(15, 23, 42, 0.95);
-  color: #fff;
-  padding: 8px 11px;
-  border-radius: 10px;
-  box-shadow: var(--sh-sm);
-  font-size: 13px;
-  font-weight: 600;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .15s ease;
-  min-width: max-content;
-  z-index: 2;
-}
-.app-shell.collapsed .nav-item:hover::after {
-  opacity: 1;
-}
-.app-shell.collapsed .sb-footer {
-  justify-content: center;
-  padding: 12px 0;
-  gap: 0;
-}
-.app-shell.collapsed .sb-uname,
-.app-shell.collapsed .sb-urole,
-.app-shell.collapsed .sb-logout {
-  display: none;
-}
-.app-shell.collapsed .sb-avatar {
-  margin: 0 auto;
+  .app-shell.collapsed .nav-dot {
+    position: absolute;
+    top: 4px;
+    right: 16px;
+    margin-left: 0;
+  }
+  .app-shell.collapsed .nav-item span.nav-badge {
+    display: none;
+  }
+  .app-shell.collapsed .nav-item::after {
+    content: attr(data-tooltip);
+    display: block;
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translate(10px, -50%);
+    white-space: nowrap;
+    background: rgba(15, 23, 42, 0.95);
+    color: #fff;
+    padding: 8px 11px;
+    border-radius: 10px;
+    box-shadow: var(--sh-sm);
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .15s ease;
+    min-width: max-content;
+    z-index: 2;
+  }
+  .app-shell.collapsed .nav-item:hover::after {
+    opacity: 1;
+  }
+  .app-shell.collapsed .sb-footer {
+    justify-content: center;
+    padding: 12px 0;
+    gap: 0;
+  }
+  .app-shell.collapsed .sb-uname,
+  .app-shell.collapsed .sb-urole,
+  .app-shell.collapsed .sb-logout {
+    display: none;
+  }
+  .app-shell.collapsed .sb-avatar {
+    margin: 0 auto;
+  }
 }
 
 /* ── TOPBAR ── */
@@ -4317,4 +4349,203 @@ textarea.form-input {
 }
 .am-calendar .rdp-day_button:hover:not([disabled]) {
   background: var(--surface-alt);
+}
+
+/* ══════════════════════════════════════════
+   RESPONSIVE — TABLET & MOBILE
+   ══════════════════════════════════════════
+
+   The shell is a two-column grid whose first track is a 244px sidebar. That is
+   the whole problem below tablet: on a 390px phone the rail eats 63% of the
+   viewport and the content track is left with 146px, which is what makes every
+   screen look "broken" rather than merely cramped. Nothing else in the app is
+   laid out badly — the tables already scroll inside `.tbl-wrap`, the stat grid
+   is `auto-fit`, and Sheet/Dialog already cap themselves at the viewport.
+
+   So the fix is structural at one place (the shell) and cosmetic everywhere
+   else. Breakpoints, in the order they apply:
+
+     1100px  the rail stays, but page padding and the topbar search give ground
+      900px  the rail leaves the grid entirely and becomes an off-canvas drawer
+      700px  multi-column form and info grids collapse to one column
+      560px  type and chrome step down; page actions go full-width
+   ══════════════════════════════════════════ */
+
+/* ── ≤1100px — reclaim horizontal space before anything has to move ── */
+@media (max-width: 1100px) {
+  :root {
+    --main-pad-x: 16px;
+    --main-pad-y: 16px;
+  }
+  .topbar {
+    padding: 0 16px;
+  }
+  .topbar-search {
+    width: 190px;
+  }
+}
+
+/* ── ≤900px — the sidebar becomes a drawer ── */
+@media (max-width: 900px) {
+  /* One track. The sidebar is taken out of flow below, so a second track would
+     leave a 244px gap where it used to be. */
+  .app-shell,
+  .app-shell.collapsed {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    /* Same trap as the shell, and this is where it was actually felt: the nav
+       fits inside an oversized box, so nothing overflows, so `.sb-scroll` has
+       nothing to scroll — and Settings, Help & FAQ and Sign out are simply
+       below the fold with no way to reach them. Pinning the drawer to the
+       dynamic viewport puts the footer back on screen and lets the scroller
+       take over whenever the entries genuinely do not fit. */
+    height: 100vh;
+    height: 100dvh;
+    /* Never the full width: the strip of dimmed content still showing is what
+       tells you the drawer is a layer over the page and not a new screen. */
+    width: min(284px, 84vw);
+    z-index: 60;
+    transform: translateX(-100%);
+    transition: transform .28s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: none;
+  }
+  .app-shell.nav-open .sidebar {
+    transform: translateX(0);
+    box-shadow: 0 0 40px rgba(10, 22, 40, 0.34);
+  }
+
+  /* Sign out is the last row in the drawer, which on a gesture-nav phone is
+     exactly where the home indicator sits. Zero everywhere that has no inset. */
+  .sb-footer {
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* The collapse toggle controls a rail that no longer exists at this size. */
+  .sb-toggle,
+  .sb-toggle-row {
+    display: none;
+  }
+
+  .nav-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    border: 0;
+    padding: 0;
+    background: rgba(10, 22, 40, 0.48);
+    opacity: 0;
+    /* `visibility` rather than `display` so the fade has something to animate,
+       and so the scrim cannot be tabbed to or clicked while the drawer is shut. */
+    visibility: hidden;
+    transition: opacity .28s ease, visibility .28s;
+  }
+  .app-shell.nav-open .nav-scrim {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .tb-burger {
+    display: inline-flex;
+  }
+
+  /* The page's own search covers this, and two search boxes on a phone is one
+     too many for the room available. */
+  .topbar-search {
+    display: none;
+  }
+  .topbar {
+    padding: 0 12px;
+    gap: 6px;
+  }
+  .topbar-title {
+    font-size: 14px;
+  }
+}
+
+/* ── ≤700px — stacked forms ── */
+@media (max-width: 700px) {
+  .form-row,
+  .form-row.triple,
+  .info-grid,
+  .grid-3,
+  .grid-4,
+  .grid-1-2 {
+    grid-template-columns: 1fr;
+  }
+
+  /* A drawer is the full screen here, so its resize handle has nothing left to
+     resize — and on touch it is a 6px target sitting under the content edge. */
+  .sheet-resize-handle {
+    display: none;
+  }
+}
+
+/* ── ≤560px — phone ── */
+@media (max-width: 560px) {
+  :root {
+    --main-pad-x: 12px;
+    --main-pad-y: 12px;
+  }
+
+  .pg-header {
+    gap: 12px;
+  }
+  .pg-title {
+    font-size: 19px;
+  }
+  .pg-sub {
+    font-size: 12px;
+  }
+
+  /* Half-width controls stop being usable somewhere around here: two 34vw
+     inputs plus a button on one row leaves each about 120px. One control per
+     row, each filling it. */
+  .pg-actions {
+    width: 100%;
+  }
+  .pg-actions > * {
+    flex: 1 1 100%;
+  }
+  .pg-actions .input-wrap,
+  .pg-actions .form-input,
+  .pg-actions .form-select,
+  .pg-actions .btn {
+    width: 100% !important;
+    max-width: none;
+  }
+
+  .card {
+    padding: 14px;
+  }
+  .card-hd {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Tabs are a horizontal list that cannot wrap without losing its shape, so
+     it scrolls instead — the same answer `.tbl-wrap` gives for wide tables. */
+  [role="tablist"] {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+  [role="tablist"]::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* The product drawer's variants table names this wrapper but nothing ever
+   defined it, so the table had no scroller and widened the drawer instead. The
+   other two hand-rolled tables in the app already sit in `overflow-x-auto`
+   parents; this is the one that was missing. Not inside a media query — a table
+   too wide for its container is not a phone-only problem. */
+.var-table-wrap {
+  overflow-x: auto;
 }
