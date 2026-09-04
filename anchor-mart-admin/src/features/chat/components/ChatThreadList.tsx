@@ -2,7 +2,7 @@ import { Search } from "@/components/common/Search";
 import { Button } from "@/components/ui/button";
 import { MESSAGES } from "@/lib/messages";
 import { cn } from "@/lib/utils";
-import { IconPlus } from "@tabler/icons-react";
+import { IconPaperclip, IconPhoto, IconPlus } from "@tabler/icons-react";
 import { type ReactNode, useMemo } from "react";
 import { CHAT_ROLES, type ChatRoleKey, resolveChatRole } from "../lib/chatRoles";
 import type { ChatThread } from "../types/chat.types";
@@ -188,8 +188,19 @@ export function ChatThreadList({
 
                     <div className="min-w-0 flex-1">
                       <div className="sm w7 c1 trunc">{thread.name}</div>
-                      <div className="xs c4 w5 trunc">
-                        {thread.lastMessage || M.THREADS.NO_PREVIEW}
+                      {/* The icon sits inside the truncating line rather than
+                          beside it, so a long caption ellipsises after the icon
+                          instead of pushing it out of the row. `shrink-0` is
+                          what keeps the glyph its own size while the text gives
+                          way. */}
+                      <div className="xs c4 w5 trunc flex items-center gap-1">
+                        {thread.lastMessageKind === "image" && (
+                          <IconPhoto size={13} className="shrink-0" aria-hidden />
+                        )}
+                        {thread.lastMessageKind === "file" && (
+                          <IconPaperclip size={13} className="shrink-0" aria-hidden />
+                        )}
+                        <span className="trunc">{thread.lastMessage || M.THREADS.NO_PREVIEW}</span>
                       </div>
                     </div>
 

@@ -4590,6 +4590,11 @@ export const MESSAGES = {
       FETCH_ERROR: "Failed to load conversations.",
       UNREAD: (n: number) => `${n} unread`,
       NO_PREVIEW: "No messages yet",
+      // Stands in for the preview when the newest message is an attachment
+      // carrying no caption — otherwise the row reads "No messages yet" on a
+      // conversation that plainly has one.
+      IMAGE_PREVIEW: "Image",
+      FILE_PREVIEW: "Attachment",
       // Below `lg` the two panes stack into one column, so opening a thread
       // replaces the list and this is the only way back to it.
       BACK: "Back to conversations",

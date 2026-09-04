@@ -76,6 +76,12 @@ export interface ChatThread {
   ownerId: string | null;
   /** Preview text for the most recent message. */
   lastMessage: string;
+  /**
+   * What produced {@link lastMessage} — the row draws an icon for the two
+   * attachment kinds. Reported for a captioned attachment as well, so the icon
+   * appears beside the caption rather than only when there is no text.
+   */
+  lastMessageKind: ChatPreviewKind;
   /** ISO timestamp of the last message. */
   lastMessageAt: string;
   unreadCount: number;
@@ -100,6 +106,9 @@ export interface ChatThread {
    */
   ownerIsOnline: boolean | null;
 }
+
+/** What the newest message in a thread was, for the list row's preview icon. */
+export type ChatPreviewKind = "text" | "image" | "file";
 
 /**
  * One message. Mirrors `ChatMessengerDetailSerializer` (§3.5), whose

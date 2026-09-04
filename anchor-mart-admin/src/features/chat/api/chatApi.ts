@@ -1,6 +1,7 @@
 import { CHAT_ENDPOINTS } from "@/lib/apiEndpoints";
 import { type ListResult, asNumber, asString, getProp, unwrapList } from "@/lib/apiResponse";
 import { SERVER_SECRET_HEADER, baseApi } from "@/lib/fetchUtils";
+import { MESSAGES } from "@/lib/messages";
 import type {
   ChatCategory,
   ChatCounterparty,
@@ -8,6 +9,7 @@ import type {
   ChatOrderRef,
   ChatOwner,
   ChatPresence,
+  ChatPreviewKind,
   ChatThread,
   ChatUnreadSummary,
   CreateChatGroupPayload,
@@ -17,6 +19,7 @@ import type {
   OrderContextSummary,
   UploadChatMediaArgs,
 } from "../types/chat.types";
+import { UPLOAD_IMAGE_TYPES } from "../types/chat.types";
 
 /** First non-empty string among the given keys, else `""`. */
 function pick(row: unknown, ...keys: string[]): string {
@@ -60,6 +63,70 @@ function toOrderRef(value: unknown): ChatOrderRef | null {
   };
 }
 
+/** `png|jpe?g|gif|webp`, built from the upload allow-list so the two cannot drift. */
+const IMAGE_URL_RE = new RegExp(`\\.(${UPLOAD_IMAGE_TYPES.join("|")})(?:[?#]|$)`, "i");
+
+/**
+ * Preview line for a thread row: the text, plus what kind of message produced it.
+ *
+ * An image or file message keeps its bytes in `media` and leaves `content`
+ * empty unless the sender typed a caption, so reading `content` alone previewed
+ * every attachment thread as "No messages yet" — a conversation that plainly
+ * has messages, rendered as one nobody has started.
+ *
+ * `kind` is returned rather than folded into the text because the row draws an
+ * icon for it, and an icon cannot be recovered from a string without comparing
+ * against the display copy — which would break the moment the wording changed.
+ * It is reported for a captioned attachment too: the caption is the better text,
+ * but "this is a photo" is still true and still worth showing.
+ *
+ * **Every read here is spelled with alternatives on purpose.** `getProp` yields
+ * `undefined` for anything that is not an object, so a single wrong key — or a
+ * `last_message` that arrives as a bare string on one inbox and an object on
+ * another — does not fail loudly. It reads as `""` and lands back on "No
+ * messages yet", indistinguishable from an empty thread. The four inboxes
+ * (§4.1–4.3) are separate serializers, so tolerating that spread is cheaper than
+ * assuming they agree.
+ *
+ * Order of resort for the kind: the declared type, then the shape of the media
+ * URL, because a row carrying a URL and no type is still unambiguously an
+ * attachment — and the extension is enough to say which sort.
+ */
+export function toLastMessagePreview(
+  lastMessage: unknown,
+  row: unknown,
+): { text: string; kind: ChatPreviewKind } {
+  const caption =
+    pick(lastMessage, "content", "message", "text", "body") ||
+    pick(row, "latest_message", "message", "last_message_content");
+
+  const declaredType = (
+    pick(lastMessage, "message_type", "type") || pick(row, "last_message_type", "message_type")
+  ).toLowerCase();
+
+  const media =
+    pick(
+      lastMessage,
+      "media",
+      "media_url",
+      "file",
+      "file_url",
+      "image",
+      "image_url",
+      "attachment",
+    ) || pick(row, "last_message_media");
+
+  let kind: ChatPreviewKind = "text";
+  if (declaredType === "image") kind = "image";
+  else if (declaredType === "file") kind = "file";
+  else if (media) kind = IMAGE_URL_RE.test(media) ? "image" : "file";
+
+  if (kind === "text") return { text: caption, kind };
+
+  const T = MESSAGES.CHAT.THREADS;
+  return { text: caption || (kind === "image" ? T.IMAGE_PREVIEW : T.FILE_PREVIEW), kind };
+}
+
 /**
  * Normalises a thread row.
  *
@@ -85,6 +152,7 @@ function toChatThread(row: unknown): ChatThread {
     pick(row, "user_id", "owner_id", "customer_id", "partner_id") ||
     pick(legacyUser, "id", "user_id");
   const lastMessage = getProp(row, "last_message");
+  const preview = toLastMessagePreview(lastMessage, row);
   const order = toOrderRef(getProp(row, "order"));
 
   return {
@@ -102,8 +170,10 @@ function toChatThread(row: unknown): ChatThread {
     // when the payload omitted the block but carried the id flat.
     owner: owner ? { ...owner, id: ownerId } : null,
     ownerId: ownerId || null,
-    // The object form first, then the flat legacy string.
-    lastMessage: pick(lastMessage, "content") || pick(row, "latest_message", "message"),
+    // The object form first, then the flat legacy string — and the kind of
+    // attachment when neither carries text.
+    lastMessage: preview.text,
+    lastMessageKind: preview.kind,
     lastMessageAt: pick(row, "last_message_at", "updated_at", "created_at"),
     unreadCount: asNumber(getProp(row, "unread_count") ?? getProp(row, "unread")),
     order,
