@@ -129,6 +129,17 @@ export function ProductAddDrawer({
 
   const attributeRows = useFieldArray({ control, name: "attributes" });
 
+  /**
+   * Adds a blank attribute row.
+   *
+   * Shared by the "+ Add Attribute" button and by Enter in a value box, so the
+   * two cannot drift into meaning different things. `append` moves focus to the
+   * new row's first input on its own — react-hook-form's `shouldFocus` defaults
+   * to true — which is what makes the keyboard path continuous: name, Tab,
+   * value, Enter, keep typing, never reaching for the mouse.
+   */
+  const addAttributeRow = () => attributeRows.append({ key: "", value: "" });
+
   // Reset to a clean form each time the drawer opens. On a failed submit the
   // drawer stays open and isOpen doesn't change, so entered data is preserved.
   useEffect(() => {
@@ -355,6 +366,21 @@ export function ProductAddDrawer({
                     <Input
                       placeholder={MESSAGES.PRODUCTS.FIELDS.ATTR_VALUE_PLACEHOLDER}
                       {...register(`attributes.${index}.value` as const)}
+                      // Enter finishes a pair the way the button does. Listed
+                      // after the spread deliberately: `register` supplies no
+                      // key handler today, but if it ever does, the row-adding
+                      // one is the one that has to survive.
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter") return;
+                        // Nothing wraps this drawer in a <form> — the footer
+                        // button submits through its own onClick — so Enter is
+                        // inert here rather than dangerous. Prevented anyway,
+                        // because the day someone does add a form element the
+                        // default becomes "submit the whole product", and that
+                        // failure would look like the button misfiring.
+                        event.preventDefault();
+                        addAttributeRow();
+                      }}
                     />
                   </div>
                   <Button
@@ -375,7 +401,7 @@ export function ProductAddDrawer({
               variant="ghost"
               size="xs"
               className="mt-2"
-              onClick={() => attributeRows.append({ key: "", value: "" })}
+              onClick={addAttributeRow}
             >
               <IconPlus size={15} className="mr-1" />
               {MESSAGES.PRODUCTS.ATTRIBUTE_ADD}
