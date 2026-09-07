@@ -1,4 +1,15 @@
 import { getFirebaseConfig, getVapidKey, isPushConfigured } from "./firebaseConfig";
+import { describeError, pushLog } from "./pushLog";
+
+/**
+ * How long to wait for the messaging worker to become active.
+ *
+ * `navigator.serviceWorker.ready` never rejects — a worker whose script fails
+ * to parse, or whose `importScripts` cannot reach the CDN, simply leaves the
+ * promise pending forever. Awaiting it bare meant `getDeviceToken()` could hang
+ * for the life of the tab: no token, no request, no error, nothing to see.
+ */
+const SW_READY_TIMEOUT_MS = 10_000;
 
 /**
  * Thin wrapper over `firebase/messaging` — the only file that imports the SDK.
@@ -73,9 +84,24 @@ async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null
     // before it is active. `getToken` needs an active worker, and asking early
     // is a `messaging/failed-service-worker-registration` that looks like a
     // config error rather than a race.
-    await navigator.serviceWorker.ready;
+    const ready = await Promise.race([
+      navigator.serviceWorker.ready.then(() => true),
+      new Promise<false>((resolve) => setTimeout(() => resolve(false), SW_READY_TIMEOUT_MS)),
+    ]);
+    if (!ready) {
+      pushLog("sw-not-active", {
+        timeoutMs: SW_READY_TIMEOUT_MS,
+        hint: "worker registered but never activated — check /firebase-messaging-sw.js parses and its importScripts are reachable",
+      });
+      // Dropped so a later attempt registers again rather than reusing a worker
+      // that never came up.
+      swRegistration = null;
+      return null;
+    }
+    pushLog("sw-ready", { scope: swRegistration.scope });
     return swRegistration;
-  } catch {
+  } catch (error) {
+    pushLog("sw-register-failed", { error: describeError(error) });
     swRegistration = null;
     return null;
   }
@@ -89,7 +115,12 @@ async function getMessagingInstance() {
   ]);
   // The SDK's own support check is stricter than ours — it also rules out
   // browsers whose service-worker implementation cannot carry push payloads.
-  if (!(await isSupported())) return null;
+  if (!(await isSupported())) {
+    pushLog("sdk-unsupported", {
+      hint: "firebase/messaging isSupported() said no for this browser",
+    });
+    return null;
+  }
   // `initializeApp` throws on a duplicate name, and React strict mode plus a
   // remount makes duplicates ordinary rather than exceptional.
   const app = getApps().length ? getApp() : initializeApp(getFirebaseConfig());
@@ -128,8 +159,23 @@ export async function requestPermission(): Promise<NotificationPermission> {
  * setup step.
  */
 export async function getDeviceToken(): Promise<string | null> {
-  if (!isPushSupported() || !isPushConfigured()) return null;
-  if (currentPermission() !== "granted") return null;
+  if (!isPushSupported()) {
+    // The common cause in development is the origin, not the browser: service
+    // workers need a secure context, and `npm run dev` binds the LAN too — so
+    // http://localhost:3000 works while http://192.168.x.x:3000 does not.
+    pushLog("unsupported", { secureContext: window.isSecureContext, origin: window.origin });
+    return null;
+  }
+  if (!isPushConfigured()) {
+    pushLog("unconfigured", {
+      hint: "VITE_FIREBASE_* / VITE_FIREBASE_VAPID_KEY missing from the build",
+    });
+    return null;
+  }
+  if (currentPermission() !== "granted") {
+    pushLog("no-permission", { permission: currentPermission() });
+    return null;
+  }
   try {
     const registration = await registerServiceWorker();
     if (!registration) return null;
@@ -140,8 +186,19 @@ export async function getDeviceToken(): Promise<string | null> {
       vapidKey: getVapidKey(),
       serviceWorkerRegistration: registration,
     });
-    return token || null;
-  } catch {
+    if (!token) {
+      pushLog("token-empty", { hint: "getToken() resolved with an empty string" });
+      return null;
+    }
+    return token;
+  } catch (error) {
+    // The SDK's `code` is the useful half: `messaging/token-subscribe-failed`
+    // is almost always a wrong or missing VAPID key, and
+    // `messaging/failed-service-worker-registration` is the worker, not FCM.
+    pushLog("token-failed", {
+      code: (error as { code?: string })?.code,
+      error: describeError(error),
+    });
     return null;
   }
 }
@@ -162,6 +219,7 @@ export async function onForegroundMessage(
     const messaging = await getMessagingInstance();
     if (!messaging) return () => {};
     const { onMessage } = await import("firebase/messaging");
+    pushLog("foreground-subscribed");
     return onMessage(messaging, (payload) => {
       // A "notification" message carries the display fields; a "data" message
       // carries whatever the campaign put in `metadata` (Flow 32). Read both,
@@ -172,7 +230,8 @@ export async function onForegroundMessage(
         body: payload.notification?.body ?? data?.body,
       });
     });
-  } catch {
+  } catch (error) {
+    pushLog("foreground-subscribe-failed", { error: describeError(error) });
     return () => {};
   }
 }
