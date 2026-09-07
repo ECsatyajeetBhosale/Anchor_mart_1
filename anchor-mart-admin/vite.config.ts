@@ -86,6 +86,16 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
           ws: true,
+          // The same header `/api` and `/media` carry, and for the same reason —
+          // it was missing here only because the interstitial is easy to picture
+          // as an HTML-page problem. It is not: a free ngrok tunnel answers the
+          // *upgrade* request too, with `200 text/html` and
+          // `ngrok-error-code: ERR_NGROK_6024`, so the handshake never reaches
+          // Channels and both sockets fail to connect while every REST call
+          // works — which reads as a backend that has stopped pushing.
+          headers: {
+            "ngrok-skip-browser-warning": "true",
+          },
         },
       },
     },
