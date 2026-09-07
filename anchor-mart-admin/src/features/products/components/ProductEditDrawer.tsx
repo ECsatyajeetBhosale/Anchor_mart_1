@@ -24,6 +24,7 @@ import { getApiMessage, getFieldErrors } from "@/lib/apiError";
 import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { formatMoney } from "@/lib/money";
+import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconBoxSeam, IconCheck, IconPackage } from "@tabler/icons-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
@@ -53,11 +54,24 @@ function toImagePath(img: ProductImage | string): string {
   return toStoredPath(typeof img === "string" ? img : img.image || img.image_url || "");
 }
 
+/**
+ * An attribute map as displayable pairs, with the blanks dropped.
+ *
+ * `attributes` is free-form JSON on the variant — the backend stores whatever
+ * the catalog team put there — so a key with an empty or null value is normal
+ * and is not worth a row.
+ */
+export function attributeEntries(
+  attributes: Record<string, unknown> | undefined,
+): [string, string][] {
+  return Object.entries(attributes ?? {})
+    .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== "")
+    .map(([k, v]) => [k, String(v)]);
+}
+
 /** Renders an attribute map as `key: value · key: value`. */
 function formatAttributes(attributes: Record<string, unknown>): string {
-  const entries = Object.entries(attributes ?? {})
-    .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== "")
-    .map(([k, v]) => `${k}: ${v}`);
+  const entries = attributeEntries(attributes).map(([k, v]) => `${k}: ${v}`);
   return entries.length ? entries.join(" · ") : "—";
 }
 
@@ -136,6 +150,25 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
   // Nested on the detail read, so the tab needs no request of its own; the list
   // row that seeds `product` never carries them.
   const variants: ProductDetailVariant[] = detail?.variants ?? [];
+
+  /**
+   * Attributes are a **variant** field, not a product one — the payload has no
+   * `attributes` at the top level, and `update-product/` has no key for it.
+   * The primary variant is what stands for the product as a whole, so its set
+   * is the one that belongs on Basic Info; anything per-SKU stays in the
+   * Variants tab, which is also the only place it can be edited.
+   *
+   * Falls back to the first variant so a product whose primary flag never got
+   * set still shows its specification rather than nothing.
+   */
+  const primaryVariant = useMemo(
+    () => variants.find((variant) => variant.is_primary) ?? variants[0],
+    [variants],
+  );
+  const attributeRows = useMemo(
+    () => attributeEntries(primaryVariant?.attributes),
+    [primaryVariant],
+  );
 
   // Category options for the editable category dropdown (value = UUID).
   /**
@@ -397,6 +430,66 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                   {...register("description")}
                 />
               </FormField>
+
+              {/*
+                Read-only on purpose, and it says so underneath. `update-product/`
+                accepts nine keys and `attributes` is not among them — it ignores
+                the field silently rather than rejecting it, so an input here
+                would have looked like it saved.
+
+                Hidden entirely for a product with no variants: there is no
+                primary to read, and the Variants tab already explains that case.
+              */}
+              {primaryVariant && (
+                <>
+                  <div className="sec-label mt-2">{MESSAGES.PRODUCTS.SECTIONS.ATTRIBUTES}</div>
+                  {/*
+                    One grid rather than a flex per pair, so the values line up
+                    with each other instead of each starting wherever its own
+                    label happened to end. `max-content` sizes the label column
+                    to the longest key, which is what makes the second column a
+                    straight edge — and `dt`/`dd` are direct children for the
+                    same reason: a wrapper per pair would give each row its own
+                    formatting context and lose the shared column.
+                  */}
+                  {attributeRows.length === 0 ? (
+                    <p className="td-m">{MESSAGES.PRODUCTS.EDIT.ATTRIBUTES_EMPTY}</p>
+                  ) : (
+                    <dl className="grid grid-cols-[max-content_1fr] gap-x-6">
+                      {attributeRows.map(([key, value], index) => {
+                        // The rule sits under both cells, so the two halves meet
+                        // as one line across the row. Dropped on the last pair,
+                        // where it would butt into the hint below.
+                        const rule =
+                          index < attributeRows.length - 1
+                            ? "border-b border-[var(--border-xs)]"
+                            : "";
+                        return (
+                          <Fragment key={key}>
+                            <dt className={cn("fg-label !mb-0 py-2.5", rule)}>{key}</dt>
+                            {/* `break-words`: an attribute value is free-form and
+                                can be a long unbroken string, which would
+                                otherwise widen the drawer instead of wrapping. */}
+                            <dd
+                              className={cn(
+                                "min-w-0 break-words py-2.5 text-[13.5px] font-semibold text-[var(--t1)]",
+                                rule,
+                              )}
+                            >
+                              {value}
+                            </dd>
+                          </Fragment>
+                        );
+                      })}
+                    </dl>
+                  )}
+                  <p className="fg-hint mt-2">
+                    {variants.length > 1
+                      ? MESSAGES.PRODUCTS.EDIT.ATTRIBUTES_VARY(variants.length - 1)
+                      : MESSAGES.PRODUCTS.EDIT.ATTRIBUTES_FROM_PRIMARY}
+                  </p>
+                </>
+              )}
 
               <div className="sec-label mt-2">{MESSAGES.PRODUCTS.SECTIONS.PRICING}</div>
               <FormRow>

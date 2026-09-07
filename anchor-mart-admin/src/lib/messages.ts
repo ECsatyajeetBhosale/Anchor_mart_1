@@ -2496,6 +2496,18 @@ export const MESSAGES = {
         BASIC: "Basic Info",
         VARIANTS: "Variants",
       },
+      /**
+       * The attribute block on Basic Info. Read-only: `update-product/` has no
+       * `attributes` key, and the values belong to a variant rather than to the
+       * product, so the line always says where they really come from.
+       */
+      ATTRIBUTES_EMPTY: "No attributes recorded on this product's variants.",
+      ATTRIBUTES_FROM_PRIMARY:
+        "Read-only, from the primary variant. Per-SKU values are edited in the Variants tab.",
+      ATTRIBUTES_VARY: (others: number) =>
+        `Read-only, from the primary variant — ${others} other ${
+          others === 1 ? "variant carries its own set" : "variants carry their own sets"
+        }. Per-SKU values are edited in the Variants tab.`,
       /** Says where the things this form does not write are actually changed. */
       NOT_EDITABLE_HINT:
         "Catalog type, SKU, variant prices and attributes are not edited here — use Change catalog for the shelf, and the Variants tab for anything per-SKU.",

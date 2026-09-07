@@ -18,6 +18,12 @@ export interface ProductImage {
 export interface ProductDetailVariant {
   id: string;
   sku: string;
+  /**
+   * Which SKU stands for the product as a whole. Exactly one is primary — the
+   * variant endpoints refuse `is_primary: false` for that reason — so this is
+   * what the Basic Info tab reads attributes from.
+   */
+  is_primary?: boolean;
   /** Decimal string, e.g. "25.00". */
   price: string;
   attributes: Record<string, unknown>;
