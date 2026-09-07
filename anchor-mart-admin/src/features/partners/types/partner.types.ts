@@ -108,9 +108,19 @@ export interface CreatePartnerPayload {
   assigned_port: string | null;
 }
 
-/** Request body for `PATCH /superadmin/partner/partner_detail_update/`. */
+/**
+ * Request body for `PATCH /superadmin/partner/partner_detail_update/`.
+ *
+ * Everything creation takes, plus the account flag it does not.
+ *
+ * The endpoint also accepts `is_available`, and this panel does not send it:
+ * on-duty state belongs to the partner, and omitting it is what keeps an admin
+ * edit from overwriting a choice they cannot see.
+ */
 export interface UpdatePartnerPayload extends CreatePartnerPayload {
   user_id: string;
+  /** Account enabled. `false` blocks the partner outright. */
+  is_active: boolean;
 }
 
 /**

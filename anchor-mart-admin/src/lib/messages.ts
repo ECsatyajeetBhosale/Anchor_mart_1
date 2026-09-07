@@ -1871,6 +1871,14 @@ export const MESSAGES = {
       LAST_NAME_PLACEHOLDER: "Last name",
       EMAIL: "Email",
       EMAIL_PLACEHOLDER: "user@example.com",
+      /**
+       * The account flag `partner_detail_update` accepts and creation does not.
+       * Worded as what it stops, because it reads as a harmless toggle and is
+       * not one.
+       */
+      STATUS_SECTION: "Account",
+      ACTIVE: "Active",
+      ACTIVE_HINT: "Off blocks the account — the partner cannot sign in or take work.",
       COUNTRY_CODE: "Country Code",
       WHATSAPP: "WhatsApp Number",
       /**
@@ -1882,6 +1890,8 @@ export const MESSAGES = {
       PORT: "Port Zone",
       PORT_PLACEHOLDER: "Select a port…",
       PORT_NONE: "No port assigned",
+      /** Onboarding only — an existing partner may legitimately have none. */
+      PORT_REQUIRED: "Pick the port this partner works from",
       JOINED: "Joined",
       DELIVERIES: "Total Deliveries",
       SAVE: "Save Changes",

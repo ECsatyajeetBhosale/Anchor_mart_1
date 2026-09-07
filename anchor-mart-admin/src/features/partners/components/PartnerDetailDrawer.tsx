@@ -5,6 +5,7 @@ import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { CountryCodeSelect } from "@/components/common/CountryCodeSelect";
+import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { FormField } from "@/components/common/FormField";
 import { FormRow } from "@/components/common/FormRow";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
@@ -17,12 +18,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Switch } from "@/components/ui/switch";
+import { useGetDashboardPortsQuery } from "@/features/dashboard";
 import { getApiMessage, getFieldErrors } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 import { phoneDigitsHint, phoneExamplePlaceholder } from "@/lib/validation";
 import { useGetPartnerDetailQuery, useUpdatePartnerMutation } from "../api/partnerApi";
-import { type PartnerFormData, partnerFormSchema } from "../schemas/partner.schema";
+import { type PartnerUpdateFormData, partnerUpdateSchema } from "../schemas/partner.schema";
 import type { CapabilityChange, PartnerData, UpdatePartnerPayload } from "../types/partner.types";
 import { CapabilityChangeDialog } from "./CapabilityChangeDialog";
 import { CapabilityFields } from "./CapabilityFields";
@@ -43,7 +46,7 @@ function statusVariant(status: string): BadgeVariant {
   }
 }
 
-const EMPTY: PartnerFormData = {
+const EMPTY: PartnerUpdateFormData = {
   first_name: "",
   last_name: "",
   email: "",
@@ -52,6 +55,9 @@ const EMPTY: PartnerFormData = {
   can_verify: true,
   can_deliver: true,
   assigned_port: "",
+  // Active until told otherwise — the same reading `partnerApi` applies to a
+  // payload that omits it.
+  is_active: true,
 };
 
 export interface PartnerDetailDrawerProps {
@@ -76,6 +82,20 @@ export function PartnerDetailDrawer({ partner, isOpen, onClose }: PartnerDetailD
   // drawer would hide the one thing the admin needs to act on.
   const [capabilityChange, setCapabilityChange] = useState<CapabilityChange | null>(null);
 
+  /**
+   * `dashboard/ports/` is the lightweight {id, port_name} list kept for exactly
+   * this. Same source the onboard drawer reads, so the two pickers can never
+   * offer different ports for the same field.
+   */
+  const { data: ports = [] } = useGetDashboardPortsQuery(undefined, { skip: !isOpen });
+  const portOptions = [
+    // Unlike onboarding, clearing is a legal answer here: a partner can be taken
+    // off a port without being deleted, and a record that arrived with none has
+    // to be saveable as it stands.
+    { value: "", label: M.DETAIL.PORT_NONE },
+    ...ports.map((port) => ({ value: port.id, label: port.name })),
+  ];
+
   const {
     register,
     control,
@@ -84,8 +104,8 @@ export function PartnerDetailDrawer({ partner, isOpen, onClose }: PartnerDetailD
     reset,
     setError,
     formState: { errors },
-  } = useForm<PartnerFormData>({
-    resolver: zodResolver(partnerFormSchema),
+  } = useForm<PartnerUpdateFormData>({
+    resolver: zodResolver(partnerUpdateSchema),
     defaultValues: EMPTY,
   });
 
@@ -108,10 +128,16 @@ export function PartnerDetailDrawer({ partner, isOpen, onClose }: PartnerDetailD
       // Seeded from the record, or an edit that never touches the picker would
       // save `null` back over an existing port.
       assigned_port: detail?.assigned_port ?? "",
+      /**
+       * Read exactly the way `partnerApi` reads it, so the switch agrees with
+       * the badge on the row behind it: absent means active, since only an
+       * explicit `false` blocks an account.
+       */
+      is_active: detail?.is_active ?? true,
     });
   }, [isOpen, detail, partner, reset]);
 
-  const onSubmit = async (form: PartnerFormData) => {
+  const onSubmit = async (form: PartnerUpdateFormData) => {
     if (!partner?.userId) return;
     const payload: UpdatePartnerPayload = {
       user_id: partner.userId,
@@ -124,6 +150,7 @@ export function PartnerDetailDrawer({ partner, isOpen, onClose }: PartnerDetailD
       can_verify: form.can_verify,
       can_deliver: form.can_deliver,
       assigned_port: form.assigned_port || null,
+      is_active: form.is_active,
     };
     try {
       const change = await updatePartner({
@@ -139,7 +166,7 @@ export function PartnerDetailDrawer({ partner, isOpen, onClose }: PartnerDetailD
     } catch (err) {
       for (const [field, message] of Object.entries(getFieldErrors(err))) {
         if (field in EMPTY) {
-          setError(field as keyof PartnerFormData, { type: "server", message });
+          setError(field as keyof PartnerUpdateFormData, { type: "server", message });
         }
       }
       toast.error(getApiMessage(err) ?? M.TOAST.UPDATE_ERROR);
@@ -245,6 +272,29 @@ export function PartnerDetailDrawer({ partner, isOpen, onClose }: PartnerDetailD
               </FormField>
             </FormRow>
 
+            {/*
+              The port picker. `assigned_port` was already in this form's state
+              and already went out with every save — it just had no control, so
+              the drawer round-tripped whatever the record arrived with and a
+              partner's port could not be changed from the one screen named
+              "edit partner".
+            */}
+            <FormField label={M.DETAIL.PORT} error={errors.assigned_port?.message}>
+              <Controller
+                control={control}
+                name="assigned_port"
+                render={({ field }) => (
+                  <DropdownSelect
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    placeholder={M.DETAIL.PORT_PLACEHOLDER}
+                    options={portOptions}
+                    width="100%"
+                  />
+                )}
+              />
+            </FormField>
+
             <Controller
               control={control}
               name="can_verify"
@@ -264,6 +314,42 @@ export function PartnerDetailDrawer({ partner, isOpen, onClose }: PartnerDetailD
                     />
                   )}
                 />
+              )}
+            />
+
+            {/*
+              The account flag `partner_detail_update` accepts that creation has
+              no concept of, and the reason it is a switch rather than another
+              capability checkbox: capability is what a partner is *allowed* to
+              do, this is whether the account works at all.
+
+              `is_available` is not here on purpose. The endpoint takes it, but
+              on-duty state is the partner's own — asserted from their app — and
+              this form can be submitted before the detail response has landed,
+              so an admin editing a phone number in that window would write a
+              stale availability over whatever the partner had just set.
+            */}
+            <div className="sec-label mt-2">{M.DETAIL.STATUS_SECTION}</div>
+            <Controller
+              control={control}
+              name="is_active"
+              render={({ field }) => (
+                <div className="flex items-start gap-2.5">
+                  <Switch
+                    id="partner-is-active"
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                  <div>
+                    <label
+                      htmlFor="partner-is-active"
+                      className="text-[13px] font-semibold text-[var(--t2)]"
+                    >
+                      {M.DETAIL.ACTIVE}
+                    </label>
+                    <p className="fg-hint">{M.DETAIL.ACTIVE_HINT}</p>
+                  </div>
+                </div>
               )}
             />
           </div>

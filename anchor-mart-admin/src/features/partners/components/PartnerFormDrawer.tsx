@@ -58,10 +58,9 @@ export function PartnerFormDrawer({ isOpen, onClose }: PartnerFormDrawerProps) {
   // `dashboard/ports/` is the lightweight {id, port_name} list kept for exactly
   // this — a picker that needs names and ids and nothing else.
   const { data: ports = [] } = useGetDashboardPortsQuery(undefined, { skip: !isOpen });
-  const portOptions = [
-    { value: "", label: M.DETAIL.PORT_NONE },
-    ...ports.map((p) => ({ value: p.id, label: p.name })),
-  ];
+  // No "No port assigned" row: the port is required on this form, so offering
+  // the blank would present the one answer the schema is about to reject.
+  const portOptions = ports.map((p) => ({ value: p.id, label: p.name }));
 
   const {
     register,
@@ -185,10 +184,12 @@ export function PartnerFormDrawer({ isOpen, onClose }: PartnerFormDrawerProps) {
             </FormField>
           </FormRow>
 
-          {/* Home port. Optional, and left blank by default — but it is what
-              makes a partner reachable by port-scoped assignment, so without it
-              they are capability-matched only. */}
-          <FormField label={M.DETAIL.PORT} error={errors.assigned_port?.message}>
+          {/* Home port, required here and nowhere else. It is what makes a
+              partner reachable by port-scoped assignment — without one they are
+              capability-matched only, and the port-scoped picker never returns
+              them — so onboarding is where to insist rather than leaving it to
+              be noticed later. */}
+          <FormField label={`${M.DETAIL.PORT} *`} error={errors.assigned_port?.message}>
             <Controller
               control={control}
               name="assigned_port"
