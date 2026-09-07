@@ -133,7 +133,7 @@ describe("registration on sign-in", () => {
   });
 });
 
-describe("token rotation", () => {
+describe("re-registration", () => {
   /** Brings the tab back to the foreground, which is one of the two triggers. */
   function foreground() {
     Object.defineProperty(document, "visibilityState", {
@@ -142,6 +142,9 @@ describe("token rotation", () => {
     });
     document.dispatchEvent(new Event("visibilitychange"));
   }
+
+  /** Just past the hour the two triggers share. */
+  const PAST_THROTTLE_MS = 61 * 60 * 1000;
 
   it("sends the new token when FCM has rotated it", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -153,18 +156,19 @@ describe("token rotation", () => {
     );
     await vi.waitFor(() => expect(registerFcmToken).toHaveBeenCalledTimes(1));
 
-    // FCM now answers with a different token, and the long timer comes round.
     getDeviceToken.mockResolvedValue("rotated-device-token");
-    await vi.advanceTimersByTimeAsync(7 * 60 * 60 * 1000);
+    await vi.advanceTimersByTimeAsync(PAST_THROTTLE_MS);
 
     await vi.waitFor(() => expect(registerFcmToken).toHaveBeenCalledTimes(2));
     expect(registerFcmToken).toHaveBeenLastCalledWith({ fcm_token: "rotated-device-token" });
     vi.useRealTimers();
   });
 
-  it("does not re-post a token the backend already has", async () => {
-    // The check runs on a timer and on every foreground; posting an identical
-    // token each time is the duplicate call this has to avoid.
+  it("re-sends an unchanged token rather than assuming the backend still has it", async () => {
+    // The row can be gone server-side while the string in this browser stays
+    // the same — a sign-out on another device, the unregistered-token prune, a
+    // handover and back. Registration is idempotent, so re-sending is the only
+    // thing that recovers from any of them.
     vi.useFakeTimers({ shouldAdvanceTime: true });
     permission.value = "granted";
     render(
@@ -174,15 +178,15 @@ describe("token rotation", () => {
     );
     await vi.waitFor(() => expect(registerFcmToken).toHaveBeenCalledTimes(1));
 
-    await vi.advanceTimersByTimeAsync(7 * 60 * 60 * 1000);
-    foreground();
+    await vi.advanceTimersByTimeAsync(PAST_THROTTLE_MS);
 
-    await vi.waitFor(() => expect(getDeviceToken.mock.calls.length).toBeGreaterThan(1));
-    expect(registerFcmToken).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(registerFcmToken).toHaveBeenCalledTimes(2));
+    expect(registerFcmToken).toHaveBeenLastCalledWith({ fcm_token: "fcm-device-token" });
     vi.useRealTimers();
   });
 
   it("ignores a foreground inside the throttle window", async () => {
+    // "Prefer too often over too rarely" is not "on every tab switch".
     permission.value = "granted";
     render(
       <StrictMode>
@@ -191,11 +195,29 @@ describe("token rotation", () => {
     );
     await waitFor(() => expect(registerFcmToken).toHaveBeenCalledTimes(1));
 
-    const mints = getDeviceToken.mock.calls.length;
     foreground();
     foreground();
 
     await new Promise((resolve) => setTimeout(resolve, 40));
-    expect(getDeviceToken).toHaveBeenCalledTimes(mints);
+    expect(registerFcmToken).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-sends when the tab comes back after the window has passed", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    permission.value = "granted";
+    render(
+      <StrictMode>
+        <Harness />
+      </StrictMode>,
+    );
+    await vi.waitFor(() => expect(registerFcmToken).toHaveBeenCalledTimes(1));
+
+    // Hidden for the whole window, so the timer is what would normally fire —
+    // clear it first, then prove the foreground trigger stands on its own.
+    vi.setSystemTime(Date.now() + PAST_THROTTLE_MS);
+    foreground();
+
+    await vi.waitFor(() => expect(registerFcmToken).toHaveBeenCalledTimes(2));
+    vi.useRealTimers();
   });
 });

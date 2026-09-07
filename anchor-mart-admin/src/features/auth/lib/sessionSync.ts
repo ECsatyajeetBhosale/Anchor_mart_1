@@ -1,7 +1,8 @@
 import { baseApi } from "@/lib/fetchUtils";
 import { MESSAGES } from "@/lib/messages";
-import type { Middleware } from "@reduxjs/toolkit";
+import type { Middleware, ThunkDispatch, UnknownAction } from "@reduxjs/toolkit";
 import { toast } from "sonner";
+import { authApi } from "../api/authApi";
 import { logout } from "../slice/authSlice";
 import { publishLogout, subscribeToRemoteLogout } from "./sessionChannel";
 
@@ -28,19 +29,58 @@ import { publishLogout, subscribeToRemoteLogout } from "./sessionChannel";
  * screen still holding the previous admin's data, and hand it straight back to
  * whoever signed in next, for the frame before the refetch lands.
  */
-export const sessionSyncMiddleware: Middleware = (api) => (next) => (action) => {
-  const result = next(action);
-
+// Typed with a thunk dispatch because it fires an RTK Query mutation, which is
+// a thunk — the bare `Middleware` dispatch only accepts plain actions.
+export const sessionSyncMiddleware: Middleware<
+  Record<string, never>,
+  unknown,
+  ThunkDispatch<unknown, unknown, UnknownAction>
+> = (api) => (next) => (action) => {
   if (logout.match(action)) {
-    // After `next`, so the auth slice is already empty: any subscribed query
-    // that re-runs as a result of this finds no token rather than the dead one.
+    /**
+     * All three of these run **before** `next(action)`, and in this order. It is
+     * the only arrangement that works, and each constraint is load-bearing.
+     *
+     * *Before `next`* — `prepareHeaders` reads the token out of state. Once the
+     * slice is cleared the logout request carries no `Authorization` header,
+     * identifies no account, and invalidates nothing.
+     *
+     * *Reset before the request* — `resetApiState` ends with
+     * `abortAllPromises(runningMutations)`, so a logout call started ahead of it
+     * is cancelled before it leaves the browser. Started after, there is nothing
+     * running for the reset to find. Every mutation is registered for that
+     * abort, so `track: false` does not exempt it either; the order is the fix.
+     */
     api.dispatch(baseApi.util.resetApiState());
-    // A remote sign-out is already common knowledge — re-publishing it would
-    // put one message on the wire per open tab for a single click.
+
+    /**
+     * The call that actually ends the session.
+     *
+     * `/superadmin/admin/logout/` deletes the auth token **and every FCM token
+     * on the account**, and nothing called it before: the panel's only sign-out
+     * path cleared local state and left the token valid server-side forever,
+     * with the browser still receiving the ex-admin's push notifications. Admin
+     * tokens never expire by design, so "signed out" meant nothing to the server.
+     *
+     * Skipped for the two cases with nothing to invalidate: a sign-out heard
+     * from another tab (that tab already called it) and a token the server has
+     * already rejected — where calling it would 401, dispatch `logout()` again,
+     * and loop.
+     *
+     * Fire-and-forget. A failed call leaves a row the backend prunes when
+     * Firebase reports the token dead, which beats blocking sign-out on a
+     * network round trip.
+     */
+    if (!action.meta.remote && !action.meta.revoked) {
+      void api.dispatch(authApi.endpoints.logout.initiate());
+    }
+
+    // A remote sign-out is already common knowledge — re-publishing it would put
+    // one message on the wire per open tab for a single click.
     if (!action.meta.remote) publishLogout();
   }
 
-  return result;
+  return next(action);
 };
 
 /** The slice of the store this needs; keeps the sync testable without one. */

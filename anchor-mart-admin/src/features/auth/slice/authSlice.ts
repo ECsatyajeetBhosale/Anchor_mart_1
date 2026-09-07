@@ -75,11 +75,18 @@ const authSlice = createSlice({
     /**
      * Ends the session in this tab.
      *
-     * `meta.remote` says where the sign-out came from, and only the session-sync
-     * middleware reads it: a `true` means another tab already told everyone, so
-     * this tab must not announce it again. Callers who are signing *this* tab
-     * out — the sidebar, `useAuth`, the 401 handler, the socket's terminal auth
-     * frame — keep calling `logout()` with no argument and get `false`.
+     * The two meta flags both mean "somebody else has already done part of
+     * this", and only the session-sync middleware reads them:
+     *
+     * - `remote` — another tab signed out and told us, so this tab must not
+     *   announce it again or one click becomes one message per open tab.
+     * - `revoked` — the token is already dead server-side (a 401, or the badge
+     *   socket's terminal auth frame), so calling the logout endpoint would be
+     *   asking a dead token to invalidate itself. It would also 401, which
+     *   dispatches `logout()` again: the loop this flag exists to stop.
+     *
+     * A caller signing *this* tab out deliberately — the sidebar, `useAuth` —
+     * passes neither, and gets the full treatment including the server call.
      */
     logout: {
       reducer: (state) => {
@@ -94,9 +101,12 @@ const authSlice = createSlice({
           // ignore
         }
       },
-      prepare: (options?: { remote?: boolean }) => ({
+      prepare: (options?: { remote?: boolean; revoked?: boolean }) => ({
         payload: undefined,
-        meta: { remote: options?.remote === true },
+        meta: {
+          remote: options?.remote === true,
+          revoked: options?.revoked === true,
+        },
       }),
     },
   },

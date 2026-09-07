@@ -19,6 +19,7 @@
  * is here rather than beside the feature it belongs to.
  */
 
+
 importScripts("https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js");
 importScripts("https://www.gstatic.com/firebasejs/12.18.0/firebase-messaging-compat.js");
 
@@ -30,6 +31,65 @@ const config = {
   messagingSenderId: params.get("messagingSenderId"),
   appId: params.get("appId"),
 };
+
+/**
+ * Where a click on a notification should land.
+ *
+ * The previous version read `data.url || data.click_action`, and **neither key
+ * exists in any payload the backend sends** — so every background push opened
+ * the dashboard root regardless of what it was about.
+ *
+ * `fcm_options.link` is checked first even though nothing sends it yet. It is
+ * the right mechanism for web push, and the backend has offered to populate it
+ * once this map is handed over; reading it now makes that switch a backend
+ * deploy rather than a coordinated release, and demotes the table below from
+ * source of truth to fallback.
+ *
+ * Until then the route comes from `data.type`. Broadcasts are checked first,
+ * because their `type` is the literal string "broadcast" rather than one of the
+ * notification types, and their `id` is a broadcast record — a different
+ * resource from a personal notification, and not something to hand to a
+ * mark-read call.
+ *
+ * Anything unrecognised lands on the inbox rather than being dropped: the type
+ * list is open and new values reach already-shipped clients, so an unknown type
+ * has to mean "somewhere you can read it", never "nowhere".
+ */
+const INBOX = "/notification-inbox";
+
+const ROUTE_BY_TYPE = {
+  // Orders, and the money attached to them.
+  order_update: "/orders",
+  payment: "/orders",
+  out_for_delivery: "/orders",
+  delivered: "/orders",
+  // Sourcing — the intent queue and what happens inside it.
+  intent_received: "/intents",
+  out_of_stock: "/intents",
+  substitution: "/intents",
+  // Fulfilment.
+  order_assigned: "/assignments",
+  // Conversations.
+  order_chat: "/order-chats",
+  crew_nudge: "/order-chats",
+  // A sourcing request raised by a sailor.
+  special_request: "/requests",
+  // Catalog and campaign types. These are written for the sailor apps; an admin
+  // who receives one has no screen more specific than the inbox.
+  back_in_stock: INBOX,
+  deal_of_the_day: INBOX,
+  promo: INBOX,
+  system: INBOX,
+};
+
+function targetUrl(payload) {
+  const link = payload.fcmOptions?.link || payload.fcm_options?.link;
+  if (link) return link;
+
+  const data = payload.data || {};
+  if (data.type === "broadcast") return INBOX;
+  return ROUTE_BY_TYPE[data.type] || INBOX;
+}
 
 // Registered without config — nothing to do. Bailing out beats initialising with
 // nulls, which throws inside the SDK on a line that says nothing about the cause.
@@ -49,16 +109,18 @@ if (config.apiKey && config.projectId && config.messagingSenderId && config.appI
     const data = payload.data || {};
     const title = payload.notification?.title || data.title || "AnchorMart";
     const body = payload.notification?.body || data.body || "";
-    // `tag` collapses repeats of the same subject into one notification rather
-    // than stacking them; `data.url` is read back on click below.
-    // No `icon`/`badge`: this app ships no root icon file (index.html points at
-    // a /favicon.svg that does not exist), and a 404'd icon URL renders as a
-    // broken image slot in some browsers rather than falling back cleanly. Add
-    // them here once there is a real asset to point at.
+    // No `icon`/`badge`: this app ships no root icon file, and a 404'd icon URL
+    // renders as a broken image slot in some browsers rather than falling back
+    // cleanly. Add them here once there is a real asset to point at.
     self.registration.showNotification(title, {
       body,
-      tag: data.tag || data.notification_id || undefined,
-      data: { url: data.url || data.click_action || "/" },
+      // Part of the documented notification block, and often null.
+      image: payload.notification?.image || undefined,
+      // Collapses repeats of the same subject rather than stacking them.
+      // `notification_id` on a targeted push, `id` on a broadcast — the two
+      // never appear together, which is what tells the shapes apart.
+      tag: data.notification_id || data.id || undefined,
+      data: { url: targetUrl(payload) },
     });
   });
 }
@@ -69,12 +131,12 @@ if (config.apiKey && config.projectId && config.messagingSenderId && config.appI
  */
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = event.notification.data?.url || "/";
+  const target = event.notification.data?.url || INBOX;
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {
         if ("focus" in client) {
-          if ("navigate" in client && target !== "/") client.navigate(target);
+          if ("navigate" in client) client.navigate(target);
           return client.focus();
         }
       }

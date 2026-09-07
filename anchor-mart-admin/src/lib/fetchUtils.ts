@@ -112,7 +112,10 @@ const baseQueryWithAuth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQuery
 ) => {
   const result = await rawBaseQuery(args, api, extraOptions);
   if (result.error?.status === 401) {
-    api.dispatch(logout());
+    // `revoked`: the server has already rejected this token, so there is nothing
+    // for the logout endpoint to invalidate — and calling it would 401 too,
+    // landing back here in a loop.
+    api.dispatch(logout({ revoked: true }));
   }
   return result;
 };

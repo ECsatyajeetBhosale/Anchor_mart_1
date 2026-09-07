@@ -292,7 +292,9 @@ export function useRealtimeBadges(): void {
         const action = authFailureAction(code);
         if (action === "inert") return;
 
-        dispatch(logout());
+        // The socket's terminal auth frame says the token is already dead —
+        // same reasoning as the 401 handler in `fetchUtils`.
+        dispatch(logout({ revoked: true }));
         toast.error(
           action === "logout-blocked" ? MESSAGES.AUTH.OTP.BLOCKED : MESSAGES.REALTIME.SESSION_ENDED,
         );

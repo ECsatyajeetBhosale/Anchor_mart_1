@@ -1,5 +1,5 @@
 import { baseApi } from "@/lib/fetchUtils";
-import { configureStore } from "@reduxjs/toolkit";
+import { type Middleware, configureStore } from "@reduxjs/toolkit";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // Imported for its side effect: injecting `getMe`, so the cache has a real
 // endpoint to hold an entry under.
@@ -171,5 +171,111 @@ describe("startSessionSync", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(store.dispatch).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The server call, which is what makes a sign-out mean anything.
+ *
+ * `/superadmin/admin/logout/` deletes the auth token **and every FCM token on
+ * the account**. Nothing called it before — `useAuth().signOut()` was never
+ * imported — so "signed out" cleared local state and left the token valid
+ * server-side forever, with the browser still receiving the ex-admin's pushes.
+ *
+ * Asserted through the action stream rather than through `fetch`, because
+ * `fetchBaseQuery` binds the global `fetch` as a default parameter when the
+ * module loads: a `stubGlobal` in a test body is already too late, and stubbing
+ * it looked exactly like the request never being made.
+ */
+describe("signing out tells the server", () => {
+  interface Recorded {
+    type: string;
+    endpoint?: string;
+    /** The auth token as it stood when this action passed through. */
+    tokenAtDispatch: string | null;
+  }
+
+  /** A store whose action stream is observable. */
+  function recordingStore() {
+    const seen: Recorded[] = [];
+    // First in the chain, so it sees each action on the way in — including the
+    // ones `sessionSyncMiddleware` dispatches from inside.
+    const recorder: Middleware = (mw) => (next) => (recorded) => {
+      const entry = recorded as { type?: string; meta?: { arg?: { endpointName?: string } } };
+      if (entry.type) {
+        seen.push({
+          type: entry.type,
+          endpoint: entry.meta?.arg?.endpointName,
+          tokenAtDispatch: (mw.getState() as { auth: { token: string | null } }).auth.token,
+        });
+      }
+      return next(recorded);
+    };
+    const store = configureStore({
+      reducer: { [baseApi.reducerPath]: baseApi.reducer, auth: authReducer },
+      middleware: (getDefaultMiddleware) =>
+        getDefaultMiddleware().prepend(recorder).concat(baseApi.middleware, sessionSyncMiddleware),
+    });
+    return { store, seen };
+  }
+
+  const logoutRequest = (seen: Recorded[]) =>
+    seen.find((e) => e.endpoint === "logout" && e.type.endsWith("/pending"));
+
+  it("requests the logout endpoint when the admin signs out", async () => {
+    const { store, seen } = recordingStore();
+    store.dispatch(setCredentials({ token: "session-token", user: ADMIN }));
+
+    store.dispatch(logout());
+
+    expect(logoutRequest(seen)).toBeDefined();
+  });
+
+  it("sends it while the token is still in the store", () => {
+    // The reason it is dispatched before `next(action)`. `prepareHeaders` reads
+    // the token out of state, so a request made after the slice is cleared
+    // carries no `Authorization` and identifies no account to sign out.
+    const { store, seen } = recordingStore();
+    store.dispatch(setCredentials({ token: "session-token", user: ADMIN }));
+
+    store.dispatch(logout());
+
+    expect(logoutRequest(seen)?.tokenAtDispatch).toBe("session-token");
+  });
+
+  it("starts the request after the cache reset, never before", () => {
+    // `resetApiState` ends with `abortAllPromises(runningMutations)`, so a
+    // logout call started ahead of it is cancelled before it leaves the
+    // browser — silently, since the request is fire-and-forget.
+    const { store, seen } = recordingStore();
+    store.dispatch(setCredentials({ token: "session-token", user: ADMIN }));
+
+    store.dispatch(logout());
+
+    const resetAt = seen.findIndex((e) => e.type === "api/resetApiState");
+    const requestAt = seen.findIndex((e) => e === logoutRequest(seen));
+    expect(resetAt).toBeGreaterThanOrEqual(0);
+    expect(requestAt).toBeGreaterThan(resetAt);
+  });
+
+  it("does not call it for a sign-out heard from another tab", () => {
+    // That tab already did. One click must not become one request per open tab.
+    const { store, seen } = recordingStore();
+    store.dispatch(setCredentials({ token: "session-token", user: ADMIN }));
+
+    store.dispatch(logout({ remote: true }));
+
+    expect(logoutRequest(seen)).toBeUndefined();
+  });
+
+  it("does not call it when the token is already dead", () => {
+    // A 401 dispatches `logout()`. If that called the endpoint, the call would
+    // 401 too, dispatch `logout()` again, and loop.
+    const { store, seen } = recordingStore();
+    store.dispatch(setCredentials({ token: "session-token", user: ADMIN }));
+
+    store.dispatch(logout({ revoked: true }));
+
+    expect(logoutRequest(seen)).toBeUndefined();
   });
 });

@@ -67,14 +67,22 @@ function initialState(): PushState {
  * control has something to call.
  */
 /**
- * How often a still-signed-in tab re-checks whether FCM has rotated the token.
+ * How often a still-signed-in tab re-registers its device token.
  *
- * Rotation is rare but the window is not: admin tokens never expire by design
- * (see `setUser` in the auth slice), so a session can outlive many rotations,
- * and sign-in used to be the only thing that ever re-registered. A tab left
- * open for a fortnight would go on holding a token the backend no longer knows.
+ * Not a rotation check any more — a re-send. The endpoint is idempotent and the
+ * backend's guidance is explicit: prefer sending it too often over too rarely,
+ * because a token can vanish server-side through paths this client cannot
+ * observe — a sign-out on another device, the unregistered-token prune, a
+ * handover to another account and back. None of those change the token string,
+ * so anything keyed on "has it changed?" would never recover from them.
+ *
+ * An hour bounds that recovery without being chatty: a reload re-registers
+ * immediately, so this only carries the tab left open all day.
  */
-const ROTATION_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const REREGISTER_INTERVAL_MS = 60 * 60 * 1000;
+
+/** The endpoint's own cap — over this is a 400, not a truncation. */
+const FCM_TOKEN_MAX_LENGTH = 255;
 
 export function usePushNotifications() {
   const token = useAppSelector((s) => s.auth.token);
@@ -96,10 +104,8 @@ export function usePushNotifications() {
   const sessionRef = useRef(token);
   sessionRef.current = token;
 
-  /** The device token the backend has already accepted for this session. */
-  const lastRegistered = useRef<string | null>(null);
-  /** When rotation was last checked, so the two triggers share one throttle. */
-  const lastRotationCheck = useRef(0);
+  /** When the token was last sent, so the two triggers share one throttle. */
+  const lastSentAt = useRef(0);
 
   /**
    * Mint a token and hand it to the backend. Returns whether it landed.
@@ -110,11 +116,10 @@ export function usePushNotifications() {
    */
   const sendToken = useCallback(
     async (reason: string): Promise<boolean> => {
-      // Stamped here rather than in the rotation trigger, because *this* is the
-      // check. Left to the trigger it started at zero, so the first time the
-      // tab was foregrounded after signing in the throttle had already elapsed
-      // and the SDK was asked again for a token nobody had reason to doubt.
-      lastRotationCheck.current = Date.now();
+      // Stamped here rather than in the trigger, because *this* is the send.
+      // Left to the trigger it started at zero, so the first foreground after
+      // signing in re-sent a token registered seconds earlier.
+      lastSentAt.current = Date.now();
       const fcmToken = await getDeviceToken();
       if (!fcmToken) {
         pushLog("no-token", { reason, hint: "getDeviceToken() returned null — see earlier log" });
@@ -122,18 +127,26 @@ export function usePushNotifications() {
       }
       pushLog("token-minted", { reason, token: fingerprintToken(fcmToken) });
 
-      // Already registered, this session, unchanged. The rotation check runs on
-      // a timer and on every foreground; posting an identical token each time
-      // would be the duplicate call this is meant to avoid.
-      if (lastRegistered.current === fcmToken) {
-        pushLog("token-unchanged", { reason });
-        return true;
+      // The two shapes the endpoint rejects with a 400. The SDK has never
+      // produced either — web tokens run ~160 characters and carry no spaces —
+      // but the request is fire-and-forget, so a rejection would otherwise be
+      // invisible and indistinguishable from push simply not working.
+      if (fcmToken.length > FCM_TOKEN_MAX_LENGTH || /\s/.test(fcmToken)) {
+        pushLog("token-malformed", {
+          reason,
+          length: fcmToken.length,
+          hasWhitespace: /\s/.test(fcmToken),
+        });
+        return false;
       }
 
+      // No "skip if unchanged" here, deliberately. Registration is idempotent
+      // and creates no duplicate rows, and an unchanged token is exactly the
+      // case that needs re-sending: the row can be gone server-side while the
+      // string in this browser stays the same.
       try {
         pushLog("post-start", { reason, endpoint: "add-fcm-token", field: "fcm_token" });
         await registerFcmToken({ fcm_token: fcmToken }).unwrap();
-        lastRegistered.current = fcmToken;
         pushLog("post-ok", { reason });
         return true;
       } catch (error) {
@@ -171,7 +184,6 @@ export function usePushNotifications() {
       // user's tokens on logout, so the row is gone server-side regardless — but
       // on a shared machine the next admin must send their own.
       registeredFor.current = null;
-      lastRegistered.current = null;
       return;
     }
     // "unsupported" / "unconfigured" / "denied" / "error" are all dead ends here
@@ -184,7 +196,6 @@ export function usePushNotifications() {
     // this effect, cannot start a second registration for the same sign-in.
     if (registeredFor.current === token) return;
     registeredFor.current = token;
-    lastRegistered.current = null;
 
     /** Has the session moved on since this run started? */
     const stale = () => sessionRef.current !== token;
@@ -213,20 +224,18 @@ export function usePushNotifications() {
   }, [token, state, sendToken]);
 
   /**
-   * Keeps the backend's copy current when FCM rotates the token.
+   * Re-registers the device while the session stays open.
    *
-   * The modern SDK has no `onTokenRefresh` — it was removed in v9 — so the
-   * documented approach is to ask for the token again and compare. Two triggers
-   * share one throttle: coming back to the tab, which is when a rotation that
-   * happened while it was hidden is worth catching, and a long timer, for the
-   * tab nobody ever leaves. `sendToken` posts only when the value actually
-   * changed, so the usual cost of both is a local SDK call and no request.
+   * Covers both of the backend's remaining moments: "on app start / resume,
+   * once authenticated" is the foreground trigger, and the timer carries the
+   * tab that is never left. Rotation comes along for free — the modern SDK has
+   * no `onTokenRefresh` (removed in v9), so asking again *is* the mechanism.
    */
   useEffect(() => {
     if (!token || state !== "enabled") return;
 
     const check = (trigger: string) => {
-      if (Date.now() - lastRotationCheck.current < ROTATION_CHECK_INTERVAL_MS) return;
+      if (Date.now() - lastSentAt.current < REREGISTER_INTERVAL_MS) return;
       void sendToken(trigger);
     };
 
@@ -234,7 +243,7 @@ export function usePushNotifications() {
       if (document.visibilityState === "visible") check("foreground");
     };
     document.addEventListener("visibilitychange", onVisibility);
-    const timer = window.setInterval(() => check("interval"), ROTATION_CHECK_INTERVAL_MS);
+    const timer = window.setInterval(() => check("interval"), REREGISTER_INTERVAL_MS);
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
