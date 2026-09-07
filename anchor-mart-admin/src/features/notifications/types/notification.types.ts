@@ -137,9 +137,10 @@ export type BroadcastAudience = NotificationRole | "all";
  * is why this console always sends both explicitly rather than relying on a
  * default an admin can't see.
  *
- * `image_path` is a stored path under `notification_images/`. That directory is
- * **not** in the presigned minter's allow-list, so it can only be pasted, not
- * uploaded from here.
+ * `image_path` is the media-root **relative** path under `notification_images/`
+ * that the presigned upload hands back — not a URL and not a file part. The
+ * banner is uploaded straight to S3 by the picker and only the path is sent
+ * here, which is why this stays a plain string field.
  */
 export interface SendBroadcastPayload {
   title: string;

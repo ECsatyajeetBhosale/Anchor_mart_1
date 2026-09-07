@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import { CountryCodeSelect } from "@/components/common/CountryCodeSelect";
 import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { FormField } from "@/components/common/FormField";
 import { FormRow } from "@/components/common/FormRow";
@@ -19,6 +20,7 @@ import {
 import { useGetDashboardPortsQuery } from "@/features/dashboard";
 import { getApiMessage, getFieldErrors } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
+import { phoneDigitsHint, phoneExamplePlaceholder } from "@/lib/validation";
 import { useCreatePartnerMutation } from "../api/partnerApi";
 import { type PartnerFormData, partnerFormSchema } from "../schemas/partner.schema";
 import type { CreatePartnerPayload } from "../types/partner.types";
@@ -64,6 +66,7 @@ export function PartnerFormDrawer({ isOpen, onClose }: PartnerFormDrawerProps) {
   const {
     register,
     control,
+    watch,
     handleSubmit,
     reset,
     setError,
@@ -155,16 +158,27 @@ export function PartnerFormDrawer({ isOpen, onClose }: PartnerFormDrawerProps) {
           </FormField>
           <FormRow>
             <FormField label={M.DETAIL.COUNTRY_CODE} error={errors.country_code?.message}>
-              <Input
-                placeholder={M.DETAIL.COUNTRY_CODE_PLACEHOLDER}
-                error={!!errors.country_code}
-                {...register("country_code")}
+              <Controller
+                control={control}
+                name="country_code"
+                render={({ field }) => (
+                  <CountryCodeSelect
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    error={!!errors.country_code}
+                  />
+                )}
               />
             </FormField>
-            <FormField label={M.DETAIL.WHATSAPP} error={errors.whatsapp_number?.message}>
+            <FormField
+              label={M.DETAIL.WHATSAPP}
+              error={errors.whatsapp_number?.message}
+              hint={phoneDigitsHint(watch("country_code"))}
+            >
               <Input
                 className="mono"
-                placeholder={M.DETAIL.WHATSAPP_PLACEHOLDER}
+                placeholder={phoneExamplePlaceholder(watch("country_code"))}
                 error={!!errors.whatsapp_number}
                 {...register("whatsapp_number")}
               />

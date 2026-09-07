@@ -1,3 +1,4 @@
+import { CountryCodeSelect } from "@/components/common/CountryCodeSelect";
 import { FormField } from "@/components/common/FormField";
 import { FormRow } from "@/components/common/FormRow";
 import { Input } from "@/components/ui/input";
@@ -11,10 +12,11 @@ import {
 } from "@/components/ui/sheet";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
+import { phoneDigitsHint, phoneExamplePlaceholder } from "@/lib/validation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconCheck, IconUser } from "@tabler/icons-react";
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useCreateSailorMutation } from "../api/sailorApi";
 import { EMPTY_SAILOR_FORM, type SailorFormData, sailorFormSchema } from "../schemas/sailor.schema";
@@ -38,6 +40,8 @@ export function SailorAddDrawer({ isOpen, onClose }: SailorAddDrawerProps) {
 
   const {
     register,
+    control,
+    watch,
     handleSubmit,
     reset,
     formState: { errors },
@@ -112,15 +116,26 @@ export function SailorAddDrawer({ isOpen, onClose }: SailorAddDrawerProps) {
 
             <FormRow>
               <FormField label={F.COUNTRY_CODE} error={errors.country_code?.message}>
-                <Input
-                  placeholder={F.COUNTRY_CODE_PLACEHOLDER}
-                  error={!!errors.country_code}
-                  {...register("country_code")}
+                <Controller
+                  control={control}
+                  name="country_code"
+                  render={({ field }) => (
+                    <CountryCodeSelect
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      error={!!errors.country_code}
+                    />
+                  )}
                 />
               </FormField>
-              <FormField label={F.WHATSAPP} error={errors.whatsapp_number?.message}>
+              <FormField
+                label={F.WHATSAPP}
+                error={errors.whatsapp_number?.message}
+                hint={phoneDigitsHint(watch("country_code"))}
+              >
                 <Input
-                  placeholder={F.WHATSAPP_PLACEHOLDER}
+                  placeholder={phoneExamplePlaceholder(watch("country_code"))}
                   error={!!errors.whatsapp_number}
                   {...register("whatsapp_number")}
                 />

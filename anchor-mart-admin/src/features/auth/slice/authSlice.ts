@@ -1,7 +1,13 @@
 import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
 import type { AdminUser, AuthState } from "../types/auth.types";
 
-const TOKEN_KEY = "am_admin_token";
+/**
+ * Exported because the cross-tab session sync watches this exact key: removing
+ * it is what every *other* tab sees as "the session ended". Two spellings of it
+ * would mean a sign-out that no other tab notices.
+ */
+export const AUTH_TOKEN_STORAGE_KEY = "am_admin_token";
+const TOKEN_KEY = AUTH_TOKEN_STORAGE_KEY;
 const USER_KEY = "am_admin_user";
 
 function loadToken(): string | null {
@@ -66,17 +72,32 @@ const authSlice = createSlice({
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
     },
-    logout: (state) => {
-      state.token = null;
-      state.user = null;
-      state.isAuthenticated = false;
-      state.isLoading = false;
-      try {
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(USER_KEY);
-      } catch {
-        // ignore
-      }
+    /**
+     * Ends the session in this tab.
+     *
+     * `meta.remote` says where the sign-out came from, and only the session-sync
+     * middleware reads it: a `true` means another tab already told everyone, so
+     * this tab must not announce it again. Callers who are signing *this* tab
+     * out — the sidebar, `useAuth`, the 401 handler, the socket's terminal auth
+     * frame — keep calling `logout()` with no argument and get `false`.
+     */
+    logout: {
+      reducer: (state) => {
+        state.token = null;
+        state.user = null;
+        state.isAuthenticated = false;
+        state.isLoading = false;
+        try {
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(USER_KEY);
+        } catch {
+          // ignore
+        }
+      },
+      prepare: (options?: { remote?: boolean }) => ({
+        payload: undefined,
+        meta: { remote: options?.remote === true },
+      }),
     },
   },
 });

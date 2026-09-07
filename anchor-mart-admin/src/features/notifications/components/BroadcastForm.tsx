@@ -5,6 +5,7 @@ import { FormRow } from "@/components/common/FormRow";
 import { SectionCard } from "@/components/common/SectionCard";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { FILE_LOCATIONS, ImageUploadField } from "@/features/media";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
@@ -228,12 +229,19 @@ export function BroadcastForm() {
           />
         </FormField>
 
+        {/* The banner is picked and uploaded here, not pasted. The bytes go
+            straight from the browser to S3 (Flow 26) and only the media-root
+            relative path the handshake returns is submitted — which is exactly
+            what `image_path` has always wanted, so nothing about the send
+            changes. No `previewUrl`: this form composes a new broadcast, so the
+            only image it can show is one uploaded in this session, which the
+            field already remembers on its own. */}
         <FormField label={B.IMAGE} hint={B.IMAGE_HINT}>
-          <Input
-            className="mono text-[12px]"
-            placeholder={B.IMAGE_PLACEHOLDER}
+          <ImageUploadField
             value={imagePath}
-            onChange={(e) => setImagePath(e.target.value)}
+            onChange={setImagePath}
+            fileLocation={FILE_LOCATIONS.NOTIFICATION_IMAGES}
+            disabled={isSending}
           />
         </FormField>
 

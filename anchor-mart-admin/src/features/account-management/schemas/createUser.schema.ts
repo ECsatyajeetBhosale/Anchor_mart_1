@@ -4,6 +4,7 @@ import {
   emailField,
   firstNameField,
   lastNameField,
+  phoneCountryRule,
   phoneNumberField,
 } from "@/lib/validation";
 import { z } from "zod";
@@ -16,20 +17,24 @@ import { z } from "zod";
  * provisioning; the shared field builders keep it identical to every other
  * name/phone/email form in the app.
  */
-export const createUserSchema = z.object({
-  first_name: firstNameField(),
-  last_name: lastNameField(),
-  email: emailField(),
-  role: z.enum(["customer", "seller", "admin", "super_admin", "delivery_partner"]),
-  country_code: countryCodeField(),
-  whatsapp_number: phoneNumberField(MESSAGES.VALIDATION.LABELS.WHATSAPP),
-  // Partner-only fields. Optional in the schema because they are irrelevant to
-  // every other role; the drawer renders and sends them only for
-  // `delivery_partner`, and the "at least one capability" rule is enforced
-  // there rather than here for the same reason.
-  can_verify: z.boolean().optional(),
-  can_deliver: z.boolean().optional(),
-  assigned_port: z.string().optional(),
-});
+export const createUserSchema = z
+  .object({
+    first_name: firstNameField(),
+    last_name: lastNameField(),
+    email: emailField(),
+    role: z.enum(["customer", "seller", "admin", "super_admin", "delivery_partner"]),
+    country_code: countryCodeField(),
+    whatsapp_number: phoneNumberField(MESSAGES.VALIDATION.LABELS.WHATSAPP),
+    // Partner-only fields. Optional in the schema because they are irrelevant to
+    // every other role; the drawer renders and sends them only for
+    // `delivery_partner`, and the "at least one capability" rule is enforced
+    // there rather than here for the same reason.
+    can_verify: z.boolean().optional(),
+    can_deliver: z.boolean().optional(),
+    assigned_port: z.string().optional(),
+  })
+  // The number is checked against the country the code belongs to, not just for
+  // a plausible length. Runs last, once both fields are individually well-formed.
+  .superRefine(phoneCountryRule({ codeKey: "country_code", numberKey: "whatsapp_number" }));
 
 export type CreateUserFormData = z.infer<typeof createUserSchema>;

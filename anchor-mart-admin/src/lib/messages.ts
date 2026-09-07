@@ -10,13 +10,19 @@ export const MESSAGES = {
     LOGIN_TITLE: "Welcome back",
     LOGIN_SUB: "Sign in to your admin account",
     EMAIL_LABEL: "Email Address",
-    EMAIL_PLACEHOLDER: "admin@anchormart.io",
+    EMAIL_PLACEHOLDER: "admin@example.com",
     PASSWORD_LABEL: "Password",
     PASSWORD_PLACEHOLDER: "Your password",
     LOGIN_BUTTON: "Sign In",
     LOGGING_IN: "Signing in…",
     INVALID_CREDENTIALS: "Invalid email or password. Please try again.",
     NETWORK_ERROR: "Unable to connect. Please check your connection.",
+    /**
+     * Shown in the tabs that did *not* click sign out. Without it the screen
+     * simply becomes a login form mid-task, which reads as the session dropping
+     * on its own rather than as something the admin just did next door.
+     */
+    SIGNED_OUT_OTHER_TAB: "You signed out in another tab.",
     OTP: {
       // Step A — email
       EMAIL_STEP_TITLE: "Sign in with OTP",
@@ -315,7 +321,7 @@ export const MESSAGES = {
   SAILORS: {
     // Page chrome
     TITLE: "Sailors Management",
-    SEARCH_PLACEHOLDER: "Search sailors...",
+    SEARCH_PLACEHOLDER: "Search sailors…",
     ADD_SAILOR: "Add Sailor",
     EDIT_SAILOR: "Edit Sailor",
     SAILOR_ADDED: "Sailor added successfully",
@@ -381,15 +387,13 @@ export const MESSAGES = {
       EDIT_TITLE: "Edit Sailor",
       EDIT_SUBTITLE: "Update sailor account details",
       FIRST_NAME: "First Name",
-      FIRST_NAME_PLACEHOLDER: "e.g. Abhishek",
+      FIRST_NAME_PLACEHOLDER: "First name",
       LAST_NAME: "Last Name",
-      LAST_NAME_PLACEHOLDER: "e.g. Nadurbar",
+      LAST_NAME_PLACEHOLDER: "Last name",
       COUNTRY_CODE: "Country Code",
-      COUNTRY_CODE_PLACEHOLDER: "91",
       WHATSAPP: "WhatsApp Number",
-      WHATSAPP_PLACEHOLDER: "8790091840",
       EMAIL: "Email Address",
-      EMAIL_PLACEHOLDER: "sailor@email.com",
+      EMAIL_PLACEHOLDER: "sailor@example.com",
       ACCOUNT_STATUS: "Account Status",
       ACTIVE: "Active",
       INACTIVE: "Inactive",
@@ -1448,7 +1452,7 @@ export const MESSAGES = {
   SPECIAL_REQUESTS: {
     // Page chrome
     TITLE: "Special Request Items",
-    SEARCH_PLACEHOLDER: "Search requests...",
+    SEARCH_PLACEHOLDER: "Search requests…",
     ALL_STATUS: "All Status",
     EMPTY: "No requests match the current filters.",
     FETCH_ERROR: "Failed to load special requests.",
@@ -1723,7 +1727,7 @@ export const MESSAGES = {
     ACTION_REVIEW: "Review",
     // Page chrome
     TITLE: "Seller Applications",
-    SEARCH_PLACEHOLDER: "Search applications...",
+    SEARCH_PLACEHOLDER: "Search applications…",
     ALL_STATUS: "All Status",
     EMPTY: "No applications match the current filters.",
     FETCH_ERROR: "Failed to load seller applications.",
@@ -1781,7 +1785,7 @@ export const MESSAGES = {
       DECISION: "Decision",
       REJECTION_REASON: "Rejection Reason",
       MESSAGE: "Message to Applicant",
-      MESSAGE_PLACEHOLDER: "Provide a detailed message explaining the issue...",
+      MESSAGE_PLACEHOLDER: "Provide a detailed message explaining the issue…",
       APPROVE: "Approve",
       REJECT: "Reject & Notify",
       // Detail-only fields (present on request/?user_id=, not on the list row)
@@ -1813,7 +1817,7 @@ export const MESSAGES = {
     TITLE: "Delivery Partners",
     SUBTITLE_PARTNERS: "64 partners",
     SUBTITLE_ON_DUTY: "28 on duty",
-    SEARCH_PLACEHOLDER: "Search partners...",
+    SEARCH_PLACEHOLDER: "Search partners…",
     ALL_STATUS: "All Status",
     ADD_PARTNER: "Onboard Partner",
     EMPTY: "No partners match the current filters.",
@@ -1862,15 +1866,13 @@ export const MESSAGES = {
       ROLE: "Delivery Partner",
       SECTION: "Partner Details",
       FIRST_NAME: "First Name",
-      FIRST_NAME_PLACEHOLDER: "e.g. John",
+      FIRST_NAME_PLACEHOLDER: "First name",
       LAST_NAME: "Last Name",
-      LAST_NAME_PLACEHOLDER: "e.g. Doe",
+      LAST_NAME_PLACEHOLDER: "Last name",
       EMAIL: "Email",
-      EMAIL_PLACEHOLDER: "user@anchormart.io",
+      EMAIL_PLACEHOLDER: "user@example.com",
       COUNTRY_CODE: "Country Code",
-      COUNTRY_CODE_PLACEHOLDER: "e.g. +91",
       WHATSAPP: "WhatsApp Number",
-      WHATSAPP_PLACEHOLDER: "9989091871",
       /**
        * Reused for the list column and the form field, so the two name the same
        * thing identically. Optional on the API, but it is what makes a partner
@@ -2006,9 +2008,9 @@ export const MESSAGES = {
       EDIT_TITLE: "Edit Partner Details",
       SUBTITLE: "Delivery partner details",
       NAME: "Full Name",
-      NAME_PLACEHOLDER: "e.g. Aisha Karimi",
+      NAME_PLACEHOLDER: "Full name",
       EMAIL: "Email",
-      EMAIL_PLACEHOLDER: "e.g. partner@anchormart.io",
+      EMAIL_PLACEHOLDER: "partner@example.com",
       PHONE: "Phone Number",
       PHONE_PLACEHOLDER: "e.g. +65 9123 4567",
       PORT_ZONE: "Port Zone",
@@ -3104,9 +3106,7 @@ export const MESSAGES = {
       COMPANY: "Company",
       COMPANY_PLACEHOLDER: "e.g. SMS Pte Ltd",
       COUNTRY_CODE: "Country Code",
-      COUNTRY_CODE_PLACEHOLDER: "+65",
       MOBILE: "Mobile",
-      MOBILE_PLACEHOLDER: "9876543210",
       EMAIL: "Email",
       EMAIL_PLACEHOLDER: "ops@example.com",
       CONTACT_HINT: "Provide at least a mobile number or an email so the agent is reachable.",
@@ -4784,9 +4784,7 @@ export const MESSAGES = {
       IMAGE: "Image Path",
       // notification_images/ is not one of the five presigned-mintable
       // directories, so this one really is paste-only.
-      IMAGE_HINT:
-        "Optional stored path (e.g. notification_images/banner.jpg). This directory can't be uploaded to from here.",
-      IMAGE_PLACEHOLDER: "notification_images/banner.jpg",
+      IMAGE_HINT: "Optional banner shown with the notification.",
       SUBMIT: "Send Broadcast",
       SENDING: "Sending…",
       CONFIRM_TITLE: "Send this broadcast?",
@@ -4989,14 +4987,13 @@ export const MESSAGES = {
     FIELDS: {
       ROLE: "Role *",
       FIRST_NAME: "First Name *",
-      FIRST_NAME_PLACEHOLDER: "e.g. Satyajeet",
+      FIRST_NAME_PLACEHOLDER: "First name",
       LAST_NAME: "Last Name",
-      LAST_NAME_PLACEHOLDER: "e.g. Bhosle",
+      LAST_NAME_PLACEHOLDER: "Last name",
       EMAIL: "Email Address *",
-      EMAIL_PLACEHOLDER: "e.g. specialist@anchormart.io",
+      EMAIL_PLACEHOLDER: "specialist@example.com",
       COUNTRY_CODE: "Country Code *",
       WHATSAPP: "WhatsApp Number *",
-      WHATSAPP_PLACEHOLDER: "9989091840",
     },
     SUBTITLE: "Provision accounts, and review requests to erase them.",
     /**
@@ -5486,9 +5483,48 @@ export const MESSAGES = {
     PHONE_DIGITS: (min: number, max: number) =>
       `Enter ${min}–${max} digits. Spaces, dashes and brackets are fine — they're removed.`,
     COUNTRY_CODE_INVALID: "Enter a valid country code, e.g. +91",
+    /**
+     * One country's mobile lengths, as words: "10 digits", "10 or 11 digits",
+     * "9–12 digits". A run of three or more collapses to a range, because
+     * "9, 10, 11 or 12 digits" is a sentence nobody reads to the end.
+     */
+    PHONE_DIGIT_COUNT: (lengths: number[]) => {
+      const last = lengths[lengths.length - 1];
+      if (lengths.length === 1) return `${lengths[0]} digits`;
+      if (lengths.length > 2 && last - lengths[0] === lengths.length - 1) {
+        return `${lengths[0]}–${last} digits`;
+      }
+      return `${lengths.slice(0, -1).join(", ")} or ${last} digits`;
+    },
+    /**
+     * The rule stated positively, under the number field, before anything has
+     * gone wrong — so the length is something the operator is told rather than
+     * something they discover by being rejected. `country` is the plain name.
+     */
+    PHONE_DIGITS_FOR_COUNTRY: (country: string, digits: string) =>
+      `${country} mobile numbers are ${digits}`,
+    /**
+     * The same rule as a complaint. Names the country rather than repeating the
+     * generic range, because the operator picked that country a field ago and
+     * the number is what has to change. `country` arrives pre-formatted as
+     * "India (+91)"; `digits` is absent when the metadata has no length for it.
+     */
+    PHONE_FOR_COUNTRY: (country: string, digits?: string) =>
+      digits
+        ? `Enter a valid mobile number for ${country} — ${digits}`
+        : `Enter a valid mobile number for ${country}`,
     EMAIL_INVALID: "Enter a valid email address",
   },
   COMMON: {
+    /** The country-code picker shared by every form that collects a phone number. */
+    COUNTRY_CODE_SELECT: {
+      LABEL: "Country code",
+      PLACEHOLDER: "Select country",
+      /** Says both things that can be typed, because the box accepts both. */
+      SEARCH_PLACEHOLDER: "Search country or code…",
+      NO_MATCHES: "No country matches",
+      NONE: "No country code",
+    },
     /** Mobile nav drawer — the scrim's accessible name, and the header button's. */
     OPEN_NAVIGATION: "Open navigation",
     CLOSE_NAVIGATION: "Close navigation",

@@ -1,3 +1,4 @@
+import { CountryCodeSelect } from "@/components/common/CountryCodeSelect";
 import { FormField } from "@/components/common/FormField";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,10 +11,11 @@ import {
 } from "@/components/ui/sheet";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
+import { phoneDigitsHint, phoneExamplePlaceholder } from "@/lib/validation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconAnchor, IconCheck } from "@tabler/icons-react";
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useCreateShipAgentMutation } from "../api/shipAgentApi";
 import { type ShipAgentFormData, shipAgentSchema } from "../schemas/shipAgent.schema";
@@ -39,6 +41,8 @@ export function ShipAgentAddDrawer({ isOpen, onClose }: ShipAgentAddDrawerProps)
 
   const {
     register,
+    control,
+    watch,
     handleSubmit,
     reset,
     formState: { errors },
@@ -111,14 +115,27 @@ export function ShipAgentAddDrawer({ isOpen, onClose }: ShipAgentAddDrawerProps)
             <div className="sec-label">{M.SECTIONS.CONTACT}</div>
             <div className="grid grid-cols-[120px_1fr] gap-3">
               <FormField label={M.FIELDS.COUNTRY_CODE} error={errors.country_code?.message}>
-                <Input
-                  placeholder={M.FIELDS.COUNTRY_CODE_PLACEHOLDER}
-                  {...register("country_code")}
+                <Controller
+                  control={control}
+                  name="country_code"
+                  render={({ field }) => (
+                    <CountryCodeSelect
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      error={!!errors.country_code}
+                      allowEmpty
+                    />
+                  )}
                 />
               </FormField>
-              <FormField label={M.FIELDS.MOBILE} error={errors.mobile?.message}>
+              <FormField
+                label={M.FIELDS.MOBILE}
+                error={errors.mobile?.message}
+                hint={phoneDigitsHint(watch("country_code"))}
+              >
                 <Input
-                  placeholder={M.FIELDS.MOBILE_PLACEHOLDER}
+                  placeholder={phoneExamplePlaceholder(watch("country_code"))}
                   error={!!errors.mobile}
                   {...register("mobile")}
                 />

@@ -9,10 +9,11 @@ import {
   IconUserOff,
 } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { CountryCodeSelect } from "@/components/common/CountryCodeSelect";
 import { FormField } from "@/components/common/FormField";
 import { FormRow } from "@/components/common/FormRow";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +32,7 @@ import { getApiMessage, getFieldErrors } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
+import { phoneDigitsHint, phoneExamplePlaceholder } from "@/lib/validation";
 import {
   useDeleteAdminUserMutation,
   useGetAdminUserQuery,
@@ -97,6 +99,8 @@ export function AdminUserDetailDrawer({ user, isOpen, onClose }: AdminUserDetail
 
   const {
     register,
+    control,
+    watch,
     handleSubmit,
     reset,
     setError,
@@ -270,14 +274,29 @@ export function AdminUserDetailDrawer({ user, isOpen, onClose }: AdminUserDetail
           <div className="sec-label mt-4">{D.CONTACT}</div>
           <FormRow>
             <FormField label={`${D.COUNTRY_CODE} *`} error={errors.country_code?.message}>
-              <Input
-                placeholder="+91"
-                error={!!errors.country_code}
-                {...register("country_code")}
+              <Controller
+                control={control}
+                name="country_code"
+                render={({ field }) => (
+                  <CountryCodeSelect
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    error={!!errors.country_code}
+                  />
+                )}
               />
             </FormField>
-            <FormField label={`${D.WHATSAPP} *`} error={errors.whatsapp_number?.message}>
-              <Input error={!!errors.whatsapp_number} {...register("whatsapp_number")} />
+            <FormField
+              label={`${D.WHATSAPP} *`}
+              error={errors.whatsapp_number?.message}
+              hint={phoneDigitsHint(watch("country_code"))}
+            >
+              <Input
+                placeholder={phoneExamplePlaceholder(watch("country_code"))}
+                error={!!errors.whatsapp_number}
+                {...register("whatsapp_number")}
+              />
             </FormField>
           </FormRow>
 

@@ -4,6 +4,7 @@ import {
   emailField,
   firstNameField,
   lastNameField,
+  phoneCountryRule,
   phoneNumberField,
 } from "@/lib/validation";
 import { z } from "zod";
@@ -19,12 +20,16 @@ import { z } from "zod";
  * name/email/phone form in the app, so an admin's contact details validate the
  * way a sailor's do.
  */
-export const adminUserSchema = z.object({
-  first_name: firstNameField(),
-  last_name: lastNameField(),
-  email: emailField(),
-  country_code: countryCodeField(),
-  whatsapp_number: phoneNumberField(MESSAGES.VALIDATION.LABELS.WHATSAPP),
-});
+export const adminUserSchema = z
+  .object({
+    first_name: firstNameField(),
+    last_name: lastNameField(),
+    email: emailField(),
+    country_code: countryCodeField(),
+    whatsapp_number: phoneNumberField(MESSAGES.VALIDATION.LABELS.WHATSAPP),
+  })
+  // The number is checked against the country the code belongs to, not just for
+  // a plausible length. Runs last, once both fields are individually well-formed.
+  .superRefine(phoneCountryRule({ codeKey: "country_code", numberKey: "whatsapp_number" }));
 
 export type AdminUserFormData = z.infer<typeof adminUserSchema>;

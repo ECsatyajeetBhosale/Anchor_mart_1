@@ -4,6 +4,7 @@ import {
   emailField,
   firstNameField,
   lastNameField,
+  phoneCountryRule,
   phoneNumberField,
 } from "@/lib/validation";
 import { z } from "zod";
@@ -20,13 +21,17 @@ import { z } from "zod";
  * verbatim; the update endpoint wants it bare, so the edit drawer strips the
  * "+" on submit rather than validating a second shape.
  */
-export const sailorFormSchema = z.object({
-  first_name: firstNameField(),
-  last_name: lastNameField(),
-  country_code: countryCodeField(),
-  whatsapp_number: phoneNumberField(MESSAGES.VALIDATION.LABELS.WHATSAPP),
-  email: emailField(),
-});
+export const sailorFormSchema = z
+  .object({
+    first_name: firstNameField(),
+    last_name: lastNameField(),
+    country_code: countryCodeField(),
+    whatsapp_number: phoneNumberField(MESSAGES.VALIDATION.LABELS.WHATSAPP),
+    email: emailField(),
+  })
+  // The number is checked against the country the code belongs to, not just for
+  // a plausible length. Runs last, once both fields are individually well-formed.
+  .superRefine(phoneCountryRule({ codeKey: "country_code", numberKey: "whatsapp_number" }));
 
 export type SailorFormData = z.infer<typeof sailorFormSchema>;
 

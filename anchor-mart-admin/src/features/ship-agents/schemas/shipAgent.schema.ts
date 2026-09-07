@@ -2,6 +2,7 @@ import {
   optionalCountryCodeField,
   optionalEmailField,
   optionalPhoneNumberField,
+  phoneCountryRule,
 } from "@/lib/validation";
 import { z } from "zod";
 
@@ -30,6 +31,10 @@ export const shipAgentSchema = z
   .refine((data) => Boolean(data.mobile.trim() || data.email.trim()), {
     message: "Provide at least a mobile number or an email.",
     path: ["mobile"],
-  });
+  })
+  // `optional` because a blank code is legal here — an agent reachable by email
+  // alone is the whole point of the rule above. A number typed *with* a code is
+  // still checked against that country.
+  .superRefine(phoneCountryRule({ codeKey: "country_code", numberKey: "mobile", optional: true }));
 
 export type ShipAgentFormData = z.infer<typeof shipAgentSchema>;

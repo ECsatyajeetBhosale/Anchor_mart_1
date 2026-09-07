@@ -4,6 +4,7 @@ import {
   emailField,
   firstNameField,
   lastNameField,
+  phoneCountryRule,
   phoneNumberField,
 } from "@/lib/validation";
 import { z } from "zod";
@@ -44,6 +45,9 @@ export const partnerFormSchema = z
     // Pinned to `can_verify` so the message renders beside the first checkbox;
     // a form-level error would have nowhere to land in this layout.
     path: ["can_verify"],
-  });
+  })
+  // The number is checked against the country the code belongs to, not just for
+  // a plausible length. Runs last, once both fields are individually well-formed.
+  .superRefine(phoneCountryRule({ codeKey: "country_code", numberKey: "whatsapp_number" }));
 
 export type PartnerFormData = z.infer<typeof partnerFormSchema>;

@@ -89,8 +89,13 @@ export function OtpInput({
     focusBox(digits.length);
   };
 
+  // Six boxes plus five gaps share one row, so on a narrow phone the gaps are
+  // what squeeze the digits below a comfortable tap target.
   return (
-    <fieldset className="m-0 flex min-w-0 gap-3 border-0 p-0" aria-labelledby={labelledBy}>
+    <fieldset
+      className="m-0 flex min-w-0 gap-3 border-0 p-0 max-[380px]:gap-2"
+      aria-labelledby={labelledBy}
+    >
       {OTP_SLOTS.map((slot, index) => (
         <input
           key={slot}

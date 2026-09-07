@@ -1,3 +1,4 @@
+import { sessionSyncMiddleware, startSessionSync } from "@/features/auth/lib/sessionSync";
 import authReducer from "@/features/auth/slice/authSlice";
 import chatUnreadReducer from "@/features/chat/slice/chatUnreadSlice";
 import realtimeReducer from "@/features/realtime/slice/realtimeSlice";
@@ -17,7 +18,8 @@ export const store = configureStore({
     // writes to it far more often than the endpoint does.
     chatUnread: chatUnreadReducer,
   },
-  middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(baseApi.middleware),
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware().concat(baseApi.middleware, sessionSyncMiddleware),
   devTools: import.meta.env.DEV,
 });
 
@@ -32,6 +34,19 @@ export const store = configureStore({
  * or the network comes back.
  */
 setupListeners(store.dispatch);
+
+/**
+ * Signs this tab out when any other tab of the same browser profile does.
+ *
+ * Subscribed here rather than from a component for the same reason
+ * `setupListeners` is: it belongs to the store's lifetime, not to whatever
+ * happens to be mounted. A tab that had been left on a dashboard would
+ * otherwise keep rendering privileged data until someone touched it.
+ *
+ * Costs one `BroadcastChannel` and one `storage` listener — no polling, and no
+ * request of any kind.
+ */
+startSessionSync(store);
 
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;

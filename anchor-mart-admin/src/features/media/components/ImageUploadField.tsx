@@ -65,10 +65,12 @@ function isAbsoluteUrl(value: string): boolean {
  * that is there.
  *
  * The cost of that is worth stating, because it is not recoverable from inside
- * this component: only 5 of the backend's 17 media directories can be minted a
- * slip, so an image belonging to any of the other 12 can no longer be set here
- * at all, and a path on an older record can no longer be corrected by hand.
- * Those cases now need the API directly.
+ * this component: only the directories in `FILE_LOCATIONS` can be minted a slip,
+ * and the backend has roughly twice as many media directories as that — so an
+ * image belonging to one of the others can no longer be set here at all, and a
+ * path on an older record can no longer be corrected by hand. Those cases now
+ * need the API directly. (Counted rather than named on purpose: this list has
+ * grown twice, and a hardcoded tally goes stale the next time it does.)
  */
 export function ImageUploadField({
   value,

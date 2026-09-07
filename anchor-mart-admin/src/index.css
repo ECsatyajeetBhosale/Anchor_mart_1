@@ -828,6 +828,79 @@ body {
   display: none;
 }
 
+/* ── LOGIN — below the split-panel width ──
+ *
+ * The first rule this screen has ever had under 920px.
+ *
+ * `.login-card` is a flex row whose hero panel is `width:380px; flex-shrink:0`,
+ * so on a phone the hero alone is wider than the viewport: the form panel was
+ * squeezed to its minimum and pushed past the right edge, which put the email
+ * and password fields behind a sideways scroll. Stacking the two panels is the
+ * whole fix; everything else here is the sizing that stacking makes wrong. */
+@media (max-width: 900px) {
+  .login-screen {
+    /* A centred flex child that is taller than its scroll container has its top
+       cropped rather than scrolled to — the logo and headline would be
+       unreachable. Anchoring to the start scrolls normally. */
+    align-items: flex-start;
+    padding: 0;
+  }
+  .login-card {
+    flex-direction: column;
+    width: 100%;
+    /* Full-bleed. A rounded card inset by 16px spends ~10% of a 360px screen on
+       margin and corner, and the form is what needs that width. */
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    /* 580px was the height needed to stand two panels side by side; stacked it
+       only pads the gap between the hero and the fields. Filling the viewport
+       instead keeps the panel from ending mid-screen on a tall phone.
+       `dvh`, not `vh`, so the last strip isn't parked behind the URL bar —
+       and with no `vh` fallback line, because Lightning CSS collapses that
+       pair down to the winning declaration anyway (the same thing happens to
+       the one written above `.app-shell`). */
+    min-height: 100dvh;
+  }
+  .login-hero {
+    width: 100%;
+    flex-shrink: 1;
+    padding: 30px 24px 28px;
+  }
+  .lh-logo {
+    margin-bottom: 18px;
+  }
+  .lh-headline {
+    font-size: 25px;
+  }
+  .lh-desc {
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .login-form {
+    padding: 30px 24px 40px;
+  }
+  /* The background art sits behind a card that now covers the screen, so it
+     renders nothing while still costing three 80px blurs over ~600px circles —
+     the most expensive thing on the page, on the least capable device. */
+  .lbg {
+    display: none;
+  }
+}
+
+/* ── LOGIN — narrow phones ── */
+@media (max-width: 380px) {
+  .login-hero {
+    padding: 24px 18px 22px;
+  }
+  .lh-headline {
+    font-size: 22px;
+  }
+  .login-form {
+    padding: 26px 18px 34px;
+  }
+}
+
 /* ══════════════════════════════════════════
    APP SHELL
 ══════════════════════════════════════════ */
@@ -862,11 +935,17 @@ body {
  * desktop layout entirely. `.tb-burger` is milder but the same mistake: it
  * inherits `display` from `.tb-action` and shows a stray hamburger.
  *
+ * The burger is matched as `.tb-action.tb-burger` rather than `.tb-burger`
+ * alone: `.tb-action` sets `display:flex` further down this file, and at equal
+ * specificity the later rule wins, so a single-class `display:none` here was
+ * silently overridden and the hamburger showed on desktop after all. The mobile
+ * query below has to carry the same pair to outrank this one.
+ *
  * The mobile query below turns each one back on. */
 .nav-scrim {
   display: none;
 }
-.tb-burger {
+.tb-action.tb-burger {
   display: none;
 }
 
@@ -4451,7 +4530,7 @@ textarea.form-input {
     visibility: visible;
   }
 
-  .tb-burger {
+  .tb-action.tb-burger {
     display: inline-flex;
   }
 

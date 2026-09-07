@@ -25,6 +25,7 @@ export const FILE_LOCATIONS = {
   PROFILE_PICTURES: "profile_pictures/",
   SHOP_IMAGES: "shop_images/",
   COUPON_IMAGES: "coupon_images/",
+  NOTIFICATION_IMAGES: "notification_images/",
 } as const;
 
 export type FileLocation = (typeof FILE_LOCATIONS)[keyof typeof FILE_LOCATIONS];

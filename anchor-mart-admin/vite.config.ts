@@ -19,6 +19,22 @@ export default defineConfig(({ mode }) => {
         "@": path.resolve(__dirname, "./src"),
       },
     },
+    build: {
+      /**
+       * Flag SVGs are emitted as files, never inlined.
+       *
+       * Vite base64s any asset under 4 kB into whatever references it, and most
+       * of the flags behind `flag-icons` are under that — so the default folded
+       * the whole set into the bundle that references them and put ~400 kB of
+       * flags on the critical path of every page load, for a control that only
+       * appears inside a form drawer. Kept as files they are fetched one at a
+       * time, by the country-code list, and only for the rows it has scrolled to.
+       *
+       * `undefined` means "decide normally", so this changes nothing else.
+       */
+      assetsInlineLimit: (filePath: string) =>
+        filePath.includes("flag-icons") ? false : undefined,
+    },
     // Unit tests run under the same aliases and plugins the app builds with, so
     // a test importing "@/lib/stats" resolves exactly as the app does.
     test: {
