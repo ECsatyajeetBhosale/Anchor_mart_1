@@ -7,7 +7,7 @@ import {
   IconTruckDelivery,
   IconTruckOff,
 } from "@tabler/icons-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { useState } from "react";
 import type { DateRange } from "react-day-picker";
 import { useSearchParams } from "react-router-dom";
@@ -30,6 +30,7 @@ import { useGetPartnersQuery } from "@/features/partners";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { statText, statsError, statsState, statusText } from "@/lib/stats";
+import { clearParams } from "@/lib/utils";
 import { useGetExpressOrdersQuery, useGetExpressStatsQuery } from "../api/expressApi";
 import type { ExpressOrder } from "../types/expressItem.types";
 import { useExpressColumns } from "./expressColumns";
@@ -50,6 +51,23 @@ const LIMIT = 10;
  * That is also why `?status=payment_pending` is valid here and a 400 on the
  * Orders screen: this list spans both sides of payment.
  */
+/**
+ * Is exactly one end of this range set?
+ *
+ * `DateRangeCalendar` is two independent single-date calendars, and each pick
+ * reads the other end out of the `value` it was given: picking From emits
+ * `{ from, to: value?.to }` and picking To emits `{ from: value?.from, to }`.
+ * So a range is assembled across two renders, and whatever holds `value` has to
+ * survive the half-built state or the second pick has nothing to build on.
+ *
+ * Both directions count. An admin who picks the end date first produces
+ * `{ from: undefined, to }`, which is just as half-built as the other way round
+ * and was just as thoroughly discarded.
+ */
+export function isPartialRange(range: DateRange | undefined): boolean {
+  return Boolean(range?.from) !== Boolean(range?.to);
+}
+
 export function ExpressOrdersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   /** The clicked row. It alone decides whether the drawer is open. */
@@ -62,6 +80,12 @@ export function ExpressOrdersPage() {
   const partnerFilter = searchParams.get("partner") ?? "";
   const dateFrom = searchParams.get("from") ?? "";
   const dateTo = searchParams.get("to") ?? "";
+  /**
+   * The sailed-partial worklist, arrived at by deep link rather than by a
+   * control on this screen. It still narrows the table, so Reset has to clear
+   * it — otherwise the list stays short with nothing on screen explaining why.
+   */
+  const departedOnly = searchParams.get("departed") === "true";
 
   const { data, isLoading, isError, refetch } = useGetExpressOrdersQuery({
     page,
@@ -73,7 +97,7 @@ export function ExpressOrdersPage() {
     // gone the remainder can never arrive. Server-filtered — the row's
     // departure is a pre-formatted wall-clock string, so comparing it here is
     // exactly what the datetime contract forbids.
-    departed: searchParams.get("departed") === "true" ? true : undefined,
+    departed: departedOnly ? true : undefined,
     dateFrom,
     dateTo,
     partnerId: partnerFilter,
@@ -235,16 +259,50 @@ export function ExpressOrdersPage() {
     setSearchParams(next);
   };
 
+  /**
+   * The half-picked range, which lives here and nowhere else.
+   *
+   * A range takes two clicks, and react-day-picker reports the first one as
+   * `{ from, to: undefined }`. This screen keeps its filters in the URL, where
+   * a half-picked range has no business — `date_from` with no `date_to` would
+   * quietly widen the query to "everything after X" while the picker still
+   * looked pending. Refusing to write it is right.
+   *
+   * Deriving what the *picker shows* from that write was not. The first click
+   * was dropped, the calendar re-rendered with nothing selected, and the second
+   * click therefore started another first click: the range could never be
+   * completed. Every other screen with this picker avoids it by holding the
+   * range in plain state; this one has to hold the draft beside the URL.
+   */
+  const [draftRange, setDraftRange] = useState<DateRange | undefined>();
+
   /** The picker hands back a range; the API wants two `YYYY-MM-DD` params. */
-  const dateRange: DateRange | undefined = dateFrom
-    ? { from: new Date(dateFrom), to: dateTo ? new Date(dateTo) : undefined }
+  const urlRange: DateRange | undefined = dateFrom
+    ? {
+        // `parseISO`, not `new Date`: the latter reads a bare `YYYY-MM-DD` as
+        // UTC midnight, so west of UTC the calendar would highlight the day
+        // before the one the URL names — and `format` writes local dates, so
+        // the pair has to agree.
+        from: parseISO(dateFrom),
+        to: dateTo ? parseISO(dateTo) : undefined,
+      }
     : undefined;
 
+  // Unambiguous: the draft only ever holds a partial range, the URL only ever
+  // holds a complete one.
+  const dateRange = draftRange ?? urlRange;
+
   const handleDateRange = (range: DateRange | undefined) => {
+    // Mid-pick. Keep it on screen and off the URL — no refetch fires for half
+    // a range, and the other calendar has something to complete.
+    if (isPartialRange(range)) {
+      setDraftRange(range);
+      return;
+    }
+
+    setDraftRange(undefined);
     const next = new URLSearchParams(searchParams);
     next.set("page", "1");
-    // Only a *complete* range is sent — a half-picked one would silently widen
-    // the query to "everything after X" while the picker still looks pending.
     if (range?.from && range?.to) {
       next.set("from", format(range.from, "yyyy-MM-dd"));
       next.set("to", format(range.to, "yyyy-MM-dd"));
@@ -253,6 +311,27 @@ export function ExpressOrdersPage() {
       next.delete("to");
     }
     setSearchParams(next);
+  };
+
+  /**
+   * Clears every filter on this screen.
+   *
+   * `SearchFilters` draws the button, but it can only see what it renders
+   * itself — the search box and the partner dropdown. The date range is in
+   * `children`, and status comes from the stat cards above the table, so both
+   * are reported through `isFiltered` or Reset would stay hidden on a screen
+   * that is plainly filtered. That is what `isFiltered` is for.
+   *
+   * The draft goes too: a range abandoned half-picked is still showing in the
+   * trigger, and a Reset that leaves it there has not reset the screen.
+   */
+  const isFiltered = Boolean(dateRange?.from || statusFilter || departedOnly);
+
+  const handleResetFilters = () => {
+    setDraftRange(undefined);
+    setSearchParams(
+      clearParams(searchParams, ["search", "status", "partner", "from", "to", "departed", "page"]),
+    );
   };
 
   /**
@@ -334,6 +413,8 @@ export function ExpressOrdersPage() {
                 onValueChange: (val) => setFilterParam("partner", val),
               },
             ]}
+            isFiltered={isFiltered}
+            onReset={handleResetFilters}
           >
             {/* `date_from`/`date_to` filter on `payment_completed_at`, so the
                 picker is labelled by that rather than "created".
