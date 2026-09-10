@@ -80,9 +80,19 @@ import { AuditTrailPage } from "@/features/audit";
 // Spares — from feature
 import { SparesPage } from "@/features/spares";
 
+/**
+ * Where the app is mounted — `/amadmin`, from Vite's `base`.
+ *
+ * Read from `BASE_URL` rather than written out again so the prefix lives in one
+ * file; the trailing slash Vite requires there is not what React Router wants
+ * here, so it is trimmed. Every path in `APP_ROUTES` stays root-relative and the
+ * router adds the prefix, which is why none of them mention `/amadmin`.
+ */
+const BASENAME = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 export function AppRouter() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={BASENAME}>
       <Routes>
         {/* Root redirect */}
         <Route path="/" element={<Navigate to={APP_ROUTES.DASHBOARD} replace />} />

@@ -13,6 +13,14 @@ export default defineConfig(({ mode }) => {
   );
 
   return {
+    /**
+     * The admin panel is served from `/amadmin`, not from the domain root, so
+     * every emitted asset URL and the dev server both hang off that prefix.
+     * `BrowserRouter`'s basename and the service-worker registration read the
+     * same value back through `import.meta.env.BASE_URL` — this line is the one
+     * place the prefix is written down.
+     */
+    base: "/amadmin/",
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

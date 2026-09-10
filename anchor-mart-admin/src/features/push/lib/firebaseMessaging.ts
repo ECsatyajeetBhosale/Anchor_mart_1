@@ -76,9 +76,14 @@ async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null
       messagingSenderId: cfg.messagingSenderId,
       appId: cfg.appId,
     });
+    // Both the script and its scope hang off Vite's `base` (`/amadmin/`): the
+    // worker file ships out of `public/`, so that is where it is actually
+    // served from, and a scope wider than the directory the script sits in is
+    // rejected outright by the browser.
+    const base = import.meta.env.BASE_URL;
     swRegistration = await navigator.serviceWorker.register(
-      `/firebase-messaging-sw.js?${qs.toString()}`,
-      { scope: "/" },
+      `${base}firebase-messaging-sw.js?${qs.toString()}`,
+      { scope: base },
     );
     // `register()` resolves as soon as the worker is *registered*, which can be
     // before it is active. `getToken` needs an active worker, and asking early
@@ -91,7 +96,7 @@ async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null
     if (!ready) {
       pushLog("sw-not-active", {
         timeoutMs: SW_READY_TIMEOUT_MS,
-        hint: "worker registered but never activated — check /firebase-messaging-sw.js parses and its importScripts are reachable",
+        hint: `worker registered but never activated — check ${base}firebase-messaging-sw.js parses and its importScripts are reachable`,
       });
       // Dropped so a later attempt registers again rather than reusing a worker
       // that never came up.

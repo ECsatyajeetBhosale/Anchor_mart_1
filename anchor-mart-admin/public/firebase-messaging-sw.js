@@ -82,13 +82,28 @@ const ROUTE_BY_TYPE = {
   system: INBOX,
 };
 
+/**
+ * Where the panel is mounted — `/amadmin/`, read off the worker's own scope
+ * rather than hardcoded, since the scope is exactly the prefix the app was
+ * registered under. The paths above stay root-relative so they keep matching
+ * `APP_ROUTES` one-for-one; this is what turns one into a URL the panel can
+ * actually be opened at.
+ */
+const MOUNT = new URL(self.registration.scope).pathname;
+
+function withMount(path) {
+  return `${MOUNT.replace(/\/$/, "")}${path}`;
+}
+
 function targetUrl(payload) {
+  // A link chosen by the sender is used exactly as given — it may well be an
+  // absolute URL, and it is not this worker's place to rewrite one.
   const link = payload.fcmOptions?.link || payload.fcm_options?.link;
   if (link) return link;
 
   const data = payload.data || {};
-  if (data.type === "broadcast") return INBOX;
-  return ROUTE_BY_TYPE[data.type] || INBOX;
+  if (data.type === "broadcast") return withMount(INBOX);
+  return withMount(ROUTE_BY_TYPE[data.type] || INBOX);
 }
 
 // Registered without config — nothing to do. Bailing out beats initialising with
@@ -131,7 +146,7 @@ if (config.apiKey && config.projectId && config.messagingSenderId && config.appI
  */
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = event.notification.data?.url || INBOX;
+  const target = event.notification.data?.url || withMount(INBOX);
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {
