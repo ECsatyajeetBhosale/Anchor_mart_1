@@ -1,4 +1,5 @@
 import { PARTNER_ENDPOINTS } from "@/lib/apiEndpoints";
+import { toInstant } from "@/lib/dates";
 import { baseApi } from "@/lib/fetchUtils";
 import { PARTNER_PAGE_SIZE } from "../types/partner.types";
 import type {
@@ -55,9 +56,14 @@ function unwrap<T>(res: unknown): T {
 /** Formats an ISO date to the "MMM YYYY" label the design uses; blanks → "-". */
 function formatJoined(value?: string | null): string {
   if (!value) return FALLBACK;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return dash(value);
-  return date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  // `toInstant` reads the SGT display string too, which `new Date` rejects.
+  const date = toInstant(value);
+  if (!date) return dash(value);
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Singapore",
+  });
 }
 
 /** Derives the UI status label from the partner's active/on-duty flags. */

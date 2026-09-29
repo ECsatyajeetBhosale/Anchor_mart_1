@@ -65,6 +65,7 @@ export function ProductSalesCard({ params }: ProductSalesCardProps) {
     clearProduct,
     isLoading,
     isError,
+    error,
     refetch,
     isEmpty,
   } = useProductSales(params);
@@ -156,7 +157,13 @@ export function ProductSalesCard({ params }: ProductSalesCardProps) {
 
       {/* Daily units bar chart */}
       <div className="card-body">
-        <ChartState isLoading={isLoading} isError={isError} isEmpty={isEmpty} onRetry={refetch}>
+        <ChartState
+          isLoading={isLoading}
+          isError={isError}
+          error={error}
+          isEmpty={isEmpty}
+          onRetry={refetch}
+        >
           <AnalyticsBarChart
             bars={bars}
             color="var(--teal-200)"

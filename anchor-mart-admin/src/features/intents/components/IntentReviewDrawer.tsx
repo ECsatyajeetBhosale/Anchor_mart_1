@@ -24,7 +24,7 @@ import { OwnerCell, type OwnershipState } from "@/features/orders";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { formatMoney } from "@/lib/money";
-import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
+import { ORDER_STATUS_BY_KEY, orderStatusVariant } from "@/lib/orderStatuses";
 import { partnerRequirement } from "@/lib/partnerRequirement";
 import {
   IconAlertTriangle,
@@ -121,9 +121,12 @@ export interface IntentReviewDrawerProps {
   onClaim: () => void;
 }
 
-/** Badge variant for the order status (reuses the canonical map). */
-function statusVariant(status: string): IntentBadgeVariant {
-  return (ORDER_STATUS_BY_KEY[status]?.variant as IntentBadgeVariant) ?? "neutral";
+/** Badge variant for the order status (reuses the canonical map, "Expired" included). */
+function statusVariant(status: string, cancellationReason?: string): IntentBadgeVariant {
+  return orderStatusVariant({
+    status,
+    cancellation_reason: cancellationReason,
+  }) as IntentBadgeVariant;
 }
 
 /**
@@ -548,7 +551,7 @@ export function IntentReviewDrawer({
             badges={
               <>
                 <Badge
-                  variant={statusVariant(status)}
+                  variant={statusVariant(status, detail?.terminalReason ?? intent.reason)}
                   showDot
                   className="h-auto text-[12px] px-3 py-[5px]"
                 >
@@ -589,7 +592,13 @@ export function IntentReviewDrawer({
               />
             }
             facts={[
-              { label: R.SUMMARY.ITEMS, value: String(view.itemCount ?? 0) },
+              {
+                label: R.SUMMARY.ITEMS,
+                value: R.SUMMARY.LINES_UNITS(
+                  view.itemCount ?? 0,
+                  (detail?.items ?? intent.reqItems).reduce((sum, i) => sum + (i.qty || 0), 0),
+                ),
+              },
               { label: R.SUMMARY.SUBMITTED, value: view.submitted },
               {
                 label: R.SUMMARY.PORT,

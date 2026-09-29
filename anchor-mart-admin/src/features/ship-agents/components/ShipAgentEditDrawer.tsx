@@ -9,7 +9,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { getApiMessage } from "@/lib/apiError";
+import { applyApiFieldErrors, getApiMessage, getSuccessMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { phoneDigitsHint, phoneExamplePlaceholder } from "@/lib/validation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,7 +18,11 @@ import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useUpdateShipAgentMutation } from "../api/shipAgentApi";
-import { type ShipAgentFormData, shipAgentSchema } from "../schemas/shipAgent.schema";
+import {
+  SHIP_AGENT_FIELDS,
+  type ShipAgentFormData,
+  shipAgentSchema,
+} from "../schemas/shipAgent.schema";
 import type { ShipAgent, ShipAgentPayload } from "../types/shipAgent.types";
 
 const M = MESSAGES.SHIP_AGENTS;
@@ -38,6 +42,7 @@ export function ShipAgentEditDrawer({ isOpen, onClose, agent }: ShipAgentEditDra
     watch,
     handleSubmit,
     reset,
+    setError,
     formState: { errors },
   } = useForm<ShipAgentFormData>({
     resolver: zodResolver(shipAgentSchema),
@@ -69,9 +74,11 @@ export function ShipAgentEditDrawer({ isOpen, onClose, agent }: ShipAgentEditDra
       const response = await updateShipAgent({ id: agent.id, body: payload }).unwrap();
       // Success: close the drawer first, then notify.
       onClose();
-      toast.success(getApiMessage(response) ?? M.TOAST.UPDATE_SUCCESS);
+      toast.success(getSuccessMessage(response) ?? M.TOAST.UPDATE_SUCCESS);
     } catch (error) {
-      // Failure: keep the drawer open so the user can fix and retry, then notify.
+      // Field errors (e.g. `country_code`, BUG-058) go beside their input; the
+      // drawer stays open with what was typed.
+      if (applyApiFieldErrors(error, setError, SHIP_AGENT_FIELDS)) return;
       toast.error(getApiMessage(error) ?? M.TOAST.UPDATE_ERROR);
     }
   };
@@ -113,7 +120,12 @@ export function ShipAgentEditDrawer({ isOpen, onClose, agent }: ShipAgentEditDra
           <section className="prod-tab">
             <div className="sec-label">{M.SECTIONS.CONTACT}</div>
             <div className="grid grid-cols-[120px_1fr] gap-3">
-              <FormField label={M.FIELDS.COUNTRY_CODE} error={errors.country_code?.message}>
+              <FormField
+                label={M.FIELDS.COUNTRY_CODE}
+                // Required once a mobile is typed (BUG-058).
+                required={!!watch("mobile")?.trim()}
+                error={errors.country_code?.message}
+              >
                 <Controller
                   control={control}
                   name="country_code"

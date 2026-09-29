@@ -1,6 +1,7 @@
 import type * as React from "react";
 
 import { Button } from "@/components/ui/button";
+import { getApiMessage, getApiStatus } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 
 const M = MESSAGES.ANALYTICS;
@@ -10,6 +11,12 @@ export interface ChartStateProps {
   isError: boolean;
   isEmpty: boolean;
   onRetry: () => void;
+  /**
+   * The query's error. A 400 — e.g. FROM after TO (BUG-001) — shows the
+   * backend's sentence and no Retry, since re-sending the same params can only
+   * fail again. Anything else keeps the generic message and Retry.
+   */
+  error?: unknown;
   /**
    * Overrides the empty-state text.
    *
@@ -33,6 +40,7 @@ export function ChartState({
   isError,
   isEmpty,
   onRetry,
+  error,
   emptyMessage,
   children,
 }: ChartStateProps) {
@@ -44,12 +52,17 @@ export function ChartState({
     );
   }
   if (isError) {
+    const isBadRequest = getApiStatus(error) === 400;
     return (
-      <div className="flex h-[150px] flex-col items-center justify-center gap-3">
-        <span className="td-m text-[var(--danger-text)]">{M.ERROR}</span>
-        <Button variant="secondary" size="xs" onClick={onRetry}>
-          {MESSAGES.COMMON.RETRY}
-        </Button>
+      <div className="flex h-[150px] flex-col items-center justify-center gap-3 px-4 text-center">
+        <span className="td-m text-[var(--danger-text)]">
+          {(isBadRequest && getApiMessage(error)) || M.ERROR}
+        </span>
+        {!isBadRequest && (
+          <Button variant="secondary" size="xs" onClick={onRetry}>
+            {MESSAGES.COMMON.RETRY}
+          </Button>
+        )}
       </div>
     );
   }

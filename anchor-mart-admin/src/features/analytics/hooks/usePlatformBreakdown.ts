@@ -32,6 +32,7 @@ export function usePlatformBreakdown(params: AnalyticsParams) {
     period: query.data?.period,
     isLoading: query.isLoading,
     isError: query.isError && !isForbidden,
+    error: query.error,
     isForbidden,
     refetch: query.refetch,
     // A window with no orders is a 200 with three zeroed rows, so emptiness is

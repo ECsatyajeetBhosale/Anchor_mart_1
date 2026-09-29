@@ -39,7 +39,7 @@ export interface TrafficByPlatformCardProps {
  * readable without relying on the fill.
  */
 export function TrafficByPlatformCard({ params }: TrafficByPlatformCardProps) {
-  const { rows, total, period, isLoading, isError, isForbidden, isEmpty, refetch } =
+  const { rows, total, period, isLoading, isError, error, isForbidden, isEmpty, refetch } =
     usePlatformBreakdown(params);
 
   // Not admin-tier. Hiding beats an error box: the account cannot be given this
@@ -66,6 +66,7 @@ export function TrafficByPlatformCard({ params }: TrafficByPlatformCardProps) {
       <ChartState
         isLoading={isLoading}
         isError={isError}
+        error={error}
         isEmpty={isEmpty}
         emptyMessage={P.EMPTY}
         onRetry={refetch}

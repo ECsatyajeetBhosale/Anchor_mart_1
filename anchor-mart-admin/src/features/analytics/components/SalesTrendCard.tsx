@@ -16,14 +16,20 @@ export interface SalesTrendCardProps {
 
 /** Daily sales-revenue trend (navy bars), wired to the sales-trend endpoint. */
 export function SalesTrendCard({ params }: SalesTrendCardProps) {
-  const { bars, isLoading, isError, isEmpty, refetch } = useSalesTrend(params);
+  const { bars, granularity, isLoading, isError, error, isEmpty, refetch } = useSalesTrend(params);
 
   return (
     <SectionCard
       icon={<IconChartBar size={17} className="text-[var(--t4)]" />}
-      title={M.SALES_TREND}
+      title={M.SALES_TREND(granularity)}
     >
-      <ChartState isLoading={isLoading} isError={isError} isEmpty={isEmpty} onRetry={refetch}>
+      <ChartState
+        isLoading={isLoading}
+        isError={isError}
+        error={error}
+        isEmpty={isEmpty}
+        onRetry={refetch}
+      >
         <AnalyticsBarChart
           bars={bars}
           color="var(--navy-600)"

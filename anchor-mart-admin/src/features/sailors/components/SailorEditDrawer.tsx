@@ -11,7 +11,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
-import { getApiMessage } from "@/lib/apiError";
+import { applyApiFieldErrors, getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { phoneDigitsHint, phoneExamplePlaceholder } from "@/lib/validation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,7 +20,7 @@ import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useToggleSailorStatusMutation, useUpdateSailorMutation } from "../api/sailorApi";
-import { type SailorFormData, sailorFormSchema } from "../schemas/sailor.schema";
+import { SAILOR_FIELDS, type SailorFormData, sailorFormSchema } from "../schemas/sailor.schema";
 import type { SailorData } from "../types/sailor.types";
 
 const F = MESSAGES.SAILORS.FORM;
@@ -71,6 +71,7 @@ export function SailorEditDrawer({ isOpen, onClose, sailor }: SailorEditDrawerPr
     watch,
     handleSubmit,
     reset,
+    setError,
     formState: { errors },
   } = useForm<SailorFormData>({ resolver: zodResolver(sailorFormSchema) });
 
@@ -127,6 +128,9 @@ export function SailorEditDrawer({ isOpen, onClose, sailor }: SailorEditDrawerPr
       onClose();
       toast.success(F.EDIT_SUCCESS);
     } catch (error) {
+      // Keep the drawer open so the entered data survives; a field error (e.g.
+      // a taken email) goes beside its input, anything else to a toast.
+      if (applyApiFieldErrors(error, setError, SAILOR_FIELDS)) return;
       toast.error(getApiMessage(error) ?? F.SAVE_ERROR);
     }
   };
@@ -153,7 +157,7 @@ export function SailorEditDrawer({ isOpen, onClose, sailor }: SailorEditDrawerPr
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
           <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
             <FormRow>
-              <FormField label={F.FIRST_NAME} error={errors.first_name?.message}>
+              <FormField label={F.FIRST_NAME} required error={errors.first_name?.message}>
                 <Input
                   placeholder={F.FIRST_NAME_PLACEHOLDER}
                   error={!!errors.first_name}
@@ -170,7 +174,7 @@ export function SailorEditDrawer({ isOpen, onClose, sailor }: SailorEditDrawerPr
             </FormRow>
 
             <FormRow>
-              <FormField label={F.COUNTRY_CODE} error={errors.country_code?.message}>
+              <FormField label={F.COUNTRY_CODE} required error={errors.country_code?.message}>
                 <Controller
                   control={control}
                   name="country_code"
@@ -186,6 +190,7 @@ export function SailorEditDrawer({ isOpen, onClose, sailor }: SailorEditDrawerPr
               </FormField>
               <FormField
                 label={F.WHATSAPP}
+                required
                 error={errors.whatsapp_number?.message}
                 hint={phoneDigitsHint(watch("country_code"))}
               >
@@ -198,7 +203,7 @@ export function SailorEditDrawer({ isOpen, onClose, sailor }: SailorEditDrawerPr
             </FormRow>
 
             <FormRow columns={1}>
-              <FormField label={F.EMAIL} error={errors.email?.message}>
+              <FormField label={F.EMAIL} required error={errors.email?.message}>
                 <Input
                   type="email"
                   placeholder={F.EMAIL_PLACEHOLDER}

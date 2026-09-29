@@ -14,7 +14,7 @@ import {
   textColumn,
   truncatedColumn,
 } from "@/components/common/tableColumns";
-import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { useGetOrderTimelineQuery } from "@/features/assignments";
@@ -24,7 +24,7 @@ import { getFallbackAvatar } from "@/lib/avatar";
 import { dateTimeText, shortDate } from "@/lib/dates";
 import { MESSAGES } from "@/lib/messages";
 import { formatMoney } from "@/lib/money";
-import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
+import { ORDER_STATUS_BY_KEY, orderStatusLabel, orderStatusVariant } from "@/lib/orderStatuses";
 import { readPartnerNeed } from "@/lib/partnerRequirement";
 import { statsError, statsState, statusText } from "@/lib/stats";
 import { terminalReason } from "@/lib/terminalReason";
@@ -76,6 +76,8 @@ interface OrderRow {
   it: string;
   sh: string;
   pt: string;
+  /** The verifier, when the order is waiting for a delivery partner (BUG-003). */
+  verifiedBy: string;
   pay: string;
   cp: string;
   t: string;
@@ -381,6 +383,20 @@ function failedAssignment(order: Order): OrderAssignment | null {
   return (order.assignments ?? []).find((a) => !!a.failed_at) ?? null;
 }
 
+/**
+ * Who is delivering (BUG-003). After verification `active_assignment` is still
+ * the **verifier's** job, so its name read as "a delivery partner is on this"
+ * while the backend said one was needed. When `needs_delivery_partner` is set
+ * the order is Unassigned, and the verifier is kept as history.
+ */
+function deliveryPartner(order: Order): { name: string; verifiedBy: string } {
+  const assigned = order.active_assignment?.partner_name || order.partner_name || "";
+  if (readPartnerNeed(order.needs_delivery_partner) === true) {
+    return { name: M.UNASSIGNED, verifiedBy: assigned };
+  }
+  return { name: assigned || M.UNASSIGNED, verifiedBy: "" };
+}
+
 /** The reason columns that apply to this order, whichever read produced it. */
 function orderTerminalReason(order: Order) {
   const failed = failedAssignment(order);
@@ -403,11 +419,13 @@ function toOrderRow(order: Order): OrderRow {
     s: customerName(order),
     it: formatItems(order),
     sh: shipTerminal(order),
-    pt: order.active_assignment?.partner_name || order.partner_name || M.UNASSIGNED,
+    pt: deliveryPartner(order).name,
+    verifiedBy: deliveryPartner(order).verifiedBy,
     pay: paymentLabel(order),
     cp: order.applied_coupon || "—",
     t: money(order.total_amount),
-    st: order.status_display,
+    // "Expired" when the departure sweep closed it — see `isExpiredOrder`.
+    st: orderStatusLabel(order, order.status_display),
     shipName: shipLabel(order),
     terminalName: terminalLabel(order),
     isExpress: order.is_express === true,
@@ -427,21 +445,6 @@ function toOrderRow(order: Order): OrderRow {
     undeliveredValue: order.undelivered_value ?? "0.00",
     raw: order,
   };
-}
-
-/**
- * Badge colour for an order status, from the canonical map (`lib/orderStatuses`)
- * that the status-legend popup renders its swatches from — so the legend and the
- * table cannot disagree about what a status means.
- *
- * `StatusBadge` matched on the *display label* against a list written for generic
- * active/inactive rows. "Cancelled" happened to be in that list and "Delivery
- * Failed" did not, so a failed delivery rendered neutral next to a red
- * cancellation while the legend called both `danger` — along with every other
- * post-payment status, none of which were in the list either.
- */
-function orderStatusVariant(status: string): BadgeProps["variant"] {
-  return ORDER_STATUS_BY_KEY[status]?.variant ?? "neutral";
 }
 
 /** Colour for the payment cell, matching the design reference. */
@@ -520,11 +523,14 @@ export function toOrderDetail(order: Order): OrderDetail {
     sailor: customerName(order),
     ship: shipLabel(order),
     terminal: terminalLabel(order),
-    partner: order.active_assignment?.partner_name || order.partner_name || M.UNASSIGNED,
+    partner: (() => {
+      const { name, verifiedBy } = deliveryPartner(order);
+      return verifiedBy ? `${name} · ${M.VERIFIED_BY(verifiedBy)}` : name;
+    })(),
     payment: paymentLabel(order),
     coupon: order.applied_coupon || "",
     total: money(order.total_amount),
-    status: order.status_display,
+    status: orderStatusLabel(order, order.status_display),
     items: items.map((it) => ({
       name: it.product_name,
       // Fall back to the variant's SKU when the line omits its own.
@@ -567,6 +573,9 @@ export function toOrderDetail(order: Order): OrderDetail {
     shipArrivalDate: shortDate(order.ship_arrival_date),
     expectedDeparture: shortDate(order.expected_departure),
     orderDate: dateTimeText(order.created_at),
+    // Blank renders "—", which is what an order older than the field shows.
+    source: order.platform_display || "",
+    intent: order.parent_order_number || order.order_number,
     notes: order.notes || "",
     itemCount: order.items_count ?? order.item_count ?? items.length,
     isExpress: order.is_express === true,
@@ -815,13 +824,8 @@ export function OrdersPage() {
       get: (o) => o.sh,
       className: "td-m",
     }),
-    // Anchorage-change details aren't returned by the API → "-".
-    textColumn({
-      id: "changed-anchorage",
-      header: M.COLUMNS.CHANGED_ANCHORAGE,
-      get: () => "—",
-      className: "td-m text-center",
-    }),
+    // No "Changed Anchorage" column: the list API sends no anchorage-change
+    // data, so it showed "—" on every row and only widened the table (BUG-012).
     {
       id: "partner",
       header: M.COLUMNS.PARTNER,
@@ -840,6 +844,7 @@ export function OrdersPage() {
           >
             {o.pt}
           </div>
+          {o.verifiedBy && <div className="td-m">{M.VERIFIED_BY(o.verifiedBy)}</div>}
           <PartnerRequirementBadge
             needsVerifierPartner={o.needsVerifierPartner}
             needsDeliveryPartner={o.needsDeliveryPartner}
@@ -873,9 +878,9 @@ export function OrdersPage() {
       cell: (o) => (
         <div>
           <div className="flex flex-wrap items-center gap-1.5">
-            {/* Coloured from the raw status key, not the display label — see
-                `orderStatusVariant`. */}
-            <Badge variant={orderStatusVariant(o.raw.status)}>{o.st}</Badge>
+            {/* Coloured from the raw status key (the canonical map the legend
+                renders), not the display label — see `orderStatusVariant`. */}
+            <Badge variant={orderStatusVariant(o.raw)}>{o.st}</Badge>
             {/* Flow 11 §17 — self-clearing "needs attention" flag: true only while
                 an unactioned pending location report exists. */}
             {o.raw.has_location_request && (

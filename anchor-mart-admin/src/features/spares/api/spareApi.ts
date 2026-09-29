@@ -106,7 +106,13 @@ export const spareApi = baseApi.injectEndpoints({
         },
       }),
       transformResponse: (res: unknown): SpareStats => unwrap<SpareStats>(res) ?? {},
-      providesTags: [{ type: "Spares", id: "STATS" }],
+      // Also `Products/STATS`: the top-rated / sourceable toggles are product
+      // mutations and invalidate that tag, not this feature's — so the cards
+      // stayed at their old count until a reload (BUG-053).
+      providesTags: [
+        { type: "Spares", id: "STATS" },
+        { type: "Products", id: "STATS" },
+      ],
     }),
 
     /**

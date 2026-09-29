@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { IconCheck, IconSettings } from "@tabler/icons-react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 
 import { FormField } from "@/components/common/FormField";
 import { FormRow } from "@/components/common/FormRow";
@@ -15,6 +16,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { applyApiFieldErrors, getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { type LoyaltyConfigFormData, loyaltyConfigSchema } from "../schemas/loyaltyConfig.schema";
 import type { LoyaltyConfig } from "../types/reward.types";
@@ -32,7 +34,8 @@ export interface LoyaltyConfigDrawerProps {
   /** The current config from the API (seeds the form); `null` while loading. */
   config: LoyaltyConfig | null;
   onClose: () => void;
-  onSubmit: (data: LoyaltyConfigFormData) => void;
+  /** Performs the update; must reject with the API error so the drawer can place it. */
+  onSubmit: (data: LoyaltyConfigFormData) => Promise<void>;
   /** Disables the submit button while the update request is in flight. */
   isSubmitting?: boolean;
 }
@@ -42,6 +45,9 @@ export interface LoyaltyConfigDrawerProps {
  * (owns its React Hook Form state) and reseeds from the API record whenever it
  * opens; the parent owns the update side effect and passes `isSubmitting`.
  */
+/** Inputs a 400 can be pinned to. */
+const FIELDS = ["points_per_delivery", "points_per_referral", "point_value"] as const;
+
 export function LoyaltyConfigDrawer({
   open,
   config,
@@ -53,11 +59,21 @@ export function LoyaltyConfigDrawer({
     register,
     handleSubmit,
     reset,
+    setError,
     formState: { errors },
   } = useForm<LoyaltyConfigFormData>({
     resolver: zodResolver(loyaltyConfigSchema),
     defaultValues: DEFAULTS,
   });
+
+  const submit = async (data: LoyaltyConfigFormData) => {
+    try {
+      await onSubmit(data);
+    } catch (err) {
+      if (applyApiFieldErrors(err, setError, FIELDS)) return;
+      toast.error(getApiMessage(err) ?? MESSAGES.REWARDS.POINTS_SAVE_ERROR);
+    }
+  };
 
   // Seed the form each time the drawer opens with the latest API config.
   useEffect(() => {
@@ -80,7 +96,7 @@ export function LoyaltyConfigDrawer({
         adjustable
         className="flex flex-col gap-0 p-0 sm:max-w-none overflow-hidden bg-[var(--surface)]"
       >
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col h-full">
+        <form onSubmit={handleSubmit(submit)} className="flex flex-col h-full">
           <SheetHeader className="p-6 pb-4 border-b border-[var(--border-md)]">
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--teal-50)] text-[var(--teal-600)]">

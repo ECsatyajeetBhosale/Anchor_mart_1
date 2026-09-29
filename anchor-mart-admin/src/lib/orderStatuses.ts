@@ -207,3 +207,62 @@ export const ORDER_STATUSES: OrderStatusInfo[] = [
 export const ORDER_STATUS_BY_KEY: Record<string, OrderStatusInfo> = Object.fromEntries(
   ORDER_STATUSES.map((s) => [s.key, s]),
 );
+
+/**
+ * `cancellation_reason` the backend writes when its hourly task closes an unpaid
+ * intent or order because the vessel sailed (BUG-021). Not a status of its own:
+ * the row is still `cancelled`, so filters and the lifecycle are unchanged.
+ */
+export const VESSEL_DEPARTED_REASON = "Vessel departed";
+
+/** Display-only stand-in for a `cancelled` row that expired rather than was cancelled. */
+export const EXPIRED_STATUS: Pick<OrderStatusInfo, "label" | "meaning" | "variant"> = {
+  label: "Expired",
+  meaning:
+    "The vessel departed before the order was paid, so the system closed it and any open payment link. Nobody cancelled it.",
+  // Grey, not red: nothing failed and nobody backed out — the window closed.
+  variant: "neutral",
+};
+
+export interface ExpirySource {
+  status?: string | null;
+  cancellation_reason?: string | null;
+}
+
+/** True for a `cancelled` row the departure sweep closed — show it as "Expired". */
+export function isExpiredOrder(src: ExpirySource): boolean {
+  return (
+    src.status === "cancelled" &&
+    (src.cancellation_reason ?? "").trim().toLowerCase() === VESSEL_DEPARTED_REASON.toLowerCase()
+  );
+}
+
+/** Badge colour for a row, from the canonical map, with the expired override. */
+export function orderStatusVariant(src: ExpirySource): BadgeProps["variant"] {
+  if (isExpiredOrder(src)) return EXPIRED_STATUS.variant;
+  return ORDER_STATUS_BY_KEY[src.status ?? ""]?.variant ?? "neutral";
+}
+
+/** The row's status label: "Expired" for a departure sweep, else `fallback` (the server's `status_display`). */
+export function orderStatusLabel(src: ExpirySource, fallback: string): string {
+  return isExpiredOrder(src) ? EXPIRED_STATUS.label : fallback;
+}
+
+/**
+ * A label for a raw status key where the payload carries no `status_display`
+ * (BUG-010/011/047): the canonical label, else the key humanised —
+ * `at_berth` → "At Berth". Never the raw key.
+ */
+export function orderStatusText(key: string | null | undefined): string {
+  const code = (key ?? "").trim();
+  if (!code) return "";
+  return (
+    ORDER_STATUS_BY_KEY[code.toLowerCase()]?.label ??
+    code
+      .toLowerCase()
+      .split(/[_\s]+/)
+      .filter(Boolean)
+      .map((word) => word[0].toUpperCase() + word.slice(1))
+      .join(" ")
+  );
+}

@@ -44,6 +44,8 @@ export interface AddFaqPayload {
   faq_type: string;
   question: string;
   answer: string;
+  /** `false` saves a draft (hidden from sailors); `true` publishes. */
+  is_active: boolean;
 }
 
 /** Request body for PATCH /superadmin/faq/update/{id}/. */

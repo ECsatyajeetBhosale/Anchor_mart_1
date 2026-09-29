@@ -2,6 +2,7 @@ import {
   ColumnFilterHeader,
   type ColumnFilterOption,
 } from "@/components/common/ColumnFilterHeader";
+import { cn } from "@/lib/utils";
 import type * as React from "react";
 import { Button } from "./button";
 import Pagination from "./pagination";
@@ -23,6 +24,15 @@ export interface Column<T> {
   headerClassName?: string;
   /** When set, the header becomes a clickable filter dropdown. */
   filter?: ColumnFilter;
+}
+
+/**
+ * The row-actions column stays pinned to the right edge while a wide table
+ * scrolls sideways (BUG-012): on Orders, Intents, Products and Admins it sat
+ * off-screen at 1366–1440px until the table was scrolled.
+ */
+function stickyEnd<T>(col: Column<T>): string | undefined {
+  return col.id === "actions" ? "col-sticky-end" : undefined;
 }
 
 export interface DataTableProps<T> {
@@ -84,7 +94,7 @@ export function DataTable<T>({
           <thead>
             <tr>
               {columns.map((col) => (
-                <th key={col.id} className={col.headerClassName}>
+                <th key={col.id} className={cn(col.headerClassName, stickyEnd(col))}>
                   {col.filter ? (
                     <ColumnFilterHeader
                       label={col.header}
@@ -161,7 +171,7 @@ export function DataTable<T>({
                   {columns.map((col) => {
                     const value = col.accessorKey ? row[col.accessorKey] : undefined;
                     return (
-                      <td key={col.id} className={col.className}>
+                      <td key={col.id} className={cn(col.className, stickyEnd(col))}>
                         {col.cell ? col.cell(row) : (value as React.ReactNode)}
                       </td>
                     );

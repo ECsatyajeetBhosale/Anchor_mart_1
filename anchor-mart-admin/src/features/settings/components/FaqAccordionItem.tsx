@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import { MESSAGES } from "@/lib/messages";
 import { IconChevronDown, IconPencil, IconTrash } from "@tabler/icons-react";
 import type { Faq } from "../types/settings.types";
@@ -53,6 +54,12 @@ export function FaqAccordionItem({
           <span className="min-w-0 flex-1">
             <span className="block text-[13.5px] font-bold leading-snug text-[var(--t1)]">
               {faq.question}
+              {/* Drafts are hidden from sailors — say so on the row. */}
+              {!faq.is_active && (
+                <Badge variant="neutral" className="ml-2 align-middle text-[10px]">
+                  {MESSAGES.SETTINGS.FAQ.DRAFT_BADGE}
+                </Badge>
+              )}
             </span>
             {!isOpen && (
               <span className="mt-0.5 block truncate text-[12.5px] font-medium text-[var(--t4)]">

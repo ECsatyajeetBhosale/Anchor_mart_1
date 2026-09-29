@@ -113,9 +113,9 @@ export interface OrderDetail {
   partner: string;
   payment: string;
   coupon?: string;
-  /** Order channel (Mobile App / Website). Not returned by the API → "—". */
+  /** Order channel, from `platform_display` (Mobile App / Website). Null on old orders → "—". */
   source?: string;
-  /** Intent reference. Not returned by the API → "—". */
+  /** Intent reference: `order_number`, or `parent_order_number` for an add-on order. */
   intent?: string;
   /** Anchorage-change summary. Not returned by the API → "—". */
   anchorageChange?: string;
@@ -264,6 +264,9 @@ function getStatusVariant(status: string) {
       return "neutral" as const;
     case "cancelled":
       return "danger" as const;
+    // Display-only label for a `cancelled` row the departure sweep closed.
+    case "expired":
+      return "neutral" as const;
     default:
       return "warning" as const;
   }
@@ -397,6 +400,14 @@ export function OrderDetailDrawer({
         side="right"
         adjustable
         className="flex flex-col gap-0 p-0 sm:max-w-none overflow-hidden bg-[var(--surface)]"
+        // BUG-017 — Esc did not close this drawer while it closed the intent
+        // review one. Radix leaves Escape to the top-most dismissable layer,
+        // and a layer this drawer mounts can hold that spot; handling the key
+        // on the content itself closes it whenever focus is inside and nothing
+        // nested (an open dropdown) has already claimed the key.
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && !e.defaultPrevented) onClose();
+        }}
       >
         {order && (
           <>

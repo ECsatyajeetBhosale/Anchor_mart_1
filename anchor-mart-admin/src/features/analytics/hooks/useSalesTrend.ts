@@ -18,19 +18,22 @@ import type { AnalyticsParams } from "../types/analytics.types";
 export function useSalesTrend(params: AnalyticsParams) {
   const query = useGetSalesTrendQuery(params);
 
+  const granularity = resolveGranularity(query.data?.granularity, query.data?.bars?.[0]);
   const bars = useMemo<ChartBar[]>(() => {
     const raw = query.data?.bars ?? [];
-    const granularity = resolveGranularity(query.data?.granularity, raw[0]);
     return raw.map((b) => {
       const { label, fullLabel } = bucketLabels(b, granularity, raw.length);
       return { key: b.from || b.label, label, fullLabel, value: b.revenue };
     });
-  }, [query.data?.bars, query.data?.granularity]);
+  }, [query.data?.bars, granularity]);
 
   return {
     bars,
+    /** The bucket width the chart was drawn at — the card's title names it (BUG-015). */
+    granularity,
     isLoading: query.isLoading,
     isError: query.isError,
+    error: query.error,
     refetch: query.refetch,
     // Loaded successfully but the window has no buckets.
     isEmpty: !query.isLoading && !query.isError && bars.length === 0,

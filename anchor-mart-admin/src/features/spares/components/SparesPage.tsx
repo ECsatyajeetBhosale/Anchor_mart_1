@@ -27,10 +27,11 @@ import {
   useSetProductTopRatedMutation,
 } from "@/features/products";
 import { ProductVariantsDrawer } from "@/features/variants";
-import { getApiMessage, getApiStatus } from "@/lib/apiError";
+import { getApiMessage, getApiStatus, getSuccessMessage } from "@/lib/apiError";
 import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
+import { hasActiveFilters } from "@/lib/searchFilters";
 import {
   useDeleteSpareProductMutation,
   useGetSpareProductsQuery,
@@ -191,7 +192,7 @@ export function SparesPage() {
   const handleToggleActive = async (row: Product, next: boolean) => {
     try {
       const res = await setActive({ id: row.id, isActive: next }).unwrap();
-      toast.success(getApiMessage(res) ?? (next ? M.TOAST.ACTIVATED : M.TOAST.DEACTIVATED));
+      toast.success(getSuccessMessage(res) ?? (next ? M.TOAST.ACTIVATED : M.TOAST.DEACTIVATED));
     } catch (err) {
       toast.error(getApiMessage(err) ?? M.TOAST.ACTIVE_ERROR);
     }
@@ -366,7 +367,7 @@ export function SparesPage() {
         onRetry={refetch}
         onPageChange={handlePageChange}
         showPagination
-        emptyMessage={M.EMPTY}
+        emptyMessage={hasActiveFilters(searchParams) ? M.EMPTY : M.EMPTY_NONE}
         /**
          * Straight to Edit, as on Products.
          *

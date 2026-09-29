@@ -11,7 +11,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { FILE_LOCATIONS, ImageUploadField } from "@/features/media";
-import { getApiMessage, getFieldErrors } from "@/lib/apiError";
+import { getApiMessage, getFieldErrors, getSuccessMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconCategory, IconCheck } from "@tabler/icons-react";
@@ -105,7 +105,9 @@ export function EmergencyCategoryEditDrawer({
       const response = await updateCategory({ id: category.id, body: payload }).unwrap();
       // Success: close the drawer first, then notify.
       onClose();
-      toast.success(getApiMessage(response) ?? MESSAGES.EMERGENCY_CATEGORIES.TOAST.UPDATE_SUCCESS);
+      toast.success(
+        getSuccessMessage(response) ?? MESSAGES.EMERGENCY_CATEGORIES.TOAST.UPDATE_SUCCESS,
+      );
     } catch (error) {
       // A duplicate `(name, scope)` and a bad image prefix come back field-keyed
       // — pin them to the input rather than to a toast.

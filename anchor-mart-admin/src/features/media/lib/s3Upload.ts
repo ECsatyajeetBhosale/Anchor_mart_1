@@ -38,21 +38,48 @@ export function validateUploadSize(file: File): string | null {
 }
 
 /**
- * Image types the panel accepts.
+ * Image types the panel accepts — a subset of the backend's allow-list.
  *
- * Nothing server-side enforces this on the presigned path (Flow 26 §3): the
- * signed policy's only Content-Type condition is `["starts-with", "", ""]`,
- * which matches every MIME type, and the `file_type` we declare is a form
- * default rather than a constraint. There is no extension allow-list, no
- * sniffing and no transcode either — so an `.exe` renamed to `.jpg`, or even
- * left as `.exe`, would be accepted and stored.
- *
- * This list is therefore the *only* type check on the whole path. It is a
- * usability guard, not a security control — a determined caller can still POST
- * anything to a minted slip — but it stops the ordinary mistake of putting a
- * PDF where a product photo goes.
+ * Since 2026-09-29 the presigned endpoint rejects any `file_type` outside
+ * `image/jpeg|jpg|png|webp|gif|heic|heif` and `application/pdf` with a 400, and
+ * S3 requires the uploaded part's content type to equal the one requested. The
+ * panel only ever uploads web-displayable images, hence the narrower list.
  */
 export const ALLOWED_IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp"] as const;
+
+/**
+ * The `file_type` sent for each accepted extension. Derived from the extension
+ * rather than `file.type`, which browsers leave empty for unknown files and
+ * which the backend would reject as `application/octet-stream`.
+ */
+const MIME_BY_EXTENSION: Record<(typeof ALLOWED_IMAGE_EXTENSIONS)[number], string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+};
+
+/** The MIME type to request and upload with. Call after {@link validateFileType}. */
+export function uploadMimeType(name: string): string {
+  return MIME_BY_EXTENSION[extensionOf(name) as keyof typeof MIME_BY_EXTENSION] ?? "image/jpeg";
+}
+
+/**
+ * A `file_name` the backend accepts: a bare name with an extension, no `/` and
+ * no `..`. Path segments are dropped and, in the stem, every run of characters
+ * outside `[A-Za-z0-9_-]` (dots included) becomes one `_`.
+ * `"../my photo..v2.JPG"` → `"my_photo_v2.JPG"`.
+ */
+export function safeUploadName(name: string): string {
+  const base = name.split(/[\\/]/).pop() ?? name;
+  const dot = base.lastIndexOf(".");
+  const stem = dot > 0 ? base.slice(0, dot) : base;
+  const ext = dot > 0 ? base.slice(dot + 1) : "";
+  const cleanStem = stem.replace(/[^A-Za-z0-9_-]+/g, "_").replace(/^_+|_+$/g, "");
+  const cleanExt = ext.replace(/[^A-Za-z0-9]/g, "");
+  return `${cleanStem || "file"}${cleanExt ? `.${cleanExt}` : ""}`;
+}
 
 /**
  * The picker's `accept` filter, derived from the same list the upload is
@@ -113,12 +140,21 @@ export function validateFileName(name: string): string | null {
  *
  * S3 answers `204 No Content` on success.
  */
-export async function uploadToS3(presigned: PresignedPost, file: File): Promise<void> {
+export async function uploadToS3(
+  presigned: PresignedPost,
+  file: File,
+  contentType: string,
+  fileName: string,
+): Promise<void> {
   const form = new FormData();
   for (const [key, value] of Object.entries(presigned.fields)) {
     form.append(key, value);
   }
-  form.append("file", file);
+  // Last, and re-typed to the `file_type` the slip was minted for: `file.type`
+  // can disagree with the extension-derived MIME, and S3 requires them equal.
+  // No extra Content-Type field is added — the slip's own `fields` carry it, and
+  // S3 rejects any field the signed policy doesn't list.
+  form.append("file", new Blob([file], { type: contentType }), fileName);
 
   let response: Response;
   try {

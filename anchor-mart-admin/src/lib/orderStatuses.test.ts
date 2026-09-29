@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { ORDER_STATUSES, ORDER_STATUS_BY_KEY } from "./orderStatuses";
+import {
+  ORDER_STATUSES,
+  ORDER_STATUS_BY_KEY,
+  isExpiredOrder,
+  orderStatusLabel,
+  orderStatusText,
+  orderStatusVariant,
+} from "./orderStatuses";
 
 describe("ORDER_STATUSES", () => {
   it("knows partially_delivered", () => {
@@ -47,5 +54,35 @@ describe("ORDER_STATUSES", () => {
       expect(s.actor.trim()).not.toBe("");
       expect(s.meaning.trim()).not.toBe("");
     }
+  });
+});
+
+describe("expired orders (BUG-021)", () => {
+  const expired = { status: "cancelled", cancellation_reason: "Vessel departed" };
+
+  it("recognises the departure sweep and nothing else", () => {
+    expect(isExpiredOrder(expired)).toBe(true);
+    expect(isExpiredOrder({ status: "cancelled", cancellation_reason: "Changed my mind" })).toBe(
+      false,
+    );
+    expect(isExpiredOrder({ status: "delivered", cancellation_reason: "Vessel departed" })).toBe(
+      false,
+    );
+  });
+
+  it("labels and colours it as Expired, not Cancelled", () => {
+    expect(orderStatusLabel(expired, "Cancelled")).toBe("Expired");
+    expect(orderStatusVariant(expired)).toBe("neutral");
+    expect(orderStatusLabel({ status: "cancelled" }, "Cancelled")).toBe("Cancelled");
+    expect(orderStatusVariant({ status: "cancelled" })).toBe("danger");
+  });
+});
+
+describe("orderStatusText", () => {
+  it("never shows a raw code", () => {
+    expect(orderStatusText("sourcing")).toBe("Sourcing");
+    expect(orderStatusText("at_berth")).toBe("At Berth");
+    expect(orderStatusText("MARINE_EMERGENCY")).toBe("Marine Emergency");
+    expect(orderStatusText(null)).toBe("");
   });
 });

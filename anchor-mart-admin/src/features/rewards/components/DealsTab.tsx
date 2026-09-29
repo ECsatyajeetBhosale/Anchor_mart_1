@@ -153,6 +153,7 @@ export function DealsTab() {
       header: M.COLUMNS.ACTIVE,
       cell: (d) => (
         <Switch
+          aria-label={MESSAGES.COMMON.ARIA.ACTIVE_TOGGLE(d.variantSku || d.productName)}
           checked={d.isActive}
           onCheckedChange={(next) => handleToggle(d, next)}
           onClick={(e) => e.stopPropagation()}
@@ -169,6 +170,8 @@ export function DealsTab() {
           <Button
             variant="ghost"
             size="xs"
+            aria-label={MESSAGES.COMMON.ARIA.EDIT(d.variantSku || d.productName)}
+            title={MESSAGES.COMMON.EDIT}
             onClick={(e) => {
               e.stopPropagation();
               openEdit(d);
@@ -179,6 +182,8 @@ export function DealsTab() {
           <Button
             variant="ghost"
             size="xs"
+            aria-label={MESSAGES.COMMON.ARIA.DELETE(d.variantSku || d.productName)}
+            title={MESSAGES.COMMON.DELETE}
             onClick={(e) => {
               e.stopPropagation();
               setToDelete(d);

@@ -12,7 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { getApiMessage } from "@/lib/apiError";
+import { getApiMessage, getSuccessMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { formatMoney } from "@/lib/money";
 import { IconCoin, IconLoader2 } from "@tabler/icons-react";
@@ -109,7 +109,7 @@ export function RefundOrderDialog({
         idempotencyKey: isPartial ? crypto.randomUUID() : undefined,
       }).unwrap();
       toast.success(
-        getApiMessage(res) ?? R.SUCCESS(res.refunded ?? res.total_refund ?? trimmedAmount),
+        getSuccessMessage(res) ?? R.SUCCESS(res.refunded ?? res.total_refund ?? trimmedAmount),
       );
       onClose();
     } catch (err) {

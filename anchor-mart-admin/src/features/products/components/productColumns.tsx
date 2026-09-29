@@ -176,7 +176,8 @@ export function useProductColumns({
     currencyColumn({
       id: "price",
       header: MESSAGES.PRODUCTS.COLUMNS.PRICE,
-      get: (row) => row.base_price,
+      // The cheapest live SKU — `base_price` is a stored figure nothing sells at.
+      get: (row) => row.price_from ?? "",
     }),
     ...(showExpressPrice
       ? [
@@ -215,7 +216,12 @@ export function useProductColumns({
     {
       id: "purchases",
       header: MESSAGES.PRODUCTS.COLUMNS.PURCHASES,
-      cell: (row) => <span className="td-p">{row.purchase_count ?? 0}</span>,
+      // Delivered orders only, by design — "Delivered to N sailors".
+      cell: (row) => (
+        <span className="td-p">
+          {MESSAGES.PRODUCTS.COLUMNS.DELIVERED_TO_SAILORS(row.purchase_count ?? 0)}
+        </span>
+      ),
       className: "text-center",
       headerClassName: "text-center",
     },

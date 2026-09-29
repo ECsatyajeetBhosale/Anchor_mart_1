@@ -14,7 +14,7 @@ import {
   useSetProductTopRatedMutation,
 } from "@/features/products";
 import { ProductVariantsDrawer } from "@/features/variants";
-import { getApiMessage, getApiStatus } from "@/lib/apiError";
+import { getApiMessage, getApiStatus, getSuccessMessage } from "@/lib/apiError";
 import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
@@ -178,7 +178,8 @@ export function ExpressProductsTab({ onCountChange }: ExpressProductsTabProps) {
         toast.success(MESSAGES.PRODUCT_FLAGS.TOAST.ANNOUNCED(announceProduct.name));
       } else {
         toast.info(
-          getApiMessage(res) ?? MESSAGES.PRODUCT_FLAGS.TOAST.ANNOUNCE_DEDUPED(announceProduct.name),
+          getSuccessMessage(res) ??
+            MESSAGES.PRODUCT_FLAGS.TOAST.ANNOUNCE_DEDUPED(announceProduct.name),
         );
       }
       setAnnounceProduct(null);
@@ -239,7 +240,7 @@ export function ExpressProductsTab({ onCountChange }: ExpressProductsTabProps) {
       try {
         const res = await setActive({ id: product.id, isActive: next }).unwrap();
         toast.success(
-          getApiMessage(res) ??
+          getSuccessMessage(res) ??
             (next ? MESSAGES.PRODUCTS.TOAST.ACTIVATED : MESSAGES.PRODUCTS.TOAST.DEACTIVATED),
         );
       } catch (err) {

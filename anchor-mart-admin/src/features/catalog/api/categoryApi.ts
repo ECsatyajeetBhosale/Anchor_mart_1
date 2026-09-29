@@ -1,4 +1,5 @@
 import { CATEGORY_ENDPOINTS } from "@/lib/apiEndpoints";
+import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { baseApi } from "@/lib/fetchUtils";
 import type {
   AddCategoryPayload,
@@ -179,7 +180,12 @@ export const categoryApi = baseApi.injectEndpoints({
         }
       },
 
-      invalidatesTags: [{ type: "Categories", id: "STATS" }],
+      // `CATALOG-ANY` too: an edit or an active toggle changes what the
+      // Change-catalog picker may offer, and that list is not patched above.
+      invalidatesTags: [
+        { type: "Categories", id: "STATS" },
+        { type: "Categories", id: "CATALOG-ANY" },
+      ],
     }),
 
     /**
@@ -187,27 +193,45 @@ export const categoryApi = baseApi.injectEndpoints({
      * moving a product into `marine_emergency` requires a category that belongs
      * to that catalog, and the general list would offer the wrong ones.
      */
-    getCategoriesByCatalogType: builder.query<Category[], { catalogType: string; search?: string }>(
+    getCategoriesByCatalogType: builder.query<
+      Category[],
       {
-        query: ({ catalogType, search }) => ({
-          url: CATEGORY_ENDPOINTS.GET_BY_CATALOG_TYPE,
-          method: "GET",
-          params: { catalog_type: catalogType, search: search || undefined },
-        }),
-        transformResponse: (res: unknown): Category[] => {
-          const prop = (v: unknown, k: string): unknown =>
-            v && typeof v === "object" ? (v as Record<string, unknown>)[k] : undefined;
-          const arr = (v: unknown): unknown[] | null => (Array.isArray(v) ? v : null);
-          const results = prop(res, "results");
-          const rows =
-            arr(prop(results, "data")) ?? arr(results) ?? arr(prop(res, "data")) ?? arr(res) ?? [];
-          return rows as Category[];
+        catalogType: string;
+        search?: string;
+        /** `true` → `?is_active=true`, so a picker never offers an inactive category (BUG-034). */
+        isActive?: boolean;
+      }
+    >({
+      query: ({ catalogType, search, isActive }) => ({
+        url: CATEGORY_ENDPOINTS.GET_BY_CATALOG_TYPE,
+        method: "GET",
+        params: {
+          catalog_type: catalogType,
+          search: search || undefined,
+          is_active: isActive === undefined ? undefined : String(isActive),
+          // The endpoint pages at 10, so the picker silently stopped at the
+          // tenth category (BUG-034).
+          page_size: API_MAX_PAGE_SIZE,
         },
-        providesTags: (_r, _e, { catalogType }) => [
-          { type: "Categories", id: `CATALOG-${catalogType}` },
-        ],
+      }),
+      transformResponse: (res: unknown): Category[] => {
+        const prop = (v: unknown, k: string): unknown =>
+          v && typeof v === "object" ? (v as Record<string, unknown>)[k] : undefined;
+        const arr = (v: unknown): unknown[] | null => (Array.isArray(v) ? v : null);
+        const results = prop(res, "results");
+        const rows =
+          arr(prop(results, "data")) ?? arr(results) ?? arr(prop(res, "data")) ?? arr(res) ?? [];
+        return rows as Category[];
       },
-    ),
+      // Also `PARTIAL-LIST` (create/delete) and `CATALOG-ANY` (edit/toggle) —
+      // the per-catalog tag alone was invalidated by nothing, so a category
+      // switched off stayed on offer until a reload (BUG-034).
+      providesTags: (_r, _e, { catalogType }) => [
+        { type: "Categories", id: `CATALOG-${catalogType}` },
+        { type: "Categories", id: "PARTIAL-LIST" },
+        { type: "Categories", id: "CATALOG-ANY" },
+      ],
+    }),
 
     /**
      * Soft-delete a category (Flow 29 §7).

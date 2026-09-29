@@ -115,7 +115,9 @@ export const MESSAGES = {
       REFERENCE: "Reference",
       REFERENCE_HINT: "Catalog and workload totals. True at a glance, rarely something to act on.",
       IN_FLIGHT: "In Flight",
-      IN_FLIGHT_DESC: "Orders actively being worked right now",
+      // BUG-019 — states the backend's rule: partner assigned through at berth.
+      // A confirmed order still waiting for a partner is not counted.
+      IN_FLIGHT_DESC: "Orders with a partner assigned, up to at berth",
       ORDERS_DESC: "Placed in the selected period",
       CANCELLED_DESC: "Cancelled in the selected period",
       REFUNDED_DESC: "Refunded in the selected period",
@@ -263,13 +265,17 @@ export const MESSAGES = {
     },
     // KPI stat-card labels
     STATS: {
-      MONTHLY_REVENUE: "Monthly Revenue",
+      PERIOD_REVENUE: "Revenue",
+      MONTHLY_REVENUE: "This month",
       TOTAL_ORDERS: "Total Orders",
       ACTIVE_SAILORS: "Active Sailors",
     },
     // Chart cards
-    SALES_TREND: "Sales Trend (Daily)",
-    ORDERS_BY_CATEGORY: "Orders by Category",
+    /** BUG-015 — named from the bucket width the response came back at. */
+    SALES_TREND: (granularity: "day" | "week" | "month") =>
+      `Sales Trend (${granularity === "day" ? "Daily" : granularity === "week" ? "Weekly" : "Monthly"})`,
+    // BUG-020 — counts delivered units only, by design.
+    ORDERS_BY_CATEGORY: "Delivered units by category",
     PRODUCT_SALES: "Product-wise Sales",
     /** Picker placeholder — no product has been explicitly chosen. */
     PRODUCT_PLACEHOLDER: "Select a product",
@@ -281,12 +287,14 @@ export const MESSAGES = {
     // The catalog-type labels moved to COMMON.PRODUCT_PICKER when the deal form
     // adopted the same control — both pickers must offer the same three types.
     PRODUCT_METRICS: {
-      REVENUE_7D: "Revenue (7d)",
+      // Follows the selected period/range, like every other figure here (BUG-015).
+      REVENUE_7D: "Revenue (period)",
       UNITS_SOLD: "Units Sold",
       GROWTH: "Growth",
     },
     UNITS_SUFFIX: (n: number) => `${n} units`,
     ORDERS_SUFFIX: (n: number) => `${n} orders`,
+    DELIVERED_UNITS_SUFFIX: (n: number) => `${n} delivered unit${n === 1 ? "" : "s"}`,
     // Traffic by platform — where the orders are being placed from.
     PLATFORM: {
       TITLE: "Traffic by Platform",
@@ -351,7 +359,8 @@ export const MESSAGES = {
       SAILOR: "Sailor",
       CONTACT: "Contact",
       JOINED: "Joined",
-      ORDERS: "Orders",
+      // BUG-023 — counts paid orders only; unpaid ones are still intents.
+      ORDERS: "Orders (paid)",
       LOYALTY: "Loyalty Pts",
       STATUS: "Status",
       ACTIONS: "Actions",
@@ -372,7 +381,7 @@ export const MESSAGES = {
       JOINED: "Joined",
       SHIP: "Ship / IMO",
       ACTIVITY_SECTION: "Activity",
-      ORDERS: "Orders",
+      ORDERS: "Orders (paid)",
       LOYALTY: "Loyalty Pts",
       CART: "Cart Items",
       WISHLIST: "Wishlist",
@@ -610,7 +619,6 @@ export const MESSAGES = {
       ITEMS: "Items",
       TYPE: "Type",
       SHIP_TERMINAL: "Ship / Terminal",
-      CHANGED_ANCHORAGE: "Changed Anchorage",
       PARTNER: "Partner",
       PAYMENT: "Payment",
       COUPON: "Coupon",
@@ -630,6 +638,8 @@ export const MESSAGES = {
       REFUND: "Refund",
     },
     UNASSIGNED: "Unassigned",
+    /** BUG-003 — the verifier who finished, shown under "Unassigned". */
+    VERIFIED_BY: (name: string) => `Verified by ${name}`,
     // Toasts & confirm
     MESSAGE_SENT: (sailor: string) => `Message sent to ${sailor}`,
     CANCEL_CONFIRM_TITLE: "Cancel Order",
@@ -798,8 +808,9 @@ export const MESSAGES = {
       // is what made that look like the order already had a deliverer.
       ASSIGN_DELIVERY: "Assign Delivery Partner",
       ASSIGN_VERIFICATION: "Assign Verification Partner",
-      NEEDS_DELIVERY: "This order is waiting for a delivery partner (can_deliver).",
-      NEEDS_VERIFIER: "This order is waiting for a verification partner (can_verify).",
+      // BUG-003 — plain language; the capability codes are internal.
+      NEEDS_DELIVERY: "This order is waiting for a delivery partner.",
+      NEEDS_VERIFIER: "This order is waiting for a verification partner.",
       NO_REQUIREMENT: "No partner is outstanding on this order.",
       REQUIREMENT_UNKNOWN:
         "This response did not include needs_verifier_partner / needs_delivery_partner, so the outstanding requirement is unknown. It is not inferred from the status or from partner_allocated — report this to the backend.",
@@ -863,6 +874,7 @@ export const MESSAGES = {
     SEARCH_PLACEHOLDER: "Search intents…",
     ALL_STATUS: "All Status",
     EMPTY: "No intents match the current filters.",
+    EMPTY_NONE: "No intents yet.",
     EMPTY_ITEMS: "No items listed for this intent.",
     FETCH_ERROR: "Failed to load intents.",
     ITEM_IMAGE_ALT: "Item",
@@ -1209,6 +1221,9 @@ export const MESSAGES = {
         // Shown instead of "$0.00" before a bill exists — see UNBILLED_STATUSES.
         NOT_PRICED: "Not priced yet",
         ITEMS: "Items",
+        /** BUG-026 — lines and units are different counts; say both. */
+        LINES_UNITS: (lines: number, units: number) =>
+          `${lines} line${lines === 1 ? "" : "s"} · ${units} unit${units === 1 ? "" : "s"}`,
         SUBMITTED: "Created Intent on",
         PORT: "Port",
         ARRIVAL: "Ship Arrival",
@@ -1455,6 +1470,8 @@ export const MESSAGES = {
     SEARCH_PLACEHOLDER: "Search requests…",
     ALL_STATUS: "All Status",
     EMPTY: "No requests match the current filters.",
+    /** BUG-028 — nothing filtered, simply nothing yet. */
+    EMPTY_NONE: "No special requests yet.",
     FETCH_ERROR: "Failed to load special requests.",
     // Status filter options — the five values the API's `?status` accepts.
     STATUS_FILTER: {
@@ -1730,6 +1747,7 @@ export const MESSAGES = {
     SEARCH_PLACEHOLDER: "Search applications…",
     ALL_STATUS: "All Status",
     EMPTY: "No applications match the current filters.",
+    EMPTY_NONE: "No seller applications yet.",
     FETCH_ERROR: "Failed to load seller applications.",
     // Status filter options (values map 1:1 to the API `status` query param)
     STATUS_FILTER: {
@@ -2079,20 +2097,25 @@ export const MESSAGES = {
       CATEGORY_LABEL_OPTIONAL: "Category (optional)",
       CATEGORY_HINT_OPTIONAL:
         "Leave blank to keep the product's current category. Pick one only if you want to move it.",
-      /** Express is a second price list, not a delivery option on the regular price. */
-      EXPRESS_PRICE_LABEL: "Express price *",
+      /**
+       * Optional since BUG-050: every SKU starts at its own regular price, and
+       * this figure (when given) prices the primary SKU only.
+       */
+      EXPRESS_PRICE_LABEL: "Express price (optional)",
       EXPRESS_PRICE_HINT:
-        "What the express shelf charges. This prices the product's primary SKU — the others are priced below.",
-      EXPRESS_PRICE_REQUIRED: "An express product needs an express price.",
+        "Prices the product's primary SKU. Leave blank to use its regular price. Other SKUs are below.",
+      /** BUG-050 — the "i" beside the catalog picker. Text from the backend handover. */
+      EXPRESS_WHOLE_PRODUCT_TIP:
+        "Marking the whole product Express makes every variant Express. Each variant's Express price starts at its regular price. Change it per variant if needed.",
       EXPRESS_PRICE_PLACEHOLDER: "Express price",
       EXPRESS_SKUS_LABEL: "SKU prices",
       /** A ready SKU keeps its price unless this call names one. */
       SKU_READY: (price: number) => `Express ${price} — leave blank to keep`,
       EXPRESS_PRICE_KEEP: "Keep",
       EXPRESS_SKUS_HINT:
-        "An unpriced SKU stays pending — on the express shelf, but refused by the express cart until someone quotes it. Already-priced SKUs keep their price unless you enter a new one.",
-      /** Context for quoting, never a suggestion — see the dialog. */
-      REGULAR_PRICE: (price: number) => `Regular ${price}`,
+        "Every SKU becomes Express. A blank row keeps its express price, or starts at its regular price. Enter a figure only to change it.",
+      /** What a blank row's express price will start at. */
+      REGULAR_PRICE: (price: number) => `Regular ${price} — used if left blank`,
       LEAVING_EXPRESS:
         "Leaving express clears every SKU's express price and flag. Coming back means quoting them again.",
       CATEGORY_PLACEHOLDER: "Select a category",
@@ -2143,13 +2166,6 @@ export const MESSAGES = {
     TOAST: {
       CATALOG_UPDATED: "Catalog updated",
       /**
-       * Deliberately a warning, not a success: a pending SKU is on the express
-       * shelf and **refused** by the express cart and at the till, so the move
-       * left the product part-sellable rather than done.
-       */
-      CATALOG_UPDATED_PENDING: (ready: number, total: number, pending: number) =>
-        `Moved to Express. ${ready} of ${total} ${total === 1 ? "variant is" : "variants are"} Express-ready — ${pending} still ${pending === 1 ? "needs" : "need"} an express price before ${pending === 1 ? "it" : "they"} can be sold.`,
-      /**
        * Leaving express un-flags every live variant in the same transaction, so
        * one field change moved N rows. Reported because it is also what stops a
        * later move *back* onto the express shelf resurrecting stale flags.
@@ -2191,11 +2207,12 @@ export const MESSAGES = {
     },
     EXPRESS_DIALOG: {
       ON_TITLE: "Sell this SKU as express?",
-      ON_DESCRIPTION: (sku: string) => `${sku} will be sellable on the express shelf.`,
+      ON_DESCRIPTION: (sku: string) =>
+        `${sku} will be sold only on the express shelf — it is hidden from its product's regular shelf.`,
       OFF_TITLE: "Take this SKU off express?",
       OFF_DESCRIPTION: (sku: string) => `${sku} will no longer be sold as express.`,
       OFF_WARNING:
-        "This clears the SKU's express price — putting it back means quoting it again. If it is the product's last express SKU, the product leaves the express shelf too.",
+        "This clears the SKU's express price — putting it back means quoting it again. The SKU returns to its product's regular shelf.",
       PRICE_LABEL: "Express price *",
       PRICE_PLACEHOLDER: "0.00",
       PRICE_HINT: "What the express shelf charges for this SKU. Separate from its regular price.",
@@ -2207,8 +2224,8 @@ export const MESSAGES = {
         on ? `${sku} is now sellable as express.` : `${sku} is no longer sold as express.`,
       DONE_CASCADED: (sku: string, on: boolean, catalog: string) =>
         on
-          ? `${sku} is now express — its product joined the express shelf.`
-          : `${sku} is no longer express — its product moved to the ${catalog} catalog.`,
+          ? `${sku} is now express — every SKU is express, so the product is now an express product.`
+          : `${sku} is no longer express — its product moved back to the ${catalog} catalog.`,
       FAILED: "Could not change the express setting. Please try again.",
     },
     TITLE: "Variants",
@@ -2259,7 +2276,7 @@ export const MESSAGES = {
       /** Express is a second price list, not a surcharge on `price`. */
       EXPRESS_PRICE: "Express price",
       EXPRESS_PRICE_HINT_ADD:
-        "What the express shelf charges. Leave blank to file this SKU as pending — not sellable as express until priced.",
+        "Optional. Fill it to make this an express SKU — sold only on the express shelf, hidden from the regular one.",
       EXPRESS_PRICE_HINT_EDIT: "What the express shelf charges for this SKU.",
       ATTRIBUTE_KEY_PLACEHOLDER: "Name — e.g. size",
       ATTRIBUTE_VALUE_PLACEHOLDER: "Value — e.g. L",
@@ -2426,7 +2443,9 @@ export const MESSAGES = {
       /** The express shelf's own figure — a second price list, not a surcharge. */
       EXPRESS_PRICE: "Express Price",
       VARIANTS: "Variants",
-      PURCHASES: "Purchases",
+      // BUG-005 — `purchase_count` counts sailors with a *delivered* order.
+      PURCHASES: "Delivered to",
+      DELIVERED_TO_SAILORS: (n: number) => `${n} sailor${n === 1 ? "" : "s"}`,
       DEAL: "Deal",
       STATUS: "Status",
       ACTIONS: "Actions",
@@ -2664,6 +2683,7 @@ export const MESSAGES = {
       SAVE: "Save Changes",
       SAVING: "Saving…",
       SAVED: "Order configuration updated.",
+      NO_CHANGES: "No changes to save.",
       LOAD_ERROR: "Could not load the order configuration.",
       /** Field labels and helper text. Worded to be read, not skimmed. */
       FIELDS: {
@@ -2757,6 +2777,7 @@ export const MESSAGES = {
       ACTION_EDIT: "Edit FAQ",
       ACTION_REMOVE: "Delete FAQ",
       UPDATED_PREFIX: "Updated",
+      DRAFT_BADGE: "Draft",
       /** Form labels and placeholders, shared by the add and edit drawers. */
       FIELDS: {
         CATEGORY: "Category *",
@@ -2765,10 +2786,11 @@ export const MESSAGES = {
         QUESTION_PLACEHOLDER: "e.g. Can I change my location after ordering?",
         ANSWER: "Answer *",
         ANSWER_PLACEHOLDER: "Write the answer sailors will see…",
+        /** BUG-057 — `is_active` is the publish switch; off saves a draft. */
+        PUBLISHED: "Published",
+        PUBLISHED_HINT: "Turn off to save as a draft. Drafts are hidden from sailors.",
         CREATED: "Created",
         LAST_UPDATED: "Last updated",
-        /** Shown on the timestamps, which the update endpoint does not accept. */
-        READ_ONLY_HINT: "Read-only — not sent on update",
       },
       STATS: {
         TOTAL: "Total FAQs",
@@ -3577,6 +3599,9 @@ export const MESSAGES = {
         PRODUCT_REQUIRED: "Select a product.",
         VARIANT_REQUIRED: "Select a variant.",
         PRICE_INVALID: "Enter a deal price greater than 0.",
+        /** BUG-035 — checked before submit; the API rejects the same case. */
+        PRICE_NOT_BELOW: (ceiling: string) =>
+          `The deal price must be below the variant's ${ceiling}.`,
         START_REQUIRED: "Pick a start date.",
         END_REQUIRED: "Pick an end date.",
         END_BEFORE_START: "The end date must be on or after the start date.",
@@ -3781,6 +3806,9 @@ export const MESSAGES = {
       ACTIVE: "Active",
       USES: (n: number) => `${n} uses`,
       EXPIRES: (date: string) => `Expires ${date}`,
+      /** `valid_to: null` — the coupon never expires. */
+      NO_EXPIRY: "No expiry",
+      EMPTY: "No active coupons right now.",
     },
     // Coupons table (same data as the Active Coupons cards, tabular view)
     TABLE: {
@@ -3815,19 +3843,27 @@ export const MESSAGES = {
       TITLE_PLACEHOLDER: "e.g. Flat $500 Off",
       DESCRIPTION: "Description",
       DESCRIPTION_PLACEHOLDER: "Short description shown to sailors",
-      IMAGE: "Image Path",
-      IMAGE_HINT: "Upload an image file.",
+      IMAGE: "Image (optional)",
+      IMAGE_HINT: "Upload an image file, or leave empty.",
       DISCOUNT_TYPE: "Discount Type",
       APPLIES_TO: "Applies To",
       DISCOUNT_VALUE: "Discount Value",
       DISCOUNT_VALUE_PLACEHOLDER: "e.g. 500",
+      DISCOUNT_VALUE_FREE_SHIPPING_HINT: "Not used for free shipping.",
+      /** BUG-038 — required for percentage coupons, by design. */
+      MAX_DISCOUNT: "Max Discount ($) *",
+      MAX_DISCOUNT_PLACEHOLDER: "e.g. 50",
+      MAX_DISCOUNT_HINT: "The most a percentage coupon can take off one order.",
       MIN_PURCHASE: "Minimum Purchase ($)",
       MIN_PURCHASE_PLACEHOLDER: "e.g. 2000 (0 for none)",
       VALID_FROM: "Valid From",
       VALID_TO: "Valid To",
+      VALID_TO_HINT: "Ends at 11:59 PM Singapore time on this day.",
+      NO_END_DATE: "No end date",
       USAGE_LIMIT: "Total Usage Limit",
       USAGE_LIMIT_PLACEHOLDER: "Blank = unlimited",
-      PER_USER_LIMIT: "Per-User Limit",
+      PER_USER_LIMIT: "Per-Sailor Limit",
+      PER_USER_LIMIT_PLACEHOLDER: "Blank = unlimited",
       IS_PUBLIC: "Public coupon",
       IS_ACTIVE: "Active",
       // Select options (values map 1:1 to the API enums)
@@ -3851,6 +3887,7 @@ export const MESSAGES = {
     /** `?search=` matches the product **name** only — not description or SKU. */
     SEARCH_PLACEHOLDER: "Search by product name…",
     EMPTY: "No marine emergency products match the current filters.",
+    EMPTY_NONE: "No marine emergency products yet.",
     /**
      * A spare with no variants is not misconfigured — it is **invisible**.
      * `browsable_products_qs` requires at least one live variant, so it never
@@ -4319,6 +4356,12 @@ export const MESSAGES = {
       CODE: "Anchorage Code",
       /** Matches the shape the API's own examples use — `OA-1`, `KO-1`. */
       CODE_PLACEHOLDER: "e.g. OA-1",
+      /** BUG-055 — optional; blank means "not set", which is not 0 hours. */
+      ETA: "Est. Delivery (hours)",
+      ETA_PLACEHOLDER: "e.g. 4",
+      ETA_HINT: "Leave blank if unknown.",
+      /** BUG-046 — the API refuses anchorages on an inactive port. */
+      PORT_INACTIVE: "This port is inactive. Activate the port before adding anchorages.",
       ACTIVE: "Active",
       SUBMIT: "Add Anchorage",
       SAVING: "Adding…",
@@ -4505,6 +4548,9 @@ export const MESSAGES = {
       RECENT_HINT: "Seen in the last few minutes — not a guarantee they are reading now.",
     },
     COMPOSER: {
+      /** BUG-056 — a picked file waits for Send, with a way to take it back. */
+      STAGED_HINT: "Press Send to share it. Your message becomes its caption.",
+      REMOVE_ATTACHMENT: "Remove attachment",
       PLACEHOLDER: "Type your message…",
       SEND: "Send",
       HINT: "Enter to send · Shift+Enter for a new line",
@@ -5546,6 +5592,20 @@ export const MESSAGES = {
       SEARCH_PLACEHOLDER: "Search country or code…",
       NO_MATCHES: "No country matches",
       NONE: "No country code",
+    },
+    /** The browser tab's base title. */
+    APP_TITLE: "AnchorMart Admin",
+    /** BUG-032 — an unknown URL inside the app, instead of a silent redirect. */
+    NOT_FOUND: {
+      TITLE: "Page not found",
+      MESSAGE: "The page you were looking for doesn't exist or has moved.",
+      ACTION: "Go to Dashboard",
+    },
+    /** BUG-016 — accessible names for row controls that show only an icon or a switch. */
+    ARIA: {
+      ACTIVE_TOGGLE: (name: string) => `Active: ${name}`,
+      EDIT: (name: string) => `Edit ${name}`,
+      DELETE: (name: string) => `Delete ${name}`,
     },
     /** Mobile nav drawer — the scrim's accessible name, and the header button's. */
     OPEN_NAVIGATION: "Open navigation",

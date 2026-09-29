@@ -37,6 +37,7 @@ import { getApiMessage, getApiStatus } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
+import { hasActiveFilters } from "@/lib/searchFilters";
 import { statsError, statsState, statusText } from "@/lib/stats";
 import { toast } from "sonner";
 import {
@@ -881,7 +882,7 @@ export function IntentsPage() {
         onRetry={retryAll}
         onPageChange={handlePageChange}
         showPagination
-        emptyMessage={M.EMPTY}
+        emptyMessage={hasActiveFilters(searchParams) ? M.EMPTY : M.EMPTY_NONE}
         onRowClick={handleOpenReview}
       />
 

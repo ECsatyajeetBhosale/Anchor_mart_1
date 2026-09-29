@@ -1,4 +1,5 @@
 import { REWARD_ENDPOINTS } from "@/lib/apiEndpoints";
+import { stampText } from "@/lib/dates";
 import { baseApi } from "@/lib/fetchUtils";
 import { formatMoney } from "@/lib/money";
 import type {
@@ -51,19 +52,9 @@ function money(value: unknown): string {
   return formatMoney(value as string | number | null | undefined, { fallback: "-" });
 }
 
-/** ISO timestamp → "Aug 14, 2026, 07:09 AM". Blank input stays a dash. */
+/** A display timestamp as sent; an ISO one in the same SGT shape. Blank stays a dash. */
 function formatDateTime(value: string): string {
-  if (!value) return "-";
-  const d = new Date(value);
-  return Number.isNaN(d.getTime())
-    ? value
-    : d.toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+  return value ? stampText(value) : "-";
 }
 
 /** Extracts rows + total from whichever envelope the endpoint returns. */
@@ -107,8 +98,11 @@ function toDeal(raw: unknown, index: number): Deal {
     discountPercentage: Number.isFinite(Number(pct)) ? `${Number(pct)}%` : "-",
     imageUrl: pick(images[0], "image", "url"),
     termsAndConditions: pick(raw, "terms_and_conditions") || "",
+    // Display strings (SGT) for the list; the `*_iso` pair seeds the edit form.
     startTime: pick(raw, "start_time") || "",
     endTime: pick(raw, "end_time") || "",
+    startTimeIso: pick(raw, "start_time_iso") || "",
+    endTimeIso: pick(raw, "end_time_iso") || "",
     isActive: getProp(raw, "is_active") !== false,
   };
 }

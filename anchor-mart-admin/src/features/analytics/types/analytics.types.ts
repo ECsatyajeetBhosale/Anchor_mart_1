@@ -30,6 +30,9 @@ export interface AnalyticsProductParams extends AnalyticsParams {
 /** Payload from `GET /superadmin/analytics/summary/`. */
 export interface AnalyticsSummaryResponse {
   period: string;
+  /** Revenue for the selected period/range (BUG-002) — what the KPI card shows. */
+  period_revenue: number;
+  /** Always the current calendar month, whatever the filter. Label it "This month". */
   monthly_revenue: number;
   total_orders: number;
   active_sailors: number;

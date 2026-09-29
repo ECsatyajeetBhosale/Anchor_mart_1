@@ -8,6 +8,7 @@ import {
 import type { Column } from "@/components/ui/data-table";
 import { Switch } from "@/components/ui/switch";
 import { MESSAGES } from "@/lib/messages";
+import { orderStatusText } from "@/lib/orderStatuses";
 import { IconCategory } from "@tabler/icons-react";
 import type React from "react";
 import type { EmergencyCategory } from "../types/emergencyCategory.types";
@@ -73,7 +74,8 @@ export function useEmergencyCategoryColumns({
     badgeColumn({
       id: "scope",
       header: MESSAGES.EMERGENCY_CATEGORIES.COLUMNS.SCOPE,
-      get: (row) => row.scope || "—",
+      // A code (`MARINE_EMERGENCY`) — shown as its label (BUG-011).
+      get: (row) => orderStatusText(row.scope) || "—",
       variant: "neutral",
     }),
     textColumn({
@@ -93,6 +95,7 @@ export function useEmergencyCategoryColumns({
        */
       cell: (row) => (
         <Switch
+          aria-label={MESSAGES.COMMON.ARIA.ACTIVE_TOGGLE(row.name)}
           checked={row.is_active !== false}
           onCheckedChange={(next) => onToggleActive(row, next)}
           onClick={(e) => e.stopPropagation()}

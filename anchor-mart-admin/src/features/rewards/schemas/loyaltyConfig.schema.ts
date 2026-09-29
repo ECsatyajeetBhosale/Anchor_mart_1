@@ -14,7 +14,12 @@ export const loyaltyConfigSchema = z.object({
     .number({ invalid_type_error: "Must be a number" })
     .int("Must be a whole number")
     .min(0, "Must be 0 or more"),
-  point_value: z.string().trim().min(1, "Point value is required"),
+  // BUG-035 — the API's own floor, caught before submit rather than toasted.
+  point_value: z
+    .string()
+    .trim()
+    .min(1, "Point value is required")
+    .refine((v) => Number.isFinite(Number(v)) && Number(v) >= 0, "Must be 0 or more"),
 });
 
 export type LoyaltyConfigFormData = z.infer<typeof loyaltyConfigSchema>;

@@ -39,6 +39,8 @@ export function TableActions<T>({ row, actions }: TableActionsProps<T>) {
             type="button"
             className={`btn ${btnClass} btn-sm btn-icon`}
             title={act.title}
+            // `title` is a tooltip, not a reliable accessible name (BUG-016).
+            aria-label={act.title}
             onClick={(e) => act.onClick(e, row)}
           >
             {act.icon}
@@ -53,6 +55,7 @@ export function TableActions<T>({ row, actions }: TableActionsProps<T>) {
               type="button"
               className="btn btn-ghost btn-sm btn-icon"
               title="More actions"
+              aria-label="More actions"
               // The row opens a drawer on click; the trigger must not.
               onClick={(e) => e.stopPropagation()}
             >

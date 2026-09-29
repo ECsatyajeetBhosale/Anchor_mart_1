@@ -1,3 +1,4 @@
+import { formatDateRange } from "@/lib/dates";
 import { format } from "date-fns";
 import { useState } from "react";
 import type { DateRange } from "react-day-picker";
@@ -39,9 +40,12 @@ export function useDashboard() {
   const [activeTab, setActiveTab] = useState<TimeRange>("Today");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
-  // A complete custom range takes precedence over the period pills.
+  // A complete, valid custom range takes precedence over the period pills.
+  // FROM after TO is a 400 from every endpoint here (BUG-001), so it is never
+  // sent — the picker blocks it too.
+  const hasRange = !!(dateRange?.from && dateRange?.to && dateRange.from <= dateRange.to);
   const params: DashboardStatsParams =
-    dateRange?.from && dateRange?.to
+    hasRange && dateRange?.from && dateRange?.to
       ? {
           from_date: format(dateRange.from, "yyyy-MM-dd"),
           to_date: format(dateRange.to, "yyyy-MM-dd"),
@@ -127,7 +131,15 @@ export function useDashboard() {
    * Worth surfacing: on a custom range the label is the only confirmation that
    * the server read the same dates the picker sent.
    */
-  const period = statsQuery.data?.period ?? null;
+  // `currentData`, not `data`: after a failed request `data` still holds the
+  // previous window, so the label described a period nothing on screen was
+  // showing (BUG-001). A custom range is labelled from the picked dates rather
+  // than the server's `2026-09-01..2026-09-25` (BUG-024).
+  const serverPeriod = statsQuery.currentData?.period ?? null;
+  const period =
+    serverPeriod && hasRange && dateRange?.from && dateRange?.to
+      ? { ...serverPeriod, label: formatDateRange(dateRange.from, dateRange.to) }
+      : serverPeriod;
 
   const liveOrders = {
     // Dashboard shows a capped preview; `count` keeps the true total for the footer.

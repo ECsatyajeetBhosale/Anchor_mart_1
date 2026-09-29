@@ -4,6 +4,7 @@ import {
   IconClipboardList,
   IconCreditCard,
   IconShieldCheck,
+  IconUserX,
 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
@@ -67,6 +68,13 @@ const ACTION_CONFIG: Record<string, ActionConfig> = {
     tone: "purple",
     button: M.ACTION_BUTTONS.APPROVE,
     route: APP_ROUTES.SELLERS,
+  },
+  // BUG-031 — sailors waiting on an account-deletion decision.
+  pending_account_deletions: {
+    icon: <IconUserX size={16} />,
+    tone: "danger",
+    button: M.ACTION_BUTTONS.REVIEW,
+    route: APP_ROUTES.DELETION_REQUESTS,
   },
 };
 

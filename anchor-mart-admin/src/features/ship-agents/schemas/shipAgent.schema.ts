@@ -32,9 +32,22 @@ export const shipAgentSchema = z
     message: "Provide at least a mobile number or an email.",
     path: ["mobile"],
   })
+  // BUG-058 — the backend requires `country_code` with a mobile unless the
+  // number itself starts with `+`, which this form's digits-only field never
+  // does. So a typed mobile needs a code.
+  .refine(
+    (data) => !data.mobile.trim() || data.mobile.trim().startsWith("+") || !!data.country_code,
+    {
+      message: "Country code is required with a mobile number.",
+      path: ["country_code"],
+    },
+  )
   // `optional` because a blank code is legal here — an agent reachable by email
   // alone is the whole point of the rule above. A number typed *with* a code is
   // still checked against that country.
   .superRefine(phoneCountryRule({ codeKey: "country_code", numberKey: "mobile", optional: true }));
 
 export type ShipAgentFormData = z.infer<typeof shipAgentSchema>;
+
+/** Every input on the ship-agent form — where a 400's field errors are pinned. */
+export const SHIP_AGENT_FIELDS = ["name", "company", "country_code", "mobile", "email"] as const;

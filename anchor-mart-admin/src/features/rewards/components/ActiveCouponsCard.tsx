@@ -44,11 +44,16 @@ export function ActiveCouponsCard({
       {/* Fills the card height; overflowing coupons scroll. `pt-4` sets the
           space above the first coupon; `pb-2.5` the space below the last. */}
       <div className="absolute inset-0 flex flex-col gap-2.5 overflow-y-auto px-5 pt-4.5 pb-2.5">
+        {coupons.length === 0 && (
+          <div className="flex flex-1 items-center justify-center">
+            <span className="td-m">{M.COUPONS.EMPTY}</span>
+          </div>
+        )}
         {coupons.map((cp) => (
           // Clickable row rendered as an ARIA button (a native <button>
           // can't wrap the edit/delete buttons inside it).
           <div
-            key={cp.code}
+            key={cp.id}
             role={canManage ? "button" : undefined}
             tabIndex={canManage ? 0 : undefined}
             onClick={canManage ? () => onEdit(cp) : undefined}
@@ -79,7 +84,10 @@ export function ActiveCouponsCard({
                   {cp.d} · {cp.m}
                 </div>
                 <div className="text-[11px] text-[var(--t4)] mt-0.5">
-                  {M.COUPONS.USES(cp.u)} · {M.COUPONS.EXPIRES(cp.e)}
+                  {M.COUPONS.USES(cp.u)} ·{" "}
+                  {cp.raw && cp.raw.valid_to == null
+                    ? M.COUPONS.NO_EXPIRY
+                    : M.COUPONS.EXPIRES(cp.e)}
                 </div>
               </div>
               {canManage && (

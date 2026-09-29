@@ -16,19 +16,25 @@ export interface OrdersByCategoryCardProps {
 
 /** Order volume per product category (teal bars), wired to the category endpoint. */
 export function OrdersByCategoryCard({ params }: OrdersByCategoryCardProps) {
-  const { bars, isLoading, isError, isEmpty, refetch } = useOrdersByCategory(params);
+  const { bars, isLoading, isError, error, isEmpty, refetch } = useOrdersByCategory(params);
 
   return (
     <SectionCard
       icon={<IconChartBar size={17} className="text-[var(--t4)]" />}
       title={M.ORDERS_BY_CATEGORY}
     >
-      <ChartState isLoading={isLoading} isError={isError} isEmpty={isEmpty} onRetry={refetch}>
+      <ChartState
+        isLoading={isLoading}
+        isError={isError}
+        error={error}
+        isEmpty={isEmpty}
+        onRetry={refetch}
+      >
         <AnalyticsBarChart
           bars={bars}
           color="var(--teal-200)"
           hoverColor="var(--teal-500)"
-          tooltipFormatter={(value) => M.ORDERS_SUFFIX(value)}
+          tooltipFormatter={(value) => M.DELIVERED_UNITS_SUFFIX(value)}
         />
       </ChartState>
     </SectionCard>

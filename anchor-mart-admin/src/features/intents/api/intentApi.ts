@@ -1,7 +1,8 @@
 import type { AssignedAdmin } from "@/features/orders";
 import { INTENT_ENDPOINTS, ORDER_ENDPOINTS } from "@/lib/apiEndpoints";
-import { dateTimeText, shortDate } from "@/lib/dates";
+import { dateTimeText, dayText, shortDate } from "@/lib/dates";
 import { baseApi } from "@/lib/fetchUtils";
+import { EXPIRED_STATUS, isExpiredOrder, orderStatusLabel } from "@/lib/orderStatuses";
 import { readPartnerNeed } from "@/lib/partnerRequirement";
 import { terminalReason } from "@/lib/terminalReason";
 import { situationVariant } from "../lib/intentSituation";
@@ -11,6 +12,7 @@ import type {
   GetIntentsParams,
   IntentApi,
   IntentApiItem,
+  IntentBadgeVariant,
   IntentData,
   IntentDetail,
   IntentDetailItem,
@@ -68,21 +70,6 @@ function titleCase(value: string): string {
     .filter(Boolean)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
     .join(" ");
-}
-
-/**
- * Formats an ISO date for the **detail** read only.
- *
- * The list and the detail are two different contracts: since 2026-08-19 the
- * four admin *lists* send display strings (`lib/dates.ts` reads those), while
- * `GET orders/{id}/` still sends ISO. Keeping one formatter per contract is
- * what stops a change on either side from quietly corrupting the other.
- */
-function formatDate(value?: string): string {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
 /**
@@ -221,11 +208,15 @@ export function toIntentData(intent: IntentApi): IntentData {
   const reqItems = (intent.items ?? []).map(mapItem);
   const itemCount = num(intent.item_count) || reqItems.length;
 
-  const names = reqItems.map((i) => i.name).filter(Boolean);
+  // Quantities on the names ("Mackbook ×2"): the old "(1)" suffix was the
+  // number of *lines* and read as a quantity (BUG-026).
+  const names = reqItems
+    .filter((i) => i.name)
+    .map((i) => (i.qty > 1 ? `${i.name} ×${i.qty}` : i.name));
   const it = names.length
-    ? `${names.join(", ")}${itemCount ? ` (${itemCount})` : ""}`
+    ? names.join(", ")
     : itemCount
-      ? `${itemCount} item${itemCount === 1 ? "" : "s"}`
+      ? `${itemCount} line${itemCount === 1 ? "" : "s"}`
       : "—";
 
   const status = str(intent.status);
@@ -258,14 +249,20 @@ export function toIntentData(intent: IntentApi): IntentData {
     sb: dateTimeText(str(intent.created_at) || str(intent.intent_received_at)),
     // The label of `situation` where the row has one, so a settled basket reads
     // "Ready to Bill" rather than the status it shares with an unanswered one.
-    st: str(intent.status_display) || titleCase(status) || "—",
+    // "Expired" when the departure sweep closed it — see `isExpiredOrder`.
+    st: orderStatusLabel(
+      { status, cancellation_reason: intent.cancellation_reason },
+      str(intent.status_display) || titleCase(status) || "—",
+    ),
     status,
     situation,
     // Coloured from the SITUATION, falling back to the status. Colouring by
     // status alone would render both halves of a split identically — and
     // `sourcing` exists as a raw status too, so two differently-coloured
     // "Sourcing" badges would sit in one filtered list.
-    sc: situationVariant(situation, status),
+    sc: isExpiredOrder({ status, cancellation_reason: intent.cancellation_reason })
+      ? (EXPIRED_STATUS.variant as IntentBadgeVariant)
+      : situationVariant(situation, status),
     total: str(intent.total_amount),
     assignedAdmin: mapAssignedAdmin(intent.assigned_admin),
     substitutionNeeded:
@@ -469,7 +466,10 @@ export const intentApi = baseApi.injectEndpoints({
           id: str(o.id),
           orderNumber: str(o.order_number) || str(o.id),
           status: statusRaw,
-          statusDisplay: str(o.status_display) || titleCase(statusRaw),
+          statusDisplay: orderStatusLabel(
+            { status: statusRaw, cancellation_reason: str(o.cancellation_reason) },
+            str(o.status_display) || titleCase(statusRaw),
+          ),
           // Customer
           sailorName:
             `${str(customer?.first_name)} ${str(customer?.last_name)}`.trim() ||
@@ -492,8 +492,8 @@ export const intentApi = baseApi.injectEndpoints({
           // From the anchorage object — `shipping_address.anchorage_code` is
           // blank on app-created orders.
           anchorageCode: str(anchorage?.anchorage_code),
-          shipArrivalDate: formatDate(str(o.ship_arrival_date)),
-          expectedDeparture: formatDate(str(o.expected_departure)),
+          shipArrivalDate: dayText(str(o.ship_arrival_date)),
+          expectedDeparture: dayText(str(o.expected_departure)),
           // Items
           items,
           itemCount: num(o.item_count) || num(o.items_count) || items.length,
@@ -528,8 +528,8 @@ export const intentApi = baseApi.injectEndpoints({
           // Metadata
           // The business placement event. `created_at` is the record's technical
           // creation time and is kept separate rather than substituted.
-          placedAt: formatDate(str(o.placed_at)),
-          createdAt: formatDate(str(o.created_at)),
+          placedAt: dayText(str(o.placed_at)),
+          createdAt: dayText(str(o.created_at)),
           notes: str(o.notes),
           isExpress: o.is_express === true,
           isEmergency: o.is_emergency === true,

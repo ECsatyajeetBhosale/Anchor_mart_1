@@ -1,5 +1,6 @@
 import { ADMIN_NOTIFICATION_ENDPOINTS } from "@/lib/apiEndpoints";
 import { asNumber, asString, getProp, unwrapData, unwrapList } from "@/lib/apiResponse";
+import { stampText } from "@/lib/dates";
 import { baseApi } from "@/lib/fetchUtils";
 import { MESSAGES } from "@/lib/messages";
 import type {
@@ -66,7 +67,7 @@ function toDispatch(row: CampaignDispatchApi): CampaignDispatch {
     channelLabel:
       asString(row.channel_display).trim() || M.HISTORY.CHANNEL_LABELS[channel] || channel,
     isDispatched: row.is_dispatched === true,
-    dispatchedAt: dash(row.dispatched_at),
+    dispatchedAt: stampText(row.dispatched_at),
     // `null` is "not measurable" — in-app has no per-recipient count — and must
     // survive as null so the cell can render a dash rather than a zero.
     recipientsEnqueued:
@@ -148,9 +149,9 @@ export function toHistoryRow(row: NotificationHistoryApi): NotificationHistoryRo
     dispatches,
     dispatchLabel: state.label,
     dispatchTone: state.tone,
-    dispatchedAt: dash(row.dispatched_at),
+    dispatchedAt: stampText(row.dispatched_at),
     dispatchError,
-    createdAt: dash(row.created_at),
+    createdAt: stampText(row.created_at),
   };
 }
 
@@ -171,14 +172,21 @@ function toRecipientSummary(res: unknown): RecipientSummary {
   const payload = unwrapData<unknown>(res);
   const type = asString(getProp(payload, "type") ?? getProp(payload, "notification_type")) || null;
 
-  const source = getProp(payload, "roles") ?? getProp(payload, "buckets") ?? payload;
+  // `summary[]` is the documented list (BUG-048); `roles`/`buckets` are kept
+  // for older deployments.
+  const source =
+    getProp(payload, "summary") ??
+    getProp(payload, "roles") ??
+    getProp(payload, "buckets") ??
+    payload;
   const buckets: RecipientBucket[] = [];
   let explicitTotal: number | null = null;
 
   if (Array.isArray(source)) {
     for (const row of source) {
       const role = asString(getProp(row, "role"));
-      if (role) buckets.push({ role, count: asNumber(getProp(row, "count")) });
+      const count = getProp(row, "eligible_recipients_count") ?? getProp(row, "count");
+      if (role) buckets.push({ role, count: asNumber(count) });
     }
   } else if (source && typeof source === "object") {
     for (const [key, value] of Object.entries(source as Record<string, unknown>)) {
@@ -223,8 +231,13 @@ export const notificationApi = baseApi.injectEndpoints({
         const payload = unwrapData<unknown>(res);
         // A bare number, or whichever count key the view happens to use.
         if (typeof payload === "number") return payload;
+        // BUG-048 — `eligible_recipients_count` is the documented key: users in
+        // the role who will actually receive this type. Before it was read here
+        // every estimate fell through to 0. (`total_active_users_in_role`, the
+        // role's size regardless of preferences, is deliberately not the answer.)
         return asNumber(
-          getProp(payload, "count") ??
+          getProp(payload, "eligible_recipients_count") ??
+            getProp(payload, "count") ??
             getProp(payload, "total") ??
             getProp(payload, "recipients") ??
             getProp(payload, "recipient_count"),

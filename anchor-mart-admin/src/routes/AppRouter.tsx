@@ -6,6 +6,7 @@ import { ProtectedRoute } from "./ProtectedRoute";
 import { PublicRoute } from "./PublicRoute";
 
 // Auth — from feature
+import { NotFoundPage } from "@/components/common/NotFoundPage";
 import { LoginPage, OtpLoginPage } from "@/features/auth";
 
 import { AnalyticsPage } from "@/features/analytics";
@@ -171,11 +172,12 @@ export function AppRouter() {
             <Route path={APP_ROUTES.SETTINGS_FAQS} element={<FaqsPage />} />
             <Route path={APP_ROUTES.REQUESTS} element={<SpecialRequestsPage />} />
             <Route path={APP_ROUTES.SPARES} element={<SparesPage />} />
+            {/* Unknown URL inside the app — a real "not found", not a silent
+                redirect to the Dashboard (BUG-032). Signed-out visitors never
+                reach it: `ProtectedRoute` sends them to login first. */}
+            <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Route>
-
-        {/* 404 fallback */}
-        <Route path="*" element={<Navigate to={APP_ROUTES.DASHBOARD} replace />} />
       </Routes>
     </BrowserRouter>
   );

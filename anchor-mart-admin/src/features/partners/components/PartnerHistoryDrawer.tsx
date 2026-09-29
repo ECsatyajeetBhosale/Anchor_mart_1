@@ -14,6 +14,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { getFallbackAvatar } from "@/lib/avatar";
+import { dayText } from "@/lib/dates";
 import { MESSAGES } from "@/lib/messages";
 import { useGetPartnerHistoryQuery } from "../api/partnerApi";
 import {
@@ -65,12 +66,9 @@ function outcomeVariant(outcome: string): BadgeVariant {
   }
 }
 
-/** Formats an ISO timestamp as "3 Aug 2026"; blanks and unparseable values → "—". */
-function formatStamp(iso: string | null): string {
-  if (!iso) return H.DASH;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return H.DASH;
-  return date.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+/** The day of an ISO or SGT display timestamp, as "Aug 3, 2026"; blanks → "—". */
+function formatStamp(value: string | null): string {
+  return value ? dayText(value) : H.DASH;
 }
 
 /**

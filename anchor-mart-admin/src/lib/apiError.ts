@@ -1,11 +1,14 @@
+import type { FieldValues, Path, UseFormSetError } from "react-hook-form";
+
 export interface ApiMessageOptions {
   /**
    * Prefix a DRF field error with its field name (`"sku: already exists."`).
    *
-   * Useful next to a form, where the label says *which* input is wrong.
-   * Counter-productive in a toast, where the backend's sentence usually reads
-   * fine on its own and `delivery_partner_id: …` is just noise. Defaults to
-   * `true` so existing call sites are unchanged.
+   * Useful in a banner that stands in for a form, where the label says *which*
+   * input is wrong. Counter-productive in a toast, where the backend's sentence
+   * usually reads fine on its own and `delivery_partner_id: …` is just noise.
+   * Defaults to `false`: field errors belong beside their input (see
+   * {@link applyApiFieldErrors}), and the toast carries the plain sentence.
    */
   labelFields?: boolean;
 }
@@ -26,7 +29,41 @@ export function getApiMessage(source: unknown, options?: ApiMessageOptions): str
   if (!source || typeof source !== "object") return undefined;
   // RTK Query errors nest the payload under `data`; success responses are flat.
   const payload = "data" in source ? (source as { data?: unknown }).data : source;
-  return extractMessage(payload, "", options?.labelFields !== false);
+  return plainMessage(extractMessage(payload, "", options?.labelFields === true));
+}
+
+/**
+ * Django REST Framework sentences that name internals, rewritten for an
+ * operator. `"The fields coupon, user must make a unique set."` is DRF's
+ * unique-together text (BUG-041) — it names model fields, not a problem.
+ */
+function plainMessage(message: string | undefined): string | undefined {
+  if (!message) return message;
+  if (/must make a unique set\.?$/i.test(message)) return "This record already exists.";
+  return message;
+}
+
+/**
+ * The sentence a **success** response carries, and nothing else (BUG-033).
+ *
+ * {@link getApiMessage} walks field keys as a fallback, which is right for a
+ * 400 but wrong for a 201: a created record has no `message`, so the walk
+ * found its first field and toasted `id: a6ce8a25-…` or `port_code: mum`. Only
+ * an explicit `message` / `detail` (top level, or under `data`) counts here;
+ * anything else returns undefined so the caller's own copy is shown.
+ */
+export function getSuccessMessage(source: unknown): string | undefined {
+  const read = (value: unknown): string | undefined => {
+    if (!value || typeof value !== "object") return undefined;
+    const record = value as Record<string, unknown>;
+    for (const key of ["message", "detail"]) {
+      const v = record[key];
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+    return undefined;
+  };
+  if (!source || typeof source !== "object") return undefined;
+  return read(source) ?? read((source as { data?: unknown }).data);
 }
 
 /**
@@ -82,6 +119,47 @@ export function getFieldErrors(source: unknown): Record<string, string> {
     if (message) out[key] = message;
   }
   return out;
+}
+
+/**
+ * Pin a 400's DRF field errors onto the matching react-hook-form inputs.
+ *
+ * `fields` lists the form paths that have an input on screen; dotted paths
+ * (`default_anchorage.anchorage_code`) are looked up in the nested body. Errors
+ * for fields the form doesn't render are left for the caller's toast.
+ *
+ * Returns whether anything was pinned, so a caller can toast only as a fallback:
+ *
+ *   if (!applyApiFieldErrors(err, setError, FIELDS)) toast.error(getApiMessage(err) ?? FALLBACK);
+ */
+export function applyApiFieldErrors<T extends FieldValues>(
+  error: unknown,
+  setError: UseFormSetError<T>,
+  fields: readonly Path<T>[],
+): boolean {
+  if (!error || typeof error !== "object") return false;
+  const payload = "data" in error ? (error as { data?: unknown }).data : error;
+  if (!payload || typeof payload !== "object") return false;
+  const record = payload as Record<string, unknown>;
+  const root =
+    record.errors && typeof record.errors === "object"
+      ? (record.errors as Record<string, unknown>)
+      : record;
+
+  let pinned = false;
+  for (const field of fields) {
+    let node: unknown = root;
+    for (const segment of field.split(".")) {
+      node =
+        node && typeof node === "object" ? (node as Record<string, unknown>)[segment] : undefined;
+    }
+    const message = node === undefined ? undefined : extractMessage(node, "", false);
+    if (message) {
+      setError(field, { type: "server", message }, { shouldFocus: !pinned });
+      pinned = true;
+    }
+  }
+  return pinned;
 }
 
 function extractMessage(value: unknown, keyPath: string, labelFields: boolean): string | undefined {

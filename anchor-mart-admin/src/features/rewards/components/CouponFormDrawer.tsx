@@ -1,7 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconCheck, IconTicket } from "@tabler/icons-react";
 import { useEffect } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
+import { toast } from "sonner";
 
 import { DatePicker } from "@/components/common/DatePicker";
 import { DropdownSelect } from "@/components/common/DropdownSelect";
@@ -20,6 +21,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { FILE_LOCATIONS, ImageUploadField, toStoredPath } from "@/features/media";
+import { applyApiFieldErrors, getApiMessage } from "@/lib/apiError";
+import { sgtDateKey } from "@/lib/dates";
 import { MESSAGES } from "@/lib/messages";
 import { type CouponFormData, couponSchema } from "../schemas/coupon.schema";
 import type { Coupon } from "../types/reward.types";
@@ -38,10 +41,28 @@ const APPLIES_TO_OPTIONS = [
   { value: "items", label: M.FORM.APPLIES_OPTIONS.ITEMS },
 ];
 
-/** Today's date as `YYYY-MM-DD` for the default "valid from". */
+/** Today in Singapore as `YYYY-MM-DD` — the default "valid from". Not the UTC day. */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return sgtDateKey(new Date().toISOString());
 }
+
+/**
+ * Inputs a 400 can be pinned to. The code/title rules (unique ignoring case,
+ * and neither may equal any coupon's other one) come back on `code`/`title`.
+ */
+const SERVER_FIELDS = [
+  "code",
+  "title",
+  "description",
+  "image",
+  "discount_value",
+  "max_discount_amount",
+  "min_purchase_amount",
+  "valid_from",
+  "valid_to",
+  "usage_limit",
+  "per_user_usage_limit",
+] as const;
 
 const CREATE_DEFAULTS: CouponFormData = {
   code: "",
@@ -51,9 +72,11 @@ const CREATE_DEFAULTS: CouponFormData = {
   discount_type: "fixed",
   applies_to: "order_total",
   discount_value: 0,
+  max_discount_amount: "",
   min_purchase_amount: 0,
   valid_from: today(),
   valid_to: "",
+  no_end_date: false,
   usage_limit: "",
   per_user_usage_limit: "1",
   is_public: true,
@@ -65,7 +88,11 @@ export interface CouponFormDrawerProps {
   /** The coupon being edited, or `null` when creating a new one. */
   coupon: Coupon | null;
   onClose: () => void;
-  onSubmit: (data: CouponFormData) => void;
+  /**
+   * Performs the create/update. Must reject with the API error on failure: the
+   * drawer pins field errors beside their inputs and toasts anything else.
+   */
+  onSubmit: (data: CouponFormData) => Promise<void>;
   /** Disables the submit button while a create/update request is in flight. */
   isSubmitting?: boolean;
 }
@@ -89,11 +116,25 @@ export function CouponFormDrawer({
     control,
     handleSubmit,
     reset,
+    setError,
     formState: { errors },
   } = useForm<CouponFormData>({
     resolver: zodResolver(couponSchema),
     defaultValues: CREATE_DEFAULTS,
   });
+  const discountType = useWatch({ control, name: "discount_type" });
+  const noEndDate = useWatch({ control, name: "no_end_date" });
+
+  const submit = async (data: CouponFormData) => {
+    try {
+      await onSubmit(data);
+    } catch (err) {
+      // Beside the field when the backend names one (BUG-033/035); a toast only
+      // for what has no input, like a 409 or a non-field error.
+      if (applyApiFieldErrors(err, setError, SERVER_FIELDS)) return;
+      toast.error(getApiMessage(err) ?? (isEdit ? M.COUPON_UPDATE_ERROR : M.COUPON_CREATE_ERROR));
+    }
+  };
 
   // Seed the form each time the drawer opens: edit → the coupon's full API
   // record (when available), add → blank defaults.
@@ -113,9 +154,14 @@ export function CouponFormDrawer({
         discount_type: raw.discount_type as CouponFormData["discount_type"],
         applies_to: raw.applies_to as CouponFormData["applies_to"],
         discount_value: Number(raw.discount_value),
+        max_discount_amount:
+          raw.max_discount_amount != null ? String(Number(raw.max_discount_amount)) : "",
         min_purchase_amount: Number(raw.min_purchase_amount),
-        valid_from: raw.valid_from ? raw.valid_from.slice(0, 10) : "",
-        valid_to: raw.valid_to ? raw.valid_to.slice(0, 10) : "",
+        // The Singapore day, not a slice: `valid_to` is stored as 23:59:59 SGT
+        // and `valid_from` as 00:00 SGT, which is the previous day in UTC.
+        valid_from: sgtDateKey(raw.valid_from),
+        valid_to: sgtDateKey(raw.valid_to),
+        no_end_date: raw.valid_to == null,
         usage_limit: raw.usage_limit != null ? String(raw.usage_limit) : "",
         per_user_usage_limit:
           raw.per_user_usage_limit != null ? String(raw.per_user_usage_limit) : "",
@@ -137,7 +183,7 @@ export function CouponFormDrawer({
         adjustable
         className="flex flex-col gap-0 p-0 sm:max-w-none overflow-hidden bg-[var(--surface)]"
       >
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col h-full">
+        <form onSubmit={handleSubmit(submit)} className="flex flex-col h-full">
           <SheetHeader className="p-6 pb-4 border-b border-[var(--border-md)]">
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--teal-50)] text-[var(--teal-600)]">
@@ -159,7 +205,7 @@ export function CouponFormDrawer({
             <section>
               <div className="sec-label">{M.FORM.SECTIONS.BASIC}</div>
               <FormRow>
-                <FormField label={M.FORM.CODE} error={errors.code?.message}>
+                <FormField label={M.FORM.CODE} required error={errors.code?.message}>
                   <Input
                     className="mono"
                     placeholder={M.FORM.CODE_PLACEHOLDER}
@@ -168,7 +214,11 @@ export function CouponFormDrawer({
                   />
                 </FormField>
                 <FormField label={M.FORM.TITLE_FIELD} error={errors.title?.message}>
-                  <Input placeholder={M.FORM.TITLE_PLACEHOLDER} {...register("title")} />
+                  <Input
+                    placeholder={M.FORM.TITLE_PLACEHOLDER}
+                    error={!!errors.title}
+                    {...register("title")}
+                  />
                 </FormField>
               </FormRow>
               <FormField label={M.FORM.DESCRIPTION} error={errors.description?.message}>
@@ -204,7 +254,11 @@ export function CouponFormDrawer({
             <section>
               <div className="sec-label">{M.FORM.SECTIONS.DISCOUNT}</div>
               <FormRow>
-                <FormField label={M.FORM.DISCOUNT_TYPE} error={errors.discount_type?.message}>
+                <FormField
+                  label={M.FORM.DISCOUNT_TYPE}
+                  required
+                  error={errors.discount_type?.message}
+                >
                   <Controller
                     control={control}
                     name="discount_type"
@@ -218,7 +272,7 @@ export function CouponFormDrawer({
                     )}
                   />
                 </FormField>
-                <FormField label={M.FORM.APPLIES_TO} error={errors.applies_to?.message}>
+                <FormField label={M.FORM.APPLIES_TO} required error={errors.applies_to?.message}>
                   <Controller
                     control={control}
                     name="applies_to"
@@ -234,7 +288,16 @@ export function CouponFormDrawer({
                 </FormField>
               </FormRow>
               <FormRow>
-                <FormField label={M.FORM.DISCOUNT_VALUE} error={errors.discount_value?.message}>
+                <FormField
+                  label={M.FORM.DISCOUNT_VALUE}
+                  required
+                  hint={
+                    discountType === "free_shipping"
+                      ? M.FORM.DISCOUNT_VALUE_FREE_SHIPPING_HINT
+                      : undefined
+                  }
+                  error={errors.discount_value?.message}
+                >
                   <Input
                     type="number"
                     step="0.01"
@@ -253,13 +316,32 @@ export function CouponFormDrawer({
                   />
                 </FormField>
               </FormRow>
+              {/* BUG-038 — required for percentage coupons; not sent otherwise. */}
+              {discountType === "percentage" && (
+                <FormRow>
+                  <FormField
+                    label={M.FORM.MAX_DISCOUNT}
+                    hint={M.FORM.MAX_DISCOUNT_HINT}
+                    error={errors.max_discount_amount?.message}
+                  >
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      placeholder={M.FORM.MAX_DISCOUNT_PLACEHOLDER}
+                      error={!!errors.max_discount_amount}
+                      {...register("max_discount_amount")}
+                    />
+                  </FormField>
+                </FormRow>
+              )}
             </section>
 
             {/* Validity */}
             <section>
               <div className="sec-label">{M.FORM.SECTIONS.VALIDITY}</div>
               <FormRow>
-                <FormField label={M.FORM.VALID_FROM} error={errors.valid_from?.message}>
+                <FormField label={M.FORM.VALID_FROM} required error={errors.valid_from?.message}>
                   <Controller
                     control={control}
                     name="valid_from"
@@ -273,21 +355,43 @@ export function CouponFormDrawer({
                     )}
                   />
                 </FormField>
-                <FormField label={M.FORM.VALID_TO} error={errors.valid_to?.message}>
+                <FormField
+                  label={M.FORM.VALID_TO}
+                  required={!noEndDate}
+                  hint={noEndDate ? undefined : M.FORM.VALID_TO_HINT}
+                  error={errors.valid_to?.message}
+                >
                   <Controller
                     control={control}
                     name="valid_to"
                     render={({ field }) => (
                       <DatePicker
-                        value={field.value}
+                        value={noEndDate ? "" : field.value}
                         onChange={field.onChange}
                         error={!!errors.valid_to}
-                        placeholder={MESSAGES.COMMON.PICK_DATE}
+                        disabled={noEndDate}
+                        placeholder={noEndDate ? M.COUPONS.NO_EXPIRY : MESSAGES.COMMON.PICK_DATE}
                       />
                     )}
                   />
                 </FormField>
               </FormRow>
+              <div className="flex items-center gap-2">
+                <Controller
+                  control={control}
+                  name="no_end_date"
+                  render={({ field }) => (
+                    <Switch
+                      id="no-end-date"
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  )}
+                />
+                <label htmlFor="no-end-date" className="text-[13px] font-semibold text-[var(--t2)]">
+                  {M.FORM.NO_END_DATE}
+                </label>
+              </div>
             </section>
 
             {/* Usage Limits */}
@@ -297,7 +401,10 @@ export function CouponFormDrawer({
                 <FormField label={M.FORM.USAGE_LIMIT} error={errors.usage_limit?.message}>
                   <Input
                     type="number"
+                    min={1}
+                    step={1}
                     placeholder={M.FORM.USAGE_LIMIT_PLACEHOLDER}
+                    error={!!errors.usage_limit}
                     {...register("usage_limit")}
                   />
                 </FormField>
@@ -307,6 +414,9 @@ export function CouponFormDrawer({
                 >
                   <Input
                     type="number"
+                    min={1}
+                    step={1}
+                    placeholder={M.FORM.PER_USER_LIMIT_PLACEHOLDER}
                     error={!!errors.per_user_usage_limit}
                     {...register("per_user_usage_limit")}
                   />

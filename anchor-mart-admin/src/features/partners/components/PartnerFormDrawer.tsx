@@ -136,7 +136,7 @@ export function PartnerFormDrawer({ isOpen, onClose }: PartnerFormDrawerProps) {
 
         <div className="flex-1 overflow-y-auto p-6">
           <FormRow>
-            <FormField label={M.DETAIL.FIRST_NAME} error={errors.first_name?.message}>
+            <FormField label={M.DETAIL.FIRST_NAME} required error={errors.first_name?.message}>
               <Input
                 placeholder={M.DETAIL.FIRST_NAME_PLACEHOLDER}
                 error={!!errors.first_name}
@@ -147,7 +147,7 @@ export function PartnerFormDrawer({ isOpen, onClose }: PartnerFormDrawerProps) {
               <Input placeholder={M.DETAIL.LAST_NAME_PLACEHOLDER} {...register("last_name")} />
             </FormField>
           </FormRow>
-          <FormField label={M.DETAIL.EMAIL} error={errors.email?.message}>
+          <FormField label={M.DETAIL.EMAIL} required error={errors.email?.message}>
             <Input
               type="email"
               placeholder={M.DETAIL.EMAIL_PLACEHOLDER}
@@ -156,7 +156,7 @@ export function PartnerFormDrawer({ isOpen, onClose }: PartnerFormDrawerProps) {
             />
           </FormField>
           <FormRow>
-            <FormField label={M.DETAIL.COUNTRY_CODE} error={errors.country_code?.message}>
+            <FormField label={M.DETAIL.COUNTRY_CODE} required error={errors.country_code?.message}>
               <Controller
                 control={control}
                 name="country_code"
@@ -172,6 +172,7 @@ export function PartnerFormDrawer({ isOpen, onClose }: PartnerFormDrawerProps) {
             </FormField>
             <FormField
               label={M.DETAIL.WHATSAPP}
+              required
               error={errors.whatsapp_number?.message}
               hint={phoneDigitsHint(watch("country_code"))}
             >
@@ -189,7 +190,7 @@ export function PartnerFormDrawer({ isOpen, onClose }: PartnerFormDrawerProps) {
               capability-matched only, and the port-scoped picker never returns
               them — so onboarding is where to insist rather than leaving it to
               be noticed later. */}
-          <FormField label={`${M.DETAIL.PORT} *`} error={errors.assigned_port?.message}>
+          <FormField label={M.DETAIL.PORT} required error={errors.assigned_port?.message}>
             <Controller
               control={control}
               name="assigned_port"

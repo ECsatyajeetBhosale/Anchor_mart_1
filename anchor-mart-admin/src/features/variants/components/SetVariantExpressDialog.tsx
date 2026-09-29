@@ -21,14 +21,21 @@ export interface SetVariantExpressDialogProps {
   isOpen: boolean;
   onClose: () => void;
   /** The SKU being flagged or un-flagged; `null` closes the dialog. */
-  variant: { id: string; sku: string; isExpress: boolean; expressPrice: number | null } | null;
+  variant: {
+    id: string;
+    sku: string;
+    isExpress: boolean;
+    expressPrice: number | null;
+    /** Lets a catalog cascade refresh the product's own cache entry. */
+    productId?: string | null;
+  } | null;
   /**
    * Called when the write moved the **product** between catalogs.
    *
-   * Flagging the first SKU puts its product on the express shelf; un-flagging
-   * the last takes it off. Either way the product has left the list the caller
-   * is showing, so whatever is open on top of that list is now describing a row
-   * that is no longer there.
+   * Flagging the last non-express SKU makes it an express product; un-flagging
+   * one SKU of an all-express product returns it to its home shelf. Either way
+   * the product has changed catalog under the caller, so whatever is open on top
+   * of that list is now describing a row that has moved.
    */
   onCascade?: () => void;
 }
@@ -42,9 +49,9 @@ export interface SetVariantExpressDialogProps {
  * travels with the flag, which is why this is a form and not a ConfirmDialog.
  *
  * Un-flagging is the mirror: it **clears** the price (a price sent alongside
- * `false` is its own 400), and if this was the product's last Express-ready SKU
- * the product drops off the express shelf entirely. Both are stated before the
- * click, not reported after it.
+ * `false` is its own 400) and returns the SKU to its product's home shelf —
+ * an express SKU is sold only on the express shelf (BUG-050). Both are stated
+ * before the click, not reported after it.
  */
 export function SetVariantExpressDialog({
   isOpen,
@@ -84,12 +91,13 @@ export function SetVariantExpressDialog({
         isExpress: turningOn,
         // Never sent when un-flagging: that is a 400.
         expressPrice: turningOn ? price : undefined,
+        productId: variant.productId,
       }).unwrap();
 
       /**
-       * The product may have moved catalogs as a result — the first SKU flagged
-       * puts it on the express shelf, and un-flagging the last one takes it off.
-       * Reported rather than assumed, because one click changed two records.
+       * The product may have moved catalogs as a result — when this made every
+       * SKU express, or un-flagged one of an all-express product. Reported
+       * rather than assumed, because one click changed two records.
        */
       if (res.productCascaded) {
         toast.success(M.DONE_CASCADED(variant.sku, res.isExpress, res.productCatalogType ?? ""));

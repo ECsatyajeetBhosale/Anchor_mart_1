@@ -20,7 +20,7 @@ import { useGetEmergencyCategoriesQuery } from "@/features/emergency-categories"
 import { FILE_LOCATIONS, ImageListField, toStoredPath } from "@/features/media";
 import { useGetSpareProductQuery, useUpdateSpareProductMutation } from "@/features/spares";
 import { allImageUrls, primaryImageUrl } from "@/features/variants";
-import { getApiMessage, getFieldErrors } from "@/lib/apiError";
+import { getApiMessage, getFieldErrors, getSuccessMessage } from "@/lib/apiError";
 import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { formatMoney } from "@/lib/money";
@@ -31,6 +31,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useGetProductQuery, useUpdateProductMutation } from "../api/productApi";
+import { catalogTypeLabel } from "../lib/catalogTypeFilters";
 import { type ProductUpdateFormData, productUpdateSchema } from "../schemas/product.schema";
 import type {
   Product,
@@ -299,7 +300,7 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
       ).unwrap();
       // Success: close the drawer first, then notify.
       onClose();
-      toast.success(getApiMessage(response) ?? MESSAGES.PRODUCTS.TOAST.UPDATE_SUCCESS);
+      toast.success(getSuccessMessage(response) ?? MESSAGES.PRODUCTS.TOAST.UPDATE_SUCCESS);
     } catch (error) {
       /**
        * Pin field-keyed errors to their inputs. `express_base_price` is the
@@ -735,7 +736,11 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                                     <div className="sec-label mt16">{VT.DETAIL.DETAILS}</div>
                                     <div className="detail-kv">
                                       <div className="detail-k">{VT.DETAIL.CATALOG_TYPE}</div>
-                                      <div className="detail-v">{variant.catalog_type ?? "—"}</div>
+                                      <div className="detail-v">
+                                        {catalogTypeLabel(variant.catalog_type) ??
+                                          variant.catalog_type ??
+                                          "—"}
+                                      </div>
                                     </div>
                                     <div className="detail-kv">
                                       <div className="detail-k">{VT.DETAIL.ACTIVE}</div>

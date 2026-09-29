@@ -25,6 +25,10 @@ export function DateRangeCalendar({
   toLabel = "To",
   className,
 }: DateRangeCalendarProps) {
+  // Every range picker here filters history (orders, analytics, audit), so a
+  // day after today can only produce an empty result (BUG-025).
+  const today = new Date();
+  const lastMonth = new Date(today.getFullYear(), today.getMonth());
   const handleFrom = (date: Date | undefined) => onChange?.({ from: date, to: value?.to });
   const handleTo = (date: Date | undefined) => onChange?.({ from: value?.from, to: date });
 
@@ -39,6 +43,9 @@ export function DateRangeCalendar({
           selected={value?.from}
           defaultMonth={value?.from}
           onSelect={handleFrom}
+          endMonth={lastMonth}
+          // A start after the chosen end is a range every API rejects (BUG-001).
+          disabled={{ after: value?.to && value.to < today ? value.to : today }}
         />
       </div>
 
@@ -51,6 +58,8 @@ export function DateRangeCalendar({
           selected={value?.to}
           defaultMonth={value?.to}
           onSelect={handleTo}
+          endMonth={lastMonth}
+          disabled={value?.from ? [{ before: value.from }, { after: today }] : { after: today }}
         />
       </div>
     </div>

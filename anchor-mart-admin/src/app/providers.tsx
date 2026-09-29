@@ -17,9 +17,9 @@ export function Providers({ children }: ProvidersProps) {
     <Provider store={store}>
       {children}
       <Toaster
-        position="bottom-right"
+        // Clear of every drawer's footer buttons (BUG-042) — see `.toast-container`.
+        position="top-center"
         className="toast-container"
-        style={{ bottom: 24, right: 24 }}
         duration={3500}
         icons={{
           success: <IconCheck size={17} />,

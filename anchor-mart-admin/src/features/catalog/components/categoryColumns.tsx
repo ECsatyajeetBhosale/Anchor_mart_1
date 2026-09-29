@@ -102,6 +102,7 @@ export function useCategoryColumns({
        */
       cell: (row) => (
         <Switch
+          aria-label={MESSAGES.COMMON.ARIA.ACTIVE_TOGGLE(row.name)}
           checked={row.is_active !== false}
           onCheckedChange={(next) => onToggleActive(row, next)}
           onClick={(e) => e.stopPropagation()}

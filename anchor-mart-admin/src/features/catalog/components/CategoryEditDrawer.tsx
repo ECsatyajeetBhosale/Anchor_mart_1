@@ -11,7 +11,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { FILE_LOCATIONS, ImageUploadField } from "@/features/media";
-import { getApiMessage, getFieldErrors } from "@/lib/apiError";
+import { getApiMessage, getFieldErrors, getSuccessMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconCategory, IconCheck } from "@tabler/icons-react";
@@ -92,7 +92,7 @@ export function CategoryEditDrawer({ isOpen, onClose, category }: CategoryEditDr
       const response = await updateCategory({ id: category.id, body: payload }).unwrap();
       // Success: close the drawer first, then notify.
       onClose();
-      toast.success(getApiMessage(response) ?? MESSAGES.CATEGORIES.TOAST.UPDATE_SUCCESS);
+      toast.success(getSuccessMessage(response) ?? MESSAGES.CATEGORIES.TOAST.UPDATE_SUCCESS);
     } catch (error) {
       /**
        * Pin field-keyed errors to their inputs. The two that land here are a

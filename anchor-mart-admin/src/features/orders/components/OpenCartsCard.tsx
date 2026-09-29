@@ -27,7 +27,10 @@ export function OpenCartsCard() {
 
   const { data, isLoading, isError, refetch } = useGetCartsQuery();
 
-  const allCarts = data?.carts ?? [];
+  // An emptied cart still exists server-side but is not an open basket — it
+  // showed as "—, qty 0, $0.00, READY" (BUG-027). Filtered before paging so the
+  // page count matches what is listed.
+  const allCarts = (data?.carts ?? []).filter((c) => c.unitCount > 0 || c.skus.length > 0);
   const totalPages = Math.max(1, Math.ceil(allCarts.length / LIMIT));
   const carts = allCarts.slice((page - 1) * LIMIT, page * LIMIT);
 

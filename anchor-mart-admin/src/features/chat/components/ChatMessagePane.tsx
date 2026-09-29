@@ -11,6 +11,7 @@ import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { isMediaUploadEnabled } from "@/lib/appEnv";
 import { mediaSrc } from "@/lib/mediaUrl";
 import { MESSAGES } from "@/lib/messages";
+import { orderStatusText } from "@/lib/orderStatuses";
 import { cn } from "@/lib/utils";
 import {
   IconArrowLeft,
@@ -266,7 +267,7 @@ export function ChatMessagePane({
   // The status line under the name: what this person is doing, not just who
   // they are. Order threads carry the order; support threads have only contact.
   const contextLine = thread.order
-    ? `${M.MESSAGES.ORDER_PREFIX} ${thread.order.orderNumber} · ${thread.order.status}`
+    ? `${M.MESSAGES.ORDER_PREFIX} ${thread.order.orderNumber} · ${orderStatusText(thread.order.status)}`
     : (thread.email ?? M.DASH);
 
   return (
@@ -394,7 +395,10 @@ export function ChatMessagePane({
                                     alt: msg.content || M.MESSAGES.ATTACHMENT,
                                   })
                                 }
-                                className="mt-1.5 block cursor-zoom-in overflow-hidden rounded-[var(--radius-sm)]"
+                                // A shaded, pulsing box stands in while the
+                                // image loads — the bubble used to sit empty
+                                // for seconds, reading as a failed send (BUG-056).
+                                className="mt-1.5 block min-h-[80px] min-w-[120px] cursor-zoom-in overflow-hidden rounded-[var(--radius-sm)] bg-[var(--surface-alt)] animate-pulse has-[img[data-loaded]]:animate-none has-[img[data-loaded]]:min-h-0 has-[img[data-loaded]]:min-w-0 has-[img[data-loaded]]:bg-transparent"
                               >
                                 <img
                                   src={mediaSrc(msg.media)}
@@ -403,7 +407,10 @@ export function ChatMessagePane({
                                   // pane has already scrolled by the time it
                                   // paints and the newest message is pushed
                                   // back out of view. Re-pin once it lands.
-                                  onLoad={() => scrollToLatest("auto")}
+                                  onLoad={(e) => {
+                                    e.currentTarget.dataset.loaded = "true";
+                                    scrollToLatest("auto");
+                                  }}
                                   className="max-h-[220px] transition-transform hover:scale-[1.02]"
                                 />
                               </button>

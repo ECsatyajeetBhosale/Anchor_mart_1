@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { dateTimeText, shortDate } from "./dates";
+import {
+  dateTimeText,
+  dayText,
+  formatDateRange,
+  sgtDateKey,
+  sgtDaysUntil,
+  shortDate,
+  stampText,
+  toInstant,
+} from "./dates";
 import { MESSAGES } from "./messages";
 
 const DASH = MESSAGES.COMMON.STATS.DASH;
@@ -78,5 +87,63 @@ describe("dateTimeText", () => {
   it("renders a dash for an absent value", () => {
     expect(dateTimeText(null)).toBe(DASH);
     expect(dateTimeText("")).toBe(DASH);
+  });
+});
+
+/** The 2026-09-29 contract: Singapore wall-clock with a trailing zone. */
+const SGT_STAMP = "September 10, 2026, 07:33 PM SGT";
+
+describe("SGT display strings", () => {
+  it("shortDate and dateTimeText read the SGT suffix without parsing", () => {
+    expect(shortDate(SGT_STAMP)).toBe("Sep 10, 2026");
+    expect(dateTimeText(SGT_STAMP)).toBe(SGT_STAMP);
+  });
+
+  it("dayText handles both contracts in Singapore time", () => {
+    expect(dayText(SGT_STAMP)).toBe("Sep 10, 2026");
+    // 20:00 UTC on the 9th is already the 10th in Singapore.
+    expect(dayText("2026-09-09T20:00:00Z")).toBe("Sep 10, 2026");
+    // A bare calendar day is never shifted.
+    expect(dayText("2026-09-10")).toBe("Sep 10, 2026");
+    expect(dayText(null)).toBe(DASH);
+  });
+
+  it("stampText passes display strings through and renders ISO to the same shape", () => {
+    expect(stampText(SGT_STAMP)).toBe(SGT_STAMP);
+    expect(stampText("2026-09-10T11:33:00Z")).toBe(SGT_STAMP);
+    expect(stampText("")).toBe(DASH);
+  });
+
+  it("toInstant reads a display string as Singapore wall-clock", () => {
+    expect(toInstant(SGT_STAMP)?.toISOString()).toBe("2026-09-10T11:33:00.000Z");
+    expect(toInstant("September 10, 2026")?.toISOString()).toBe("2026-09-09T16:00:00.000Z");
+    expect(toInstant("not a date")).toBeNull();
+  });
+
+  it("sgtDaysUntil counts Singapore calendar days", () => {
+    const now = new Date("2026-09-08T12:00:00Z"); // Sep 8, 20:00 SGT
+    expect(sgtDaysUntil(SGT_STAMP, now)).toBe(2);
+    expect(sgtDaysUntil("September 7, 2026", now)).toBe(-1);
+    expect(sgtDaysUntil("garbage", now)).toBeNull();
+  });
+});
+
+describe("sgtDateKey", () => {
+  it("seeds a picker with the Singapore day, not the UTC one", () => {
+    expect(sgtDateKey("2026-09-09T16:00:00Z")).toBe("2026-09-10");
+    expect(sgtDateKey("2026-09-10T00:00:00+08:00")).toBe("2026-09-10");
+    expect(sgtDateKey("2026-09-10")).toBe("2026-09-10");
+    expect(sgtDateKey(null)).toBe("");
+  });
+});
+
+describe("formatDateRange", () => {
+  it("reads like the QA expectation", () => {
+    expect(formatDateRange(new Date(2026, 8, 1), new Date(2026, 8, 25))).toBe(
+      "Sep 1 – Sep 25, 2026",
+    );
+    expect(formatDateRange(new Date(2025, 11, 30), new Date(2026, 0, 2))).toBe(
+      "Dec 30, 2025 – Jan 2, 2026",
+    );
   });
 });

@@ -27,6 +27,7 @@ export function useOrdersByCategory(params: AnalyticsParams) {
     bars,
     isLoading: query.isLoading,
     isError: query.isError,
+    error: query.error,
     refetch: query.refetch,
     isEmpty: !query.isLoading && !query.isError && bars.length === 0,
   };

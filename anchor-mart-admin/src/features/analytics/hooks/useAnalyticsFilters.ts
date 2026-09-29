@@ -29,9 +29,11 @@ export function useAnalyticsFilters() {
   const [period, setPeriod] = useState<AnalyticsPeriod>("Year");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
-  // A complete custom range takes precedence over the period pills.
+  // A complete custom range takes precedence over the period pills — but only
+  // a valid one: FROM after TO is a 400 (BUG-001), so it falls back to the
+  // period rather than leaving every chart on an error.
   const params: AnalyticsParams =
-    dateRange?.from && dateRange?.to
+    dateRange?.from && dateRange?.to && dateRange.from <= dateRange.to
       ? {
           from_date: format(dateRange.from, "yyyy-MM-dd"),
           to_date: format(dateRange.to, "yyyy-MM-dd"),

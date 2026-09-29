@@ -1,6 +1,8 @@
 import { Badge } from "@/components/ui/badge";
+import { catalogTypeLabel } from "@/features/products";
 import { APP_ROUTES } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
+import { orderStatusText } from "@/lib/orderStatuses";
 import { IconAlertTriangle, IconChevronDown, IconExternalLink } from "@tabler/icons-react";
 import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
@@ -81,9 +83,12 @@ export function OrderContextStrip({ chatId, order }: OrderContextStripProps) {
   const summary: OrderContextSummary | null = data?.summary ?? null;
   // The inbox row is the fallback, and it is deliberately allowed to be all
   // there is — this is the "must never block the chat" rule, in code.
-  const orderType = summary?.orderType || order.orderType;
+  // `order_type` is a code (`MARINE_EMERGENCY`) — shown as its catalog label.
+  const orderTypeCode = summary?.orderType || order.orderType;
+  const orderType =
+    catalogTypeLabel(orderTypeCode?.toLowerCase()) ?? orderStatusText(orderTypeCode);
   const orderNumber = summary?.orderNumber || order.orderNumber;
-  const statusLine = summary?.statusDisplay || order.status || MESSAGES.CHAT.DASH;
+  const statusLine = summary?.statusDisplay || orderStatusText(order.status) || MESSAGES.CHAT.DASH;
   const orderId = summary?.orderId || order.id;
 
   const onHold = summary?.deliveryOnHold ?? false;
@@ -99,7 +104,7 @@ export function OrderContextStrip({ chatId, order }: OrderContextStripProps) {
         className="flex w-full items-center gap-2.5 px-[18px] py-2.5 text-left"
       >
         <span className="badge badge-neutral mono shrink-0">
-          <span color="red">{orderType}:</span>
+          {orderType ? `${orderType}: ` : ""}
           {orderNumber}
         </span>
         <span className="xs c4 w6 trunc">{statusLine}</span>

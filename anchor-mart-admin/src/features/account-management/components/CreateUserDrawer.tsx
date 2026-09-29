@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/sheet";
 import { useGetDashboardPortsQuery } from "@/features/dashboard";
 import { CapabilityFields, useCreatePartnerMutation } from "@/features/partners";
-import { getApiMessage, getFieldErrors } from "@/lib/apiError";
+import { getApiMessage, getFieldErrors, getSuccessMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
 import { phoneDigitsHint, phoneExamplePlaceholder } from "@/lib/validation";
@@ -150,7 +150,7 @@ export function CreateUserDrawer({ isOpen, onClose, lockedRole }: CreateUserDraw
           }).unwrap();
       onClose();
       toast.success(
-        getApiMessage(response) ?? MESSAGES.ACCOUNT_MANAGEMENT.PROVISION.TOAST.CREATE_SUCCESS,
+        getSuccessMessage(response) ?? MESSAGES.ACCOUNT_MANAGEMENT.PROVISION.TOAST.CREATE_SUCCESS,
       );
     } catch (error) {
       // Field errors arrive as bare keys (`{"email": ["…"]}`) since 2026-07-30,

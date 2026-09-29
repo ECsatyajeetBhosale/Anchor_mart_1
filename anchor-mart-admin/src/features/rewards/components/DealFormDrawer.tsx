@@ -19,8 +19,9 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { CATALOG_TYPE_FILTERS, catalogTypeLabel, useProductPicker } from "@/features/products";
 import { useGetVariantsQuery } from "@/features/variants";
-import { getApiMessage } from "@/lib/apiError";
+import { getApiMessage, getFieldErrors } from "@/lib/apiError";
 import { API_MAX_PAGE_SIZE } from "@/lib/constants";
+import { sgtDateKey } from "@/lib/dates";
 import { MESSAGES } from "@/lib/messages";
 import { formatCurrency } from "@/lib/utils";
 import { useCreateDealMutation, useUpdateDealMutation } from "../api/promotionApi";
@@ -89,8 +90,10 @@ export function DealFormDrawer({ deal, isOpen, onClose }: DealFormDrawerProps) {
     setVariantId(deal?.variantId ?? "");
     setPrice(deal ? String(deal.dealPriceValue) : "");
     setTerms(deal?.termsAndConditions ?? "");
-    setStart(deal?.startTime ?? "");
-    setEnd(deal?.endTime ?? "");
+    // From the ISO pair, as the Singapore day: the display strings don't parse
+    // (`… SGT`) and would reach the picker blank, then be saved back verbatim.
+    setStart(sgtDateKey(deal?.startTimeIso));
+    setEnd(sgtDateKey(deal?.endTimeIso));
     setErrors({});
   }, [isOpen, deal]);
 
@@ -102,6 +105,9 @@ export function DealFormDrawer({ deal, isOpen, onClose }: DealFormDrawerProps) {
     const priceValue = Number(price);
     if (!price.trim() || !Number.isFinite(priceValue) || priceValue <= 0) {
       next.price = V.PRICE_INVALID;
+    } else if (selectedVariant && priceValue >= Number(selectedVariant.price)) {
+      // Caught here, beside the field, rather than as a `deal_price:` toast.
+      next.price = V.PRICE_NOT_BELOW(formatCurrency(selectedVariant.price));
     }
 
     if (!start) next.start = V.START_REQUIRED;
@@ -136,6 +142,19 @@ export function DealFormDrawer({ deal, isOpen, onClose }: DealFormDrawerProps) {
       }
       onClose();
     } catch (err) {
+      // Field errors go beside their control (BUG-035); only the rest toast.
+      const fe = getFieldErrors(err);
+      const pinned: FieldErrors = {
+        product: fe.product,
+        variant: fe.variant,
+        price: fe.deal_price,
+        start: fe.start_time,
+        end: fe.end_time,
+      };
+      if (Object.values(pinned).some(Boolean)) {
+        setErrors(pinned);
+        return;
+      }
       toast.error(getApiMessage(err) ?? (isEdit ? M.TOAST.UPDATE_ERROR : M.TOAST.CREATE_ERROR));
     }
   };
@@ -173,6 +192,7 @@ export function DealFormDrawer({ deal, isOpen, onClose }: DealFormDrawerProps) {
                 setProductId(val);
                 // The old variant belongs to the previous product — clear it.
                 setVariantId("");
+                setErrors((prev) => ({ ...prev, product: undefined }));
               }}
               // Each row carries its catalog type, so a marine-emergency spare
               // is distinguishable from a regular product before it is picked.
@@ -201,7 +221,10 @@ export function DealFormDrawer({ deal, isOpen, onClose }: DealFormDrawerProps) {
                 SKU, guessed a figure and learned the ceiling from a 400. */}
             <DropdownSelect
               value={variantId}
-              onValueChange={setVariantId}
+              onValueChange={(val) => {
+                setVariantId(val);
+                setErrors((prev) => ({ ...prev, variant: undefined, price: undefined }));
+              }}
               placeholder={F.VARIANT_PLACEHOLDER}
               options={variants.map((v) => ({
                 value: v.id,
@@ -229,7 +252,11 @@ export function DealFormDrawer({ deal, isOpen, onClose }: DealFormDrawerProps) {
               step="0.01"
               value={price}
               placeholder={F.PRICE_PLACEHOLDER}
-              onChange={(e) => setPrice(e.target.value)}
+              error={!!errors.price}
+              onChange={(e) => {
+                setPrice(e.target.value);
+                setErrors((prev) => ({ ...prev, price: undefined }));
+              }}
             />
           </FormField>
 
@@ -237,12 +264,22 @@ export function DealFormDrawer({ deal, isOpen, onClose }: DealFormDrawerProps) {
             <FormField label={F.START} error={errors.start}>
               <DatePicker
                 value={start}
-                onChange={setStart}
+                onChange={(value) => {
+                  setStart(value);
+                  setErrors((prev) => ({ ...prev, start: undefined }));
+                }}
                 placeholder={MESSAGES.COMMON.PICK_DATE}
               />
             </FormField>
             <FormField label={F.END} error={errors.end}>
-              <DatePicker value={end} onChange={setEnd} placeholder={MESSAGES.COMMON.PICK_DATE} />
+              <DatePicker
+                value={end}
+                onChange={(value) => {
+                  setEnd(value);
+                  setErrors((prev) => ({ ...prev, end: undefined }));
+                }}
+                placeholder={MESSAGES.COMMON.PICK_DATE}
+              />
             </FormField>
           </div>
 

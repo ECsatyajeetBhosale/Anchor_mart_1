@@ -112,7 +112,7 @@ export function ExpressPage() {
     {
       id: "variants",
       label: M.STATS.VARIANTS,
-      value: statText(cardsState, items?.total_variants),
+      value: statText(cardsState, items?.express_variants),
       icon: <IconStack2 size={19} />,
       variant: "purple" as const,
     },

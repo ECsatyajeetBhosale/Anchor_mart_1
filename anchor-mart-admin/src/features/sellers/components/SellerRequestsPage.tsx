@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
+import { hasActiveFilters } from "@/lib/searchFilters";
 import { useGetSellerRequestStatsQuery, useGetSellerRequestsQuery } from "../api/sellerRequestApi";
 import type { SellerRequest, SellerRequestStats } from "../types/sellerRequest.types";
 import { SellerRequestDetailDrawer } from "./SellerRequestDetailDrawer";
@@ -222,7 +223,7 @@ export function SellerRequestsPage() {
         onRetry={refetch}
         onPageChange={handlePageChange}
         showPagination
-        emptyMessage={M.EMPTY}
+        emptyMessage={hasActiveFilters(searchParams) ? M.EMPTY : M.EMPTY_NONE}
         onRowClick={openDetail}
       />
 

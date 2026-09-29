@@ -245,14 +245,12 @@ export const variantApi = baseApi.injectEndpoints({
     }),
 
     /**
-     * Variant-level express flag — **and the product's catalog with it**.
-     *
-     * Flagging a variant express up-cascades its product to
-     * `catalog_type=express`; un-flagging the last express variant demotes the
-     * product back to `regular` or `marine_emergency`, per its category scope.
-     * So this is a product-level write wearing a variant-level name, and the
-     * response reports the resulting `product_catalog_type` plus whether this
-     * call is what moved it.
+     * Variant-level express flag. Express is per SKU since BUG-050 (2026-09-29):
+     * an express SKU is sold **only** on the express shelf, and the product
+     * becomes `catalog_type=express` only once **every** SKU is express —
+     * un-flagging one of those returns it to `regular` or `marine_emergency`.
+     * The response reports the resulting `product_catalog_type` and whether
+     * this call is what moved it (`product_cascaded`).
      *
      * The Products caches were **not** invalidated here until 2026-08-17, so the
      * products list and stats went stale behind every express toggle. The
@@ -270,7 +268,7 @@ export const variantApi = baseApi.injectEndpoints({
      */
     setVariantExpress: builder.mutation<
       SetVariantExpressResult,
-      { id: string; isExpress: boolean; expressPrice?: string }
+      { id: string; isExpress: boolean; expressPrice?: string; productId?: string | null }
     >({
       query: ({ id, isExpress, expressPrice }) => ({
         url: VARIANT_ENDPOINTS.SET_EXPRESS(id),
@@ -302,15 +300,21 @@ export const variantApi = baseApi.injectEndpoints({
             : Number(getProp(res, "product_express_base_price")),
         productCascaded: getProp(res, "product_cascaded") === true,
       }),
-      invalidatesTags: (_r, _e, { id }) => [
+      invalidatesTags: (result, _e, { id, productId }) => [
         { type: "Variants", id },
         { type: "Variants", id: "PARTIAL-LIST" },
         { type: "ExpressItems", id: "CATALOG-LIST" },
         { type: "ExpressItems", id: "STATS" },
-        // This write can change `product.catalog_type`, which moves the product
-        // between the catalog filters and the per-type stat cards.
+        // The product's express shelf listing and variant counts change on every
+        // toggle; its `catalog_type` changes when `product_cascaded` is true.
         { type: "Products", id: "PARTIAL-LIST" },
         { type: "Products", id: "STATS" },
+        ...(result?.productCascaded
+          ? [
+              { type: "Products" as const, id: "ALL-LIST" },
+              ...(productId ? [{ type: "Products" as const, id: productId }] : []),
+            ]
+          : []),
       ],
     }),
 

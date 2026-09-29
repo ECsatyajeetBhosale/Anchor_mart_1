@@ -148,9 +148,23 @@ export function OrderConfigCard() {
     resolver: zodResolver(orderConfigSchema),
   });
 
+  /**
+   * The record the diff is taken against — the last one the server returned,
+   * from the query **or** a save's response, whichever is newer.
+   *
+   * Diffing against the query alone went stale for the moment between a save
+   * and the refetch its invalidation starts: change 1→0, save, change back to
+   * 1, save — the query still said 1, the diff came out empty, and the second
+   * save silently sent nothing (BUG-052).
+   */
+  const [baseline, setBaseline] = useState<OrderConfig | undefined>(undefined);
+
   // Seed from the record, and reseed whenever the server hands back a new one.
   useEffect(() => {
-    if (config) reset(toFormValues(config));
+    if (config) {
+      setBaseline(config);
+      reset(toFormValues(config));
+    }
   }, [config, reset]);
 
   const cancelLeadHours = watch("cancel_lead_hours");
@@ -162,6 +176,7 @@ export function OrderConfigCard() {
       // The response is the full updated record — the form reseeds from it
       // rather than assuming local state is now what the server holds.
       const updated = await updateConfig(payload).unwrap();
+      setBaseline(updated);
       reset(toFormValues(updated));
       toast.success(M.SAVED);
     } catch (error) {
@@ -182,8 +197,12 @@ export function OrderConfigCard() {
   };
 
   const onSubmit = (values: OrderConfigFormData) => {
-    const payload = diffAgainst(config, values);
-    if (Object.keys(payload).length === 0) return;
+    const payload = diffAgainst(baseline, values);
+    if (Object.keys(payload).length === 0) {
+      // Said rather than swallowed — a click that does nothing reads as broken.
+      toast.info(M.NO_CHANGES);
+      return;
+    }
     // Two fields reach orders that already exist. The departure buffer is
     // checked first because it is the broader of the two — it moves the deadline
     // on every regular order in the system, so when both are in one diff that is

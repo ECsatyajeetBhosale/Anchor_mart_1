@@ -9,8 +9,9 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { getApiMessage } from "@/lib/apiError";
+import { applyApiFieldErrors, getApiMessage, getSuccessMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconCheck, IconHelpCircle } from "@tabler/icons-react";
@@ -18,7 +19,7 @@ import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useCreateFaqMutation, useGetFaqTypesQuery } from "../api/faqApi";
-import { type FaqFormData, faqSchema } from "../schemas/settings.schema";
+import { FAQ_FIELDS, type FaqFormData, faqSchema } from "../schemas/settings.schema";
 
 export interface FaqAddDrawerProps {
   isOpen: boolean;
@@ -36,14 +37,15 @@ export function FaqAddDrawer({ isOpen, onClose }: FaqAddDrawerProps) {
     control,
     handleSubmit,
     reset,
+    setError,
     formState: { errors },
   } = useForm<FaqFormData>({
     resolver: zodResolver(faqSchema),
-    defaultValues: { faq_type: "", question: "", answer: "" },
+    defaultValues: { faq_type: "", question: "", answer: "", is_active: true },
   });
 
   useEffect(() => {
-    if (isOpen) reset({ faq_type: "", question: "", answer: "" });
+    if (isOpen) reset({ faq_type: "", question: "", answer: "", is_active: true });
   }, [isOpen, reset]);
 
   const onSubmit = async (formData: FaqFormData) => {
@@ -52,10 +54,12 @@ export function FaqAddDrawer({ isOpen, onClose }: FaqAddDrawerProps) {
         faq_type: formData.faq_type,
         question: formData.question,
         answer: formData.answer,
+        is_active: formData.is_active,
       }).unwrap();
       onClose();
-      toast.success(getApiMessage(response) ?? MESSAGES.SETTINGS.FAQ.TOAST.CREATE_SUCCESS);
+      toast.success(getSuccessMessage(response) ?? MESSAGES.SETTINGS.FAQ.TOAST.CREATE_SUCCESS);
     } catch (error) {
+      if (applyApiFieldErrors(error, setError, FAQ_FIELDS)) return;
       toast.error(getApiMessage(error) ?? MESSAGES.SETTINGS.FAQ.TOAST.CREATE_ERROR);
     }
   };
@@ -116,6 +120,18 @@ export function FaqAddDrawer({ isOpen, onClose }: FaqAddDrawerProps) {
                 className="h-40"
                 error={!!errors.answer}
                 {...register("answer")}
+              />
+            </FormField>
+            <FormField
+              label={MESSAGES.SETTINGS.FAQ.FIELDS.PUBLISHED}
+              hint={MESSAGES.SETTINGS.FAQ.FIELDS.PUBLISHED_HINT}
+            >
+              <Controller
+                control={control}
+                name="is_active"
+                render={({ field }) => (
+                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                )}
               />
             </FormField>
           </section>

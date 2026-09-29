@@ -291,7 +291,8 @@ describe("toIntentData — everything else the row renders", () => {
     expect(row.r).toBe("AM202608110001");
     expect(row.st).toBe("Intent Received");
     expect(row.status).toBe("intent_received");
-    expect(row.it).toBe("Deck Scraper & Wire Brush Set (1)");
+    // Quantity on the name, not the line count (BUG-026).
+    expect(row.it).toBe("Deck Scraper & Wire Brush Set ×2");
     expect(row.itemCount).toBe(1);
     expect(row.substitutionNeeded).toBe(false);
     expect(row.needsVerifierPartner).toBe(true);

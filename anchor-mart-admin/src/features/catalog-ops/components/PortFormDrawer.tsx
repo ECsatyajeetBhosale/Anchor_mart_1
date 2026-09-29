@@ -10,7 +10,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
-import { getApiMessage } from "@/lib/apiError";
+import { applyApiFieldErrors, getApiMessage, getSuccessMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconAnchor, IconCheck, IconInfoCircle } from "@tabler/icons-react";
@@ -23,6 +23,20 @@ import type { DefaultAnchoragePayload, Port } from "../types/catalogOps.types";
 
 const M = MESSAGES.PORTS;
 const DA = M.DEFAULT_ANCHORAGE;
+
+/**
+ * Inputs a 400 can be pinned to. A duplicate `port_code` (case-insensitive, so
+ * `mum` clashes with `MUM`) comes back on `port_code` — BUG-045 — and the
+ * nested anchorage's errors on `default_anchorage.*`.
+ */
+const FIELDS = [
+  "port_code",
+  "port_name",
+  "country",
+  "region",
+  "default_anchorage.anchorage_name",
+  "default_anchorage.anchorage_code",
+] as const;
 
 const DEFAULTS: PortFormData = {
   port_code: "",
@@ -84,6 +98,7 @@ export function PortFormDrawer({ isOpen, onClose, port }: PortFormDrawerProps) {
     control,
     handleSubmit,
     reset,
+    setError,
     formState: { errors },
   } = useForm<PortFormData>({
     // Edit drops the `default_anchorage` branch and relaxes country/region. The
@@ -126,9 +141,10 @@ export function PortFormDrawer({ isOpen, onClose, port }: PortFormDrawerProps) {
           }).unwrap();
       onClose();
       toast.success(
-        getApiMessage(response) ?? (isEdit ? M.TOAST.UPDATE_SUCCESS : M.TOAST.ADD_SUCCESS),
+        getSuccessMessage(response) ?? (isEdit ? M.TOAST.UPDATE_SUCCESS : M.TOAST.ADD_SUCCESS),
       );
     } catch (error) {
+      if (applyApiFieldErrors(error, setError, FIELDS)) return;
       toast.error(getApiMessage(error) ?? (isEdit ? M.TOAST.UPDATE_ERROR : M.TOAST.ADD_ERROR));
     }
   };

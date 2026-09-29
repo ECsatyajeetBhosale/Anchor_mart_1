@@ -43,3 +43,12 @@ export const EMPTY_SAILOR_FORM: SailorFormData = {
   whatsapp_number: "",
   email: "",
 };
+
+/** Every input on the sailor form — where a 400's field errors are pinned. */
+export const SAILOR_FIELDS = [
+  "first_name",
+  "last_name",
+  "country_code",
+  "whatsapp_number",
+  "email",
+] as const;

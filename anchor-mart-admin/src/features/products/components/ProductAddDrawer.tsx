@@ -17,7 +17,7 @@ import { useGetCategoriesQuery } from "@/features/catalog";
 import { useGetEmergencyCategoriesQuery } from "@/features/emergency-categories";
 import { FILE_LOCATIONS, ImageListField } from "@/features/media";
 import { useCreateSpareProductMutation } from "@/features/spares";
-import { getApiMessage, getFieldErrors } from "@/lib/apiError";
+import { getApiMessage, getFieldErrors, getSuccessMessage } from "@/lib/apiError";
 import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -179,7 +179,7 @@ export function ProductAddDrawer({
       const response = await (isMarine ? createSpare(payload) : createProduct(payload)).unwrap();
       // Success: close the drawer first, then notify.
       onClose();
-      toast.success(getApiMessage(response) ?? MESSAGES.PRODUCTS.TOAST.ADD_SUCCESS);
+      toast.success(getSuccessMessage(response) ?? MESSAGES.PRODUCTS.TOAST.ADD_SUCCESS);
     } catch (error) {
       /**
        * Pin field-keyed errors to their inputs. add-product validates in groups

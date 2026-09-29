@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { FILE_LOCATIONS, ImageUploadField } from "@/features/media";
-import { getApiMessage, getFieldErrors } from "@/lib/apiError";
+import { getApiMessage, getFieldErrors, getSuccessMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconCategory, IconCheck } from "@tabler/icons-react";
@@ -64,7 +64,7 @@ export function CategoryAddDrawer({ isOpen, onClose }: CategoryAddDrawerProps) {
       const response = await createCategory(payload).unwrap();
       // Success: close the drawer first, then notify.
       onClose();
-      toast.success(getApiMessage(response) ?? MESSAGES.CATEGORIES.TOAST.ADD_SUCCESS);
+      toast.success(getSuccessMessage(response) ?? MESSAGES.CATEGORIES.TOAST.ADD_SUCCESS);
     } catch (error) {
       // A duplicate `(name, scope)` and a bad image prefix both come back
       // field-keyed — pin them to the input rather than making the operator

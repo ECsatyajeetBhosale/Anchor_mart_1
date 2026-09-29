@@ -1,5 +1,6 @@
 import { ASSIGNMENT_ENDPOINTS, PARTNER_ENDPOINTS } from "@/lib/apiEndpoints";
 import { API_MAX_PAGE_SIZE } from "@/lib/constants";
+import { stampText } from "@/lib/dates";
 import { baseApi } from "@/lib/fetchUtils";
 import type { PartnerCapability } from "@/lib/partnerCapability";
 import { isTimelineState } from "@/lib/timeline";
@@ -300,7 +301,8 @@ export const assignmentApi = baseApi.injectEndpoints({
           status: pick(r, "status"),
           statusDisplay: pick(r, "status_display", "status"),
           assignedBy: pick(r, "assigned_by_email", "assigned_by"),
-          assignedAt: pick(r, "assigned_at", "created_at"),
+          // ISO on this endpoint — rendered to the SGT display shape (BUG-010).
+          assignedAt: stampText(pick(r, "assigned_at", "created_at")),
           deliverBy: pick(r, "deliver_by"),
           isActive: getProp(r, "is_active") === true,
         }));

@@ -1,6 +1,6 @@
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Input } from "@/components/ui/input";
-import { getApiMessage } from "@/lib/apiError";
+import { getApiMessage, getSuccessMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { IconCheck, IconPlus, IconTag, IconTrash, IconX } from "@tabler/icons-react";
 import { useState } from "react";
@@ -34,7 +34,9 @@ export function FaqTypesCard() {
     try {
       const response = await createType({ name: newName.trim() }).unwrap();
       setNewName("");
-      toast.success(getApiMessage(response) ?? MESSAGES.SETTINGS.FAQ_TYPES.TOAST.CREATE_SUCCESS);
+      toast.success(
+        getSuccessMessage(response) ?? MESSAGES.SETTINGS.FAQ_TYPES.TOAST.CREATE_SUCCESS,
+      );
     } catch (error) {
       toast.error(getApiMessage(error) ?? MESSAGES.SETTINGS.FAQ_TYPES.TOAST.CREATE_ERROR);
     }
@@ -45,7 +47,9 @@ export function FaqTypesCard() {
     try {
       const response = await updateType({ id, body: { name: editingName.trim() } }).unwrap();
       setEditingId(null);
-      toast.success(getApiMessage(response) ?? MESSAGES.SETTINGS.FAQ_TYPES.TOAST.UPDATE_SUCCESS);
+      toast.success(
+        getSuccessMessage(response) ?? MESSAGES.SETTINGS.FAQ_TYPES.TOAST.UPDATE_SUCCESS,
+      );
     } catch (error) {
       toast.error(getApiMessage(error) ?? MESSAGES.SETTINGS.FAQ_TYPES.TOAST.UPDATE_ERROR);
     }

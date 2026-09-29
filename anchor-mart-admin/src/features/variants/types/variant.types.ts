@@ -149,13 +149,10 @@ export interface AddVariantPayload {
   attributes: Record<string, unknown>;
   images: string[];
   /**
-   * **Express parents only, and its presence is the decision**: with it the SKU
-   * is created Express-ready (`is_express` derived from the price, never sent);
-   * without it the SKU is created **pending** — on the shelf and refused by the
-   * express cart until someone quotes it.
-   *
-   * Sending it under a regular or marine parent is a 400: an express price with
-   * no shelf to belong to.
+   * **Its presence is the decision**: with it the SKU is created express
+   * (`is_express` derived from the price, never sent) — allowed under any
+   * product since BUG-050 — and sold only on the express shelf. Without it the
+   * SKU is a regular SKU of its product.
    */
   express_price?: number;
 }

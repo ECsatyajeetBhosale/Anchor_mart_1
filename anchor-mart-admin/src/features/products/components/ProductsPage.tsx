@@ -6,7 +6,7 @@ import { StatsGrid } from "@/components/common/StatsGrid";
 import { DataTable } from "@/components/ui/data-table";
 import { useGetCategoriesQuery } from "@/features/catalog";
 import { ProductVariantsDrawer } from "@/features/variants";
-import { getApiMessage, getApiStatus } from "@/lib/apiError";
+import { getApiMessage, getApiStatus, getSuccessMessage } from "@/lib/apiError";
 import { API_MAX_PAGE_SIZE, APP_ROUTES } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
@@ -295,7 +295,7 @@ export function ProductsPage() {
     try {
       const res = await setActive({ id: product.id, isActive: next }).unwrap();
       toast.success(
-        getApiMessage(res) ??
+        getSuccessMessage(res) ??
           (next ? MESSAGES.PRODUCTS.TOAST.ACTIVATED : MESSAGES.PRODUCTS.TOAST.DEACTIVATED),
       );
     } catch (error) {
@@ -325,7 +325,8 @@ export function ProductsPage() {
       } else {
         // Its own copy distinguishes "you" from "another admin" — prefer it.
         toast.info(
-          getApiMessage(res) ?? MESSAGES.PRODUCT_FLAGS.TOAST.ANNOUNCE_DEDUPED(announceProduct.name),
+          getSuccessMessage(res) ??
+            MESSAGES.PRODUCT_FLAGS.TOAST.ANNOUNCE_DEDUPED(announceProduct.name),
         );
       }
       setAnnounceProduct(null);

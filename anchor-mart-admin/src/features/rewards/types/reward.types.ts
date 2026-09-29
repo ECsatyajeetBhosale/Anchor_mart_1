@@ -127,36 +127,49 @@ export interface CreateCouponPayload {
   code: string;
   title: string;
   description: string;
-  image: string | null;
+  /** Stored path, or `""` for none — `null` is rejected. */
+  image: string;
   discount_type: string;
   applies_to: string;
   discount_value: number;
+  /** Required for percentage coupons (BUG-038); `null` otherwise. */
+  max_discount_amount: number | null;
   min_purchase_amount: number;
+  /** Midnight Singapore time, as an explicit-offset datetime. */
   valid_from: string;
-  valid_to: string;
+  /** `"YYYY-MM-DD"` — stored as 23:59:59 SGT (BUG-039). `null` = never expires. */
+  valid_to: string | null;
+  /** `null` = unlimited. */
   usage_limit: number | null;
-  per_user_usage_limit: number;
+  /** `null` = unlimited per sailor. `0` is rejected. */
+  per_user_usage_limit: number | null;
   is_public: boolean;
 }
 
 /**
  * Request body for the coupon update endpoint
  * (/superadmin/orders/coupons/update/{id}/). Mirrors the update contract:
- * date-only validity, an `is_active` flag, no `applies_to`, and a
- * blank-allowed `per_user_usage_limit`.
+ * date-only validity and an `is_active` flag.
  */
 export interface UpdateCouponPayload {
   code: string;
   title: string;
   description: string;
-  image: string | null;
+  /** Stored path, or `""` for none — `null` is rejected. */
+  image: string;
   discount_type: string;
+  /** Sent so an edited "Applies To" is saved rather than silently dropped. */
+  applies_to: string;
   discount_value: number;
+  /** Required for percentage coupons (BUG-038); `null` otherwise. */
+  max_discount_amount: number | null;
   min_purchase_amount: number;
   valid_from: string;
-  valid_to: string;
+  /** `"YYYY-MM-DD"`, or `null` for no end date. */
+  valid_to: string | null;
   usage_limit: number | null;
-  per_user_usage_limit: number | "";
+  /** `null` = unlimited per sailor. */
+  per_user_usage_limit: number | null;
   is_public: boolean;
   is_active: boolean;
 }
@@ -201,9 +214,12 @@ export interface Deal {
   /** First variant image, for the row thumbnail; "" when the variant has none. */
   imageUrl: string;
   termsAndConditions: string;
-  /** Date-only strings as returned, e.g. "2026-06-02". */
+  /** Display strings as returned (SGT) — shown as-is, never parsed. */
   startTime: string;
   endTime: string;
+  /** Machine values (`start_time_iso` / `end_time_iso`) — what the edit form reads (BUG-036). */
+  startTimeIso: string;
+  endTimeIso: string;
   isActive: boolean;
 }
 

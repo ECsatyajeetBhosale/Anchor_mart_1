@@ -1,3 +1,4 @@
+import { dayText } from "@/lib/dates";
 import { MESSAGES } from "@/lib/messages";
 import { formatMoney } from "@/lib/money";
 
@@ -55,9 +56,7 @@ export function money(amount: unknown, currency?: string | null): string {
  */
 export function formatDate(iso?: string | null): string {
   if (!iso) return D.FALLBACK;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return dash(iso);
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return dayText(iso);
 }
 
 /**

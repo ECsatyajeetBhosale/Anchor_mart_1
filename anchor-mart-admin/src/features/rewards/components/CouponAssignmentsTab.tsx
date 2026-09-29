@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useGetSailorsQuery } from "@/features/sailors";
-import { getApiMessage } from "@/lib/apiError";
+import { getApiMessage, getApiStatus } from "@/lib/apiError";
 import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
@@ -104,6 +104,12 @@ export function CouponAssignmentsTab() {
       toast.success(M.TOAST.ASSIGNED);
       setFormOpen(false);
     } catch (err) {
+      // A duplicate (409, BUG-041) belongs beside the coupon picker, in the
+      // backend's words — "This sailor already has this coupon."
+      if (getApiStatus(err) === 409) {
+        setErrors({ coupon: getApiMessage(err) ?? M.TOAST.ASSIGN_ERROR });
+        return;
+      }
       toast.error(getApiMessage(err) ?? M.TOAST.ASSIGN_ERROR);
     }
   };
@@ -209,7 +215,11 @@ export function CouponAssignmentsTab() {
               </div>
               <DropdownSelect
                 value={userId}
-                onValueChange={setUserId}
+                onValueChange={(value) => {
+                  setUserId(value);
+                  // A pick answers the "Select a sailor" error (BUG-040).
+                  setErrors((prev) => ({ ...prev, user: undefined }));
+                }}
                 placeholder={F.USER_PLACEHOLDER}
                 options={sailors.map((s) => ({ value: s.id, label: `${s.n} · ${s.e}` }))}
                 width="100%"
@@ -218,9 +228,16 @@ export function CouponAssignmentsTab() {
             <FormField label={F.COUPON} error={errors.coupon}>
               <DropdownSelect
                 value={couponId}
-                onValueChange={setCouponId}
+                onValueChange={(value) => {
+                  setCouponId(value);
+                  setErrors((prev) => ({ ...prev, coupon: undefined }));
+                }}
                 placeholder={F.COUPON_PLACEHOLDER}
-                options={coupons.map((c) => ({ value: c.id, label: `${c.code} — ${c.title}` }))}
+                // A blank title (BUG-018) must not leave a dangling "CODE — ".
+                options={coupons.map((c) => ({
+                  value: c.id,
+                  label: c.title?.trim() ? `${c.code} — ${c.title.trim()}` : c.code,
+                }))}
                 width="100%"
               />
             </FormField>

@@ -32,7 +32,7 @@ export interface PlatformTrendCardProps {
  * share a filter.
  */
 export function PlatformTrendCard({ params }: PlatformTrendCardProps) {
-  const { bars, platforms, period, isLoading, isError, isForbidden, isEmpty, refetch } =
+  const { bars, platforms, period, isLoading, isError, error, isForbidden, isEmpty, refetch } =
     usePlatformTrend(params);
 
   // Labels are only sent by the breakdown endpoint. Both calls are already on
@@ -85,6 +85,7 @@ export function PlatformTrendCard({ params }: PlatformTrendCardProps) {
       <ChartState
         isLoading={isLoading}
         isError={isError}
+        error={error}
         isEmpty={isEmpty}
         emptyMessage={P.EMPTY}
         onRetry={refetch}

@@ -53,6 +53,7 @@ export function usePlatformTrend(params: AnalyticsParams) {
     period: query.data?.period,
     isLoading: query.isLoading,
     isError: query.isError && !isForbidden,
+    error: query.error,
     isForbidden,
     refetch: query.refetch,
     isEmpty: !query.isLoading && !query.isError && !hasVolume,

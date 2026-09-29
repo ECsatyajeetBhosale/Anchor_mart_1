@@ -15,7 +15,7 @@ import {
   IconStar,
   IconUsers,
 } from "@tabler/icons-react";
-import { format, formatDistanceToNow, parseISO } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -29,6 +29,7 @@ import { MESSAGES } from "@/lib/messages";
 
 import type { LiveOrder, TimeRange } from "../types/dashboard.types";
 
+import { toInstant } from "@/lib/dates";
 import { useDashboard } from "../hooks/useDashboard";
 import { ActionRequiredCard } from "./ActionRequiredCard";
 import { AttentionPanel } from "./AttentionPanel";
@@ -232,8 +233,11 @@ export function DashboardPage() {
    * shown. It is the difference between seven failures from this morning and
    * seven that have been sitting for a week — the count alone cannot say which.
    */
-  const oldestFailed = stats.oldestFailedAt
-    ? M.OCC.OLDEST_FAILED(formatDistanceToNow(parseISO(stats.oldestFailedAt), { addSuffix: true }))
+  // `toInstant`, not `parseISO`: the latter throws on an SGT display string and
+  // would take the whole dashboard down with it.
+  const oldestFailedInstant = toInstant(stats.oldestFailedAt);
+  const oldestFailed = oldestFailedInstant
+    ? M.OCC.OLDEST_FAILED(formatDistanceToNow(oldestFailedInstant, { addSuffix: true }))
     : null;
 
   /** Row click lands on the order itself, not on an unfiltered Orders list. */

@@ -30,6 +30,7 @@ import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { downloadBlob } from "@/lib/download";
 import { MESSAGES } from "@/lib/messages";
+import { hasActiveFilters } from "@/lib/searchFilters";
 import { statText, statsError, statsState, statusCount, statusText } from "@/lib/stats";
 import {
   useGetSpecialRequestStatsQuery,
@@ -411,7 +412,7 @@ export function SpecialRequestsPage() {
         onRetry={refetch}
         onPageChange={handlePageChange}
         showPagination
-        emptyMessage={M.EMPTY}
+        emptyMessage={hasActiveFilters(searchParams) ? M.EMPTY : M.EMPTY_NONE}
         onRowClick={openDetail}
       />
 

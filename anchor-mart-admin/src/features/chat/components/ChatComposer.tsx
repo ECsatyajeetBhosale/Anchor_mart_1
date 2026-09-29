@@ -2,7 +2,14 @@ import { Button } from "@/components/ui/button";
 import { EmojiPicker } from "@/components/ui/emoji-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MESSAGES } from "@/lib/messages";
-import { IconLoader2, IconMoodSmile, IconPaperclip, IconSend, IconX } from "@tabler/icons-react";
+import {
+  IconFile,
+  IconLoader2,
+  IconMoodSmile,
+  IconPaperclip,
+  IconSend,
+  IconX,
+} from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import {
   UPLOAD_FILE_TYPES,
@@ -65,6 +72,16 @@ export function ChatComposer({
   const [text, setText] = useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  /**
+   * A picked file waits here, previewed, until Send (BUG-056). It used to go
+   * the moment it was picked — no chance to check it was the right one, and no
+   * way to take it back.
+   */
+  const [staged, setStaged] = useState<{
+    file: File;
+    messageType: UploadMessageType;
+    previewUrl: string | null;
+  } | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -75,6 +92,14 @@ export function ChatComposer({
     setText(editing?.content ?? "");
     if (editing) inputRef.current?.focus();
   }, [editing]);
+
+  // The preview's blob URL is released when it is replaced, removed or sent.
+  useEffect(() => {
+    const url = staged?.previewUrl;
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [staged]);
 
   // A pending "stopped typing" must not fire after unmount, which would send on
   // a thread the admin has already navigated away from.
@@ -154,15 +179,27 @@ export function ChatComposer({
       ? "image"
       : "file";
 
-    // Whatever is in the box rides along as the caption, so a file sent with a
-    // sentence of explanation stays one message instead of two.
-    onAttach(file, messageType, text);
-    setText("");
+    // Staged, not sent — Send (or Enter) sends it, with whatever is in the box
+    // as its caption, so a file and its sentence of explanation stay one message.
+    setStaged({
+      file,
+      messageType,
+      previewUrl: messageType === "image" ? URL.createObjectURL(file) : null,
+    });
+    inputRef.current?.focus();
   };
 
   const submit = () => {
     const trimmed = text.trim();
-    if (!trimmed || disabled) return;
+    if (disabled) return;
+
+    if (staged && onAttach && !editing) {
+      onAttach(staged.file, staged.messageType, trimmed);
+      setStaged(null);
+      setText("");
+      return;
+    }
+    if (!trimmed) return;
 
     if (stopTimerRef.current) {
       clearTimeout(stopTimerRef.current);
@@ -247,6 +284,40 @@ export function ChatComposer({
         </Popover>
       </div>
 
+      {staged && (
+        <div className="mb-2 flex items-center gap-2.5 rounded-[var(--radius-md)] border border-[var(--border-sm)] bg-[var(--surface-alt)] p-2">
+          {staged.previewUrl ? (
+            <img
+              src={staged.previewUrl}
+              alt={staged.file.name}
+              className="h-12 w-12 shrink-0 rounded-[var(--radius-sm)] object-cover"
+            />
+          ) : (
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--surface)] text-[var(--t4)]">
+              <IconFile size={20} />
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <div
+              className="trunc text-[12.5px] font-bold text-[var(--t1)]"
+              title={staged.file.name}
+            >
+              {staged.file.name}
+            </div>
+            <div className="text-[11px] text-[var(--t4)]">{M.COMPOSER.STAGED_HINT}</div>
+          </div>
+          <button
+            type="button"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-[var(--t4)] hover:bg-[var(--surface-hover)] hover:text-[var(--t2)]"
+            onClick={() => setStaged(null)}
+            title={M.COMPOSER.REMOVE_ATTACHMENT}
+            aria-label={M.COMPOSER.REMOVE_ATTACHMENT}
+          >
+            <IconX size={15} />
+          </button>
+        </div>
+      )}
+
       <div className="flex items-end gap-2">
         <textarea
           ref={inputRef}
@@ -269,7 +340,7 @@ export function ChatComposer({
           variant="primary"
           className="h-10 shrink-0"
           onClick={submit}
-          disabled={disabled || !text.trim()}
+          disabled={disabled || isUploading || (!text.trim() && !staged)}
           title={M.COMPOSER.SEND}
         >
           <IconSend size={16} />

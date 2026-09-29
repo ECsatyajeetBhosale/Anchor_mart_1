@@ -172,6 +172,10 @@ export interface Order {
   order_number: string;
   status: string;
   status_display: string;
+  /** The channel the order was placed from ("Mobile App", "Website"). Null for old orders. */
+  platform_display?: string | null;
+  /** Set on an add-on order: the order it was added to, which is its intent ref. */
+  parent_order_number?: string | null;
 
   // --- Flat fields returned by the LIST endpoint -------------------------
   // The list serializer returns a lightweight, flattened row (not the nested

@@ -11,6 +11,7 @@ import { idColumn, statusColumn, textColumn } from "@/components/common/tableCol
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { getApiMessage } from "@/lib/apiError";
+import { dayText, toInstant } from "@/lib/dates";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
 import {
@@ -44,24 +45,46 @@ const P = MESSAGES.PROMOTION;
 
 const TAB_OVERVIEW = "overview";
 const COUPON_LIMIT = 10;
+/** The panel lists what is running, not a page of the table. */
+const ACTIVE_PANEL_LIMIT = 50;
 
-/** Format an ISO timestamp (e.g. "2026-12-31T23:59:59Z") as "Dec 31, 2026". */
-function formatCouponDate(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+/**
+ * The expiry day, in Singapore time (`valid_to` is stored as 23:59:59 SGT, so
+ * the list and the edit form show the same day). `null` never expires.
+ */
+function formatCouponDate(value: string | null): string {
+  return value ? dayText(value) : M.COUPONS.NO_EXPIRY;
+}
+
+/** Labels for `applies_to` — the raw enum (`order_total`) is never shown. */
+const APPLIES_TO_LABEL: Record<string, string> = {
+  order_total: M.FORM.APPLIES_OPTIONS.ORDER_TOTAL,
+  delivery: M.FORM.APPLIES_OPTIONS.DELIVERY,
+  items: M.FORM.APPLIES_OPTIONS.ITEMS,
+};
+
+/**
+ * Live right now: switched on, and not past its expiry (BUG-043). The panel
+ * reads its own `is_active=true` query, but an expired coupon keeps
+ * `is_active: true`, so the date is checked too.
+ */
+function isLiveCoupon(api: ApiCoupon, now = new Date()): boolean {
+  if (!api.is_active) return false;
+  const ends = toInstant(api.valid_to);
+  return !ends || ends.getTime() >= now.getTime();
 }
 
 /** Map an API coupon record onto the flat shape the coupon card renders. */
 function toCoupon(api: ApiCoupon): Coupon {
   const value = Number(api.discount_value);
+  const target = (APPLIES_TO_LABEL[api.applies_to] ?? api.applies_to).toLowerCase();
+  const cap = api.max_discount_amount != null ? Number(api.max_discount_amount) : null;
   const d =
-    api.discount_type === "percentage"
-      ? `${value}% off ${api.applies_to}`
-      : `$${value.toFixed(2)} off ${api.applies_to}`;
+    api.discount_type === "free_shipping"
+      ? M.FORM.DISCOUNT_TYPES.FREE_SHIPPING
+      : api.discount_type === "percentage"
+        ? `${value}% off ${target}${cap ? ` (max $${cap.toFixed(2)})` : ""}`
+        : `$${value.toFixed(2)} off ${target}`;
   const min = Number(api.min_purchase_amount);
   const m = api.first_time_user_only
     ? "First order only"
@@ -80,46 +103,62 @@ function toCoupon(api: ApiCoupon): Coupon {
   };
 }
 
+/** Blank → `null` (unlimited); otherwise the whole number the schema checked. */
+function toLimit(value: string): number | null {
+  const text = value.trim();
+  return text ? Number(text) : null;
+}
+
+/** Only percentage coupons carry a cap; the others send `null`. */
+function toMaxDiscount(data: CouponFormData): number | null {
+  return data.discount_type === "percentage" ? Number(data.max_discount_amount) : null;
+}
+
 /** Build the create request body from the validated form data. */
 function toCreateCouponPayload(data: CouponFormData): CreateCouponPayload {
-  const usage = data.usage_limit.trim();
   return {
     code: data.code.toUpperCase(),
     title: data.title,
     description: data.description,
-    image: data.image || null,
+    // Blank, never `null`: the serializer allows blank but rejects null (BUG-037).
+    image: data.image,
     discount_type: data.discount_type,
     applies_to: data.applies_to,
     discount_value: data.discount_value,
+    max_discount_amount: toMaxDiscount(data),
     min_purchase_amount: data.min_purchase_amount,
-    valid_from: `${data.valid_from}T00:00:00Z`,
-    valid_to: data.valid_to,
-    usage_limit: usage ? Number(usage) : null,
-    per_user_usage_limit: Number(data.per_user_usage_limit) || 1,
+    // Midnight *Singapore* time, in the datetime shape this endpoint already
+    // accepted — `…T00:00:00Z` was 08:00 SGT, so a coupon started mid-morning.
+    valid_from: `${data.valid_from}T00:00:00+08:00`,
+    // Plain date: the backend stores it as 23:59:59 SGT (BUG-039).
+    valid_to: data.no_end_date ? null : data.valid_to,
+    usage_limit: toLimit(data.usage_limit),
+    // Blank is unlimited per sailor — no longer silently coerced to 1.
+    per_user_usage_limit: toLimit(data.per_user_usage_limit),
     is_public: data.is_public,
   };
 }
 
 /**
  * Build the update request body from the form data. The update contract uses
- * date-only validity, includes `is_active`, omits `applies_to`, and sends a
- * blank `per_user_usage_limit` as an empty string.
+ * date-only validity and includes `is_active`.
  */
 function toUpdateCouponPayload(data: CouponFormData): UpdateCouponPayload {
-  const usage = data.usage_limit.trim();
-  const perUser = data.per_user_usage_limit.trim();
   return {
     code: data.code.toUpperCase(),
     title: data.title,
     description: data.description,
-    image: data.image || null,
+    // Blank, never `null`: the serializer allows blank but rejects null (BUG-037).
+    image: data.image,
     discount_type: data.discount_type,
+    applies_to: data.applies_to,
     discount_value: data.discount_value,
+    max_discount_amount: toMaxDiscount(data),
     min_purchase_amount: data.min_purchase_amount,
     valid_from: data.valid_from,
-    valid_to: data.valid_to,
-    usage_limit: usage ? Number(usage) : null,
-    per_user_usage_limit: perUser ? Number(perUser) : "",
+    valid_to: data.no_end_date ? null : data.valid_to,
+    usage_limit: toLimit(data.usage_limit),
+    per_user_usage_limit: toLimit(data.per_user_usage_limit),
     is_public: data.is_public,
     is_active: data.is_active,
   };
@@ -171,6 +210,19 @@ export function RewardsPage() {
     if (couponData?.results) setCoupons(couponData.results.map(toCoupon));
   }, [couponData]);
 
+  /**
+   * The Active Coupons panel has its own query. It used to be handed the
+   * table's page — every state, filtered by the table's search — so a coupon
+   * switched off still sat under "Active" with Edit/Delete (BUG-043).
+   */
+  const { data: activeCouponData } = useGetActiveCouponsQuery({
+    isActive: "true",
+    limit: ACTIVE_PANEL_LIMIT,
+  });
+  const activeCoupons = (activeCouponData?.results ?? [])
+    .filter((c) => isLiveCoupon(c))
+    .map(toCoupon);
+
   // Loyalty Program Overview KPIs (live API). Values fall back to "—" until loaded.
   const { data: loyalty } = useGetLoyaltyOverviewQuery();
 
@@ -195,24 +247,21 @@ export function RewardsPage() {
     setDrawerOpen(true);
   };
 
+  /**
+   * Both create and update hit the API; the list refetches via tag invalidation.
+   * A failure rejects back to the drawer, which pins field errors beside their
+   * inputs (duplicate code/title, missing max discount…) and keeps what was typed.
+   */
   const handleSubmit = async (data: CouponFormData) => {
     const code = data.code.toUpperCase();
-
-    // Both create and update hit the API; the list refetches via tag invalidation.
-    try {
-      if (editCoupon) {
-        await updateCoupon({ id: editCoupon.id, body: toUpdateCouponPayload(data) }).unwrap();
-        setDrawerOpen(false);
-        toast.success(M.COUPON_UPDATED(code));
-      } else {
-        await createCoupon(toCreateCouponPayload(data)).unwrap();
-        setDrawerOpen(false);
-        toast.success(M.COUPON_CREATED(code));
-      }
-    } catch (err) {
-      toast.error(
-        getApiMessage(err) ?? (editCoupon ? M.COUPON_UPDATE_ERROR : M.COUPON_CREATE_ERROR),
-      );
+    if (editCoupon) {
+      await updateCoupon({ id: editCoupon.id, body: toUpdateCouponPayload(data) }).unwrap();
+      setDrawerOpen(false);
+      toast.success(M.COUPON_UPDATED(code));
+    } else {
+      await createCoupon(toCreateCouponPayload(data)).unwrap();
+      setDrawerOpen(false);
+      toast.success(M.COUPON_CREATED(code));
     }
   };
 
@@ -227,18 +276,16 @@ export function RewardsPage() {
     }
   };
 
+  // Rejects back to the drawer on failure, which pins field errors beside
+  // their inputs and toasts the rest.
   const handleConfigSubmit = async (data: LoyaltyConfigFormData) => {
-    try {
-      await updateLoyaltyConfig({
-        points_per_delivery: data.points_per_delivery,
-        points_per_referral: data.points_per_referral,
-        point_value: data.point_value,
-      }).unwrap();
-      setConfigOpen(false);
-      toast.success(M.POINTS_SAVED);
-    } catch (err) {
-      toast.error(getApiMessage(err) ?? M.POINTS_SAVE_ERROR);
-    }
+    await updateLoyaltyConfig({
+      points_per_delivery: data.points_per_delivery,
+      points_per_referral: data.points_per_referral,
+      point_value: data.point_value,
+    }).unwrap();
+    setConfigOpen(false);
+    toast.success(M.POINTS_SAVED);
   };
 
   const couponColumns: Column<Coupon>[] = [
@@ -330,7 +377,7 @@ export function RewardsPage() {
 
         {/* Active Coupons */}
         <ActiveCouponsCard
-          coupons={coupons}
+          coupons={activeCoupons}
           canManage={canManageCoupons}
           onEdit={(cp) => openDrawer(cp)}
           onDelete={(cp) => setCouponToDelete(cp)}

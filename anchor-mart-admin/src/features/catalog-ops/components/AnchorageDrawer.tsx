@@ -18,7 +18,13 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
-import { getApiMessage, getApiStatus } from "@/lib/apiError";
+import {
+  applyApiFieldErrors,
+  getApiMessage,
+  getApiStatus,
+  getFieldErrors,
+  getSuccessMessage,
+} from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconAlertTriangle, IconAnchor, IconInfoCircle, IconPlus } from "@tabler/icons-react";
@@ -41,8 +47,17 @@ const LIMIT = 50;
 const DEFAULTS: AnchorageFormData = {
   anchorage_name: "",
   anchorage_code: "",
+  estimated_delivery_hours: "",
   is_active: true,
 };
+
+/** Inputs a 400 can be pinned to (BUG-045: `anchorage_code` duplicate within the port). */
+const FIELDS = ["anchorage_name", "anchorage_code", "estimated_delivery_hours"] as const;
+
+/** Form text → wire value: blank is "not set", not zero hours. */
+function toHours(value: string): number | null {
+  return value === "" ? null : Number(value);
+}
 
 export interface AnchorageDrawerProps {
   isOpen: boolean;
@@ -98,6 +113,7 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
     control,
     handleSubmit,
     reset,
+    setError,
     formState: { errors },
   } = useForm<AnchorageFormData>({
     resolver: zodResolver(anchorageSchema),
@@ -133,6 +149,8 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
     reset({
       anchorage_name: row.anchorage_name,
       anchorage_code: row.anchorage_code,
+      estimated_delivery_hours:
+        row.estimated_delivery_hours === null ? "" : String(row.estimated_delivery_hours),
       is_active: row.is_active,
     });
     setFormTarget(row);
@@ -151,6 +169,7 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
           // Omitted rather than sent blank: the API defaults it to "" anyway,
           // and an explicit "" records an empty code as a decision.
           ...(values.anchorage_code ? { anchorage_code: values.anchorage_code } : {}),
+          estimated_delivery_hours: toHours(values.estimated_delivery_hours),
           is_active: values.is_active,
           // `is_default` is never sent from here. A port that already has a
           // default should not have it silently moved by an add, and a port
@@ -159,13 +178,14 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
         },
       }).unwrap();
       closeForm();
-      toast.success(getApiMessage(response) ?? A.TOAST.ADD_SUCCESS);
+      toast.success(getSuccessMessage(response) ?? A.TOAST.ADD_SUCCESS);
     } catch (error) {
-      // The duplicate case returns a real sentence — "An anchorage with this
-      // name already exists for this port." — as a field-level error, which is
-      // more use than any wording here. The form stays open with the name
-      // intact so it can be corrected.
-      toast.error(getApiMessage(error) ?? A.TOAST.ADD_ERROR);
+      // Duplicates come back as field errors — "An anchorage with this name
+      // already exists for this port.", or a duplicate code (BUG-045) — and are
+      // pinned beside their input. The form stays open so they can be corrected.
+      // `port` has no input: an inactive parent (BUG-046) is toasted plainly.
+      if (applyApiFieldErrors(error, setError, FIELDS)) return;
+      toast.error(getFieldErrors(error).port ?? getApiMessage(error) ?? A.TOAST.ADD_ERROR);
     }
   };
 
@@ -180,6 +200,8 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
     const patch: AnchorageUpdatePayload = {};
     if (values.anchorage_name !== row.anchorage_name) patch.anchorage_name = values.anchorage_name;
     if (values.anchorage_code !== row.anchorage_code) patch.anchorage_code = values.anchorage_code;
+    const hours = toHours(values.estimated_delivery_hours);
+    if (hours !== row.estimated_delivery_hours) patch.estimated_delivery_hours = hours;
     if (values.is_active !== row.is_active) patch.is_active = values.is_active;
 
     if (Object.keys(patch).length === 0) {
@@ -194,7 +216,8 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
       toast.success(A.TOAST.UPDATE_SUCCESS);
     } catch (error) {
       // Left open on failure, same as the add form: a rejected rename is
-      // usually a duplicate name, and retyping it from scratch helps nobody.
+      // usually a duplicate name or code, and retyping it helps nobody.
+      if (applyApiFieldErrors(error, setError, FIELDS)) return;
       toast.error(getApiMessage(error) ?? A.TOAST.UPDATE_ERROR);
     }
   };
@@ -237,7 +260,7 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
       // If the row being deleted was open in the form, that form is now editing
       // something the server no longer returns.
       if (editing?.id === target.id) closeForm();
-      toast.success(getApiMessage(response) ?? A.TOAST.DELETE_SUCCESS);
+      toast.success(getSuccessMessage(response) ?? A.TOAST.DELETE_SUCCESS);
     } catch (error) {
       // The 409 is the "right request, wrong moment" case — the row is the
       // default and the port has others — and it is branched on by status
@@ -369,13 +392,28 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
             <span className="sec-label !mb-0">{A.COUNT(data?.count ?? anchorages.length)}</span>
             {/* The add form is folded away until asked for: the common errand
                 here is looking a mooring up, not creating one. */}
+            {/* An inactive port refuses new anchorages (BUG-046), so the
+                button says why instead of offering a guaranteed 400. */}
             {!formTarget && (
-              <button type="button" className="btn btn-primary" onClick={openAddForm}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={openAddForm}
+                disabled={port?.is_active === false}
+                title={port?.is_active === false ? A.PORT_INACTIVE : undefined}
+              >
                 <IconPlus size={16} />
                 {A.ADD}
               </button>
             )}
           </div>
+
+          {port?.is_active === false && (
+            <div className="flex items-start gap-2 rounded-[var(--radius-md)] border border-[var(--amber-100)] bg-[var(--amber-50)] p-3 text-[11.5px] font-semibold leading-relaxed text-[var(--amber-700)]">
+              <IconAlertTriangle size={15} className="mt-px shrink-0" />
+              <span>{A.PORT_INACTIVE}</span>
+            </div>
+          )}
 
           {/* A real state for any port created before default anchorages
               existed, not a loading blip — so it names the fix. */}
@@ -411,6 +449,25 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
                     error={!!errors.anchorage_code}
                     onKeyDown={submitOnEnter}
                     {...register("anchorage_code")}
+                  />
+                </FormField>
+              </FormRow>
+
+              <FormRow>
+                <FormField
+                  label={A.ETA}
+                  hint={A.ETA_HINT}
+                  error={errors.estimated_delivery_hours?.message}
+                >
+                  <Input
+                    type="number"
+                    min={0}
+                    step={1}
+                    inputMode="numeric"
+                    placeholder={A.ETA_PLACEHOLDER}
+                    error={!!errors.estimated_delivery_hours}
+                    onKeyDown={submitOnEnter}
+                    {...register("estimated_delivery_hours")}
                   />
                 </FormField>
               </FormRow>

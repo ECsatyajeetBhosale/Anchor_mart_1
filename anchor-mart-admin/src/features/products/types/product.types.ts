@@ -46,7 +46,10 @@ export interface Product {
   category?: string;
   shop?: string;
   category_name: string;
+  /** A stored figure only — not what any SKU sells for. Display `price_from`. */
   base_price: number;
+  /** The cheapest live SKU price (BUG-051); null when no SKU is live. */
+  price_from?: string | number | null;
   average_rating: number;
   /**
    * The express shelf's price, product level. Present only on an express
@@ -190,6 +193,7 @@ export interface SetCatalogTypeResult {
     unflagged_by_this_call: number;
   };
   priced_by_this_call?: ExpressVariantRow[];
+  /** Always empty since BUG-050: every SKU is priced at its regular price on the move. */
   awaiting_express_price?: ExpressVariantRow[];
   data?: unknown;
 }

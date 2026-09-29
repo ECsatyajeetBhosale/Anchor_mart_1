@@ -1,6 +1,7 @@
 import { SAILOR_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
 
+import { dayText } from "@/lib/dates";
 import type {
   CreateSailorPayload,
   GetSailorsParams,
@@ -121,9 +122,7 @@ function resolveJoined(sailor: Sailor): string {
   if (joined) return joined;
   const raw = str(sailor.date_joined) || str(sailor.created_at);
   if (!raw) return "—";
-  const parsed = new Date(raw);
-  if (Number.isNaN(parsed.getTime())) return "—";
-  return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return dayText(raw);
 }
 
 /**

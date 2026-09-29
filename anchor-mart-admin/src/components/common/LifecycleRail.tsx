@@ -204,6 +204,16 @@ export function LifecycleRail({ status, steps, reason, reasonAt, className }: Li
 
   const segments = steps?.length ? fromSteps(steps) : fromStatus(status);
   const activeIdx = segments.findIndex((s) => s.state === "active");
+  /**
+   * The stage the order is **at**, 1-based (BUG-004).
+   *
+   * On a timeline ladder every milestone the order has reached is `done` and
+   * the `active` one is the step being worked towards — so counting up to the
+   * active step read one too high. The reached count is the answer there. The
+   * status fallback marks the current status itself active, so it counts it.
+   */
+  const doneCount = segments.filter((s) => s.state === "done").length;
+  const currentStage = steps?.length ? doneCount : activeIdx + 1;
 
   return (
     <div className={className}>
@@ -229,9 +239,9 @@ export function LifecycleRail({ status, steps, reason, reasonAt, className }: Li
         ))}
       </div>
       <div className="mt-1 flex items-center gap-1.5">
-        {activeIdx >= 0 && (
+        {currentStage > 0 && (
           <span className="text-[10.5px] font-bold text-[var(--t4)]">
-            {R.STAGE_OF(activeIdx + 1, segments.length)}
+            {R.STAGE_OF(currentStage, segments.length)}
           </span>
         )}
         <ColourLegend />

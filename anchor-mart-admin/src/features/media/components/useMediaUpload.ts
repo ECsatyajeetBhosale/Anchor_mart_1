@@ -6,6 +6,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useCreatePresignedUrlMutation } from "../api/mediaApi";
 import {
   MediaUploadError,
+  safeUploadName,
+  uploadMimeType,
   uploadToS3,
   validateFileName,
   validateFileType,
@@ -100,9 +102,8 @@ export function useMediaUpload(): UseMediaUploadResult {
         return null;
       }
 
-      // Fail fast on every rule we can check without a round-trip. Type is one
-      // of them by necessity: nothing on the presigned path validates it
-      // server-side (Flow 26 §3), so this is the only place it is checked.
+      // Fail fast on every rule we can check without a round-trip — the
+      // backend enforces the same type allow-list, so this only saves the 400.
       const sizeError = validateUploadSize(file);
       const nameError = validateFileName(file.name);
       const typeError = validateFileType(file);
@@ -115,12 +116,15 @@ export function useMediaUpload(): UseMediaUploadResult {
       setIsUploading(true);
       setError(null);
       try {
+        // Both derived, not read off the File: the backend rejects a name with
+        // `/` or `..` and any type outside its allow-list, and S3 requires the
+        // uploaded part to carry exactly the type requested here.
+        const fileName = safeUploadName(file.name);
+        const fileType = uploadMimeType(file.name);
         const slip = await createPresignedUrl({
           file_location: fileLocation,
-          file_name: file.name,
-          // Browsers leave `type` empty for unknown extensions; the backend only
-          // checks the value contains a "/", and S3 accepts any MIME anyway.
-          file_type: file.type || "application/octet-stream",
+          file_name: fileName,
+          file_type: fileType,
         }).unwrap();
 
         // The one line this whole gate exists for. Outside production the slip
@@ -138,7 +142,7 @@ export function useMediaUpload(): UseMediaUploadResult {
           return { path: slip.file_location, previewUrl: localPreview, uploaded: false };
         }
 
-        await uploadToS3(slip.presigned_url, file);
+        await uploadToS3(slip.presigned_url, file, fileType, fileName);
 
         // `file_location` — never `file_key`, which carries the media-root
         // prefix and would fail the consuming serializer's prefix check.

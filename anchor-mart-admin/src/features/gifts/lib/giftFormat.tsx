@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { MESSAGES } from "@/lib/messages";
 
+import { dayText, sgtDaysUntil } from "@/lib/dates";
 import type { GiftHandoverStatus } from "../types/gift.types";
 
 const M = MESSAGES.GIFTS;
@@ -28,24 +29,20 @@ export const HANDOVER_BADGE: Record<
 /** A departure this close makes the decision urgent. */
 const URGENT_DAYS = 2;
 
-/** Short readable day, e.g. "12 Aug". Blank stays a dash. */
+/**
+ * Short readable day, e.g. "Aug 12, 2026". Blank stays a dash. Accepts the SGT
+ * display string (`"… 07:33 PM SGT"`, which `new Date` rejects) or ISO.
+ */
 export function shortDate(value: string | null): string {
-  if (!value) return M.DASH;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime())
-    ? value
-    : parsed.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+  return value ? dayText(value) : M.DASH;
 }
 
-/** Whole days from now until `value`; null when it isn't a usable date. */
+/**
+ * Whole Singapore days from today until `value`; null when it isn't a usable
+ * date. Read with `toInstant`, so the SGT suffix no longer blanks the chip.
+ */
 export function daysUntil(value: string | null): number | null {
-  if (!value) return null;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  const msPerDay = 86_400_000;
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  return Math.round((parsed.getTime() - startOfToday.getTime()) / msPerDay);
+  return sgtDaysUntil(value);
 }
 
 /**

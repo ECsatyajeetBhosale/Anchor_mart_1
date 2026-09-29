@@ -198,7 +198,10 @@ export interface ExpressItemStats {
   sourceable_products?: number;
   top_rated?: number;
   on_deal?: number;
+  /** Every variant on the listed products, express or not. */
   total_variants?: number;
+  /** Variants that are themselves express (BUG-049) — what the card shows. */
+  express_variants?: number;
   active_variants?: number;
   /**
    * The **effective** value — variant AND product, not the raw variant column.

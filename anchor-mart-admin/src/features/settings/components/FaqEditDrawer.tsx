@@ -9,8 +9,9 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { getApiMessage } from "@/lib/apiError";
+import { applyApiFieldErrors, getApiMessage, getSuccessMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconCheck, IconHelpCircle } from "@tabler/icons-react";
@@ -18,7 +19,7 @@ import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useGetFaqQuery, useGetFaqTypesQuery, useUpdateFaqMutation } from "../api/faqApi";
-import { type FaqFormData, faqSchema } from "../schemas/settings.schema";
+import { FAQ_FIELDS, type FaqFormData, faqSchema } from "../schemas/settings.schema";
 import type { Faq } from "../types/settings.types";
 
 export interface FaqEditDrawerProps {
@@ -41,6 +42,7 @@ export function FaqEditDrawer({ isOpen, onClose, faq }: FaqEditDrawerProps) {
     control,
     handleSubmit,
     reset,
+    setError,
     formState: { errors },
   } = useForm<FaqFormData>({ resolver: zodResolver(faqSchema) });
 
@@ -50,6 +52,7 @@ export function FaqEditDrawer({ isOpen, onClose, faq }: FaqEditDrawerProps) {
       faq_type: source.faq_type ?? "",
       question: source.question ?? "",
       answer: source.answer ?? "",
+      is_active: source.is_active ?? true,
     });
   }, [isOpen, source, reset]);
 
@@ -61,11 +64,13 @@ export function FaqEditDrawer({ isOpen, onClose, faq }: FaqEditDrawerProps) {
           faq_type: formData.faq_type,
           question: formData.question,
           answer: formData.answer,
+          is_active: formData.is_active,
         },
       }).unwrap();
       onClose();
-      toast.success(getApiMessage(response) ?? MESSAGES.SETTINGS.FAQ.EDIT.TOAST_SUCCESS);
+      toast.success(getSuccessMessage(response) ?? MESSAGES.SETTINGS.FAQ.EDIT.TOAST_SUCCESS);
     } catch (error) {
+      if (applyApiFieldErrors(error, setError, FAQ_FIELDS)) return;
       toast.error(getApiMessage(error) ?? MESSAGES.SETTINGS.FAQ.EDIT.TOAST_ERROR);
     }
   };
@@ -119,20 +124,26 @@ export function FaqEditDrawer({ isOpen, onClose, faq }: FaqEditDrawerProps) {
             <FormField label={MESSAGES.SETTINGS.FAQ.FIELDS.ANSWER} error={errors.answer?.message}>
               <Textarea className="h-40" error={!!errors.answer} {...register("answer")} />
             </FormField>
+            <FormField
+              label={MESSAGES.SETTINGS.FAQ.FIELDS.PUBLISHED}
+              hint={MESSAGES.SETTINGS.FAQ.FIELDS.PUBLISHED_HINT}
+            >
+              <Controller
+                control={control}
+                name="is_active"
+                render={({ field }) => (
+                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                )}
+              />
+            </FormField>
           </section>
 
           <section>
             <div className="sec-label">{MESSAGES.SETTINGS.FAQ.SECTIONS.RECORD}</div>
-            <FormField
-              label={MESSAGES.SETTINGS.FAQ.FIELDS.CREATED}
-              hint={MESSAGES.SETTINGS.FAQ.FIELDS.READ_ONLY_HINT}
-            >
+            <FormField label={MESSAGES.SETTINGS.FAQ.FIELDS.CREATED}>
               <Input value={source.created_at ?? ""} disabled readOnly />
             </FormField>
-            <FormField
-              label={MESSAGES.SETTINGS.FAQ.FIELDS.LAST_UPDATED}
-              hint={MESSAGES.SETTINGS.FAQ.FIELDS.READ_ONLY_HINT}
-            >
+            <FormField label={MESSAGES.SETTINGS.FAQ.FIELDS.LAST_UPDATED}>
               <Input value={source.updated_at ?? ""} disabled readOnly />
             </FormField>
           </section>

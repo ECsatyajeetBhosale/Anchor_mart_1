@@ -26,6 +26,7 @@ import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { mediaSrc } from "@/lib/mediaUrl";
 import { MESSAGES } from "@/lib/messages";
+import { orderStatusText } from "@/lib/orderStatuses";
 import {
   specialRequestStatusVariant,
   useGetSpecialRequestDetailQuery,
@@ -574,7 +575,7 @@ export function SpecialRequestDetailDrawer({
                                 </Link>
                                 {detail.order.status && (
                                   <Badge variant="neutral" className="h-[20px] text-[10px]">
-                                    {detail.order.status}
+                                    {orderStatusText(detail.order.status)}
                                   </Badge>
                                 )}
                               </span>

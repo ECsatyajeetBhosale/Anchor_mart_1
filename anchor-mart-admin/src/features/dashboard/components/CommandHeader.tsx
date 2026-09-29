@@ -26,7 +26,9 @@ const M = MESSAGES.DASHBOARD;
  * are long enough to bury the markup they belong to.
  */
 const BAND =
-  "relative overflow-hidden rounded-[var(--radius-lg)] border border-[var(--navy-700)] " +
+  // `overflow-clip`, not `-hidden`: both crop the glow, but a hidden box is still
+  // scrollable, and the range picker's return-focus scrolled it 170px (BUG-008).
+  "relative overflow-clip rounded-[var(--radius-lg)] border border-[var(--navy-700)] " +
   "bg-[linear-gradient(135deg,var(--navy-900)_0%,var(--navy-700)_65%,var(--navy-500)_130%)] " +
   "p-[18px_20px] mb-[18px] max-[620px]:p-[15px_16px] " +
   "before:content-[''] before:absolute before:inset-[-60%_-20%_auto_40%] before:h-[220%] " +

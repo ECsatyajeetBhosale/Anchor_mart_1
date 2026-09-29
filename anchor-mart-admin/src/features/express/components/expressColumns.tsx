@@ -4,7 +4,7 @@ import type { Column } from "@/components/ui/data-table";
 import { dateTimeText, shortDate } from "@/lib/dates";
 import { MESSAGES } from "@/lib/messages";
 import { formatMoney } from "@/lib/money";
-import { ORDER_STATUS_BY_KEY } from "@/lib/orderStatuses";
+import { ORDER_STATUS_BY_KEY, orderStatusLabel } from "@/lib/orderStatuses";
 import type { ExpressOrder } from "../types/expressItem.types";
 
 const M = MESSAGES.EXPRESS;
@@ -219,7 +219,10 @@ export function useExpressColumns({
       id: "status",
       header: M.COLUMNS.STATUS,
       cell: (row) => (
-        <StatusBadge status={row.status_display || row.status} className="text-[10px] h-[24px]" />
+        <StatusBadge
+          status={orderStatusLabel(row, row.status_display || row.status)}
+          className="text-[10px] h-[24px]"
+        />
       ),
       // Server-side status filter via the clickable header (?status=<value>).
       filter: {

@@ -56,8 +56,9 @@ export function AnalyticsPage() {
   const statCards: StatsGridItem[] = [
     {
       id: "revenue",
-      label: M.STATS.MONTHLY_REVENUE,
-      value: summary.data ? formatCurrency(summary.data.monthly_revenue) : PLACEHOLDER,
+      // Follows the period toggle and date range; `monthly_revenue` does not.
+      label: M.STATS.PERIOD_REVENUE,
+      value: summary.data ? formatCurrency(summary.data.period_revenue) : PLACEHOLDER,
       icon: <IconCurrencyDollar size={19} />,
       variant: "teal",
     },

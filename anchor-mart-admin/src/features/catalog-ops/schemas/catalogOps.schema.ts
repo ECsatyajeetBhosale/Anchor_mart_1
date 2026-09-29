@@ -58,6 +58,15 @@ export const anchorageSchema = z.object({
    * ordinary data rather than an incomplete row.
    */
   anchorage_code: z.string().trim().max(20, "Max 20 chars").default(""),
+  /**
+   * Kept as text so blank can mean "not set" (sent as `null`) — `0` would
+   * promise immediate delivery. Whole hours only.
+   */
+  estimated_delivery_hours: z
+    .string()
+    .trim()
+    .default("")
+    .refine((v) => v === "" || /^\d+$/.test(v), "Whole hours, 0 or more"),
   is_active: z.boolean().default(true),
 });
 

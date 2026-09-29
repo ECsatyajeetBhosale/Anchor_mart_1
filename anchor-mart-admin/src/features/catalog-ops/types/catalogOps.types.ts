@@ -154,6 +154,8 @@ export interface AnchorageCreatePayload {
   anchorage_name: string;
   /** Max 20 chars. Optional, and **not** generated — omitted means empty. */
   anchorage_code?: string;
+  /** Whole hours; `null` = not set. */
+  estimated_delivery_hours?: number | null;
   /**
    * `true` promotes this anchorage on creation, demoting the port's incumbent
    * default in the same transaction. Defaults to `false`.
@@ -184,6 +186,8 @@ export interface AnchorageCreatePayload {
 export interface AnchorageUpdatePayload {
   anchorage_name?: string;
   anchorage_code?: string;
+  /** Whole hours; `null` clears it. */
+  estimated_delivery_hours?: number | null;
   /** Promotion only — see above. */
   is_default?: true;
   is_active?: boolean;

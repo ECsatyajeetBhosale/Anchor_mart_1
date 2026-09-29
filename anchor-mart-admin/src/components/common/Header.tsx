@@ -11,9 +11,9 @@ import { useAppDispatch } from "@/hooks/useAppDispatch";
 import { APP_ROUTES } from "@/lib/constants";
 import { baseApi } from "@/lib/fetchUtils";
 import { MESSAGES } from "@/lib/messages";
-import { NAV_SECTIONS, TOPBAR_TITLE_ROUTES } from "@/lib/navigation";
+import { routeTitle } from "@/lib/navigation";
 import { IconBell, IconMenu2, IconRefresh, IconVolume, IconVolumeOff } from "@tabler/icons-react";
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -53,25 +53,16 @@ export function Header({ onOpenNav }: HeaderProps) {
   const unreadCount = selectUnreadCount(inbox);
 
   /**
-   * The page name, but only on the few screens that carry no heading of their
-   * own (`TOPBAR_TITLE_ROUTES`).
-   *
-   * Everywhere else this bar showed the same word the page's own `<h1>` and the
-   * highlighted sidebar entry were already showing — three copies of "Settings"
-   * on one screen — which is how a bar earns being ignored. The name is taken
-   * from the nav entry so it cannot drift from the item highlighted beside it.
+   * The page name, on every screen (BUG-059), taken from the nav entry so it
+   * cannot drift from the item highlighted beside it. It also names the browser
+   * tab (BUG-032), which read "AnchorMart Admin" on every page.
    */
-  const showsTitle = TOPBAR_TITLE_ROUTES.includes(location.pathname);
-  let pageTitle = "";
-  if (showsTitle) {
-    for (const section of NAV_SECTIONS) {
-      const matched = section.items.find((item) => item.path === location.pathname);
-      if (matched) {
-        pageTitle = matched.label;
-        break;
-      }
-    }
-  }
+  const pageTitle = routeTitle(location.pathname);
+  useEffect(() => {
+    document.title = pageTitle
+      ? `${pageTitle} · ${MESSAGES.COMMON.APP_TITLE}`
+      : MESSAGES.COMMON.APP_TITLE;
+  }, [pageTitle]);
 
   /**
    * Manual refresh — the backstop for a socket that has silently died.

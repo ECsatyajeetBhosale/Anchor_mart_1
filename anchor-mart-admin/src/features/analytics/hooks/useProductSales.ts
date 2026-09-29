@@ -78,6 +78,7 @@ export function useProductSales(params: AnalyticsParams) {
     clearProduct: () => setProductId(undefined),
     isLoading: query.isLoading,
     isError: query.isError,
+    error: query.error,
     refetch: query.refetch,
     isEmpty: !query.isLoading && !query.isError && bars.length === 0,
   };
