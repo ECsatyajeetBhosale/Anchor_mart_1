@@ -1,6 +1,7 @@
 import type { UnreadCategory } from "@/features/chat/slice/chatUnreadSlice";
 import type { BadgeQueue } from "@/features/realtime";
 import { APP_ROUTES } from "@/lib/constants";
+import { MESSAGES } from "@/lib/messages";
 import {
   IconAnchor,
   IconBell,
@@ -128,6 +129,11 @@ export interface NavSection {
  * once showed were fabricated. Whether the backend counts a section's work is a
  * separate question from where the section sits.
  */
+/** Titles for routed screens that are reached from elsewhere, not from the nav. */
+const OFF_NAV_TITLES: Record<string, string> = {
+  [APP_ROUTES.NOTIFICATION_INBOX]: MESSAGES.NOTIFICATIONS.INBOX.PAGE_TITLE,
+};
+
 /**
  * The page name for a path, from the nav entry that links to it — so the top
  * bar and the browser tab cannot drift from the highlighted sidebar item.
@@ -136,8 +142,14 @@ export interface NavSection {
  * few screens without a heading of their own, and QA read the blank bar on the
  * rest as missing. A nested path (`/account-management/admins/…`) takes the
  * longest nav path it sits under. `""` for a path no nav entry covers.
+ *
+ * A routed screen with no nav entry — the inbox the header bell opens — is
+ * named from {@link OFF_NAV_TITLES} instead; it was the one screen still left
+ * with a blank bar and a generic tab title.
  */
 export function routeTitle(pathname: string): string {
+  const offNav = OFF_NAV_TITLES[pathname];
+  if (offNav) return offNav;
   let best = "";
   let bestLength = 0;
   for (const section of NAV_SECTIONS) {

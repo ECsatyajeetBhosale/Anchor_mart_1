@@ -72,7 +72,7 @@ export function StatusLegendDialog({ isOpen, onClose }: StatusLegendDialogProps)
                       window. */}
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={s.variant}>{s.label}</Badge>
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--t4)]">
+                    <span className="text-[12px] font-semibold uppercase tracking-wide text-[var(--t4)]">
                       {L.ACTOR}: {s.actor}
                     </span>
                   </div>

@@ -69,7 +69,7 @@ export function MessageDetailDrawer({ message, isOpen, onClose }: MessageDetailD
             <div className="mb-3.5 flex items-center gap-2">
               <Badge variant={m.channelVariant}>{m.channelLabel}</Badge>
               <Badge variant={m.statusVariant}>{m.statusLabel}</Badge>
-              <span className="ml-auto text-[11px] font-semibold text-[var(--t4)]">
+              <span className="ml-auto text-[12px] font-semibold text-[var(--t4)]">
                 {`${D.ATTEMPTS}: ${m.attempts}`}
               </span>
             </div>
@@ -81,7 +81,7 @@ export function MessageDetailDrawer({ message, isOpen, onClose }: MessageDetailD
               gets its own panel rather than a row in a grid. */}
           {m.error && (
             <div className="mb-5 rounded-[var(--radius-md)] border border-[var(--danger-border)] bg-[var(--danger-bg)] p-3">
-              <div className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.3px] text-[var(--danger-text)]">
+              <div className="mb-1 text-[12px] font-extrabold uppercase tracking-[0.3px] text-[var(--danger-text)]">
                 {D.ERROR}
               </div>
               <div className="text-[12.5px] font-medium leading-relaxed text-[var(--danger-text)]">

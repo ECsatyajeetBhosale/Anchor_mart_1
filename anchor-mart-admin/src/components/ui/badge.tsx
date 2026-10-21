@@ -55,7 +55,7 @@ function Badge({
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-1.5 h-[22px] px-2.5 rounded-full border text-[11px] font-extrabold font-body tracking-[0.2px] uppercase select-none whitespace-nowrap",
+        "inline-flex items-center gap-1.5 h-[22px] px-2.5 rounded-full border text-[12px] font-extrabold font-body tracking-[0.2px] uppercase select-none whitespace-nowrap",
         variantClasses[variant],
         className,
       )}

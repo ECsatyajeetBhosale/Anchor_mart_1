@@ -1,5 +1,6 @@
 import { Search } from "@/components/common/Search";
 import { Button } from "@/components/ui/button";
+import { sgtMonthDay } from "@/lib/dates";
 import { MESSAGES } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 import { IconPaperclip, IconPhoto, IconPlus } from "@tabler/icons-react";
@@ -27,7 +28,8 @@ function formatAge(iso: string): string {
   if (hours < 24) return `${hours}h`;
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d`;
-  return date.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+  // The Singapore day, as every other admin date is (BUG-044).
+  return sgtMonthDay(iso) || iso;
 }
 
 export interface ChatThreadListProps {
@@ -153,7 +155,7 @@ export function ChatThreadList({
           sections.map((section) => (
             <div key={section.key}>
               {showSectionTitles && (
-                <div className="px-3.5 pt-3.5 pb-[7px] text-[10px] font-extrabold uppercase tracking-[1.6px] text-[var(--t4)]">
+                <div className="px-3.5 pt-3.5 pb-[7px] text-[12px] font-extrabold uppercase tracking-[1.6px] text-[var(--t4)]">
                   {SECTION_TITLES[section.key]}
                 </div>
               )}
@@ -209,7 +211,7 @@ export function ChatThreadList({
                         <span className="xs c4 w6">{formatAge(thread.lastMessageAt)}</span>
                       )}
                       {thread.unreadCount > 0 && (
-                        <span className="badge badge-danger px-[5px] py-px text-[10px]">
+                        <span className="badge badge-danger px-[5px] py-px text-[12px]">
                           {thread.unreadCount}
                         </span>
                       )}

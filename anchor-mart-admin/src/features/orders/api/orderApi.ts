@@ -4,6 +4,7 @@ import { baseApi } from "@/lib/fetchUtils";
 import type { TypedStats } from "@/lib/stats";
 import type {
   AdminCart,
+  AdminCartLine,
   AdminCartListResult,
   Order,
   OrderListResponse,
@@ -321,7 +322,7 @@ export const ordersApi = baseApi.injectEndpoints({
           let unitCount = 0;
           let total = 0;
           let blockedCount = 0;
-          const skus: string[] = [];
+          const lines: AdminCartLine[] = [];
           // A cart with no lines shouldn't claim to be express.
           let expressLines = 0;
 
@@ -333,8 +334,17 @@ export const ordersApi = baseApi.injectEndpoints({
             // `price` is a decimal string ("30.00"), read live off the variant.
             total += quantity * asNumber(getProp(variant, "price"));
 
+            // The product's name, not the variant's: `variant_details.name` is
+            // the option ("Standard"), which names nothing on its own. A line
+            // with no product name falls back to its SKU (BUG-067).
             const sku = asString(getProp(variant, "sku"));
-            if (sku) skus.push(sku);
+            const product = getProp(variant, "product");
+            const name =
+              asString(getProp(variant, "product_name")) ||
+              asString(getProp(item, "product_name")) ||
+              asString(getProp(getProp(variant, "product_details"), "name")) ||
+              (product && typeof product === "object" ? asString(getProp(product, "name")) : "");
+            if (sku || name) lines.push({ name: name || sku, sku });
 
             if (getProp(variant, "is_express") === true) expressLines += 1;
 
@@ -352,7 +362,7 @@ export const ordersApi = baseApi.injectEndpoints({
             userId: asString(getProp(row, "user")),
             unitCount,
             total: `$${total.toFixed(2)}`,
-            skus,
+            lines,
             blockedCount,
             isExpress: items.length > 0 && expressLines === items.length,
           };

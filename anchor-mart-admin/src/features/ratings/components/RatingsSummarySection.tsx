@@ -60,7 +60,7 @@ export function RatingsSummarySection({ days }: RatingsSummarySectionProps) {
       <StatsGrid items={items} />
       {/* Kept from the removed tag card: without it, a review submitted moments
           ago looks like it was dropped rather than merely not counted yet. */}
-      <p className="mb-5 text-[11.5px] font-medium text-[var(--t4)]">{M.SUMMARY.CACHE_NOTE}</p>
+      <p className="mb-5 text-[12px] font-medium text-[var(--t4)]">{M.SUMMARY.CACHE_NOTE}</p>
     </>
   );
 }

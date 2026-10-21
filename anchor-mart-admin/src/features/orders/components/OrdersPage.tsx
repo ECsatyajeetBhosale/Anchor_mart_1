@@ -806,6 +806,63 @@ export function OrdersPage() {
       name: (o) => o.s,
       image: (o) => getFallbackAvatar(o.s),
     }),
+    // Total and Status lead, straight after who the order is for: at 1158–1440px
+    // they sat past the fold behind eight other columns (BUG-012).
+    textColumn({ id: "total", header: M.COLUMNS.TOTAL, get: (o) => o.t, className: "td-p w7" }),
+    {
+      id: "status",
+      header: M.COLUMNS.STATUS,
+      // `DataTable` turns a column with `filter` into a dropdown header. The
+      // control belongs here rather than in the page toolbar: it narrows the
+      // table only — the cards are the status breakdown and ignore it — so
+      // sitting beside search and date, which rescope the whole screen, implied
+      // a reach it does not have.
+      filter: {
+        // The URL uses "" for unfiltered; the local sentinel is "all".
+        value: statusFilter === "all" ? "" : statusFilter,
+        options: STATUS_OPTIONS.filter((o) => o.value !== "all"),
+        onChange: (val: string) => setParam("status", val),
+        allLabel: M.STATUS_FILTER.ALL,
+      },
+      cell: (o) => (
+        <div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {/* Coloured from the raw status key (the canonical map the legend
+                renders), not the display label — see `orderStatusVariant`. */}
+            <Badge variant={orderStatusVariant(o.raw)}>{o.st}</Badge>
+            {/* Flow 11 §17 — self-clearing "needs attention" flag: true only while
+                an unactioned pending location report exists. */}
+            {o.raw.has_location_request && (
+              <Badge variant="warning" className="h-[22px] text-[12px]">
+                {M.LOCATION_REQUEST}
+              </Badge>
+            )}
+            {/* A different fact from the one above: that says the sailor
+                reported a move, this says an unpaid surcharge is stopping the
+                partner handing over. An order can carry either without the
+                other, and only this one holds the goods. */}
+            {o.deliveryOnHold && (
+              <Badge variant="danger" className="h-[22px] text-[12px]" title={M.HOLD_HINT}>
+                {M.DELIVERY_ON_HOLD}
+              </Badge>
+            )}
+          </div>
+          {/* What a refund would be for — shown only once delivery has
+              concluded, which is the only time the backend reports it as
+              non-zero. Turns the worklist into a decision surface: the amount
+              is on the row rather than one drawer-open away. */}
+          {isMoneyOwed(o.undeliveredValue) && (
+            <div className="mt-1 text-[12px] font-bold text-[var(--danger-text)] tabular-nums">
+              {M.UNDELIVERED_VALUE(money(o.undeliveredValue))}
+            </div>
+          )}
+          {/* Why a failed or cancelled row ended here — the backend sends it on
+              the list itself, so the reassign-or-refund call no longer costs a
+              drawer open per row. */}
+          <RowReason text={o.reason} at={o.reasonAt} className="mt-1" />
+        </div>
+      ),
+    },
     truncatedColumn({ id: "items", header: M.COLUMNS.ITEMS, get: (o) => o.it }),
     {
       id: "type",
@@ -859,61 +916,6 @@ export function OrdersPage() {
       cellClassName: (o) => paymentClass(o.pay),
     }),
     textColumn({ id: "coupon", header: M.COLUMNS.COUPON, get: (o) => o.cp, className: "td-m" }),
-    textColumn({ id: "total", header: M.COLUMNS.TOTAL, get: (o) => o.t, className: "td-p w7" }),
-    {
-      id: "status",
-      header: M.COLUMNS.STATUS,
-      // `DataTable` turns a column with `filter` into a dropdown header. The
-      // control belongs here rather than in the page toolbar: it narrows the
-      // table only — the cards are the status breakdown and ignore it — so
-      // sitting beside search and date, which rescope the whole screen, implied
-      // a reach it does not have.
-      filter: {
-        // The URL uses "" for unfiltered; the local sentinel is "all".
-        value: statusFilter === "all" ? "" : statusFilter,
-        options: STATUS_OPTIONS.filter((o) => o.value !== "all"),
-        onChange: (val: string) => setParam("status", val),
-        allLabel: M.STATUS_FILTER.ALL,
-      },
-      cell: (o) => (
-        <div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {/* Coloured from the raw status key (the canonical map the legend
-                renders), not the display label — see `orderStatusVariant`. */}
-            <Badge variant={orderStatusVariant(o.raw)}>{o.st}</Badge>
-            {/* Flow 11 §17 — self-clearing "needs attention" flag: true only while
-                an unactioned pending location report exists. */}
-            {o.raw.has_location_request && (
-              <Badge variant="warning" className="h-[22px] text-[10px]">
-                {M.LOCATION_REQUEST}
-              </Badge>
-            )}
-            {/* A different fact from the one above: that says the sailor
-                reported a move, this says an unpaid surcharge is stopping the
-                partner handing over. An order can carry either without the
-                other, and only this one holds the goods. */}
-            {o.deliveryOnHold && (
-              <Badge variant="danger" className="h-[22px] text-[10px]" title={M.HOLD_HINT}>
-                {M.DELIVERY_ON_HOLD}
-              </Badge>
-            )}
-          </div>
-          {/* What a refund would be for — shown only once delivery has
-              concluded, which is the only time the backend reports it as
-              non-zero. Turns the worklist into a decision surface: the amount
-              is on the row rather than one drawer-open away. */}
-          {isMoneyOwed(o.undeliveredValue) && (
-            <div className="mt-1 text-[11.5px] font-bold text-[var(--danger-text)] tabular-nums">
-              {M.UNDELIVERED_VALUE(money(o.undeliveredValue))}
-            </div>
-          )}
-          {/* Why a failed or cancelled row ended here — the backend sends it on
-              the list itself, so the reassign-or-refund call no longer costs a
-              drawer open per row. */}
-          <RowReason text={o.reason} at={o.reasonAt} className="mt-1" />
-        </div>
-      ),
-    },
     {
       id: "owner",
       header: M.COLUMNS.OWNER,
@@ -946,7 +948,7 @@ export function OrdersPage() {
             <Button
               variant="teal"
               size="xs"
-              className="max-w-[4.25rem] whitespace-normal px-2 text-[9px] leading-[1.05]"
+              className="max-w-[4.25rem] whitespace-normal px-2 text-[12px] leading-[1.05]"
               disabled={claimingId === o.id}
               onClick={(e) => {
                 e.stopPropagation();

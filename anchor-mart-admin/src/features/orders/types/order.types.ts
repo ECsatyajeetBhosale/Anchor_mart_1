@@ -344,6 +344,13 @@ export interface OrderListResponse {
   results: Order[];
 }
 
+/** One cart line as the items column names it. */
+export interface AdminCartLine {
+  /** The product's name — the SKU when the payload carries no name. */
+  name: string;
+  sku: string;
+}
+
 /**
  * A sailor cart that has not converted into an order, from
  * `GET /superadmin/orders/carts/`.
@@ -369,7 +376,7 @@ export interface AdminCart {
    * Summed `quantity` across every line — the number of physical units.
    *
    * The distinct-line count is deliberately not carried: the items column
-   * lists the SKUs, so a line count would only restate them.
+   * lists the lines, so a line count would only restate them.
    */
   unitCount: number;
   /**
@@ -381,8 +388,8 @@ export interface AdminCart {
    * makes this a faithful reflection of the cart, not a guess.
    */
   total: string;
-  /** SKUs on the cart, for the items column. */
-  skus: string[];
+  /** The cart's lines, for the items column. */
+  lines: AdminCartLine[];
   /**
    * Lines whose variant can no longer be ordered.
    *

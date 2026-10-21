@@ -149,7 +149,7 @@ export function SellerRequestsPage() {
         r.docsOk === null ? (
           <span className="td-m">{r.docs}</span>
         ) : (
-          <Badge variant={r.docsOk ? "success" : "danger"} className="text-[10px] h-[24px]">
+          <Badge variant={r.docsOk ? "success" : "danger"} className="text-[12px] h-[24px]">
             {r.docs}
           </Badge>
         ),

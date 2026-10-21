@@ -141,7 +141,7 @@ export function NotificationHistoryTab() {
           <span className="td-m">{r.shapeLabel}</span>
           {/* Only a broadcast can still be on display in-app. */}
           {r.isActive && (
-            <Badge variant="teal" className="text-[10px] h-[22px]">
+            <Badge variant="teal" className="text-[12px] h-[22px]">
               {H.LIVE_IN_APP}
             </Badge>
           )}
@@ -178,7 +178,7 @@ export function NotificationHistoryTab() {
       cell: (r) => (
         <Badge
           variant={DISPATCH_VARIANT[r.dispatchTone] ?? "neutral"}
-          className="text-[10px] h-[24px]"
+          className="text-[12px] h-[24px]"
           // A failed fan-out carries the reason; surface it without a drawer.
           title={r.dispatchError || r.dispatchedAt}
         >
@@ -204,7 +204,7 @@ export function NotificationHistoryTab() {
               <Badge
                 key={d.channel}
                 variant={d.dispatchError ? "danger" : d.isDispatched ? "success" : "warning"}
-                className="text-[10px] h-[22px]"
+                className="text-[12px] h-[22px]"
                 /* `recipients_enqueued` is null for in-app by design — an
                    announcement row plus a topic push has no per-recipient
                    count — so it shows a dash, never a zero that would read as
@@ -301,7 +301,7 @@ export function NotificationHistoryTab() {
         onResetFilters={clearFilters}
       />
 
-      <div className="mt-3 flex items-start gap-2 text-[11.5px] font-medium leading-relaxed text-[var(--t4)]">
+      <div className="mt-3 flex items-start gap-2 text-[12px] font-medium leading-relaxed text-[var(--t4)]">
         <IconInfoCircle size={15} className="mt-px shrink-0" />
         <span>{H.DISPATCH_HINT}</span>
       </div>

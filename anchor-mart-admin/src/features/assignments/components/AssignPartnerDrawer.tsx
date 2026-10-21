@@ -118,7 +118,7 @@ export function AssignPartnerDrawer({
                   </div>
                   <div className="flex-1">
                     <div className="text-[12.5px] font-bold text-[var(--t1)]">{p.n}</div>
-                    <div className="text-[10.5px] text-[var(--t4)]">
+                    <div className="text-[12px] text-[var(--t4)]">
                       {p.id} · {p.p}
                     </div>
                   </div>

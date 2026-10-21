@@ -68,7 +68,7 @@ export function TopProductsCard({
             onClick={() => onSelect(p.product_id)}
             className="flex aic g10 w-full appearance-none border-0 bg-transparent p-0 text-left"
           >
-            <span className="w-4 shrink-0 text-[11px] font-extrabold text-[var(--t4)]">
+            <span className="w-4 shrink-0 text-[12px] font-extrabold text-[var(--t4)]">
               {i + 1}
             </span>
             <div className="prod-thumb !h-8 !w-8">
@@ -76,7 +76,7 @@ export function TopProductsCard({
             </div>
             <div className="min-w-0 flex-1">
               <div className="trunc text-[12.5px] font-bold text-[var(--t1)]">{p.product_name}</div>
-              <div className="text-[10.5px] text-[var(--t4)]">{p.category}</div>
+              <div className="text-[12px] text-[var(--t4)]">{p.category}</div>
             </div>
             <Badge variant="teal">{formatNumber(p.units)}</Badge>
           </button>

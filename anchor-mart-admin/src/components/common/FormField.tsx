@@ -36,7 +36,7 @@ export function FormField({
       {label && <label className="fg-label">{marked}</label>}
       {children}
       {error && (
-        <div className="fg-error text-[var(--danger-text)] text-[11px] mt-1 font-semibold">
+        <div className="fg-error text-[var(--danger-text)] text-[12px] mt-1 font-semibold">
           {error}
         </div>
       )}

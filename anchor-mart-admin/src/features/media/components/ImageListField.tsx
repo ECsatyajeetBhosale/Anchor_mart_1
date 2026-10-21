@@ -200,11 +200,11 @@ export function ImageListField({
         }}
       />
 
-      {error && <div className="text-[11px] font-semibold text-[var(--danger-text)]">{error}</div>}
+      {error && <div className="text-[12px] font-semibold text-[var(--danger-text)]">{error}</div>}
 
       {/* Same rule line as the single-image field: what will be accepted, said
           before the pick rather than after it. */}
-      <div className="fg-hint text-[11px]">
+      <div className="fg-hint text-[12px]">
         {canUpload ? ACCEPTED_HINT : MESSAGES.MEDIA.NO_PERMISSION}
       </div>
 
@@ -218,14 +218,14 @@ export function ImageListField({
 
       {!uploadsToStorage &&
         (unsentShown > 0 ? (
-          <div className="flex items-start gap-1.5 text-[11px] font-semibold text-[var(--amber-700)]">
+          <div className="flex items-start gap-1.5 text-[12px] font-semibold text-[var(--amber-700)]">
             <IconAlertTriangle size={13} className="mt-px shrink-0" />
             <span>
               {MESSAGES.MEDIA.NOT_UPLOADED} {MESSAGES.MEDIA.NOT_UPLOADED_HINT}
             </span>
           </div>
         ) : (
-          <div className="fg-hint text-[11px]">{MESSAGES.MEDIA.STORAGE_OFF}</div>
+          <div className="fg-hint text-[12px]">{MESSAGES.MEDIA.STORAGE_OFF}</div>
         ))}
     </div>
   );

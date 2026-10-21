@@ -58,7 +58,7 @@ export function LocationChangeBadge({ change, className }: LocationChangeBadgePr
   })();
 
   return (
-    <Badge variant={variant} className={className ?? "h-[22px] text-[10px]"}>
+    <Badge variant={variant} className={className ?? "h-[22px] text-[12px]"}>
       <IconMapPin size={12} />
       {label}
     </Badge>

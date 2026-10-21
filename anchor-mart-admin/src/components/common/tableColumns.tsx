@@ -228,7 +228,7 @@ export function badgeColumn<T>(
         <Badge
           variant={typeof opts.variant === "function" ? opts.variant(row) : opts.variant}
           className={cn(
-            opts.badgeClassName ?? "text-[10px] h-[24px]",
+            opts.badgeClassName ?? "text-[12px] h-[24px]",
             onBadgeClick && "cursor-pointer",
           )}
           onClick={
@@ -277,7 +277,7 @@ export function statusColumn<T>(
         status={opts.get(row)}
         activeLabel={opts.activeLabel}
         inactiveLabel={opts.inactiveLabel}
-        className={opts.badgeClassName ?? "text-[10px]"}
+        className={opts.badgeClassName ?? "text-[12px]"}
       />
     ),
   };

@@ -43,7 +43,7 @@ export function PartnerRequirementBadge({
   return (
     <Badge
       variant={requirement === "unknown" ? "neutral" : "warning"}
-      className={className ?? "mt-1 h-[22px] text-[10px]"}
+      className={className ?? "mt-1 h-[22px] text-[12px]"}
       title={requirement === "unknown" ? M.UNKNOWN_HINT : undefined}
     >
       {label}

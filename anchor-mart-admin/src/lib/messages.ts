@@ -3716,6 +3716,10 @@ export const MESSAGES = {
         USER_SEARCH_PLACEHOLDER: "Search by name or email…",
         COUPON: "Coupon",
         COUPON_PLACEHOLDER: "Select a coupon",
+        /** Why the list is shorter than All Coupons (BUG-061). */
+        COUPON_HINT:
+          "Only active, private coupons are listed — a public coupon is already open to every sailor.",
+        COUPON_NONE: "No private coupons to assign",
         SAVE: "Assign",
         CANCEL: "Cancel",
       },
@@ -3731,6 +3735,9 @@ export const MESSAGES = {
       TOAST: {
         ASSIGNED: "Coupon assigned",
         ASSIGN_ERROR: "Failed to assign the coupon",
+        /** Replaces the backend's wording, which names the `is_public` field. */
+        ASSIGN_PUBLIC:
+          "This coupon is public, so every sailor can already use it. Make it private before assigning it.",
         REMOVED: "Assignment removed",
         REMOVE_ERROR: "Failed to remove the assignment",
       },
@@ -3808,6 +3815,8 @@ export const MESSAGES = {
       EXPIRES: (date: string) => `Expires ${date}`,
       /** `valid_to: null` — the coupon never expires. */
       NO_EXPIRY: "No expiry",
+      /** Past `valid_to` — the status the All Coupons table shows (BUG-060). */
+      EXPIRED: "Expired",
       EMPTY: "No active coupons right now.",
     },
     // Coupons table (same data as the Active Coupons cards, tabular view)
@@ -4797,6 +4806,8 @@ export const MESSAGES = {
       TITLE_PLACEHOLDER: "e.g. Scheduled maintenance tonight",
       MESSAGE: "Message",
       MESSAGE_PLACEHOLDER: "What should the recipients read?",
+      /** Disclosure over the metadata box — a developer field (BUG-070). */
+      ADVANCED: "Advanced options",
       METADATA: "Metadata (JSON)",
       METADATA_HINT: "Optional. Carried into the FCM payload — must be a JSON object.",
       METADATA_PLACEHOLDER: '{ "screen": "orders" }',
@@ -5604,6 +5615,9 @@ export const MESSAGES = {
     /** BUG-016 — accessible names for row controls that show only an icon or a switch. */
     ARIA: {
       ACTIVE_TOGGLE: (name: string) => `Active: ${name}`,
+      /** Row switches on Products / Spares / Express (BUG-063). */
+      TOP_RATED_TOGGLE: (name: string) => `Top rated: ${name}`,
+      SOURCEABLE_TOGGLE: (name: string) => `Sourceable: ${name}`,
       EDIT: (name: string) => `Edit ${name}`,
       DELETE: (name: string) => `Delete ${name}`,
     },

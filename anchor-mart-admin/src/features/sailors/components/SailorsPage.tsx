@@ -188,7 +188,7 @@ export function SailorsPage() {
       id: "status",
       header: M.COLUMNS.STATUS,
       cell: (s) => (
-        <Badge variant={s.sc} className="text-[10px]">
+        <Badge variant={s.sc} className="text-[12px]">
           {s.st}
         </Badge>
       ),

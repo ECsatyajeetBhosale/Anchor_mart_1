@@ -223,7 +223,7 @@ export function AdminUserDetailDrawer({ user, isOpen, onClose }: AdminUserDetail
               </div>
               <div className="flex-1">
                 <div className="text-[15px] font-bold text-[var(--t1)]">{record?.name}</div>
-                <div className="text-[11px] text-[var(--t4)]">{record?.email}</div>
+                <div className="text-[12px] text-[var(--t4)]">{record?.email}</div>
               </div>
               <Badge variant={isActive ? "success" : "neutral"}>
                 {isActive ? M.STATUS.ACTIVE : M.STATUS.INACTIVE}

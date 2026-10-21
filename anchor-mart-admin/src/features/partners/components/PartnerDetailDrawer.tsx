@@ -216,7 +216,7 @@ export function PartnerDetailDrawer({ partner, isOpen, onClose }: PartnerDetailD
               </div>
               <div className="flex-1">
                 <div className="text-[15px] font-bold text-[var(--t1)]">{displayName}</div>
-                <div className="text-[11px] text-[var(--t4)]">{M.DETAIL.ROLE}</div>
+                <div className="text-[12px] text-[var(--t4)]">{M.DETAIL.ROLE}</div>
               </div>
               <Badge variant={statusVariant(status)}>{status}</Badge>
             </div>

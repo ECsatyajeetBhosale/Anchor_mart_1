@@ -311,7 +311,7 @@ export function DashboardPage() {
           two without a destination stay unclickable, exactly as the tiles they
           replace did. */}
       <div className="flex items-baseline gap-[9px] mt-[22px] mb-[10px]">
-        <span className="text-[10.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--t3)]">
+        <span className="text-[12px] font-extrabold uppercase tracking-[0.1em] text-[var(--t3)]">
           {M.OCC.ATTENTION}
         </span>
       </div>
@@ -352,10 +352,10 @@ export function DashboardPage() {
           screen the toggle moves — which the note now says next to the
           resolved window instead of above a filter bar. */}
       <div className="flex items-baseline gap-[9px] mt-[22px] mb-[10px]">
-        <span className="text-[10.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--t3)]">
+        <span className="text-[12px] font-extrabold uppercase tracking-[0.1em] text-[var(--t3)]">
           {M.OCC.PULSE}
         </span>
-        <span className="text-[11.5px] text-[var(--t4)]">
+        <span className="text-[12px] text-[var(--t4)]">
           {period?.label ? M.OCC.PULSE_NOTE(period.label) : M.OCC.PULSE_NOTE_PLAIN}
         </span>
       </div>
@@ -396,7 +396,7 @@ export function DashboardPage() {
           away. This is what "what is happening" and "what is queued" actually
           look like with real records behind them, rather than two more counts. */}
       <div className="flex items-baseline gap-[9px] mt-[22px] mb-[10px]">
-        <span className="text-[10.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--t3)]">
+        <span className="text-[12px] font-extrabold uppercase tracking-[0.1em] text-[var(--t3)]">
           {M.OCC.ACTIVITY}
         </span>
       </div>

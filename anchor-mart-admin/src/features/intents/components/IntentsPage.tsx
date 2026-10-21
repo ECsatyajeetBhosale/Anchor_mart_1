@@ -656,6 +656,46 @@ export function IntentsPage() {
       name: (i) => i.s,
       image: (i) => getFallbackAvatar(i.s),
     }),
+    // Status leads, straight after the sailor: at 1158–1440px it sat past the
+    // fold behind six other columns (BUG-012).
+    badgeColumn({
+      id: "status",
+      header: M.COLUMNS.STATUS,
+      get: (i) => i.st,
+      variant: (i) => i.sc,
+      // `situation` is a valid `?status=` verbatim, so the badge filters to its
+      // own bucket with no lookup table. Falls back to the raw status for a row
+      // that carries no situation.
+      onBadgeClick: (i) => {
+        const value = i.situation || i.status;
+        setParam("status", statusFilter === value ? "" : value);
+      },
+      // Why a rejected or cancelled intent ended here. Both reason columns come
+      // down on the list itself, so a terminated row explains itself in place.
+      note: (i) => (
+        <>
+          {/* The sailor has moved, or been billed for moving. Above the partner
+              badge because it is the newer event: a move can invalidate the
+              verification the partner line is waiting on. */}
+          <LocationChangeBadge change={i.locationChange} className="mt-1 h-[22px] text-[12px]" />
+          {/* What the intent is short of — the backend's own flag, so the row
+              does not have to be opened to see that it is waiting on a
+              verification partner. */}
+          <PartnerRequirementBadge
+            needsVerifierPartner={i.needsVerifierPartner}
+            needsDeliveryPartner={i.needsDeliveryPartner}
+          />
+          <RowReason text={i.reason} at={i.reasonAt} className="mt-1" />
+        </>
+      ),
+      filter: {
+        // The URL uses "" for unfiltered; the local sentinel is "all".
+        value: statusFilter === "all" ? "" : statusFilter,
+        options: STATUS_OPTIONS.filter((o) => o.value !== "all"),
+        onChange: (val: string) => setParam("status", val),
+        allLabel: M.ALL_STATUS,
+      },
+    }),
     {
       id: "items",
       header: M.COLUMNS.ITEMS,
@@ -716,44 +756,6 @@ export function IntentsPage() {
       get: (i) => i.sb,
       className: "td-m",
     }),
-    badgeColumn({
-      id: "status",
-      header: M.COLUMNS.STATUS,
-      get: (i) => i.st,
-      variant: (i) => i.sc,
-      // `situation` is a valid `?status=` verbatim, so the badge filters to its
-      // own bucket with no lookup table. Falls back to the raw status for a row
-      // that carries no situation.
-      onBadgeClick: (i) => {
-        const value = i.situation || i.status;
-        setParam("status", statusFilter === value ? "" : value);
-      },
-      // Why a rejected or cancelled intent ended here. Both reason columns come
-      // down on the list itself, so a terminated row explains itself in place.
-      note: (i) => (
-        <>
-          {/* The sailor has moved, or been billed for moving. Above the partner
-              badge because it is the newer event: a move can invalidate the
-              verification the partner line is waiting on. */}
-          <LocationChangeBadge change={i.locationChange} className="mt-1 h-[22px] text-[10px]" />
-          {/* What the intent is short of — the backend's own flag, so the row
-              does not have to be opened to see that it is waiting on a
-              verification partner. */}
-          <PartnerRequirementBadge
-            needsVerifierPartner={i.needsVerifierPartner}
-            needsDeliveryPartner={i.needsDeliveryPartner}
-          />
-          <RowReason text={i.reason} at={i.reasonAt} className="mt-1" />
-        </>
-      ),
-      filter: {
-        // The URL uses "" for unfiltered; the local sentinel is "all".
-        value: statusFilter === "all" ? "" : statusFilter,
-        options: STATUS_OPTIONS.filter((o) => o.value !== "all"),
-        onChange: (val: string) => setParam("status", val),
-        allLabel: M.ALL_STATUS,
-      },
-    }),
     {
       id: "owner",
       header: M.COLUMNS.OWNER,
@@ -787,7 +789,7 @@ export function IntentsPage() {
               // Same xs box (26px tall) — the label just stacks inside it: smaller
               // font and tight leading so two lines clear the height, leaving the
               // breathing room above and below instead of between the words.
-              className="max-w-[4.25rem] whitespace-normal px-2 text-[9px] leading-[1.05]"
+              className="max-w-[4.25rem] whitespace-normal px-2 text-[12px] leading-[1.05]"
               disabled={claimingId === i.id}
               onClick={(e) => {
                 e.stopPropagation();

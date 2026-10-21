@@ -83,7 +83,7 @@ export function ActiveCouponsCard({
                 <div className="text-[12px] font-semibold text-[var(--t2)]">
                   {cp.d} · {cp.m}
                 </div>
-                <div className="text-[11px] text-[var(--t4)] mt-0.5">
+                <div className="text-[12px] text-[var(--t4)] mt-0.5">
                   {M.COUPONS.USES(cp.u)} ·{" "}
                   {cp.raw && cp.raw.valid_to == null
                     ? M.COUPONS.NO_EXPIRY

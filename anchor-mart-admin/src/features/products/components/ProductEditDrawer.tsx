@@ -689,7 +689,7 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                               <td>
                                 <Badge
                                   variant={variant.is_express ? "amber" : "neutral"}
-                                  className="h-[20px] px-1.5 text-[9px]"
+                                  className="h-[20px] px-1.5 text-[12px]"
                                 >
                                   {variant.is_express ? VT.YES : VT.NO}
                                 </Badge>
@@ -700,7 +700,7 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
                                   unbuyable while the product master is off. */}
                                 <Badge
                                   variant={state.orderable ? "success" : "warning"}
-                                  className="h-[20px] px-1.5 text-[9px]"
+                                  className="h-[20px] px-1.5 text-[12px]"
                                   title={state.reason}
                                 >
                                   {state.orderable ? VT.ORDERABLE_YES : VT.ORDERABLE_NO}

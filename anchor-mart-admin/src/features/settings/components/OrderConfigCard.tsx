@@ -333,7 +333,7 @@ export function OrderConfigCard() {
                 disabled={disabled}
                 {...register("departure_safety_buffer_hours")}
               />
-              <p className="mt-1 font-semibold text-[11.5px] text-[var(--warning-text)]">
+              <p className="mt-1 font-semibold text-[12px] text-[var(--warning-text)]">
                 {F.DEPARTURE_BUFFER.WARNING}
               </p>
               {Number.isFinite(departureBufferHours) && (

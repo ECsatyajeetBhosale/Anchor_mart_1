@@ -196,6 +196,35 @@ export function sgtDateKey(value: string | null | undefined): string {
   return instant ? SGT_DATE_KEY.format(instant) : "";
 }
 
+const SGT_TIME = new Intl.DateTimeFormat("en-US", {
+  timeZone: SGT_ZONE,
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+const SGT_MONTH_DAY = new Intl.DateTimeFormat("en-US", {
+  timeZone: SGT_ZONE,
+  month: "short",
+  day: "numeric",
+});
+
+/**
+ * Just the Singapore wall-clock time, zone named: `"3:54 PM SGT"` — for a line
+ * whose day is already shown elsewhere (a chat bubble under its day divider).
+ * Chat used the browser's zone with no label while every other admin time read
+ * SGT (BUG-044). `""` when unreadable.
+ */
+export function sgtTimeText(value: string | null | undefined): string {
+  const instant = toInstant(value);
+  return instant ? `${SGT_TIME.format(instant)} SGT` : "";
+}
+
+/** The Singapore day without a year, `"Oct 12"` — for narrow columns. `""` when unreadable. */
+export function sgtMonthDay(value: string | null | undefined): string {
+  const instant = toInstant(value);
+  return instant ? SGT_MONTH_DAY.format(instant) : "";
+}
+
 const SHORT_MONTH = Object.values(MONTH_ABBREVIATION);
 
 /**

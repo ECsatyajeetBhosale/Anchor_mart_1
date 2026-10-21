@@ -79,7 +79,7 @@ function ColourLegend() {
               <span className={cn("mt-1 h-2 w-6 shrink-0 rounded-full", row.swatch)} />
               <div className="min-w-0">
                 <div className="text-[12px] font-bold text-[var(--t1)]">{row.label}</div>
-                <div className="text-[11.5px] font-medium leading-[1.4] text-[var(--t4)]">
+                <div className="text-[12px] font-medium leading-[1.4] text-[var(--t4)]">
                   {row.hint}
                 </div>
               </div>
@@ -228,7 +228,7 @@ export function LifecycleRail({ status, steps, reason, reasonAt, className }: Li
                 whether its label wraps or not, so the bars stay aligned. */}
             <div
               className={cn(
-                "mt-1.5 line-clamp-2 min-h-[24px] text-[10px] font-extrabold uppercase leading-[1.2] tracking-[0.4px] [overflow-wrap:anywhere]",
+                "mt-1.5 line-clamp-2 min-h-[24px] text-[12px] font-extrabold uppercase leading-[1.2] tracking-[0.4px] [overflow-wrap:anywhere]",
                 LABEL[seg.state],
               )}
               title={seg.label}
@@ -240,7 +240,7 @@ export function LifecycleRail({ status, steps, reason, reasonAt, className }: Li
       </div>
       <div className="mt-1 flex items-center gap-1.5">
         {currentStage > 0 && (
-          <span className="text-[10.5px] font-bold text-[var(--t4)]">
+          <span className="text-[12px] font-bold text-[var(--t4)]">
             {R.STAGE_OF(currentStage, segments.length)}
           </span>
         )}

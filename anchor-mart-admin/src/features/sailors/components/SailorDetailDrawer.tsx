@@ -43,7 +43,7 @@ function MetricTile({ label, value }: { label: string; value: string | number })
   return (
     <div className="rounded-[var(--radius-md)] border border-[var(--border-sm)] bg-[var(--surface-alt)] p-3 text-center">
       <div className="text-[20px] font-extrabold text-[var(--t1)] tabular-nums">{value}</div>
-      <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--t4)]">
+      <div className="mt-0.5 text-[12px] font-bold uppercase tracking-wide text-[var(--t4)]">
         {label}
       </div>
     </div>

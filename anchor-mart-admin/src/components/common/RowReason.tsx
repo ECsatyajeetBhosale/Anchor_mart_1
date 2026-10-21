@@ -32,7 +32,7 @@ export function RowReason({
     <div
       title={full}
       className={cn(
-        "line-clamp-2 max-w-[190px] text-[11px] font-medium leading-[1.35] text-[var(--t4)]",
+        "line-clamp-2 max-w-[190px] text-[12px] font-medium leading-[1.35] text-[var(--t4)]",
         className,
       )}
     >

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { isMediaUploadEnabled } from "@/lib/appEnv";
+import { dayText, sgtDateKey, sgtTimeText } from "@/lib/dates";
 import { mediaSrc } from "@/lib/mediaUrl";
 import { MESSAGES } from "@/lib/messages";
 import { orderStatusText } from "@/lib/orderStatuses";
@@ -48,31 +49,30 @@ const M = MESSAGES.CHAT;
 /** How often the window is re-checked, so Edit disappears while the pane is open. */
 const EDIT_WINDOW_TICK_MS = 30_000;
 
-/** Formats one message's timestamp for the line inside its bubble. */
+/**
+ * One message's time for the line inside its bubble — Singapore time, labelled,
+ * like every other time in the panel (BUG-044). It was the browser's local
+ * clock with no zone. An unreadable value is shown as sent.
+ */
 function formatTime(iso: string): string {
   if (!iso) return "";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  return sgtTimeText(iso) || iso;
 }
 
-/** Local calendar day of a timestamp — the key messages are grouped under. */
-function dayKey(date: Date): string {
-  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-}
+const MS_PER_DAY = 86_400_000;
 
 /**
  * The separator's caption. The two most recent days are named rather than
  * dated: "Today" is read at a glance, where its date has to be worked out.
+ * Days are Singapore days, so a divider never disagrees with the times under it.
  */
-function formatDayLabel(date: Date): string {
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-
-  if (dayKey(date) === dayKey(today)) return M.MESSAGES.DAY_TODAY;
-  if (dayKey(date) === dayKey(yesterday)) return M.MESSAGES.DAY_YESTERDAY;
-  return date.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+function formatDayLabel(key: string, iso: string): string {
+  const now = Date.now();
+  if (key === sgtDateKey(new Date(now).toISOString())) return M.MESSAGES.DAY_TODAY;
+  if (key === sgtDateKey(new Date(now - MS_PER_DAY).toISOString())) {
+    return M.MESSAGES.DAY_YESTERDAY;
+  }
+  return dayText(iso);
 }
 
 interface DayGroup {
@@ -92,16 +92,15 @@ function groupByDay(messages: ChatMessage[]): DayGroup[] {
   const groups: DayGroup[] = [];
 
   for (const message of messages) {
-    const date = new Date(message.createdAt);
-    if (Number.isNaN(date.getTime())) {
+    const key = sgtDateKey(message.createdAt);
+    if (!key) {
       if (groups.length > 0) groups[groups.length - 1].items.push(message);
       continue;
     }
 
-    const key = dayKey(date);
     const current = groups[groups.length - 1];
     if (current?.key === key) current.items.push(message);
-    else groups.push({ key, label: formatDayLabel(date), items: [message] });
+    else groups.push({ key, label: formatDayLabel(key, message.createdAt), items: [message] });
   }
 
   return groups;
@@ -362,7 +361,7 @@ export function ChatMessagePane({
           dayGroups.map((group) => (
             <div key={group.key} className="flex flex-col gap-3">
               <div className="flex justify-center">
-                <span className="rounded-full border border-[var(--border-xs)] bg-[var(--surface-alt)] px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.6px] text-[var(--t4)]">
+                <span className="rounded-full border border-[var(--border-xs)] bg-[var(--surface-alt)] px-3 py-1 text-[12px] font-extrabold uppercase tracking-[0.6px] text-[var(--t4)]">
                   {group.label}
                 </span>
               </div>
@@ -440,7 +439,7 @@ export function ChatMessagePane({
                           not read — no endpoint reports per-message read state,
                           so a second "seen" tick would be inventing one. */}
                       <span
-                        className={`mt-1 flex w-full items-center gap-1 text-[10.5px] font-semibold text-[var(--t4)] ${
+                        className={`mt-1 flex w-full items-center gap-1 text-[12px] font-semibold text-[var(--t4)] ${
                           sent ? "justify-end" : "justify-start"
                         }`}
                       >

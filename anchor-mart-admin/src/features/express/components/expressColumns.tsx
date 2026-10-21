@@ -104,6 +104,44 @@ export function useExpressColumns({
         </div>
       ),
     },
+    // Amount and Status lead, straight after the customer: at 1158px they sat
+    // past the fold (BUG-012).
+    {
+      id: "amount",
+      header: M.COLUMNS.AMOUNT,
+      cell: (row) => {
+        // What a refund would be for. `"0.00"` on every order whose delivery
+        // has not concluded, so the check is numeric — the string is truthy and
+        // would otherwise print on every healthy row.
+        const owed = Number(row.undelivered_value);
+        return (
+          <div>
+            <div className="td-p">{formatMoney(row.total_amount)}</div>
+            {Number.isFinite(owed) && owed > 0 && (
+              <div className="td-m font-bold text-[var(--danger-text)] tabular-nums">
+                {MESSAGES.ORDERS.UNDELIVERED_VALUE(`$${owed.toFixed(2)}`)}
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      id: "status",
+      header: M.COLUMNS.STATUS,
+      cell: (row) => (
+        <StatusBadge
+          status={orderStatusLabel(row, row.status_display || row.status)}
+          className="text-[12px] h-[24px]"
+        />
+      ),
+      // Server-side status filter via the clickable header (?status=<value>).
+      filter: {
+        value: statusFilter,
+        options: STATUS_FILTER_OPTIONS,
+        onChange: onStatusFilter,
+      },
+    },
     {
       id: "location",
       header: M.COLUMNS.LOCATION,
@@ -134,47 +172,27 @@ export function useExpressColumns({
       headerClassName: "text-center",
     },
     {
-      id: "amount",
-      header: M.COLUMNS.AMOUNT,
-      cell: (row) => {
-        // What a refund would be for. `"0.00"` on every order whose delivery
-        // has not concluded, so the check is numeric — the string is truthy and
-        // would otherwise print on every healthy row.
-        const owed = Number(row.undelivered_value);
-        return (
-          <div>
-            <div className="td-p">{formatMoney(row.total_amount)}</div>
-            {Number.isFinite(owed) && owed > 0 && (
-              <div className="td-m font-bold text-[var(--danger-text)] tabular-nums">
-                {MESSAGES.ORDERS.UNDELIVERED_VALUE(`$${owed.toFixed(2)}`)}
-              </div>
-            )}
-          </div>
-        );
-      },
-    },
-    {
       id: "flags",
       header: M.COLUMNS.FLAGS,
       cell: (row) => (
         <div className="flex flex-wrap items-center gap-1">
           {row.is_express && (
-            <Badge variant="teal" className="text-[10px] h-[22px]">
+            <Badge variant="teal" className="text-[12px] h-[22px]">
               {M.FLAGS.EXPRESS}
             </Badge>
           )}
           {row.is_emergency && (
-            <Badge variant="danger" className="text-[10px] h-[22px]">
+            <Badge variant="danger" className="text-[12px] h-[22px]">
               {M.FLAGS.EMERGENCY}
             </Badge>
           )}
           {row.is_fastest_delivery && (
-            <Badge variant="amber" className="text-[10px] h-[22px]">
+            <Badge variant="amber" className="text-[12px] h-[22px]">
               {M.FLAGS.FASTEST}
             </Badge>
           )}
           {row.has_location_request && (
-            <Badge variant="warning" className="text-[10px] h-[22px]">
+            <Badge variant="warning" className="text-[12px] h-[22px]">
               {M.FLAGS.LOCATION_REQ}
             </Badge>
           )}
@@ -185,7 +203,7 @@ export function useExpressColumns({
           {row.delivery_on_hold && (
             <Badge
               variant="danger"
-              className="text-[10px] h-[22px]"
+              className="text-[12px] h-[22px]"
               title={MESSAGES.ORDERS.HOLD_HINT}
             >
               {MESSAGES.ORDERS.DELIVERY_ON_HOLD}
@@ -203,7 +221,7 @@ export function useExpressColumns({
             {row.partner_name}
           </span>
         ) : (
-          <Badge variant="neutral" className="text-[10px] h-[22px]">
+          <Badge variant="neutral" className="text-[12px] h-[22px]">
             {M.UNALLOCATED}
           </Badge>
         ),
@@ -214,22 +232,6 @@ export function useExpressColumns({
       // Shortened, as on the other two screens — the arrival column answers
       // "which day", and the time is in the drawer.
       cell: (row) => <span className="td-m">{shortDate(row.ship_arrival_date)}</span>,
-    },
-    {
-      id: "status",
-      header: M.COLUMNS.STATUS,
-      cell: (row) => (
-        <StatusBadge
-          status={orderStatusLabel(row, row.status_display || row.status)}
-          className="text-[10px] h-[24px]"
-        />
-      ),
-      // Server-side status filter via the clickable header (?status=<value>).
-      filter: {
-        value: statusFilter,
-        options: STATUS_FILTER_OPTIONS,
-        onChange: onStatusFilter,
-      },
     },
   ];
 }

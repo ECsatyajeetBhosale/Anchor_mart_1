@@ -29,11 +29,11 @@ export function RecipientReachCard({ type, highlightRole }: RecipientReachCardPr
   return (
     <SectionCard icon={<IconUsersGroup size={18} />} title={M.REACH.TITLE} footer={M.REACH.CAVEAT}>
       <div className="mb-4 flex flex-wrap gap-2">
-        <Badge variant={traits.pushes ? "teal" : "neutral"} className="text-[10px] h-[24px]">
+        <Badge variant={traits.pushes ? "teal" : "neutral"} className="text-[12px] h-[24px]">
           <IconBellRinging size={12} />
           {traits.pushes ? M.TRAITS.PUSH_ON : M.TRAITS.PUSH_OFF}
         </Badge>
-        <Badge variant={traits.promotional ? "amber" : "info"} className="text-[10px] h-[24px]">
+        <Badge variant={traits.promotional ? "amber" : "info"} className="text-[12px] h-[24px]">
           {traits.promotional ? M.TRAITS.PROMOTIONAL : M.TRAITS.TRANSACTIONAL}
         </Badge>
       </div>

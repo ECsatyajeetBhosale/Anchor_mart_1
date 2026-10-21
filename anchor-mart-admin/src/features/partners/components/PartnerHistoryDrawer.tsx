@@ -83,11 +83,11 @@ function formatRate(rate: number | null): string {
 function SummaryTile({ label, value, footer }: { label: string; value: string; footer?: string }) {
   return (
     <div className="rounded-[var(--radius-md)] border border-[var(--border-sm)] bg-[var(--surface)] px-3 py-2.5">
-      <div className="text-[10.5px] font-extrabold uppercase tracking-[0.3px] text-[var(--t4)]">
+      <div className="text-[12px] font-extrabold uppercase tracking-[0.3px] text-[var(--t4)]">
         {label}
       </div>
       <div className="mt-1 text-[17px] font-extrabold text-[var(--t1)]">{value}</div>
-      {footer && <div className="mt-0.5 text-[10.5px] text-[var(--t4)]">{footer}</div>}
+      {footer && <div className="mt-0.5 text-[12px] text-[var(--t4)]">{footer}</div>}
     </div>
   );
 }
@@ -267,8 +267,8 @@ export function PartnerHistoryDrawer({
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-[15px] font-bold text-[var(--t1)]">{displayName}</div>
-              <div className="text-[11.5px] text-[var(--t3)] truncate">{email}</div>
-              <div className="text-[11px] text-[var(--t4)]">
+              <div className="text-[12px] text-[var(--t3)] truncate">{email}</div>
+              <div className="text-[12px] text-[var(--t4)]">
                 {partnerId ? `${partnerId} · ` : ""}
                 {port}
               </div>
@@ -300,7 +300,7 @@ export function PartnerHistoryDrawer({
             <>
               <div className="sec-label">{H.SECTION_SUMMARY}</div>
               <SummarySection summary={summary} />
-              <p className="mt-2 text-[11px] text-[var(--t4)]">{H.SUMMARY_NOTE}</p>
+              <p className="mt-2 text-[12px] text-[var(--t4)]">{H.SUMMARY_NOTE}</p>
             </>
           )}
 

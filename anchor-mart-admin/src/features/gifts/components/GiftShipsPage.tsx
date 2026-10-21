@@ -203,14 +203,14 @@ export function GiftShipsPage() {
               {s.has_gift_history && (
                 <Badge
                   variant="neutral"
-                  className="h-[18px] px-1.5 text-[9px]"
+                  className="h-[20px] px-1.5 text-[12px]"
                   title={M.BADGE_HISTORY_TITLE}
                 >
                   {M.BADGE_HISTORY}
                 </Badge>
               )}
               {s.is_dismissed && (
-                <Badge variant="warning" className="h-[18px] px-1.5 text-[9px]">
+                <Badge variant="warning" className="h-[20px] px-1.5 text-[12px]">
                   {M.BADGE_DISMISSED}
                 </Badge>
               )}

@@ -11,7 +11,7 @@ import { idColumn, statusColumn, textColumn } from "@/components/common/tableCol
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { getApiMessage } from "@/lib/apiError";
-import { dayText, toInstant } from "@/lib/dates";
+import { dayText } from "@/lib/dates";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
 import {
@@ -25,6 +25,7 @@ import {
   useGetLoyaltyOverviewQuery,
   useUpdateLoyaltyConfigMutation,
 } from "../api/loyaltyApi";
+import { isExpiredCoupon, isLiveCoupon } from "../lib/couponStatus";
 import type { CouponFormData } from "../schemas/coupon.schema";
 import type { LoyaltyConfigFormData } from "../schemas/loyaltyConfig.schema";
 import type {
@@ -62,17 +63,6 @@ const APPLIES_TO_LABEL: Record<string, string> = {
   delivery: M.FORM.APPLIES_OPTIONS.DELIVERY,
   items: M.FORM.APPLIES_OPTIONS.ITEMS,
 };
-
-/**
- * Live right now: switched on, and not past its expiry (BUG-043). The panel
- * reads its own `is_active=true` query, but an expired coupon keeps
- * `is_active: true`, so the date is checked too.
- */
-function isLiveCoupon(api: ApiCoupon, now = new Date()): boolean {
-  if (!api.is_active) return false;
-  const ends = toInstant(api.valid_to);
-  return !ends || ends.getTime() >= now.getTime();
-}
 
 /** Map an API coupon record onto the flat shape the coupon card renders. */
 function toCoupon(api: ApiCoupon): Coupon {
@@ -318,7 +308,10 @@ export function RewardsPage() {
     statusColumn({
       id: "status",
       header: M.TABLE.COLUMNS.STATUS,
-      get: (r) => r.raw?.is_active ?? true,
+      // Past its end date reads Expired, as on the Coupon Report — the flag
+      // alone said Active for a coupon that can no longer be used (BUG-060).
+      get: (r) =>
+        r.raw && isExpiredCoupon(r.raw) ? M.COUPONS.EXPIRED : (r.raw?.is_active ?? true),
     }),
   ];
 
@@ -356,7 +349,7 @@ export function RewardsPage() {
             </div>
           </div>
 
-          <div className="text-[11px] font-extrabold uppercase tracking-[0.8px] text-[var(--t4)] mb-2">
+          <div className="text-[12px] font-extrabold uppercase tracking-[0.8px] text-[var(--t4)] mb-2">
             {M.LOYALTY.RULES}
           </div>
           <div className="infobox">

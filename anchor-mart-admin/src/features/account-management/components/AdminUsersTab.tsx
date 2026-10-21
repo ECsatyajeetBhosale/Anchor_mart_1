@@ -122,13 +122,21 @@ export function AdminUsersTab() {
   }
 
   const columns: Column<AdminUser>[] = [
+    // The email rides under the name and Status follows it: a separate Email
+    // column pushed Status and Actions past the fold at 1158px (BUG-012).
     avatarColumn({
       id: "user",
       header: M.COLUMNS.USER,
       name: (r) => r.name,
+      secondary: (r) => r.email,
       image: (r) => getFallbackAvatar(r.name),
     }),
-    textColumn({ id: "email", header: M.COLUMNS.EMAIL, get: (r) => r.email, className: "td-m" }),
+    badgeColumn({
+      id: "status",
+      header: M.COLUMNS.STATUS,
+      get: (r) => r.statusLabel,
+      variant: (r) => r.statusVariant,
+    }),
     badgeColumn({
       id: "tier",
       header: M.COLUMNS.TIER,
@@ -144,12 +152,6 @@ export function AdminUsersTab() {
       className: "td-m",
     }),
     textColumn({ id: "joined", header: M.COLUMNS.JOINED, get: (r) => r.joined, className: "td-m" }),
-    badgeColumn({
-      id: "status",
-      header: M.COLUMNS.STATUS,
-      get: (r) => r.statusLabel,
-      variant: (r) => r.statusVariant,
-    }),
     {
       id: "actions",
       header: M.COLUMNS.ACTIONS,

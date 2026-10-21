@@ -144,7 +144,7 @@ export function ActionRequiredCard({
                 <div className="text-[12px] font-bold leading-[1.3] text-[var(--t1)]">
                   {a.label}
                 </div>
-                <div className="mt-0.5 text-[10.5px] text-[var(--t4)]">
+                <div className="mt-0.5 text-[12px] text-[var(--t4)]">
                   {M.ACTION_PENDING(a.count)}
                 </div>
               </div>

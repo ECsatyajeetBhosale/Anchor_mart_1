@@ -157,7 +157,7 @@ export function GiftShipDetailDrawer({ imo, isOpen, onClose }: GiftShipDetailDra
         <div className="td-id trunc">{order.order_number}</div>
         <div className="mt-0.5 flex flex-wrap gap-1">
           {order.is_gift_carrier && (
-            <Badge variant="teal" className="h-[17px] px-1.5 text-[9px]">
+            <Badge variant="teal" className="h-[20px] px-1.5 text-[12px]">
               {D.GIFT_CARRIER}
             </Badge>
           )}
@@ -166,7 +166,7 @@ export function GiftShipDetailDrawer({ imo, isOpen, onClose }: GiftShipDetailDra
           {!sailor.gift && order.id === autoPickId && sailor.orders.length > 1 && (
             <Badge
               variant="neutral"
-              className="h-[17px] px-1.5 text-[9px]"
+              className="h-[20px] px-1.5 text-[12px]"
               title={D.AUTO_PICK_TITLE}
             >
               {D.AUTO_PICK}
@@ -214,7 +214,7 @@ export function GiftShipDetailDrawer({ imo, isOpen, onClose }: GiftShipDetailDra
             {/* Earlier closed groups. A judgment aid for repeat crews — it
                 blocks nothing, so it is shown but never gates a button. */}
             {sailor.previously_gifted_count > 0 && (
-              <Badge variant="neutral" className="h-[20px] px-1.5 text-[9px]">
+              <Badge variant="neutral" className="h-[20px] px-1.5 text-[12px]">
                 {D.PREVIOUSLY_GIFTED(sailor.previously_gifted_count)}
               </Badge>
             )}
@@ -225,7 +225,7 @@ export function GiftShipDetailDrawer({ imo, isOpen, onClose }: GiftShipDetailDra
             {gift && (
               <Badge
                 variant={HANDOVER_BADGE[gift.handover_status].variant}
-                className="h-[20px] px-1.5 text-[9px]"
+                className="h-[20px] px-1.5 text-[12px]"
               >
                 {HANDOVER_BADGE[gift.handover_status].label}
               </Badge>
@@ -243,7 +243,7 @@ export function GiftShipDetailDrawer({ imo, isOpen, onClose }: GiftShipDetailDra
                 ? D.GIFT_ON_ORDER(gift.carrier_order_number)
                 : D.GIFT_UNKNOWN_CARRIER}
             </span>
-            <span className="text-[11.5px] font-medium text-[var(--teal-700)] opacity-80">
+            <span className="text-[12px] font-medium text-[var(--teal-700)] opacity-80">
               {gift.granted_by_name && gift.granted_at
                 ? D.GIFT_BY(gift.granted_by_name, gift.granted_at)
                 : gift.source === "bulk"
@@ -254,12 +254,12 @@ export function GiftShipDetailDrawer({ imo, isOpen, onClose }: GiftShipDetailDra
                 rather than behind the badge: "collected, never handed over" is
                 only visible when both halves are on the same line. */}
             {gift.collected_at && gift.collected_by_name && (
-              <span className="text-[11.5px] font-medium text-[var(--teal-700)] opacity-80">
+              <span className="text-[12px] font-medium text-[var(--teal-700)] opacity-80">
                 {D.GIFT_COLLECTED_BY(gift.collected_by_name, shortDate(gift.collected_at))}
               </span>
             )}
             {gift.delivered_by_name && (
-              <span className="text-[11.5px] font-medium text-[var(--teal-700)] opacity-80">
+              <span className="text-[12px] font-medium text-[var(--teal-700)] opacity-80">
                 {D.GIFT_DELIVERED_BY(gift.delivered_by_name)}
               </span>
             )}

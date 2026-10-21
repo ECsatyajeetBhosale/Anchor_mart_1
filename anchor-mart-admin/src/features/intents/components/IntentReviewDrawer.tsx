@@ -733,7 +733,7 @@ export function IntentReviewDrawer({
                         about arithmetic that holds would just be noise.
                       */}
                       {billedDiffersFromRequested && (
-                        <div className="mt-2 text-[11.5px] font-medium leading-[1.45] text-[var(--t4)]">
+                        <div className="mt-2 text-[12px] font-medium leading-[1.45] text-[var(--t4)]">
                           {R.REQUESTED_VS_BILLED}
                         </div>
                       )}
@@ -755,7 +755,7 @@ export function IntentReviewDrawer({
                               {detail.estimatedSubtotal ? money(detail.estimatedSubtotal) : "—"}
                             </span>
                           </div>
-                          <div className="mt-1.5 text-[11.5px] font-medium leading-[1.45] text-[var(--info-text)] opacity-80">
+                          <div className="mt-1.5 text-[12px] font-medium leading-[1.45] text-[var(--info-text)] opacity-80">
                             {R.ESTIMATED_HINT}
                           </div>
                         </div>

@@ -135,7 +135,7 @@ export function SearchableSelect({
                 type="button"
                 onClick={() => onFilterChange?.(f.value)}
                 className={cn(
-                  "rounded-full border px-2.5 py-1 text-[11.5px] font-bold transition-colors",
+                  "rounded-full border px-2.5 py-1 text-[12px] font-bold transition-colors",
                   f.value === activeFilter
                     ? "border-[var(--teal-500)] bg-[var(--teal-50)] text-[var(--teal-700)]"
                     : "border-[var(--border-md)] text-[var(--t3)] hover:bg-[var(--surface-alt)]",
@@ -175,7 +175,7 @@ export function SearchableSelect({
               <span className="trunc">{opt.label}</span>
               <span className="ml-auto flex shrink-0 items-center gap-1.5">
                 {opt.meta && (
-                  <span className="rounded-full bg-[var(--surface-alt)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.4px] text-[var(--t4)]">
+                  <span className="rounded-full bg-[var(--surface-alt)] px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-[0.4px] text-[var(--t4)]">
                     {opt.meta}
                   </span>
                 )}

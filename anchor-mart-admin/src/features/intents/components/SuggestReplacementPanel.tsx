@@ -249,7 +249,7 @@ export function SuggestReplacementPanel({
             <div className="flex items-center gap-[12px]">
               <div className="flex-1">
                 <div className="text-[12.5px] font-bold text-[var(--t1)]!">{line.name}</div>
-                <div className="text-[11px] text-[var(--t4)]!">
+                <div className="text-[12px] text-[var(--t4)]!">
                   {S.REQUESTED(line.requestedQty)}
                   {line.availableQty !== null ? ` · ${S.AVAILABLE_QTY(line.availableQty)}` : ""}
                   {line.note ? ` · ${line.note}` : ""}
@@ -290,7 +290,7 @@ export function SuggestReplacementPanel({
 
                 {mode === "existing" ? (
                   !effectivePortId ? (
-                    <div className="fg-error text-[var(--danger-text)] text-[11px] font-semibold">
+                    <div className="fg-error text-[var(--danger-text)] text-[12px] font-semibold">
                       {S.NO_PORT}
                     </div>
                   ) : (
@@ -462,7 +462,7 @@ export function SuggestReplacementPanel({
                     ? `${originalNameFor(s.orderItemId)} → ${s.suggestedName}`
                     : s.suggestedName}
                 </div>
-                <div className="text-[11px] text-[var(--t4)]!">
+                <div className="text-[12px] text-[var(--t4)]!">
                   {s.suggestedSku ? `${s.suggestedSku} · ` : ""}
                   {S.QTY} {s.quantity}
                   {s.unitPrice ? ` · $${s.unitPrice}` : ""}

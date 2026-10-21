@@ -163,7 +163,7 @@ export function AccountDeletionDetailDrawer({
               </div>
               <div className="flex-1">
                 <div className="text-[15px] font-bold text-[var(--t1)]">{request.name}</div>
-                <div className="text-[11px] text-[var(--t4)]">{request.email}</div>
+                <div className="text-[12px] text-[var(--t4)]">{request.email}</div>
               </div>
               <Badge variant={request.statusVariant}>{request.statusLabel}</Badge>
             </div>
@@ -270,7 +270,7 @@ export function AccountDeletionDetailDrawer({
           <SheetFooter className="p-6 border-t border-[var(--border-md)] bg-[var(--surface)]">
             <div className="flex w-full items-center justify-end gap-3">
               {blockedByOpenOrders && isApproved && (
-                <span className="mr-auto text-[11.5px] font-semibold text-[var(--danger-text)]">
+                <span className="mr-auto text-[12px] font-semibold text-[var(--danger-text)]">
                   {M.DETAIL.BLOCKED_BY_ORDERS(openOrders)}
                 </span>
               )}

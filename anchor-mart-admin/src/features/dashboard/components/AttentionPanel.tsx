@@ -151,11 +151,11 @@ export function AttentionPanel({
         </div>
       </div>
       <div className="mt-[5px] text-[12.5px] font-bold text-[var(--t1)]">{label}</div>
-      <div className="mt-[2px] text-[11px] leading-[1.4] text-[var(--t4)]">{description}</div>
+      <div className="mt-[2px] text-[12px] leading-[1.4] text-[var(--t4)]">{description}</div>
       {/* Suppressed on a cleared queue: "oldest 6 days ago" beside a zero
           describes something that is no longer there. */}
       {meta && !isClear && (
-        <div className={cn("mt-[5px] text-[10.5px] font-bold tracking-[0.02em]", theme.meta)}>
+        <div className={cn("mt-[5px] text-[12px] font-bold tracking-[0.02em]", theme.meta)}>
           {meta}
         </div>
       )}

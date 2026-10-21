@@ -64,7 +64,7 @@ export function ActivePartnersCard({
       }
       footer={
         <div className="flex items-center justify-between">
-          <span className="text-[11.5px] font-bold text-[var(--t4)]">{M.WEEKLY_EARNINGS}</span>
+          <span className="text-[12px] font-bold text-[var(--t4)]">{M.WEEKLY_EARNINGS}</span>
           <span className="text-[13px] font-extrabold text-[var(--amber-700)]">
             {WEEKLY_EARNINGS_TOTAL}
           </span>
@@ -97,11 +97,11 @@ export function ActivePartnersCard({
             <div className="av av-sm av-teal">{p.name.charAt(0)}</div>
             <div className="min-w-0 flex-1">
               <div className="text-[12.5px] font-bold text-[var(--t1)]">{p.name}</div>
-              <div className="text-[10.5px] text-[var(--t4)]">
+              <div className="text-[12px] text-[var(--t4)]">
                 {p.partner_code ?? "—"} · {p.current_order?.order_number ?? M.PARTNER_FREE}
               </div>
             </div>
-            <Badge variant={statusVariant(p.work_status)} className="h-[18px] px-2 text-[9.5px]">
+            <Badge variant={statusVariant(p.work_status)} className="h-[20px] px-2 text-[12px]">
               {statusLabel(p.work_status)}
             </Badge>
           </button>

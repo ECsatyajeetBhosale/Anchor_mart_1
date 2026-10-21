@@ -68,7 +68,7 @@ export function CapabilityChangeDialog({
 
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11.5px] font-bold text-[var(--t4)]">{M.REVOKED}</span>
+            <span className="text-[12px] font-bold text-[var(--t4)]">{M.REVOKED}</span>
             {change.revoked.map((field) => (
               <Badge key={field} variant="danger">
                 {revokedLabel(field)}
@@ -113,7 +113,7 @@ export function CapabilityChangeDialog({
           {/* `truncated` caps the rows at 20 while `count` stays exact, so the
               list must admit it is partial or the two numbers look inconsistent. */}
           {change.truncated && (
-            <p className="text-[11.5px] text-[var(--t4)]">{M.TRUNCATED(change.inFlightCount)}</p>
+            <p className="text-[12px] text-[var(--t4)]">{M.TRUNCATED(change.inFlightCount)}</p>
           )}
 
           <p className="text-[12px] font-semibold text-[var(--t3)]">{M.HINT}</p>

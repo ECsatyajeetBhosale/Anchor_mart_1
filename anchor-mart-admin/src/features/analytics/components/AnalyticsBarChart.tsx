@@ -110,7 +110,7 @@ export function AnalyticsBarChart({
           interval="preserveStartEnd"
           minTickGap={minTickGap}
           tickMargin={8}
-          tick={{ fontSize: 9.5, fontWeight: 600 }}
+          tick={{ fontSize: 12, fontWeight: 600 }}
         />
         <ChartTooltip
           cursor={false}

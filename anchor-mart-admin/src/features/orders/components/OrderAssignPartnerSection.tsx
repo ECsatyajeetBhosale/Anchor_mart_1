@@ -343,7 +343,7 @@ export function OrderAssignPartnerSection({
                       {row.partnerCode ? ` · ${row.partnerCode}` : ""}
                     </div>
                     {row.assignedAt && (
-                      <div className="text-[11px] text-[var(--t4)]!">{row.assignedAt}</div>
+                      <div className="text-[12px] text-[var(--t4)]!">{row.assignedAt}</div>
                     )}
                   </div>
                   <Badge variant="neutral">{row.statusDisplay || row.status}</Badge>

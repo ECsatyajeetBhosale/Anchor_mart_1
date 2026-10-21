@@ -9,6 +9,10 @@ describe("routeTitle (BUG-032 / BUG-059)", () => {
     expect(routeTitle(APP_ROUTES.EXPRESS_ORDERS)).not.toBe("");
   });
 
+  it("names the notification inbox, which has no nav entry", () => {
+    expect(routeTitle(APP_ROUTES.NOTIFICATION_INBOX)).toBe("Notification Inbox");
+  });
+
   it("is blank for an unknown path", () => {
     expect(routeTitle("/this-page-does-not-exist")).toBe("");
   });

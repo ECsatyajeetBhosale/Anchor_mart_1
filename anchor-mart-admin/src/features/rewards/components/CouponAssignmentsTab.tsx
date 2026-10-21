@@ -28,6 +28,7 @@ import {
   useDeleteCouponAssignmentMutation,
   useGetCouponAssignmentsQuery,
 } from "../api/promotionApi";
+import { isAssignableCoupon } from "../lib/couponStatus";
 import type { CouponAssignment } from "../types/reward.types";
 
 const LIMIT = 10;
@@ -61,6 +62,10 @@ export function CouponAssignmentsTab() {
    * The coupon picker had the same hole and a tighter one — it asked for no page
    * size at all, so it offered the first **ten** coupons and nothing could
    * assign the eleventh. It now asks for a full page.
+   *
+   * Only coupons an assignment can do something with are offered (BUG-061):
+   * switched on server-side, then expired and public ones dropped here — it
+   * listed both, and picking a public one ended in a refusal.
    */
   const { data: sailorsData, isFetching: sailorsFetching } = useGetSailorsQuery(
     { page: 1, limit: API_MAX_PAGE_SIZE, search: sailorSearch },
@@ -68,10 +73,10 @@ export function CouponAssignmentsTab() {
   );
   const sailors = sailorsData?.sailors ?? [];
   const { data: couponsData } = useGetActiveCouponsQuery(
-    { page: 1, limit: API_MAX_PAGE_SIZE },
+    { page: 1, limit: API_MAX_PAGE_SIZE, isActive: "true" },
     { skip: !formOpen },
   );
-  const coupons = couponsData?.results ?? [];
+  const coupons = (couponsData?.results ?? []).filter((c) => isAssignableCoupon(c));
 
   const [addAssignment, { isLoading: isSaving }] = useAddCouponAssignmentMutation();
   const [deleteAssignment, { isLoading: isRemoving }] = useDeleteCouponAssignmentMutation();
@@ -110,7 +115,11 @@ export function CouponAssignmentsTab() {
         setErrors({ coupon: getApiMessage(err) ?? M.TOAST.ASSIGN_ERROR });
         return;
       }
-      toast.error(getApiMessage(err) ?? M.TOAST.ASSIGN_ERROR);
+      const message = getApiMessage(err);
+      // The backend's reason names the raw `is_public` field.
+      toast.error(
+        message?.includes("is_public") ? M.TOAST.ASSIGN_PUBLIC : (message ?? M.TOAST.ASSIGN_ERROR),
+      );
     }
   };
 
@@ -225,14 +234,16 @@ export function CouponAssignmentsTab() {
                 width="100%"
               />
             </FormField>
-            <FormField label={F.COUPON} error={errors.coupon}>
+            <FormField label={F.COUPON} hint={F.COUPON_HINT} error={errors.coupon}>
               <DropdownSelect
                 value={couponId}
                 onValueChange={(value) => {
                   setCouponId(value);
                   setErrors((prev) => ({ ...prev, coupon: undefined }));
                 }}
-                placeholder={F.COUPON_PLACEHOLDER}
+                placeholder={
+                  couponsData && coupons.length === 0 ? F.COUPON_NONE : F.COUPON_PLACEHOLDER
+                }
                 // A blank title (BUG-018) must not leave a dangling "CODE — ".
                 options={coupons.map((c) => ({
                   value: c.id,

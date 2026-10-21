@@ -165,7 +165,7 @@ export function SellerRequestDetailDrawer({
               </div>
               <div className="flex-1">
                 <div className="text-[15px] font-bold text-[var(--t1)]">{seller.n}</div>
-                <div className="text-[11px] text-[var(--t4)]">{seller.e}</div>
+                <div className="text-[12px] text-[var(--t4)]">{seller.e}</div>
               </div>
               <Badge variant={seller.sc}>{seller.st}</Badge>
             </div>

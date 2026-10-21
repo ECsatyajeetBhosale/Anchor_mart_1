@@ -358,7 +358,7 @@ export function SpecialRequestDetailDrawer({
                     <div className="text-[12.5px] font-extrabold text-[var(--warning-text)]">
                       {RB.TITLE}
                     </div>
-                    <div className="mt-0.5 text-[11.5px] font-medium leading-[1.45] text-[var(--t3)]">
+                    <div className="mt-0.5 text-[12px] font-medium leading-[1.45] text-[var(--t3)]">
                       {atCap ? RB.AT_CAP(detail.rebill_cap ?? 0) : RB.BODY}
                     </div>
                   </div>
@@ -407,7 +407,7 @@ export function SpecialRequestDetailDrawer({
                               {/* The sailor may well reject a quote above what
                                   they said they'd pay — make it obvious. */}
                               {overBudget && (
-                                <Badge variant="warning" className="h-[20px] text-[10px]">
+                                <Badge variant="warning" className="h-[20px] text-[12px]">
                                   {D.OVER_BUDGET}
                                 </Badge>
                               )}
@@ -523,7 +523,7 @@ export function SpecialRequestDetailDrawer({
                                 anchorage when applied — one belongs to a single
                                 port and must not outlive a change of port. */}
                             {pending.port && !pending.anchorage && detail.anchorage?.name && (
-                              <div className="mt-1 text-[11.5px] font-medium text-[var(--t4)]">
+                              <div className="mt-1 text-[12px] font-medium text-[var(--t4)]">
                                 {D.ANCHORAGE_CLEARED}
                               </div>
                             )}
@@ -574,7 +574,7 @@ export function SpecialRequestDetailDrawer({
                                   {detail.order.order_number}
                                 </Link>
                                 {detail.order.status && (
-                                  <Badge variant="neutral" className="h-[20px] text-[10px]">
+                                  <Badge variant="neutral" className="h-[20px] text-[12px]">
                                     {orderStatusText(detail.order.status)}
                                   </Badge>
                                 )}

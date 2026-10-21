@@ -61,7 +61,7 @@ function ColourLegend() {
               <span className={cn("mt-1 h-2 w-6 shrink-0 rounded-full", row.swatch)} />
               <div className="min-w-0">
                 <div className="text-[12px] font-bold text-[var(--t1)]">{row.label}</div>
-                <div className="text-[11.5px] font-medium leading-[1.4] text-[var(--t4)]">
+                <div className="text-[12px] font-medium leading-[1.4] text-[var(--t4)]">
                   {row.hint}
                 </div>
               </div>
@@ -135,7 +135,7 @@ export function SpecialRequestLifecycleRail({
             <div className={cn("h-1.5 rounded-full transition-colors", BAR[seg.state])} />
             <div
               className={cn(
-                "trunc mt-1.5 text-[10px] font-extrabold uppercase tracking-[0.6px]",
+                "trunc mt-1.5 text-[12px] font-extrabold uppercase tracking-[0.6px]",
                 LABEL[seg.state],
               )}
               title={seg.label}
@@ -147,7 +147,7 @@ export function SpecialRequestLifecycleRail({
       </div>
       <div className="mt-1 flex items-center gap-1.5">
         {activeIdx >= 0 && !isComplete && (
-          <span className="text-[10.5px] font-bold text-[var(--t4)]">
+          <span className="text-[12px] font-bold text-[var(--t4)]">
             {R.STAGE_OF(activeIdx + 1, segments.length)}
           </span>
         )}

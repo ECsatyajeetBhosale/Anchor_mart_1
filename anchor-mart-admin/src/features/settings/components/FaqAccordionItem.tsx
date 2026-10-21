@@ -56,7 +56,7 @@ export function FaqAccordionItem({
               {faq.question}
               {/* Drafts are hidden from sailors — say so on the row. */}
               {!faq.is_active && (
-                <Badge variant="neutral" className="ml-2 align-middle text-[10px]">
+                <Badge variant="neutral" className="ml-2 align-middle text-[12px]">
                   {MESSAGES.SETTINGS.FAQ.DRAFT_BADGE}
                 </Badge>
               )}
@@ -97,7 +97,7 @@ export function FaqAccordionItem({
           <p className="whitespace-pre-line px-4 py-3 pl-[44px] text-[13px] font-medium leading-relaxed text-[var(--t3)]">
             {faq.answer}
           </p>
-          <p className="px-4 pb-3 pl-[44px] text-[11.5px] font-semibold text-[var(--t4)]">
+          <p className="px-4 pb-3 pl-[44px] text-[12px] font-semibold text-[var(--t4)]">
             {MESSAGES.SETTINGS.FAQ.UPDATED_PREFIX} {faq.updated_at}
           </p>
         </div>

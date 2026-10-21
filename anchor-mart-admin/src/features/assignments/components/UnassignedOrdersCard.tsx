@@ -38,7 +38,7 @@ export function UnassignedOrdersCard({ orders, onAssign }: UnassignedOrdersCardP
                   </Badge>
                 </div>
                 <div className="text-[13px] font-bold text-[var(--t1)]">{order.sailor}</div>
-                <div className="text-[11px] text-[var(--t4)]">
+                <div className="text-[12px] text-[var(--t4)]">
                   {order.items} · {order.port}
                 </div>
               </div>

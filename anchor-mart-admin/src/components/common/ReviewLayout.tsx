@@ -42,7 +42,7 @@ export function Fact({
 }) {
   return (
     <div className="min-w-0">
-      <div className="text-[10px] font-extrabold uppercase tracking-[1px] text-[var(--t4)]">
+      <div className="text-[12px] font-extrabold uppercase tracking-[1px] text-[var(--t4)]">
         {label}
       </div>
       <div
@@ -199,7 +199,7 @@ export function ReviewSummaryStrip({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">{badges}</div>
         <div className="text-right">
-          <div className="text-[10px] font-extrabold uppercase tracking-[1px] text-[var(--t4)]">
+          <div className="text-[12px] font-extrabold uppercase tracking-[1px] text-[var(--t4)]">
             {valueLabel}
           </div>
           {value}
@@ -251,7 +251,7 @@ export function ReviewGateBanner({
       )}
       <span
         className={cn(
-          "text-[10px] font-extrabold uppercase tracking-[1.2px]",
+          "text-[12px] font-extrabold uppercase tracking-[1.2px]",
           isInfo ? "text-[var(--info-text)]" : "text-[var(--warning-text)]",
         )}
       >
@@ -294,7 +294,7 @@ export function ReviewCustomerCard({
         </div>
         <div className="min-w-0">
           <div className="trunc text-[14px] font-bold text-[var(--t1)]">{name || "—"}</div>
-          <div className="text-[11px] font-bold uppercase tracking-[0.6px] text-[var(--t4)]">
+          <div className="text-[12px] font-bold uppercase tracking-[0.6px] text-[var(--t4)]">
             {roleLabel}
           </div>
         </div>

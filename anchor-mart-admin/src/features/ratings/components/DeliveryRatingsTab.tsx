@@ -115,7 +115,7 @@ export function DeliveryRatingsTab() {
               <Badge
                 key={tag}
                 variant={NEGATIVE_QUICK_TAGS.has(tag) ? "warning" : "teal"}
-                className="text-[10px] h-[22px]"
+                className="text-[12px] h-[22px]"
               >
                 {tagLabel(tag)}
               </Badge>

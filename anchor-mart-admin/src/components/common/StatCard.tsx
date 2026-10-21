@@ -73,7 +73,7 @@ export function StatCard({
                 e.stopPropagation();
                 row.onClick?.();
               }}
-              className="flex items-center justify-between gap-2 rounded px-1 py-0.5 text-left text-[11.5px] font-semibold text-[var(--t3)] transition-colors enabled:hover:bg-[var(--surface-alt)] enabled:hover:text-[var(--t1)] disabled:cursor-default"
+              className="flex items-center justify-between gap-2 rounded px-1 py-0.5 text-left text-[12px] font-semibold text-[var(--t3)] transition-colors enabled:hover:bg-[var(--surface-alt)] enabled:hover:text-[var(--t1)] disabled:cursor-default"
             >
               <span className="trunc">{row.label}</span>
               <span className="tabular-nums font-bold text-[var(--t2)]">{row.value}</span>

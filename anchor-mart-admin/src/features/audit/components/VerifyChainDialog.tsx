@@ -160,7 +160,7 @@ export function VerifyChainDialog({
             </p>
 
             {result.prunedBefore && (
-              <p className="mt-2 text-[11.5px] font-semibold text-[var(--t3)]">
+              <p className="mt-2 text-[12px] font-semibold text-[var(--t3)]">
                 {`${V.PRUNED_BEFORE}: ${result.prunedBefore} — ${V.PRUNED_HINT}`}
               </p>
             )}

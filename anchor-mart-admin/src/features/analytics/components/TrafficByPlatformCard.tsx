@@ -107,7 +107,7 @@ export function TrafficByPlatformCard({ params }: TrafficByPlatformCardProps) {
 
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <div>
-                <div className="text-[11px] text-[var(--t4)]! font-bold uppercase tracking-wide">
+                <div className="text-[12px] text-[var(--t4)]! font-bold uppercase tracking-wide">
                   {P.TOTAL}
                 </div>
                 <div className="font-extrabold text-[var(--t1)]! text-[22px] tabular-nums">
@@ -198,7 +198,7 @@ export function TrafficByPlatformCard({ params }: TrafficByPlatformCardProps) {
             </table>
           </div>
 
-          <p className="text-[11px] text-[var(--t4)]! font-semibold leading-relaxed">
+          <p className="text-[12px] text-[var(--t4)]! font-semibold leading-relaxed">
             {P.UNKNOWN_NOTE}
           </p>
         </div>

@@ -97,7 +97,7 @@ export function CommandHeader({ today, summary, period, controls }: CommandHeade
     <header className={BAND}>
       <div className="relative flex flex-wrap items-end justify-between gap-[14px] max-[860px]:items-stretch">
         <div className="min-w-0">
-          <div className="flex items-center gap-[7px] text-[10.5px] font-bold uppercase tracking-[0.09em] text-[var(--teal-300)]">
+          <div className="flex items-center gap-[7px] text-[12px] font-bold uppercase tracking-[0.09em] text-[var(--teal-300)]">
             <span className={LIVE_DOT} aria-hidden="true" />
             {M.OCC.EYEBROW}
             {/* Unstyled: the eyebrow's own gap does the spacing, and a coloured

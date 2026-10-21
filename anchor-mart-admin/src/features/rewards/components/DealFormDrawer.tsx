@@ -278,6 +278,8 @@ export function DealFormDrawer({ deal, isOpen, onClose }: DealFormDrawerProps) {
                   setEnd(value);
                   setErrors((prev) => ({ ...prev, end: undefined }));
                 }}
+                // An end before the start is never valid, so it is not offered.
+                min={start}
                 placeholder={MESSAGES.COMMON.PICK_DATE}
               />
             </FormField>

@@ -48,7 +48,7 @@ export function PulseCell({
   const isZero = value === "0";
   const body = (
     <>
-      <div className="text-[10.5px] font-bold uppercase tracking-[0.07em] text-[var(--t4)]">
+      <div className="text-[12px] font-bold uppercase tracking-[0.07em] text-[var(--t4)]">
         {label}
       </div>
       <div
@@ -63,7 +63,7 @@ export function PulseCell({
       >
         {value}
       </div>
-      <div className="mt-[5px] text-[11px] text-[var(--t4)]">
+      <div className="mt-[5px] text-[12px] text-[var(--t4)]">
         {isZero && zeroDescription ? zeroDescription : description}
       </div>
     </>

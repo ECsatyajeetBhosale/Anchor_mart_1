@@ -122,7 +122,7 @@ export function ReviewDetailDrawer({ isOpen, onClose, review }: ReviewDetailDraw
                             <Badge
                               key={tag}
                               variant={NEGATIVE_QUICK_TAGS.has(tag) ? "warning" : "teal"}
-                              className="h-[22px] text-[10px]"
+                              className="h-[22px] text-[12px]"
                             >
                               {M.TAG_LABELS[tag] ?? tag}
                             </Badge>

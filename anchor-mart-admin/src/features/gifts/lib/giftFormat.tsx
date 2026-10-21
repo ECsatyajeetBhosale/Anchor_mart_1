@@ -60,7 +60,7 @@ export function DepartureChip({ departure }: { departure: string | null }) {
 
   if (days < 0) {
     return (
-      <Badge variant="neutral" className="h-[20px] text-[9.5px]">
+      <Badge variant="neutral" className="h-[20px] text-[12px]">
         {M.SAILED}
       </Badge>
     );
@@ -70,7 +70,7 @@ export function DepartureChip({ departure }: { departure: string | null }) {
   return (
     <Badge
       variant={urgent ? "danger" : "neutral"}
-      className="h-[20px] text-[9.5px]"
+      className="h-[20px] text-[12px]"
       title={urgent ? M.SAILS_SOON_TITLE : undefined}
     >
       {days === 0 ? M.SAILS_TODAY : M.SAILS_IN(days)}

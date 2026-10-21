@@ -128,7 +128,7 @@ export function ProductSalesCard({ params }: ProductSalesCardProps) {
       {/* Metric summary row */}
       <div className="flex items-center gap-[22px] border-b border-[var(--border-xs)] p-[15px_20px]">
         <div className="flex flex-col gap-[3px]">
-          <div className="text-[10.5px] font-extrabold uppercase tracking-[1px] text-[var(--t4)]">
+          <div className="text-[12px] font-extrabold uppercase tracking-[1px] text-[var(--t4)]">
             {M.PRODUCT_METRICS.REVENUE_7D}
           </div>
           <div className="text-[22px] font-extrabold tracking-[-1px] text-[var(--teal-700)]">
@@ -137,7 +137,7 @@ export function ProductSalesCard({ params }: ProductSalesCardProps) {
         </div>
         <div className="h-[34px] w-px shrink-0 bg-[var(--border-sm)]" />
         <div className="flex flex-col gap-[3px]">
-          <div className="text-[10.5px] font-extrabold uppercase tracking-[1px] text-[var(--t4)]">
+          <div className="text-[12px] font-extrabold uppercase tracking-[1px] text-[var(--t4)]">
             {M.PRODUCT_METRICS.UNITS_SOLD}
           </div>
           <div className="text-[22px] font-extrabold tracking-[-1px] text-[var(--t1)]">
@@ -146,7 +146,7 @@ export function ProductSalesCard({ params }: ProductSalesCardProps) {
         </div>
         <div className="h-[34px] w-px shrink-0 bg-[var(--border-sm)]" />
         <div className="flex flex-col gap-[3px]">
-          <div className="text-[10.5px] font-extrabold uppercase tracking-[1px] text-[var(--t4)]">
+          <div className="text-[12px] font-extrabold uppercase tracking-[1px] text-[var(--t4)]">
             {M.PRODUCT_METRICS.GROWTH}
           </div>
           <div className="text-[22px] font-extrabold tracking-[-1px] text-[var(--green-text)]">

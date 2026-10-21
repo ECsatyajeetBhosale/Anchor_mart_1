@@ -67,7 +67,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             quote, and a bare "something went wrong" turns a five-minute fix
             into a reproduction hunt.
           */}
-          <div className="mono w-full break-words rounded-[var(--radius-md)] bg-[var(--surface-alt)] px-3 py-2 text-left text-[11.5px] text-[var(--t3)]">
+          <div className="mono w-full break-words rounded-[var(--radius-md)] bg-[var(--surface-alt)] px-3 py-2 text-left text-[12px] text-[var(--t3)]">
             {error.message || String(error)}
           </div>
 

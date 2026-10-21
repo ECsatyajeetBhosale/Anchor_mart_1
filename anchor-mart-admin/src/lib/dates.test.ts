@@ -5,6 +5,8 @@ import {
   formatDateRange,
   sgtDateKey,
   sgtDaysUntil,
+  sgtMonthDay,
+  sgtTimeText,
   shortDate,
   stampText,
   toInstant,
@@ -134,6 +136,19 @@ describe("sgtDateKey", () => {
     expect(sgtDateKey("2026-09-10T00:00:00+08:00")).toBe("2026-09-10");
     expect(sgtDateKey("2026-09-10")).toBe("2026-09-10");
     expect(sgtDateKey(null)).toBe("");
+  });
+});
+
+describe("sgtTimeText / sgtMonthDay (BUG-044)", () => {
+  it("shows a chat time in Singapore time, labelled", () => {
+    // 10:24Z is 15:54 IST and 18:24 SGT.
+    expect(sgtTimeText("2026-10-12T10:24:00Z")).toBe("6:24 PM SGT");
+    expect(sgtTimeText("")).toBe("");
+  });
+
+  it("takes the day in Singapore, not UTC", () => {
+    expect(sgtMonthDay("2026-10-11T17:00:00Z")).toBe("Oct 12");
+    expect(sgtMonthDay(null)).toBe("");
   });
 });
 

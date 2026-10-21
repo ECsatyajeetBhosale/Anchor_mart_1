@@ -131,7 +131,7 @@ export function ProvisionUsersTab({ onCreate }: ProvisionUsersTabProps) {
                   <span className="text-[13.5px] font-bold text-[var(--t1)]">{role.label}</span>
                   {/* The literal token the API accepts — worth showing beside
                       the friendly label when debugging a 400. */}
-                  <span className="mono text-[11px] font-semibold text-[var(--t4)]">
+                  <span className="mono text-[12px] font-semibold text-[var(--t4)]">
                     {role.value}
                   </span>
                 </div>

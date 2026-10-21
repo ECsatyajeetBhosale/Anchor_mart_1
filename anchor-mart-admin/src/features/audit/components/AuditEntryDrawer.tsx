@@ -69,7 +69,7 @@ export function AuditEntryDrawer({
             <div className="mb-3.5 flex items-center gap-3">
               <div className="flex-1">
                 <div className="text-[15px] font-bold text-[var(--t1)]">{entry.actionLabel}</div>
-                <div className="text-[11px] text-[var(--t4)]">{entry.createdAt}</div>
+                <div className="text-[12px] text-[var(--t4)]">{entry.createdAt}</div>
               </div>
               <Badge variant={entry.categoryVariant}>{entry.categoryLabel}</Badge>
             </div>
@@ -109,7 +109,7 @@ export function AuditEntryDrawer({
           {/* Metadata — shape varies per action, so it is rendered as-is. */}
           <div className="sec-label mt-4">{D.METADATA}</div>
           {entry.metadata ? (
-            <pre className="ecard mono max-h-[260px] overflow-auto whitespace-pre-wrap break-all text-[11.5px] leading-relaxed">
+            <pre className="ecard mono max-h-[260px] overflow-auto whitespace-pre-wrap break-all text-[12px] leading-relaxed">
               {JSON.stringify(entry.metadata, null, 2)}
             </pre>
           ) : (
@@ -119,10 +119,10 @@ export function AuditEntryDrawer({
           {/* Chain — the tamper-evidence itself. */}
           <div className="sec-label mt-4">{D.CHAIN}</div>
           <FormField label={D.ENTRY_HASH}>
-            <div className="ecard mono break-all text-[11.5px]">{entry.entryHash}</div>
+            <div className="ecard mono break-all text-[12px]">{entry.entryHash}</div>
           </FormField>
           <FormField label={D.PREV_HASH}>
-            <div className="ecard mono break-all text-[11.5px]">{entry.prevHash}</div>
+            <div className="ecard mono break-all text-[12px]">{entry.prevHash}</div>
           </FormField>
           <FormField label={D.HASH_VERSION}>
             <div className="ecard">{entry.hashVersion}</div>

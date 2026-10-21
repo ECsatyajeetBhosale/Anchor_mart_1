@@ -7,12 +7,17 @@ import { Badge } from "@/components/ui/badge";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { MESSAGES } from "@/lib/messages";
 import { useGetCartsQuery } from "../api/orderApi";
-import type { AdminCart } from "../types/order.types";
+import type { AdminCart, AdminCartLine } from "../types/order.types";
 
 const M = MESSAGES.CARTS;
 const LIMIT = 10;
-/** SKUs named in the contents cell before the rest collapse into a "+N". */
-const SKU_PREVIEW = 2;
+/** Lines named in the contents cell before the rest collapse into a "+N". */
+const LINE_PREVIEW = 2;
+
+/** "Name (SKU)" for the hover text; a name that is the SKU is not repeated. */
+function lineTitle(line: AdminCartLine): string {
+  return line.sku && line.name !== line.sku ? `${line.name} (${line.sku})` : line.name;
+}
 
 /**
  * Sailor carts that have not converted into an order — a read-only visibility
@@ -30,7 +35,7 @@ export function OpenCartsCard() {
   // An emptied cart still exists server-side but is not an open basket — it
   // showed as "—, qty 0, $0.00, READY" (BUG-027). Filtered before paging so the
   // page count matches what is listed.
-  const allCarts = (data?.carts ?? []).filter((c) => c.unitCount > 0 || c.skus.length > 0);
+  const allCarts = (data?.carts ?? []).filter((c) => c.unitCount > 0 || c.lines.length > 0);
   const totalPages = Math.max(1, Math.ceil(allCarts.length / LIMIT));
   const carts = allCarts.slice((page - 1) * LIMIT, page * LIMIT);
 
@@ -44,7 +49,7 @@ export function OpenCartsCard() {
         <div className="flex items-center gap-2">
           <span className="td-p">{c.email || M.DASH}</span>
           {c.isExpress && (
-            <Badge variant="amber" className="h-[20px] text-[9.5px]">
+            <Badge variant="amber" className="h-[20px] text-[12px]">
               {M.TYPE_EXPRESS}
             </Badge>
           )}
@@ -54,12 +59,14 @@ export function OpenCartsCard() {
     {
       id: "items",
       header: M.COLUMNS.ITEMS,
+      // Product names, with each SKU in the hover text — SKU codes alone told
+      // an operator nothing about what was in the basket (BUG-067).
       cell: (c) => {
-        if (c.skus.length === 0) return <span className="td-m">{M.DASH}</span>;
-        const shown = c.skus.slice(0, SKU_PREVIEW);
-        const extra = c.skus.length - shown.length;
+        if (c.lines.length === 0) return <span className="td-m">{M.DASH}</span>;
+        const shown = c.lines.slice(0, LINE_PREVIEW).map((line) => line.name);
+        const extra = c.lines.length - shown.length;
         return (
-          <span className="td-m" title={c.skus.join(", ")}>
+          <span className="td-m" title={c.lines.map(lineTitle).join(", ")}>
             {shown.join(", ")}
             {extra > 0 ? ` ${M.SKU_OVERFLOW(extra)}` : ""}
           </span>
@@ -67,7 +74,7 @@ export function OpenCartsCard() {
       },
       className: "max-w-[200px]",
     },
-    // Summed units, not distinct lines: the Items column already lists the SKUs,
+    // Summed units, not distinct lines: the Items column already lists the lines,
     // so a line count would restate the cell beside it.
     textColumn({
       id: "quantity",
@@ -83,13 +90,13 @@ export function OpenCartsCard() {
         c.blockedCount > 0 ? (
           <Badge
             variant="warning"
-            className="h-[22px] text-[10px]"
+            className="h-[22px] text-[12px]"
             title={M.BLOCKED_TITLE(c.blockedCount)}
           >
             {M.STATUS_BLOCKED(c.blockedCount)}
           </Badge>
         ) : (
-          <Badge variant="success" className="h-[22px] text-[10px]">
+          <Badge variant="success" className="h-[22px] text-[12px]">
             {M.STATUS_READY}
           </Badge>
         ),

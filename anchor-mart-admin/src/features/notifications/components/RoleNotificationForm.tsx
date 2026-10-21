@@ -3,12 +3,13 @@ import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { FormField } from "@/components/common/FormField";
 import { FormRow } from "@/components/common/FormRow";
 import { SectionCard } from "@/components/common/SectionCard";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
-import { IconSend } from "@tabler/icons-react";
+import { IconChevronDown, IconChevronRight, IconSend } from "@tabler/icons-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useGetRecipientCountQuery, useSendRoleNotificationMutation } from "../api/notificationApi";
@@ -74,6 +75,7 @@ export function RoleNotificationForm() {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [metadata, setMetadata] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   /**
    * This endpoint was in-app only until 2026-09-01 and now takes the same
    * channel list as a broadcast. Omitting it still means `["inapp"]`
@@ -242,19 +244,41 @@ export function RoleNotificationForm() {
           />
         </FormField>
 
-        <FormField
-          label={M.ROLE_FORM.METADATA}
-          hint={M.ROLE_FORM.METADATA_HINT}
-          error={errors.metadata}
-        >
-          <Textarea
-            className="h-20 mono text-[12px]"
-            placeholder={M.ROLE_FORM.METADATA_PLACEHOLDER}
-            value={metadata}
-            error={!!errors.metadata}
-            onChange={(e) => setMetadata(e.target.value)}
-          />
-        </FormField>
+        {/* The FCM payload box is for whoever wires deep links, not for the
+            everyday sender, so it sits behind a disclosure (BUG-070). It opens
+            on its own when it holds an error, so a refusal is never hidden. */}
+        <div>
+          <Button
+            type="button"
+            variant="link"
+            size="xs"
+            className="px-0"
+            aria-expanded={showAdvanced || !!errors.metadata}
+            onClick={() => setShowAdvanced((open) => !open)}
+          >
+            {showAdvanced || errors.metadata ? (
+              <IconChevronDown size={14} className="mr-1" />
+            ) : (
+              <IconChevronRight size={14} className="mr-1" />
+            )}
+            {M.ROLE_FORM.ADVANCED}
+          </Button>
+          {(showAdvanced || errors.metadata) && (
+            <FormField
+              label={M.ROLE_FORM.METADATA}
+              hint={M.ROLE_FORM.METADATA_HINT}
+              error={errors.metadata}
+            >
+              <Textarea
+                className="h-20 mono text-[12px]"
+                placeholder={M.ROLE_FORM.METADATA_PLACEHOLDER}
+                value={metadata}
+                error={!!errors.metadata}
+                onChange={(e) => setMetadata(e.target.value)}
+              />
+            </FormField>
+          )}
+        </div>
 
         <div className="flex justify-end pt-1">
           <button

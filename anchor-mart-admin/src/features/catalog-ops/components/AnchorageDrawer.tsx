@@ -301,7 +301,7 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
         <div className="flex items-center gap-2">
           <span className="td-p">{row.anchorage_name || M.DASH}</span>
           {row.is_default && (
-            <Badge variant="teal" className="text-[10px]">
+            <Badge variant="teal" className="text-[12px]">
               {A.DEFAULT_BADGE}
             </Badge>
           )}
@@ -409,7 +409,7 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
           </div>
 
           {port?.is_active === false && (
-            <div className="flex items-start gap-2 rounded-[var(--radius-md)] border border-[var(--amber-100)] bg-[var(--amber-50)] p-3 text-[11.5px] font-semibold leading-relaxed text-[var(--amber-700)]">
+            <div className="flex items-start gap-2 rounded-[var(--radius-md)] border border-[var(--amber-100)] bg-[var(--amber-50)] p-3 text-[12px] font-semibold leading-relaxed text-[var(--amber-700)]">
               <IconAlertTriangle size={15} className="mt-px shrink-0" />
               <span>{A.PORT_INACTIVE}</span>
             </div>
@@ -418,7 +418,7 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
           {/* A real state for any port created before default anchorages
               existed, not a loading blip — so it names the fix. */}
           {!isLoading && !isError && anchorages.length > 0 && !hasDefault && (
-            <div className="flex items-start gap-2 rounded-[var(--radius-md)] border border-[var(--amber-100)] bg-[var(--amber-50)] p-3 text-[11.5px] font-semibold leading-relaxed text-[var(--amber-700)]">
+            <div className="flex items-start gap-2 rounded-[var(--radius-md)] border border-[var(--amber-100)] bg-[var(--amber-50)] p-3 text-[12px] font-semibold leading-relaxed text-[var(--amber-700)]">
               <IconAlertTriangle size={15} className="mt-px shrink-0" />
               <span>{A.NO_DEFAULT_WARNING}</span>
             </div>
@@ -530,14 +530,14 @@ export function AnchorageDrawer({ isOpen, onClose, port }: AnchorageDrawerProps)
             />
           </div>
 
-          <div className="flex items-start gap-2 text-[11.5px] font-medium leading-relaxed text-[var(--t4)]">
+          <div className="flex items-start gap-2 text-[12px] font-medium leading-relaxed text-[var(--t4)]">
             <IconInfoCircle size={15} className="mt-px shrink-0" />
             <span>{A.HINT}</span>
           </div>
           {/* Only worth saying while a default is actually on screen — it is
               the explanation for the controls that row is missing. */}
           {hasDefault && (
-            <div className="flex items-start gap-2 text-[11.5px] font-medium leading-relaxed text-[var(--t4)]">
+            <div className="flex items-start gap-2 text-[12px] font-medium leading-relaxed text-[var(--t4)]">
               <IconInfoCircle size={15} className="mt-px shrink-0" />
               <span>{A.DEFAULT_NOTE}</span>
             </div>

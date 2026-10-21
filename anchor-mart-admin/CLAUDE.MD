@@ -96,24 +96,24 @@ Page-level filter/search/pagination state lives in the **URL query string** via 
 
 ## Typography
 
-Font family is `--font-body` ("Nunito"); monospace is `--font-mono` ("JetBrains Mono", apply with the `.mono` class for IDs/SKUs/paths). Concrete scale (do not invent new sizes/weights):
+Font family is `--font-body` ("Nunito"); monospace is `--font-mono` ("JetBrains Mono", apply with the `.mono` class for IDs/SKUs/paths). Concrete scale (do not invent new sizes/weights). **Nothing renders below 12px** (QA BUG-013) — the former 9–11.5px sizes were all raised to 12px:
 
 | Use | Class / size | Weight | Color |
 |---|---|---|---|
 | Page title | `.pg-title` — 22px, `-0.4px` tracking | 800 | `--t1` |
 | Page subtitle | `.pg-sub` — 13px | 500 | `--t3` |
-| Section label (in drawers/forms) | `.sec-label` — 10px, uppercase, `1.6px` tracking, trailing rule | 800 | `--t4` |
+| Section label (in drawers/forms) | `.sec-label` — 12px, uppercase, `1.6px` tracking, trailing rule | 800 | `--t4` |
 | Stat value | `.stat-val` — 34px, tabular-nums | 800 | `--t1` |
-| Stat label | `.stat-lbl` — 11px, uppercase | 800 | `--t4` |
-| Table header | `thead th` — 10.5px, uppercase, `1.1px` tracking | 800 | `--t4` |
+| Stat label | `.stat-lbl` — 12px, uppercase | 800 | `--t4` |
+| Table header | `thead th` — 12px, uppercase, `1.1px` tracking | 800 | `--t4` |
 | Table body | `tbody td` — 13.5px | 500 | `--t3` |
 | Table primary cell | `.td-p` — 13.5px | 700 | `--t1` |
 | Table muted/secondary cell | `.td-m` — 12.5px | 500 | `--t4` |
 | Table id/code cell | `.td-id` — 12px mono | 600 | `--teal-700` |
-| Form label | `.fg-label` — 11.5px, uppercase, `0.5px` tracking | 800 | `--t2` |
-| Form hint | `.fg-hint` — 11.5px | 400 | `--t4` |
-| Button | 13.5px (`.btn`); `sm` 12.5px; `xs` 11.5px; `lg` 14.5px | 700 | per variant |
-| Badge | 11px, uppercase, `0.2px` tracking | 800 (extrabold) | per variant |
+| Form label | `.fg-label` — 12px, uppercase, `0.5px` tracking | 800 | `--t2` |
+| Form hint | `.fg-hint` — 12px | 400 | `--t4` |
+| Button | 13.5px (`.btn`); `sm` 12.5px; `xs` 12px; `lg` 14.5px | 700 | per variant |
+| Badge | 12px, uppercase, `0.2px` tracking | 800 (extrabold) | per variant |
 
 ## Theme & status colors
 
@@ -130,7 +130,7 @@ Font family is `--font-body` ("Nunito"); monospace is `--font-mono` ("JetBrains 
 
 - Always use `DataTable<T>` with a typed `columns: Column<T>[]` array. Do **not** hand-roll `<table>` markup (every legacy page currently does — see Gaps).
 - **Column model:** `{ id, header, cell?(row), accessorKey?, className?, headerClassName?, filter? }`. Use `cell` for custom rendering; width/alignment via Tailwind in `className` (e.g. `w-12`, `w-24 text-right`).
-- **Header:** uppercase 10.5px on `--surface-alt`; **row height** ~`13px 16px` padding; cells vertically centered.
+- **Header:** uppercase 12px on `--surface-alt`; **row height** ~`13px 16px` padding; cells vertically centered.
 - **Action column:** last column, right-aligned (`className: "w-24 text-right"`), rendered with `TableActions` (`row` + `actions[]` of `{ icon, title, onClick, variant }`); destructive actions use `variant: "danger"`. Action handlers must `e.stopPropagation()` when the row itself is clickable.
 - **Column filters:** make a header interactive by adding a `filter: { value, options, onChange, allLabel? }` to its column — renders `ColumnFilterHeader` (a dropdown with an "All" reset). Used for the Status column; filter value lives in the URL and drives the API query.
 - **Row click:** pass `onRowClick` to open the detail/edit drawer (adds `.tr-click`).

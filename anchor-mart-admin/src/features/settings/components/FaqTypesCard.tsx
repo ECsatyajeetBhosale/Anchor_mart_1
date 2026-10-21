@@ -74,7 +74,7 @@ export function FaqTypesCard() {
         <span className="text-[14.5px] font-extrabold text-[var(--t1)]">
           {MESSAGES.SETTINGS.FAQ_TYPES.TITLE}
         </span>
-        <span className="ml-auto text-[11.5px] font-semibold text-[var(--t4)]">
+        <span className="ml-auto text-[12px] font-semibold text-[var(--t4)]">
           {types.length} {types.length === 1 ? "category" : "categories"}
         </span>
       </div>

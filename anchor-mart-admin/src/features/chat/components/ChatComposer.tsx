@@ -220,12 +220,12 @@ export function ChatComposer({
     <div className="shrink-0 border-t border-[var(--border-xs)] bg-[var(--surface)] p-3">
       {editing && (
         <div className="mb-2 flex items-center justify-between rounded-[var(--radius-sm)] bg-[var(--amber-50)] px-2.5 py-1.5">
-          <span className="text-[11.5px] font-bold text-[var(--amber-700)]">
+          <span className="text-[12px] font-bold text-[var(--amber-700)]">
             {M.COMPOSER.EDITING}
           </span>
           <button
             type="button"
-            className="text-[11.5px] font-bold text-[var(--amber-700)] hover:underline"
+            className="text-[12px] font-bold text-[var(--amber-700)] hover:underline"
             onClick={onCancelEdit}
           >
             <IconX size={13} className="inline" /> {M.COMPOSER.CANCEL_EDIT}
@@ -304,7 +304,7 @@ export function ChatComposer({
             >
               {staged.file.name}
             </div>
-            <div className="text-[11px] text-[var(--t4)]">{M.COMPOSER.STAGED_HINT}</div>
+            <div className="text-[12px] text-[var(--t4)]">{M.COMPOSER.STAGED_HINT}</div>
           </div>
           <button
             type="button"
@@ -355,7 +355,7 @@ export function ChatComposer({
           worth saying is the exception, said where the admin is already looking
           when they act. */}
       <p
-        className={`mt-1.5 flex items-center gap-1.5 font-medium text-[10.5px] ${
+        className={`mt-1.5 flex items-center gap-1.5 font-medium text-[12px] ${
           uploadError
             ? "text-[var(--danger-text)]"
             : offlineNotice

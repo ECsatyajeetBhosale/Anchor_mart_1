@@ -200,13 +200,13 @@ export function ImageUploadField({
         }}
       />
 
-      {error && <div className="text-[11px] font-semibold text-[var(--danger-text)]">{error}</div>}
+      {error && <div className="text-[12px] font-semibold text-[var(--danger-text)]">{error}</div>}
 
       {/* What will be accepted, said before the pick rather than after it —
           the 1 KB floor in particular is rejected by S3 as a 403 that reads
           like an auth failure. Replaced by the reason the button is gone when
           this session cannot upload at all. */}
-      <div className="fg-hint text-[11px]">
+      <div className="fg-hint text-[12px]">
         {canUpload ? ACCEPTED_HINT : MESSAGES.MEDIA.NO_PERMISSION}
       </div>
 
@@ -223,14 +223,14 @@ export function ImageUploadField({
 
       {!uploadsToStorage &&
         (lastUpload && !lastUpload.uploaded && lastUpload.path === value ? (
-          <div className="flex items-start gap-1.5 text-[11px] font-semibold text-[var(--amber-700)]">
+          <div className="flex items-start gap-1.5 text-[12px] font-semibold text-[var(--amber-700)]">
             <IconAlertTriangle size={13} className="mt-px shrink-0" />
             <span>
               {MESSAGES.MEDIA.NOT_UPLOADED} {MESSAGES.MEDIA.NOT_UPLOADED_HINT}
             </span>
           </div>
         ) : (
-          <div className="fg-hint text-[11px]">{MESSAGES.MEDIA.STORAGE_OFF}</div>
+          <div className="fg-hint text-[12px]">{MESSAGES.MEDIA.STORAGE_OFF}</div>
         ))}
     </div>
   );

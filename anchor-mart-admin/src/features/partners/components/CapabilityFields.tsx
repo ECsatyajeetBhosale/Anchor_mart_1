@@ -27,7 +27,7 @@ function CapabilityToggle({ label, help, checked, onChange, disabled }: Capabili
       />
       <div className="min-w-0">
         <span className="block text-[13px] font-bold text-[var(--t1)]">{label}</span>
-        <span className="block text-[11.5px] text-[var(--t4)]">{help}</span>
+        <span className="block text-[12px] text-[var(--t4)]">{help}</span>
       </div>
     </div>
   );
@@ -83,7 +83,7 @@ export function CapabilityFields({
           {/* Capability and availability answer different questions and are the
               two most commonly conflated fields on this screen, so the
               distinction is stated rather than left to be inferred. */}
-          <p className="text-[11px] text-[var(--t4)]">{M.NOT_AVAILABILITY}</p>
+          <p className="text-[12px] text-[var(--t4)]">{M.NOT_AVAILABILITY}</p>
         </div>
       </FormField>
     </>

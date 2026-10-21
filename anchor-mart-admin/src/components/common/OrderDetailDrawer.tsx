@@ -590,7 +590,7 @@ export function OrderDetailDrawer({
                       <PriceRow label={D.DISCOUNT} value={order.pricing.discount} negative />
                       {/* The coupon sits with the discount it produced. */}
                       {order.pricing.couponUsed && (
-                        <div className="-mt-1 pb-1.5 pl-1 text-[11.5px] text-[var(--t4)]">
+                        <div className="-mt-1 pb-1.5 pl-1 text-[12px] text-[var(--t4)]">
                           {D.COUPON_APPLIED(order.pricing.appliedCoupon || D.COUPON_NONE)}
                         </div>
                       )}

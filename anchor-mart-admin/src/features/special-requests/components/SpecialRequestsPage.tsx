@@ -340,7 +340,7 @@ export function SpecialRequestsPage() {
       // asked for different delivery details and is waiting on a re-quote.
       note: (r) =>
         r.rebillRequested ? (
-          <Badge variant="warning" className="mt-1 h-[22px] text-[10px]">
+          <Badge variant="warning" className="mt-1 h-[22px] text-[12px]">
             {M.AWAITING_REBILL_ROW}
           </Badge>
         ) : null,

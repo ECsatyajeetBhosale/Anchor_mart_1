@@ -149,30 +149,9 @@ export function useProductColumns({
        */
       secondary: (row) => row.created_at ?? DASH,
     }),
-    badgeColumn({
-      id: "category",
-      header: MESSAGES.PRODUCTS.COLUMNS.CATEGORY,
-      get: (row) => row.category_name,
-      variant: "navy",
-    }),
-    {
-      id: "catalog",
-      header: MESSAGES.PRODUCTS.COLUMNS.CATALOG,
-      /*
-        `catalog_type` alone. There is no companion `is_express` chip because
-        there is nothing for it to add: the serializer defines `is_express` as
-        `catalog_type === "express"`, so a chip conditioned on the two
-        disagreeing is a branch that can never be taken.
-      */
-      cell: (row) => (
-        <Badge
-          variant={CATALOG_BADGE_VARIANT[row.catalog_type ?? ""] ?? "neutral"}
-          className="text-[10px] h-[24px]"
-        >
-          {catalogTypeLabel(row.catalog_type) ?? DASH}
-        </Badge>
-      ),
-    },
+    // Price and Status lead, straight after the name: at 1158–1440px they sat
+    // past the fold, and the pinned Actions column covered the Status header
+    // on Spares (BUG-012, BUG-063).
     currencyColumn({
       id: "price",
       header: MESSAGES.PRODUCTS.COLUMNS.PRICE,
@@ -205,6 +184,60 @@ export function useProductColumns({
           },
         ]
       : []),
+    {
+      id: "status",
+      header: MESSAGES.PRODUCTS.COLUMNS.STATUS,
+      /**
+       * A switch, not a badge — deactivating is the action operators actually
+       * want and it had no control anywhere in the admin.
+       *
+       * The asymmetry this fixes: delete was a one-click row icon, is terminal
+       * (soft-delete with no restore endpoint, and every admin queryset filters
+       * deleted rows out, so it hides its own evidence), and runs with no check
+       * for open orders or running deals. Deactivating does the job people mean
+       * — `is_orderable()` ANDs product liveness, so it blocks add-to-cart and
+       * checkout — and is reversible. The safe action now sits where the
+       * destructive one used to, and delete has moved behind the overflow menu.
+       */
+      cell: (row) => (
+        <Switch
+          aria-label={MESSAGES.COMMON.ARIA.ACTIVE_TOGGLE(row.name)}
+          checked={row.is_active !== false}
+          onCheckedChange={(next) => onToggleActive(row, next)}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+      // Server-side status filter via the clickable header (?is_active=True|False).
+      filter: {
+        value: statusFilter,
+        options: STATUS_FILTER_OPTIONS,
+        onChange: onStatusFilter,
+      },
+    },
+    badgeColumn({
+      id: "category",
+      header: MESSAGES.PRODUCTS.COLUMNS.CATEGORY,
+      get: (row) => row.category_name,
+      variant: "navy",
+    }),
+    {
+      id: "catalog",
+      header: MESSAGES.PRODUCTS.COLUMNS.CATALOG,
+      /*
+        `catalog_type` alone. There is no companion `is_express` chip because
+        there is nothing for it to add: the serializer defines `is_express` as
+        `catalog_type === "express"`, so a chip conditioned on the two
+        disagreeing is a branch that can never be taken.
+      */
+      cell: (row) => (
+        <Badge
+          variant={CATALOG_BADGE_VARIANT[row.catalog_type ?? ""] ?? "neutral"}
+          className="text-[12px] h-[24px]"
+        >
+          {catalogTypeLabel(row.catalog_type) ?? DASH}
+        </Badge>
+      ),
+    },
     {
       id: "variants",
       header: MESSAGES.PRODUCTS.COLUMNS.VARIANTS,
@@ -245,6 +278,7 @@ export function useProductColumns({
       header: MESSAGES.PRODUCT_FLAGS.COLUMNS.TOP_RATED,
       cell: (row) => (
         <Switch
+          aria-label={MESSAGES.COMMON.ARIA.TOP_RATED_TOGGLE(row.name)}
           checked={row.is_top_rated === true}
           onCheckedChange={(next) => onToggleTopRated(row, next)}
           // The row itself opens the edit modal — the toggle must not.
@@ -267,6 +301,7 @@ export function useProductColumns({
       header: MESSAGES.PRODUCT_FLAGS.COLUMNS.SOURCEABLE,
       cell: (row) => (
         <Switch
+          aria-label={MESSAGES.COMMON.ARIA.SOURCEABLE_TOGGLE(row.name)}
           checked={row.admin_sourceable !== false}
           onCheckedChange={(next) => onToggleSourceable(row, next)}
           onClick={(e) => e.stopPropagation()}
@@ -282,35 +317,6 @@ export function useProductColumns({
             },
           }
         : {}),
-    },
-    {
-      id: "status",
-      header: MESSAGES.PRODUCTS.COLUMNS.STATUS,
-      /**
-       * A switch, not a badge — deactivating is the action operators actually
-       * want and it had no control anywhere in the admin.
-       *
-       * The asymmetry this fixes: delete was a one-click row icon, is terminal
-       * (soft-delete with no restore endpoint, and every admin queryset filters
-       * deleted rows out, so it hides its own evidence), and runs with no check
-       * for open orders or running deals. Deactivating does the job people mean
-       * — `is_orderable()` ANDs product liveness, so it blocks add-to-cart and
-       * checkout — and is reversible. The safe action now sits where the
-       * destructive one used to, and delete has moved behind the overflow menu.
-       */
-      cell: (row) => (
-        <Switch
-          checked={row.is_active !== false}
-          onCheckedChange={(next) => onToggleActive(row, next)}
-          onClick={(e) => e.stopPropagation()}
-        />
-      ),
-      // Server-side status filter via the clickable header (?is_active=True|False).
-      filter: {
-        value: statusFilter,
-        options: STATUS_FILTER_OPTIONS,
-        onChange: onStatusFilter,
-      },
     },
     actionsColumn({
       header: MESSAGES.PRODUCTS.COLUMNS.ACTIONS,

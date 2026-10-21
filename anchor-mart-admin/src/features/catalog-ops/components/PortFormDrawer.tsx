@@ -236,7 +236,7 @@ export function PortFormDrawer({ isOpen, onClose, port }: PortFormDrawerProps) {
           {!isEdit && (
             <section className="prod-tab">
               <div className="mb-1 text-[12.5px] font-bold text-[var(--t2)]">{DA.TITLE}</div>
-              <div className="mb-3 flex items-start gap-2 text-[11.5px] font-medium leading-relaxed text-[var(--t4)]">
+              <div className="mb-3 flex items-start gap-2 text-[12px] font-medium leading-relaxed text-[var(--t4)]">
                 <IconInfoCircle size={15} className="mt-px shrink-0" />
                 <span>{DA.NOTE}</span>
               </div>

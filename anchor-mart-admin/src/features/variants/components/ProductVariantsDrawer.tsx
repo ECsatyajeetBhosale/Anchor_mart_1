@@ -308,6 +308,7 @@ export function ProductVariantsDrawer({
       cell: (v) => (
         <div>
           <Switch
+            aria-label={MESSAGES.COMMON.ARIA.SOURCEABLE_TOGGLE(v.sku)}
             checked={v.adminSourceable}
             onCheckedChange={(next) => toggleSourceable(v, next)}
           />
@@ -427,10 +428,10 @@ export function ProductVariantsDrawer({
                 */}
                 {productCatalogType && (
                   <div className="mt-1.5 flex items-center gap-1.5">
-                    <span className="text-[11.5px] font-semibold text-[var(--t4)]">
+                    <span className="text-[12px] font-semibold text-[var(--t4)]">
                       {M.PRODUCT_CATALOG}
                     </span>
-                    <Badge variant="neutral" className="h-[20px] px-1.5 text-[9.5px]">
+                    <Badge variant="neutral" className="h-[20px] px-1.5 text-[12px]">
                       {catalogTypeLabel(productCatalogType) ?? productCatalogType}
                     </Badge>
                   </div>
@@ -479,7 +480,7 @@ export function ProductVariantsDrawer({
           </div>
 
           <SheetFooter className="p-5 border-t border-[var(--border-md)] bg-[var(--surface)]">
-            <p className="text-[11.5px] leading-relaxed text-[var(--t4)]">{M.SOURCEABLE_HINT}</p>
+            <p className="text-[12px] leading-relaxed text-[var(--t4)]">{M.SOURCEABLE_HINT}</p>
           </SheetFooter>
         </SheetContent>
       </Sheet>

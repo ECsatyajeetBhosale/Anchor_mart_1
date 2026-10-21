@@ -124,6 +124,8 @@ export function CouponFormDrawer({
   });
   const discountType = useWatch({ control, name: "discount_type" });
   const noEndDate = useWatch({ control, name: "no_end_date" });
+  // Valid To cannot fall before Valid From, so the calendar does not offer it.
+  const validFrom = useWatch({ control, name: "valid_from" });
 
   const submit = async (data: CouponFormData) => {
     try {
@@ -370,6 +372,7 @@ export function CouponFormDrawer({
                         onChange={field.onChange}
                         error={!!errors.valid_to}
                         disabled={noEndDate}
+                        min={validFrom}
                         placeholder={noEndDate ? M.COUPONS.NO_EXPIRY : MESSAGES.COMMON.PICK_DATE}
                       />
                     )}

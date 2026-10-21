@@ -76,13 +76,13 @@ export function SubstituteDrawer({
 
         <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-[14px]">
           <div className="rounded-[var(--radius-md)] border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3 text-[var(--warning-text)]">
-            <div className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase mb-1">
+            <div className="flex items-center gap-1.5 text-[12px] font-extrabold uppercase mb-1">
               <IconAlertTriangle size={14} />
               {M.UNAVAILABLE_LABEL}
             </div>
             <div className="text-[13px] font-bold">{itemName}</div>
             {shop && (
-              <div className="text-[11px] opacity-85 mt-0.5">{M.UNAVAILABLE_NOTE(shop)}</div>
+              <div className="text-[12px] opacity-85 mt-0.5">{M.UNAVAILABLE_NOTE(shop)}</div>
             )}
           </div>
 

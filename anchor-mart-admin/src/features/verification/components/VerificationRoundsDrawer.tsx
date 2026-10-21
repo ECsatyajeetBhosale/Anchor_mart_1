@@ -129,15 +129,15 @@ export function VerificationRoundsDrawer({
                         : M.SUBMITTED
                       : round.status}
                   </Badge>
-                  <span className="text-[11.5px] text-[var(--t4)]">
+                  <span className="text-[12px] text-[var(--t4)]">
                     {M.PARTNER}: {show(round.partner)}
                   </span>
-                  <span className="text-[11.5px] text-[var(--t4)]">
+                  <span className="text-[12px] text-[var(--t4)]">
                     {M.SUBMITTED}: {show(round.submitted_at)}
                   </span>
                   <div className="ml-auto">
                     {reviewed ? (
-                      <span className="text-[11.5px] font-semibold text-[var(--green-text)]">
+                      <span className="text-[12px] font-semibold text-[var(--green-text)]">
                         {M.ALREADY_REVIEWED}
                       </span>
                     ) : (
@@ -160,7 +160,7 @@ export function VerificationRoundsDrawer({
                   <div className="overflow-x-auto">
                     <table className="w-full text-[12.5px]">
                       <thead>
-                        <tr className="text-left text-[11px] uppercase tracking-wide text-[var(--t4)]">
+                        <tr className="text-left text-[12px] uppercase tracking-wide text-[var(--t4)]">
                           <th className="px-4 py-2 font-bold">{M.COLUMNS.ITEM}</th>
                           <th className="px-4 py-2 font-bold">{M.COLUMNS.REQUESTED}</th>
                           <th className="px-4 py-2 font-bold">{M.COLUMNS.AVAILABLE}</th>
@@ -179,7 +179,7 @@ export function VerificationRoundsDrawer({
                                 {show(item.product_name)}
                               </div>
                               {item.variant_name ? (
-                                <div className="text-[11px] text-[var(--t4)]">
+                                <div className="text-[12px] text-[var(--t4)]">
                                   {item.variant_name}
                                 </div>
                               ) : null}
@@ -217,7 +217,7 @@ export function VerificationRoundsDrawer({
         </div>
 
         <SheetFooter className="p-5 border-t border-[var(--border-md)] bg-[var(--surface)]">
-          <p className="text-[11.5px] leading-relaxed text-[var(--t4)]">{M.REVIEW_NOTE}</p>
+          <p className="text-[12px] leading-relaxed text-[var(--t4)]">{M.REVIEW_NOTE}</p>
         </SheetFooter>
       </SheetContent>
     </Sheet>
