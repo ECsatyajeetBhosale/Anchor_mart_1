@@ -1,3 +1,4 @@
+import { useFirstPageOnOutOfRange } from "@/hooks/usePageParam";
 import { IconHistory, IconPlus, IconStar, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -75,11 +76,12 @@ export function BonusPointsTab() {
    * belong to both halves. The two figures stay side by side as columns, and the
    * search box narrows by person, which is what the endpoint actually supports.
    */
-  const { data, isLoading, isError, refetch } = useGetBonusPointsQuery({
+  const { data, isLoading, isError, error, refetch } = useGetBonusPointsQuery({
     page,
     limit: LIMIT,
     search,
   });
+  useFirstPageOnOutOfRange(error, page, () => setPage(1));
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / LIMIT));
 
   /**

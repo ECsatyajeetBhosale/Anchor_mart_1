@@ -237,15 +237,6 @@ export const MESSAGES = {
       PEAK_DAY: "Peak Day",
       GROWTH: "Growth",
     },
-    // Top Products card
-    TOP_PRODUCTS: "Top Products",
-    TOP_PRODUCTS_EMPTY: "No product sales for this period",
-    // Active Partners card
-    ACTIVE_PARTNERS_TITLE: "Active Partners",
-    ACTIVE_PARTNERS_EMPTY: "No active partners right now",
-    WEEKLY_EARNINGS: "Weekly partner earnings",
-    PARTNER_FREE: "free",
-    PARTNER_ACTIVE: (count: number) => `${count} active`,
     // Action Required card
     ACTION_REQUIRED: "Action Required",
     ACTION_REQUIRED_EMPTY: "Nothing needs attention right now",
@@ -1358,7 +1349,6 @@ export const MESSAGES = {
       NP_PRICE: "Unit price ($)",
       NP_CATEGORY: "Category",
       NP_CATEGORY_PLACEHOLDER: "Select a category…",
-      NP_CATEGORY_LOADING: "Loading categories…",
       NP_REQUIRED: "Name, SKU, price and category are required.",
       NP_DESCRIPTION: "Description (optional)",
       NP_DESCRIPTION_PLACEHOLDER: "What this product is…",

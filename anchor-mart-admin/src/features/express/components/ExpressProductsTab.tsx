@@ -14,7 +14,8 @@ import {
   useSetProductTopRatedMutation,
 } from "@/features/products";
 import { ProductVariantsDrawer } from "@/features/variants";
-import { getApiMessage, getApiStatus, getSuccessMessage } from "@/lib/apiError";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
+import { getApiMessage, getSuccessMessage } from "@/lib/apiError";
 import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
@@ -75,7 +76,7 @@ export function ExpressProductsTab({ onCountChange }: ExpressProductsTabProps) {
     useAnnounceProductAvailabilityMutation();
   const [deleteProduct, { isLoading: isDeleting }] = useDeleteProductMutation();
 
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const page = pageFromParams(searchParams);
   const searchTerm = searchParams.get("search") ?? "";
   const categoryFilter = searchParams.get("category") ?? "all";
   const statusFilter = searchParams.get("status") ?? "";
@@ -94,6 +95,7 @@ export function ExpressProductsTab({ onCountChange }: ExpressProductsTabProps) {
     isTopRated: topRatedFilter === "" ? undefined : topRatedFilter === "true",
     adminSourceable: sourceableFilter === "" ? undefined : sourceableFilter === "true",
   });
+  useUrlPageReset(error, page);
 
   /**
    * Express products use **general-scope** categories — there is no express
@@ -128,18 +130,6 @@ export function ExpressProductsTab({ onCountChange }: ExpressProductsTabProps) {
     next.set("page", newPage.toString());
     setSearchParams(next);
   };
-
-  /**
-   * A page past the end is a **404**, not an empty page — same `CustomPagination`
-   * as every other catalog list, so the same recovery to page 1.
-   */
-  const isPageOutOfRange = getApiStatus(error) === 404;
-  React.useEffect(() => {
-    if (!isPageOutOfRange || page === 1) return;
-    const next = new URLSearchParams(searchParams);
-    next.set("page", "1");
-    setSearchParams(next, { replace: true });
-  }, [isPageOutOfRange, page, searchParams, setSearchParams]);
 
   // Client-side refinement, mirroring Products: a fallback that still holds if
   // the backend ever ignores `?category=`.

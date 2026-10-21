@@ -22,3 +22,7 @@ tsconfig.tsbuildinfo
 # so a code comment citing "Flow 26" or "§4.1" points at a file the reader has
 # to be given separately.
 *.md
+
+# One lockfile only: this project installs with yarn. Two committed lockfiles
+# drift apart, because an install updates whichever one its tool owns.
+package-lock.json

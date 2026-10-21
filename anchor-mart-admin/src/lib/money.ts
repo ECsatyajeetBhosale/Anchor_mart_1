@@ -68,3 +68,13 @@ export function formatMoney(value: MoneyInput, options: FormatMoneyOptions = {})
 export function hasAmount(value: MoneyInput): boolean {
   return readAmount(value) !== null;
 }
+
+/**
+ * True when `n` has at most two decimal places — what a `decimal_places=2`
+ * field accepts. Exact at any magnitude: a cents check with a fixed tolerance
+ * (`|n*100 - round(n*100)| < 1e-9`) rejected prices from about 131,072 up,
+ * where float error alone exceeds the tolerance.
+ */
+export function hasAtMostTwoDecimals(n: number): boolean {
+  return Number.isFinite(n) && Number(n.toFixed(2)) === n;
+}

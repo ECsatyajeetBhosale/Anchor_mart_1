@@ -43,7 +43,6 @@ export { CouponAssignmentsTab } from "./components/CouponAssignmentsTab";
 export { CouponReportTab } from "./components/CouponReportTab";
 export {
   useGetDealsQuery,
-  useGetDealQuery,
   useGetDealStatsQuery,
   useGetDealsOfDayQuery,
   useCreateDealMutation,

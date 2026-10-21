@@ -8,6 +8,7 @@ import { SearchFilters } from "@/components/common/SearchFilters";
 import { badgeColumn, textColumn, truncatedColumn } from "@/components/common/tableColumns";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
 import { MESSAGES } from "@/lib/messages";
 import { clearParams } from "@/lib/utils";
 import { useGetOutboundMessagesQuery } from "../api/outboundMessageApi";
@@ -53,7 +54,7 @@ export function OutboundMessagesPage() {
   const [selected, setSelected] = useState<OutboundMessage | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const page = pageFromParams(searchParams);
   const recipient = searchParams.get("recipient") ?? "";
   const eventType = searchParams.get("event_type") ?? "";
 
@@ -68,7 +69,7 @@ export function OutboundMessagesPage() {
     ? orderingRaw
     : "-created_at";
 
-  const { data, isLoading, isFetching, isError, refetch } = useGetOutboundMessagesQuery({
+  const { data, isLoading, isFetching, isError, error, refetch } = useGetOutboundMessagesQuery({
     page,
     limit: LIMIT,
     recipient,
@@ -77,6 +78,7 @@ export function OutboundMessagesPage() {
     status: status !== "all" ? status : undefined,
     ordering,
   });
+  useUrlPageReset(error, page);
 
   const messages = data?.messages ?? [];
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / LIMIT));

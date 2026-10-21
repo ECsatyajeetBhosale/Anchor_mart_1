@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { FILE_LOCATIONS, ImageUploadField } from "@/features/media";
+import { FILE_LOCATIONS, ImageUploadField, toStoredPath } from "@/features/media";
 import { getApiMessage, getFieldErrors, getSuccessMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -26,14 +26,6 @@ export interface CategoryEditDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   category: Category;
-}
-
-/** Extract the stored relative path (e.g. "category_images/x.jpg") from a media URL. */
-function toImagePath(image: string | null): string {
-  if (!image) return "";
-  const marker = "/media/";
-  const idx = image.lastIndexOf(marker);
-  return idx >= 0 ? image.slice(idx + marker.length) : image;
 }
 
 export function CategoryEditDrawer({ isOpen, onClose, category }: CategoryEditDrawerProps) {
@@ -63,7 +55,7 @@ export function CategoryEditDrawer({ isOpen, onClose, category }: CategoryEditDr
     reset({
       name: source.name ?? "",
       description: source.description ?? "",
-      image: toImagePath(source.image),
+      image: toStoredPath(source.image ?? ""),
       is_active: source.is_active ?? true,
     });
   }, [isOpen, source, reset]);

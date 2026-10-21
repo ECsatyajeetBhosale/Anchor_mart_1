@@ -16,7 +16,7 @@ import { getApiMessage, getSuccessMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { formatMoney } from "@/lib/money";
 import { IconCoin, IconLoader2 } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useGetRefundQuoteQuery, useRefundOrderMutation } from "../api/orderRefundApi";
 
@@ -47,8 +47,9 @@ function money(value?: string): string {
  * The quote is fetched whenever the dialog opens (and re-fetched when the
  * override toggle flips) because it is pure: the same policy the executor runs,
  * with no side effects. A partial refund is offered only for a
- * `partially_delivered` order and carries a fresh `Idempotency-Key` per
- * submission, so a double-click can't charge twice.
+ * `partially_delivered` order and carries one `Idempotency-Key` per attempt —
+ * the same key across retries of the same amount, so a retry after a lost
+ * response can't refund twice.
  */
 export function RefundOrderDialog({
   isOpen,
@@ -82,6 +83,16 @@ export function RefundOrderDialog({
     setErrors({});
   }, [isOpen, partialAllowed]);
 
+  // One key per (open, amount): a retry after a lost response replays the same
+  // key and the backend dedupes it; a changed amount is a new refund.
+  const idempotencyKey = useRef("");
+  // `amount` is the trigger, not a value the effect reads: a new amount is a
+  // different refund and must not replay the previous one's key.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see above
+  useEffect(() => {
+    if (isOpen) idempotencyKey.current = crypto.randomUUID();
+  }, [isOpen, amount]);
+
   const isPartial = mode === "partial" && partialAllowed;
 
   const handleConfirm = async () => {
@@ -104,9 +115,7 @@ export function RefundOrderDialog({
         // `override` only applies to a full refund's time gate.
         override: isPartial ? undefined : override || undefined,
         amount: isPartial ? trimmedAmount : undefined,
-        // A fresh key per submission: a replay of the *same* click is safe,
-        // while a deliberate second refund gets a new key and goes through.
-        idempotencyKey: isPartial ? crypto.randomUUID() : undefined,
+        idempotencyKey: isPartial ? idempotencyKey.current : undefined,
       }).unwrap();
       toast.success(
         getSuccessMessage(res) ?? R.SUCCESS(res.refunded ?? res.total_refund ?? trimmedAmount),

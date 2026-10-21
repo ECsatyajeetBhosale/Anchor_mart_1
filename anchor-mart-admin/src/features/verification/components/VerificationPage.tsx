@@ -8,6 +8,7 @@ import { SearchFilters } from "@/components/common/SearchFilters";
 import { SectionCard } from "@/components/common/SectionCard";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import { DataTable } from "@/components/ui/data-table";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
 import { MESSAGES } from "@/lib/messages";
 import {
   useGetVerificationReportsQuery,
@@ -92,16 +93,17 @@ export function VerificationPage() {
   const [isRoundsOpen, setIsRoundsOpen] = useState(false);
 
   // URL-driven filter state (shareable, refresh-safe).
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const page = pageFromParams(searchParams);
   const search = searchParams.get("search") ?? "";
   const statusFilter = searchParams.get("status") ?? "all";
 
-  const { data, isLoading, isFetching, isError, refetch } = useGetVerificationReportsQuery({
+  const { data, isLoading, isFetching, isError, error, refetch } = useGetVerificationReportsQuery({
     page,
     limit: LIMIT,
     search,
     orderStatus: statusFilter !== "all" ? statusFilter : undefined,
   });
+  useUrlPageReset(error, page);
 
   // Live console counters; cards show "—" while the request is in flight.
   const { data: stats, isLoading: statsLoading } = useGetVerificationStatsQuery();

@@ -3,12 +3,9 @@ export { useDashboard } from "./hooks/useDashboard";
 export { useRevenue } from "./hooks/useRevenue";
 export {
   useGetActionRequiredQuery,
-  useGetActivePartnersQuery,
   useGetDashboardStatsQuery,
-  useGetLiveOrderDetailsQuery,
   useGetLiveOrdersQuery,
   useGetRevenueQuery,
-  useGetTopProductsQuery,
   useGetDashboardOrderDetailQuery,
   useGetDashboardPortsQuery,
 } from "./api/dashboardApi";
@@ -20,9 +17,6 @@ export type {
   ActionRequiredItem,
   ActionRequiredResponse,
   ActionTone,
-  ActivePartner,
-  ActivePartnerCurrentOrder,
-  ActivePartnersResponse,
   DashboardPeriod,
   DashboardPeriodInfo,
   DashboardStatsParams,
@@ -40,8 +34,4 @@ export type {
   RevenueTotals,
   RevenueWindow,
   TimeRange,
-  TopProductItem,
-  TopProductsRankBy,
-  TopProductsResponse,
-  TopProductsResults,
 } from "./types/dashboard.types";

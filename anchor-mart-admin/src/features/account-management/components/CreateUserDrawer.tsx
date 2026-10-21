@@ -322,13 +322,17 @@ export function CreateUserDrawer({ isOpen, onClose, lockedRole }: CreateUserDraw
                             verifyField.onChange(canVerify);
                             deliverField.onChange(canDeliver);
                           }}
+                          error={errors.can_verify?.message}
                         />
                       )}
                     />
                   )}
                 />
 
-                <FormField label={MESSAGES.PARTNERS.DETAIL.PORT}>
+                <FormField
+                  label={MESSAGES.PARTNERS.DETAIL.PORT}
+                  error={errors.assigned_port?.message}
+                >
                   <Controller
                     control={control}
                     name="assigned_port"

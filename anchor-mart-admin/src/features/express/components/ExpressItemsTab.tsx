@@ -4,10 +4,10 @@ import { textColumn, truncatedColumn } from "@/components/common/tableColumns";
 import { Badge } from "@/components/ui/badge";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { SetVariantExpressDialog } from "@/features/variants";
-import { getApiStatus } from "@/lib/apiError";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
 import { MESSAGES } from "@/lib/messages";
 import { IconBolt, IconBoltOff, IconPackage, IconPencil } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useGetExpressCatalogQuery } from "../api/expressApi";
 import type { ExpressItem } from "../types/expressItem.types";
@@ -97,7 +97,7 @@ export function ExpressItemsTab() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // URL-driven state (shareable, refresh-safe).
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const page = pageFromParams(searchParams);
   const search = searchParams.get("search") ?? "";
   const sort = searchParams.get("sort") ?? "";
   const sourceable = searchParams.get("sourceable") ?? "";
@@ -129,6 +129,7 @@ export function ExpressItemsTab() {
      */
     { refetchOnMountOrArgChange: true },
   );
+  useUrlPageReset(error, page);
 
   // Flow 29a §6 — the variant-level express switch. Opens a form, not a
   // confirmation: the express price travels with the flag.
@@ -153,20 +154,6 @@ export function ExpressItemsTab() {
     next.set("page", newPage.toString());
     setSearchParams(next);
   };
-
-  /**
-   * A page past the end is a **404**, not an empty page — the same
-   * `CustomPagination` as every other catalog list, so the same recovery. Most
-   * reachable here of anywhere: flagging the last unflagged variant while
-   * filtered to "not flagged express" empties the page you are standing on.
-   */
-  const isPageOutOfRange = getApiStatus(error) === 404;
-  useEffect(() => {
-    if (!isPageOutOfRange || page === 1) return;
-    const next = new URLSearchParams(searchParams);
-    next.set("page", "1");
-    setSearchParams(next, { replace: true });
-  }, [isPageOutOfRange, page, searchParams, setSearchParams]);
 
   const columns: Column<ExpressItem>[] = [
     {

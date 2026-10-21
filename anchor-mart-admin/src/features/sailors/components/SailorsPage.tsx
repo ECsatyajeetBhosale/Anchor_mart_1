@@ -10,6 +10,7 @@ import { textColumn } from "@/components/common/tableColumns";
 import { Badge } from "@/components/ui/badge";
 import type { Column } from "@/components/ui/data-table";
 import { DataTable } from "@/components/ui/data-table";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 
@@ -71,18 +72,19 @@ export function SailorsPage() {
   const [editSailor, setEditSailor] = useState<SailorData | null>(null);
 
   // URL-driven filter state (shareable, refresh-safe).
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const page = pageFromParams(searchParams);
   const searchTerm = searchParams.get("search") ?? "";
   const statusFilter = searchParams.get("status") ?? "all";
   const statusParam = statusFilter !== "all" ? statusFilter : undefined;
 
   // --- Queries ---
-  const { data, isLoading, isFetching, isError, refetch } = useGetSailorsQuery({
+  const { data, isLoading, isFetching, isError, error, refetch } = useGetSailorsQuery({
     page,
     limit: LIMIT,
     search: searchTerm,
     status: statusParam,
   });
+  useUrlPageReset(error, page);
   const { data: stats, isLoading: statsLoading } = useGetSailorStatsQuery();
 
   // Detail fetch on drawer open — enriches the instantly-shown row data.

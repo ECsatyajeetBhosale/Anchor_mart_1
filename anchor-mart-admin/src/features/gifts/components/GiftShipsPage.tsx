@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { formatMoney } from "@/lib/money";
@@ -85,13 +86,13 @@ export function GiftShipsPage() {
   const [undismissShip] = useUndismissShipMutation();
   const { grantShip, isGranting } = useShipGiftActions();
 
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const page = pageFromParams(searchParams);
   const search = searchParams.get("search") ?? "";
   const giftStatus = searchParams.get("gift_status") ?? GIFT_STATUS_ANY;
   const ordering = searchParams.get("ordering") ?? "arrival";
   const visibility = searchParams.get("visibility") ?? "active";
 
-  const { data, isLoading, isError, refetch } = useGetGiftShipsQuery({
+  const { data, isLoading, isError, error, refetch } = useGetGiftShipsQuery({
     page,
     limit: LIMIT,
     search,
@@ -101,6 +102,7 @@ export function GiftShipsPage() {
     ordering,
     includeDismissed: visibility === "all",
   });
+  useUrlPageReset(error, page);
 
   // Read for the empty-state copy, and as the fallback for `program_enabled`
   // when no row has loaded to carry it.

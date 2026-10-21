@@ -114,7 +114,6 @@ export class EventsSocket {
     this.ws = socket;
 
     socket.onopen = () => {
-      this.attempt = 0;
       this.handlers.onStatus("open");
       // No replay: the server pushes a complete snapshot the moment we connect,
       // so a dropped socket self-heals and there is nothing to catch up on.
@@ -128,6 +127,11 @@ export class EventsSocket {
         // A non-JSON frame is a server bug, not something the user can act on.
         return;
       }
+
+      // The backoff resets on the first frame, not on open: a consumer that
+      // accepts and then drops the socket would otherwise reset it every time
+      // and pin every open tab to a reconnect a second, forever.
+      this.attempt = 0;
 
       // Auth failures arrive as a frame *before* the close, which is why they
       // are read here rather than inferred from the close code alone. Both are

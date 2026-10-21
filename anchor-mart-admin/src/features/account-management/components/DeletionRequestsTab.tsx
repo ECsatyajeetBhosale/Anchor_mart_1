@@ -13,6 +13,7 @@ import {
 } from "@/components/common/tableColumns";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 import { clearParams } from "@/lib/utils";
@@ -115,7 +116,7 @@ export function DeletionRequestsTab() {
   const [selected, setSelected] = useState<AccountDeletionRequest | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const page = pageFromParams(searchParams);
   const search = searchParams.get("search") ?? "";
 
   // Both filters are validated server-side (unknown value → 400), so anything
@@ -127,13 +128,15 @@ export function DeletionRequestsTab() {
   const roleRaw = searchParams.get("role") ?? "all";
   const roleFilter = ROLE_OPTIONS.some((o) => o.value === roleRaw) ? roleRaw : "all";
 
-  const { data, isLoading, isFetching, isError, refetch } = useGetAccountDeletionRequestsQuery({
-    page,
-    limit: LIMIT,
-    search,
-    status: statusFilter !== "all" ? statusFilter : undefined,
-    role: roleFilter !== "all" ? roleFilter : undefined,
-  });
+  const { data, isLoading, isFetching, isError, error, refetch } =
+    useGetAccountDeletionRequestsQuery({
+      page,
+      limit: LIMIT,
+      search,
+      status: statusFilter !== "all" ? statusFilter : undefined,
+      role: roleFilter !== "all" ? roleFilter : undefined,
+    });
+  useUrlPageReset(error, page);
 
   const requests = data?.requests ?? [];
   const totalCount = data?.count ?? 0;

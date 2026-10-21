@@ -8,34 +8,9 @@ import type {
   DismissLocationReportPayload,
   LocationReport,
   LocationReportResult,
-  LocationReportStatus,
   RaiseDeltaPayload,
   WithdrawDeltaPayload,
 } from "../types/delta.types";
-
-/** Params for the review queue (Flow 11 §2). */
-export interface GetLocationReportsParams {
-  /** Omit for the cross-order pending queue; pass it for one order's history. */
-  orderId?: string;
-  status?: LocationReportStatus;
-  page?: number;
-  limit?: number;
-}
-
-export interface LocationReportListResult {
-  count: number;
-  reports: LocationReport[];
-}
-
-/** Safe property read off an unknown value. */
-function getProp(value: unknown, key: string): unknown {
-  return value && typeof value === "object" ? (value as Record<string, unknown>)[key] : undefined;
-}
-
-/** Returns the value when it's an array, otherwise null. */
-function asArray(value: unknown): unknown[] | null {
-  return Array.isArray(value) ? value : null;
-}
 
 /**
  * Flow 11 — the admin location-change and delta-surcharge writes.
@@ -47,38 +22,6 @@ function asArray(value: unknown): unknown[] | null {
  */
 export const orderDeltaApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    /**
-     * Flow 11 §2 — the review queue. With no `orderId` it returns pending
-     * reports across all orders; with one, that order's full history.
-     */
-    getLocationReports: builder.query<LocationReportListResult, GetLocationReportsParams>({
-      query: (params) => ({
-        url: ORDER_ENDPOINTS.LOCATION_REPORTS,
-        method: "GET",
-        params: {
-          order_id: params.orderId || undefined,
-          status: params.status || undefined,
-          page: params.page,
-          page_size: params.limit,
-        },
-      }),
-      transformResponse: (res: unknown): LocationReportListResult => {
-        const results = getProp(res, "results");
-        const rows =
-          asArray(results) ??
-          asArray(getProp(results, "data")) ??
-          asArray(getProp(res, "data")) ??
-          asArray(res) ??
-          [];
-        const countRaw = getProp(res, "count");
-        return {
-          count: typeof countRaw === "number" ? countRaw : rows.length,
-          reports: rows as LocationReport[],
-        };
-      },
-      providesTags: [{ type: "Orders", id: "LOCATION-REPORTS" }],
-    }),
-
     /**
      * Flow 11 §3 — price the order's pending `delta` report. The location comes
      * from the report; the admin supplies only the surcharge and a note.
@@ -96,7 +39,6 @@ export const orderDeltaApi = baseApi.injectEndpoints({
       invalidatesTags: (_r, _e, { orderId }) => [
         { type: "Orders", id: orderId },
         { type: "Orders", id: "PARTIAL-LIST" },
-        { type: "Orders", id: "LOCATION-REPORTS" },
       ],
     }),
 
@@ -119,7 +61,6 @@ export const orderDeltaApi = baseApi.injectEndpoints({
       invalidatesTags: (_r, _e, { orderId }) => [
         { type: "Orders", id: orderId },
         { type: "Orders", id: "PARTIAL-LIST" },
-        { type: "Orders", id: "LOCATION-REPORTS" },
         // The berth may have moved, which changes the assignment's deadline.
         { type: "Assignments", id: `HISTORY-${orderId}` },
       ],
@@ -141,7 +82,6 @@ export const orderDeltaApi = baseApi.injectEndpoints({
       invalidatesTags: (_r, _e, { orderId }) => [
         { type: "Orders", id: orderId },
         { type: "Orders", id: "PARTIAL-LIST" },
-        { type: "Orders", id: "LOCATION-REPORTS" },
       ],
     }),
 
@@ -157,7 +97,6 @@ export const orderDeltaApi = baseApi.injectEndpoints({
       invalidatesTags: (_r, _e, { orderId }) => [
         { type: "Orders", id: orderId },
         { type: "Orders", id: "PARTIAL-LIST" },
-        { type: "Orders", id: "LOCATION-REPORTS" },
       ],
     }),
 
@@ -181,7 +120,6 @@ export const orderDeltaApi = baseApi.injectEndpoints({
 });
 
 export const {
-  useGetLocationReportsQuery,
   useRaiseDeltaMutation,
   useAcceptLocationReportMutation,
   useDismissLocationReportMutation,

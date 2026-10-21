@@ -1,5 +1,6 @@
 import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { FormField } from "@/components/common/FormField";
+import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { StringListField } from "@/components/common/StringListField";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useGetCategoriesQuery } from "@/features/catalog";
 import { getApiMessage } from "@/lib/apiError";
+import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { IconCheck, IconClockPause, IconReplace } from "@tabler/icons-react";
 import { useState } from "react";
@@ -114,14 +116,22 @@ export function SuggestReplacementPanel({
   const [npAttributes, setNpAttributes] = useState("");
 
   // Categories for the new-product form (fetched only when the panel renders).
-  const { data: categoryData, isLoading: categoriesLoading } = useGetCategoriesQuery(
-    { limit: 100, isActive: true },
+  // Searched server-side: the backend caps a page at 50, so a fixed list left
+  // every category past the 50th unpickable.
+  const [categorySearch, setCategorySearch] = useState("");
+  const [npCategoryLabel, setNpCategoryLabel] = useState("");
+  const { data: categoryData, isFetching: categoriesLoading } = useGetCategoriesQuery(
+    { limit: API_MAX_PAGE_SIZE, isActive: true, search: categorySearch || undefined },
     { skip: !orderId },
   );
   const categoryOptions = (categoryData?.results?.data ?? []).map((c) => ({
     value: c.id,
     label: c.name,
   }));
+  // Keep the chosen category named while a new search no longer lists it.
+  if (npCategory && !categoryOptions.some((o) => o.value === npCategory)) {
+    categoryOptions.unshift({ value: npCategory, label: npCategoryLabel });
+  }
 
   const busy = staging || creatingNew;
 
@@ -140,6 +150,8 @@ export function SuggestReplacementPanel({
     setNpSku("");
     setNpPrice("");
     setNpCategory("");
+    setNpCategoryLabel("");
+    setCategorySearch("");
     setNpDescription("");
     setNpImages([]);
     setNpAttributes("");
@@ -375,12 +387,18 @@ export function SuggestReplacementPanel({
                       </FormField>
                     </div>
                     <FormField label={S.NP_CATEGORY}>
-                      <DropdownSelect
+                      <SearchableSelect
                         value={npCategory}
-                        onValueChange={setNpCategory}
-                        placeholder={
-                          categoriesLoading ? S.NP_CATEGORY_LOADING : S.NP_CATEGORY_PLACEHOLDER
-                        }
+                        onValueChange={(id) => {
+                          setNpCategory(id);
+                          setNpCategoryLabel(
+                            categoryOptions.find((o) => o.value === id)?.label ?? "",
+                          );
+                        }}
+                        search={categorySearch}
+                        onSearchChange={setCategorySearch}
+                        isLoading={categoriesLoading}
+                        placeholder={S.NP_CATEGORY_PLACEHOLDER}
                         options={categoryOptions}
                         width="100%"
                       />

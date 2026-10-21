@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { Pagination } from "@/components/common/Pagination";
 import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { IconCategory, IconHelpCircle, IconMoodEmpty, IconPlus } from "@tabler/icons-react";
@@ -37,7 +38,7 @@ const ALL_TYPES = "all";
  */
 export function FaqsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const page = Number(searchParams.get("page")) || 1;
+  const page = pageFromParams(searchParams);
   const search = searchParams.get("search") ?? "";
   const faqType = searchParams.get("faq_type") ?? "";
 
@@ -46,12 +47,13 @@ export function FaqsPage() {
   const [editingFaq, setEditingFaq] = useState<Faq | null>(null);
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
 
-  const { data, isLoading, isError, isFetching, refetch } = useGetFaqsQuery({
+  const { data, isLoading, isError, error, isFetching, refetch } = useGetFaqsQuery({
     page,
     limit: PAGE_SIZE,
     search: search || undefined,
     faqType: faqType || undefined,
   });
+  useUrlPageReset(error, page);
   const { data: typesData } = useGetFaqTypesQuery();
   const [deleteFaq, { isLoading: isDeleting }] = useDeleteFaqMutation();
 

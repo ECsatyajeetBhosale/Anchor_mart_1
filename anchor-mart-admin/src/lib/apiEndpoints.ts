@@ -74,8 +74,6 @@ export const PRODUCT_ENDPOINTS = {
  */
 export const VARIANT_ENDPOINTS = {
   GET_VARIANTS: "/superadmin/product-variants/get-product-variants/",
-  // Detail is fetched by the `product_variant_id` query param, not a path segment.
-  GET_VARIANT: "/superadmin/product-variants/product-variant/",
   ADD_VARIANT: "/superadmin/product-variants/add-product-variant/",
   UPDATE_VARIANT: (id: string) => `/superadmin/product-variants/update-product-variant/${id}/`,
   DELETE_VARIANT: (id: string) => `/superadmin/product-variants/delete-product-variant/${id}/`,
@@ -347,9 +345,6 @@ export const ORDER_ENDPOINTS = {
   // Flow 12 §4 — refund a paid order. Full (no `amount`) or partial (`amount`
   // + an `Idempotency-Key` header, `partially_delivered` orders only).
   REFUND: (id: string) => `/superadmin/orders/order/${id}/refund/`,
-  // Flow 11 §2 — location-report review queue. Omit `order_id` for the
-  // cross-order pending queue; pass it for one order's full history.
-  LOCATION_REPORTS: "/superadmin/orders/location-reports/",
   // Flow 11 §3 — price the order's pending `delta` report into a DeltaPayment.
   RAISE_DELTA: (id: string) => `/superadmin/orders/order/${id}/raise-delta/`,
   // §4.2 (2026-08-27) — accept a report **without** charging: applies the move
@@ -455,8 +450,6 @@ export const ASSIGNMENT_ENDPOINTS = {
   // Flow 28 API 14 ("board a") — every order with a live partner assignment.
   GET_ACTIVE_ASSIGNMENTS: "/superadmin/partner/active-assignments/",
   ASSIGN_ORDER: "/superadmin/partner/assign-order/",
-  // Flow 28 API 11 — partners scoped to an order's capability (verify/deliver) + port.
-  ASSIGNABLE_PARTNERS: "/superadmin/partner/assignable-partners/",
   // Flow 28 API 16 — milestone ladder for one order (`steps` / `terminal_state` /
   // raw `history`), shared with the customer track screen. Query: `order_id`.
   ORDER_TIMELINE: "/superadmin/partner/order-timeline/",
@@ -526,10 +519,7 @@ export const SPARE_ENDPOINTS = {
 export const DASHBOARD_ENDPOINTS = {
   GET_STATS: "/superadmin/dashboard/dashboard/stats/",
   GET_LIVE_ORDERS: "/superadmin/dashboard/live-orders/",
-  LIVE_ORDER_DETAIL: (id: string) => `/superadmin/dashboard/live-orders/${id}/`,
   GET_REVENUE: "/superadmin/dashboard/revenue/",
-  GET_TOP_PRODUCTS: "/superadmin/dashboard/top-products/",
-  GET_ACTIVE_PARTNERS: "/superadmin/dashboard/active-partners/",
   GET_ACTION_REQUIRED: "/superadmin/dashboard/action-required/",
   /*
    * `GET_ORDERS` (legacy `dashboard/orders/`) removed — no consumer, and the
@@ -609,7 +599,6 @@ export const REWARD_ENDPOINTS = {
 
   /** Deal of the Day. */
   GET_DEALS: "/superadmin/promotion/deals/",
-  GET_DEAL: (id: string) => `/superadmin/promotion/deals/${id}/`,
   GET_DEAL_STATS: "/superadmin/promotion/deals/stats/",
   // Today's live deals — the customer-facing selection, not the admin list.
   GET_DEALS_OF_DAY: "/superadmin/promotion/deals-of-day/",

@@ -4,6 +4,8 @@ import {
   dayText,
   formatDateRange,
   sgtDateKey,
+  sgtDayEndIso,
+  sgtDayStartIso,
   sgtDaysUntil,
   sgtMonthDay,
   sgtTimeText,
@@ -160,5 +162,13 @@ describe("formatDateRange", () => {
     expect(formatDateRange(new Date(2025, 11, 30), new Date(2026, 0, 2))).toBe(
       "Dec 30, 2025 – Jan 2, 2026",
     );
+  });
+});
+
+describe("sgtDayStartIso / sgtDayEndIso", () => {
+  it("bounds the picked calendar day by Singapore midnight, whatever the browser zone", () => {
+    const day = new Date(2026, 9, 20); // 20 Oct, as the picker builds it
+    expect(sgtDayStartIso(day)).toBe("2026-10-19T16:00:00.000Z");
+    expect(sgtDayEndIso(day)).toBe("2026-10-20T15:59:59.999Z");
   });
 });

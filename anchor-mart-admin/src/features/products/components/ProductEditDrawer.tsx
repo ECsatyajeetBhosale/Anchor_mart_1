@@ -27,7 +27,7 @@ import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconBoxSeam, IconCheck, IconPackage } from "@tabler/icons-react";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useGetProductQuery, useUpdateProductMutation } from "../api/productApi";
@@ -204,30 +204,46 @@ export function ProductEditDrawer({ isOpen, onClose, product }: ProductEditDrawe
 
   // Pre-populate the editable fields from the selected product whenever the
   // drawer opens (and once categories load, so we can resolve the category id).
+  //
+  // The drawer opens on the cached row and the detail refetch lands a moment
+  // later, re-running this. Only the first run of an opening is a full reset;
+  // later ones keep whatever the admin has already typed (`keepDirtyValues`)
+  // and leave the tab alone, or the refetch would wipe an edit in progress.
+  const populatedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (!isOpen) return;
-    setActiveTab("pt-basic");
-    setOpenVariantId(null);
+    if (!isOpen) {
+      populatedFor.current = null;
+      return;
+    }
+    const firstRun = populatedFor.current !== product.id;
+    populatedFor.current = product.id;
+    if (firstRun) {
+      setActiveTab("pt-basic");
+      setOpenVariantId(null);
+    }
     const cats = categoriesData?.results?.data ?? [];
     const categoryId =
       source.category || cats.find((c) => c.name === source.category_name)?.id || "";
     const rawImages = (source.images ?? []) as unknown as (ProductImage | string)[];
-    reset({
-      category: categoryId,
-      name: source.name ?? "",
-      description: source.description ?? "",
-      base_price: Number(source.base_price) || 0,
-      // The server's own name for it on read. 0 = none, which only a regular
-      // product legitimately has.
-      express_price: Number(source.express_base_price) || 0,
-      images: rawImages.map(toImagePath).filter(Boolean),
-      // The three writable flags. `is_express` and `on_deal` are not among them
-      // — both are computed server-side and have no write path here.
-      is_active: source.is_active ?? true,
-      is_top_rated: source.is_top_rated ?? false,
-      admin_sourceable: source.admin_sourceable ?? true,
-    });
-  }, [isOpen, source, categoriesData, reset]);
+    reset(
+      {
+        category: categoryId,
+        name: source.name ?? "",
+        description: source.description ?? "",
+        base_price: Number(source.base_price) || 0,
+        // The server's own name for it on read. 0 = none, which only a regular
+        // product legitimately has.
+        express_price: Number(source.express_base_price) || 0,
+        images: rawImages.map(toImagePath).filter(Boolean),
+        // The three writable flags. `is_express` and `on_deal` are not among them
+        // — both are computed server-side and have no write path here.
+        is_active: source.is_active ?? true,
+        is_top_rated: source.is_top_rated ?? false,
+        admin_sourceable: source.admin_sourceable ?? true,
+      },
+      { keepDirtyValues: !firstRun },
+    );
+  }, [isOpen, product.id, source, categoriesData, reset]);
 
   /** The shelf decides whether Express Price applies; this endpoint cannot move it. */
   const isExpress = (source.catalog_type ?? "") === "express";

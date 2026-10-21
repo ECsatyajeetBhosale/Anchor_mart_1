@@ -189,14 +189,22 @@ export function ChatMessagePane({
     return () => clearInterval(timer);
   }, [chatId]);
 
-  // Opening a thread marks it read, which is what clears the sidebar badge.
-  // Held until the history has actually landed — claiming to have read a
-  // still-loading pane would be a lie, and `MessageSeen` marks the whole thread.
-  const { markSeen } = socket;
+  // Opening a thread marks it read, which is what clears the sidebar badge —
+  // and so does a reply landing while it is open, or the badge relights for the
+  // thread on screen. Held until the history has actually landed — claiming to
+  // have read a still-loading pane would be a lie, and `MessageSeen` marks the
+  // whole thread.
+  const { markSeen, selfUserId } = socket;
+  const latestIncomingId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (!isOwnMessage(messages[i], selfUserId)) return messages[i].id;
+    }
+    return undefined;
+  }, [messages, selfUserId]);
   useEffect(() => {
-    if (!chatId || isLoading || !hasMessages) return;
+    if (!chatId || isLoading || !latestIncomingId) return;
     markSeen();
-  }, [chatId, isLoading, hasMessages, markSeen]);
+  }, [chatId, isLoading, latestIncomingId, markSeen]);
 
   // A thread switch must not leave the previous thread's edit draft open.
   const draftForRef = useRef(chatId);

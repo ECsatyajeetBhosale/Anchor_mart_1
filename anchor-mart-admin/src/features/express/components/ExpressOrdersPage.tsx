@@ -27,6 +27,7 @@ import {
   useLazyGetOrderSlipQuery,
 } from "@/features/orders";
 import { useGetPartnersQuery } from "@/features/partners";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { statText, statsError, statsState, statusText } from "@/lib/stats";
@@ -74,7 +75,7 @@ export function ExpressOrdersPage() {
   const [activeOrder, setActiveOrder] = useState<ExpressOrder | null>(null);
 
   // URL-driven state (shareable, refresh-safe).
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const page = pageFromParams(searchParams);
   const searchTerm = searchParams.get("search") ?? "";
   const statusFilter = searchParams.get("status") ?? ""; // "" = all
   const partnerFilter = searchParams.get("partner") ?? "";
@@ -87,7 +88,7 @@ export function ExpressOrdersPage() {
    */
   const departedOnly = searchParams.get("departed") === "true";
 
-  const { data, isLoading, isError, refetch } = useGetExpressOrdersQuery({
+  const { data, isLoading, isError, error, refetch } = useGetExpressOrdersQuery({
     page,
     limit: LIMIT,
     search: searchTerm,
@@ -102,6 +103,7 @@ export function ExpressOrdersPage() {
     dateTo,
     partnerId: partnerFilter,
   });
+  useUrlPageReset(error, page);
 
   // Feeds the `?partner_id=` filter only — the drawer fetches its own assignable
   // list, which is a different question (who *may* take this order).

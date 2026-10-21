@@ -6,6 +6,7 @@ import { RowActions } from "@/components/common/RowActions";
 import { SearchFilters } from "@/components/common/SearchFilters";
 import { avatarColumn, badgeColumn, textColumn } from "@/components/common/tableColumns";
 import { type Column, DataTable } from "@/components/ui/data-table";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
@@ -58,7 +59,7 @@ export function AdminUsersTab() {
 
   const { isSuperAdmin } = useAdminAccess();
 
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const page = pageFromParams(searchParams);
   const search = searchParams.get("search") ?? "";
 
   // Both filters are validated server-side, so anything off the accepted list
@@ -68,7 +69,7 @@ export function AdminUsersTab() {
   const statusRaw = searchParams.get("active") ?? "all";
   const statusFilter = statusRaw === "true" || statusRaw === "false" ? statusRaw : "all";
 
-  const { data, isLoading, isFetching, isError, refetch } = useGetAdminUsersQuery(
+  const { data, isLoading, isFetching, isError, error, refetch } = useGetAdminUsersQuery(
     {
       page,
       limit: LIMIT,
@@ -82,6 +83,7 @@ export function AdminUsersTab() {
     },
     { skip: !isSuperAdmin },
   );
+  useUrlPageReset(error, page);
 
   const users = data?.users ?? [];
   const totalCount = data?.count ?? 0;

@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
 import { hasActiveFilters } from "@/lib/searchFilters";
@@ -81,17 +82,18 @@ export function SellerRequestsPage() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   // URL-driven filter state (shareable, refresh-safe) — mirrors Special Requests.
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const page = pageFromParams(searchParams);
   const search = searchParams.get("search") ?? "";
   const statusFilter = searchParams.get("status") ?? "all";
 
   const statusParam = statusFilter !== "all" ? statusFilter : undefined;
-  const { data, isLoading, isFetching, isError, refetch } = useGetSellerRequestsQuery({
+  const { data, isLoading, isFetching, isError, error, refetch } = useGetSellerRequestsQuery({
     page,
     limit: LIMIT,
     search,
     status: statusParam,
   });
+  useUrlPageReset(error, page);
 
   const requests = data?.requests ?? [];
   const totalCount = data?.count ?? 0;

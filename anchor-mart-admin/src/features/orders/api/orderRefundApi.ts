@@ -63,6 +63,9 @@ export const orderRefundApi = baseApi.injectEndpoints({
         { type: "Orders", id: "PARTIAL-LIST" },
         { type: "Orders", id: "STATS" },
         { type: "Orders", id: `REFUND-QUOTE-${orderId}` },
+        // The same dialog runs on Express Orders, whose rows carry these tags.
+        { type: "ExpressItems", id: orderId },
+        { type: "ExpressItems", id: "PARTIAL-LIST" },
       ],
     }),
   }),

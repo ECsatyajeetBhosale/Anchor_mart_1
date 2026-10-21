@@ -275,6 +275,20 @@ describe("fatal close codes", () => {
     expect(FakeWebSocket.instances).toHaveLength(1);
   });
 
+  it("keeps backing off when the server accepts and drops without a frame", () => {
+    const { ws } = connected();
+    ws.open();
+    ws.serverClose(1011);
+    vi.advanceTimersByTime(1_000);
+    expect(FakeWebSocket.instances).toHaveLength(2);
+    latest().open();
+    latest().serverClose(1011);
+    vi.advanceTimersByTime(1_000);
+    expect(FakeWebSocket.instances).toHaveLength(2);
+    vi.advanceTimersByTime(1_000);
+    expect(FakeWebSocket.instances).toHaveLength(3);
+  });
+
   it.each([1006, 1001, 1012])("reconnects after a %i network close", (code) => {
     const { ws } = connected();
     ws.open();
@@ -324,7 +338,7 @@ describe("backoff", () => {
     }
   });
 
-  it("resets the ladder once a connection succeeds", () => {
+  it("resets the ladder once a connection succeeds — a frame arrived, not just an open", () => {
     const { ws } = connected();
     ws.open();
     ws.serverClose(1006);
@@ -332,6 +346,7 @@ describe("backoff", () => {
 
     const second = latest();
     second.open();
+    second.receive({ type: "badge", counts: COUNTS });
     second.serverClose(1006);
     // Back to the first rung rather than continuing to 2s.
     vi.advanceTimersByTime(1_000);

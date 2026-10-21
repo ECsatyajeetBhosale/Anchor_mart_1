@@ -6,7 +6,8 @@ import { StatsGrid } from "@/components/common/StatsGrid";
 import { DataTable } from "@/components/ui/data-table";
 import { useGetCategoriesQuery } from "@/features/catalog";
 import { ProductVariantsDrawer } from "@/features/variants";
-import { getApiMessage, getApiStatus, getSuccessMessage } from "@/lib/apiError";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
+import { getApiMessage, getSuccessMessage } from "@/lib/apiError";
 import { API_MAX_PAGE_SIZE, APP_ROUTES } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
@@ -73,7 +74,7 @@ export function ProductsPage() {
   const [deleteProduct, { isLoading: isDeleting }] = useDeleteProductMutation();
 
   // URL-driven state (shareable, refresh-safe).
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const page = pageFromParams(searchParams);
   const searchTerm = searchParams.get("search") ?? "";
   const categoryFilter = searchParams.get("category") ?? "all"; // category id, or "all"
   const statusFilter = searchParams.get("status") ?? ""; // "", "active", "inactive"
@@ -132,6 +133,7 @@ export function ProductsPage() {
      */
     { refetchOnMountOrArgChange: true },
   );
+  useUrlPageReset(error, page);
 
   /**
    * KPI counts, given **the table's own filters** — one object, so the cards
@@ -166,25 +168,6 @@ export function ProductsPage() {
   useDealBoundaryRefetch(productsData, refetch);
   const totalCount = data?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / LIMIT));
-
-  /**
-   * A page past the end is a **404**, not an empty page and not a 400.
-   *
-   * Reachable without doing anything wrong: delete the last row on the last
-   * page, or open a bookmarked `?page=4` after the catalog shrank. The table
-   * would otherwise show "Failed to fetch products" with a Retry button that
-   * retries the same doomed request forever.
-   *
-   * Recovering to page 1 rather than surfacing the error — the operator asked
-   * for a list of products, and page 1 of that list is a truthful answer to it.
-   */
-  const isPageOutOfRange = getApiStatus(error) === 404;
-  React.useEffect(() => {
-    if (!isPageOutOfRange || page === 1) return;
-    const next = new URLSearchParams(searchParams);
-    next.set("page", "1");
-    setSearchParams(next, { replace: true });
-  }, [isPageOutOfRange, page, searchParams, setSearchParams]);
 
   // Client-side refinement: a category fallback that still works if the backend
   // ignores the `?category=` filter. (Deal/top-rated are now server-side.)
@@ -267,8 +250,8 @@ export function ProductsPage() {
       await deleteProduct(productToDelete).unwrap();
       toast.success(MESSAGES.PRODUCTS.TOAST.DELETE_SUCCESS);
       setProductToDelete(null);
-    } catch (_error) {
-      toast.error(MESSAGES.PRODUCTS.TOAST.DELETE_ERROR);
+    } catch (error) {
+      toast.error(getApiMessage(error) ?? MESSAGES.PRODUCTS.TOAST.DELETE_ERROR);
     }
   };
 

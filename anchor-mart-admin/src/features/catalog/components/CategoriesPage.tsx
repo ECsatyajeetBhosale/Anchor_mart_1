@@ -3,7 +3,8 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import { DataTable } from "@/components/ui/data-table";
-import { getApiMessage, getApiStatus } from "@/lib/apiError";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
+import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
 import {
@@ -14,7 +15,7 @@ import {
   IconPlus,
 } from "@tabler/icons-react";
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -45,7 +46,7 @@ export function CategoriesPage() {
   const { canManageCatalog } = useAdminAccess();
 
   // URL-driven state (shareable, refresh-safe).
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const page = pageFromParams(searchParams);
   const searchTerm = searchParams.get("search") ?? "";
   const statusFilter = searchParams.get("status") ?? ""; // "", "active", "inactive"
 
@@ -65,6 +66,7 @@ export function CategoriesPage() {
     limit: LIMIT,
     ...listFilters,
   });
+  useUrlPageReset(error, page);
 
   const categories: Category[] = data?.results?.data ?? [];
   const totalCount = data?.count ?? 0;
@@ -73,21 +75,6 @@ export function CategoriesPage() {
   // KPI counts { total, active, inactive, empty }, scoped to this taxonomy and
   // following the filters above.
   const { data: stats } = useGetCategoryStatsQuery(listFilters);
-
-  /**
-   * A page past the end is a **404**, not an empty page — same `CustomPagination`
-   * as the products list, so the same recovery. Reachable by deleting the last
-   * row on the last page, or opening a bookmarked `?page=4` after the taxonomy
-   * shrank; without this the table shows a permanent error with a Retry that
-   * retries the same doomed request.
-   */
-  const isPageOutOfRange = getApiStatus(error) === 404;
-  useEffect(() => {
-    if (!isPageOutOfRange || page === 1) return;
-    const next = new URLSearchParams(searchParams);
-    next.set("page", "1");
-    setSearchParams(next, { replace: true });
-  }, [isPageOutOfRange, page, searchParams, setSearchParams]);
 
   const setFilterParam = (key: string, value: string) => {
     const next = new URLSearchParams(searchParams);

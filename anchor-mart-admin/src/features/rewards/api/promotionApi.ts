@@ -193,12 +193,6 @@ export const promotionApi = baseApi.injectEndpoints({
           : [{ type: "Deals", id: "PARTIAL-LIST" }],
     }),
 
-    getDeal: builder.query<Deal, string>({
-      query: (id) => ({ url: REWARD_ENDPOINTS.GET_DEAL(id), method: "GET" }),
-      transformResponse: (res: unknown): Deal => toDeal(getProp(res, "data") ?? res, 0),
-      providesTags: (_r, _e, id) => [{ type: "Deals", id }],
-    }),
-
     getDealStats: builder.query<DealStats, void>({
       query: () => ({ url: REWARD_ENDPOINTS.GET_DEAL_STATS, method: "GET" }),
       transformResponse: (res: unknown): DealStats =>
@@ -419,7 +413,6 @@ export const promotionApi = baseApi.injectEndpoints({
 
 export const {
   useGetDealsQuery,
-  useGetDealQuery,
   useGetDealStatsQuery,
   useGetDealsOfDayQuery,
   useCreateDealMutation,

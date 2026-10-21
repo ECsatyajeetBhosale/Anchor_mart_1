@@ -6,6 +6,7 @@ import { SearchFilters } from "@/components/common/SearchFilters";
 import { Thumbnail } from "@/components/common/Thumbnail";
 import { idColumn, textColumn } from "@/components/common/tableColumns";
 import { type Column, DataTable } from "@/components/ui/data-table";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
 import { MESSAGES } from "@/lib/messages";
 import { useGetSavedProductsQuery } from "../api/savedProductApi";
 import type { SavedProduct } from "../types/savedProduct.types";
@@ -35,17 +36,18 @@ const ACTIVE_OPTIONS = [
 export function SavedProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const page = pageFromParams(searchParams);
   const search = searchParams.get("search") ?? "";
   const activeRaw = searchParams.get("is_active") ?? "all";
   const isActive = ACTIVE_OPTIONS.some((o) => o.value === activeRaw) ? activeRaw : "all";
 
-  const { data, isLoading, isFetching, isError, refetch } = useGetSavedProductsQuery({
+  const { data, isLoading, isFetching, isError, error, refetch } = useGetSavedProductsQuery({
     page,
     limit: LIMIT,
     search,
     isActive: isActive !== "all" ? isActive : undefined,
   });
+  useUrlPageReset(error, page);
 
   const rows = data?.items ?? [];
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / LIMIT));

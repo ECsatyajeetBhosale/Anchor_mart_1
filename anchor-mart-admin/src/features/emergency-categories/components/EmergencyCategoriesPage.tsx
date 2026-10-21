@@ -3,7 +3,8 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import { DataTable } from "@/components/ui/data-table";
-import { getApiMessage, getApiStatus } from "@/lib/apiError";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
+import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
 import {
@@ -14,7 +15,7 @@ import {
   IconPlus,
 } from "@tabler/icons-react";
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -44,7 +45,7 @@ export function EmergencyCategoriesPage() {
   const { canManageCatalog } = useAdminAccess();
 
   // URL-driven state (shareable, refresh-safe).
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const page = pageFromParams(searchParams);
   const searchTerm = searchParams.get("search") ?? "";
   const statusFilter = searchParams.get("status") ?? ""; // "", "active", "inactive"
 
@@ -63,6 +64,7 @@ export function EmergencyCategoriesPage() {
     limit: LIMIT,
     ...listFilters,
   });
+  useUrlPageReset(error, page);
 
   const categories: EmergencyCategory[] = data?.results?.data ?? [];
   const totalCount = data?.count ?? 0;
@@ -71,18 +73,6 @@ export function EmergencyCategoriesPage() {
   // KPI counts { total, active, inactive, empty }, scoped to the marine
   // taxonomy and following the filters above.
   const { data: stats } = useGetEmergencyCategoryStatsQuery(listFilters);
-
-  /**
-   * A page past the end is a **404**, not an empty page — same pagination class
-   * as every other catalog list, so the same recovery to page 1.
-   */
-  const isPageOutOfRange = getApiStatus(error) === 404;
-  useEffect(() => {
-    if (!isPageOutOfRange || page === 1) return;
-    const next = new URLSearchParams(searchParams);
-    next.set("page", "1");
-    setSearchParams(next, { replace: true });
-  }, [isPageOutOfRange, page, searchParams, setSearchParams]);
 
   const setFilterParam = (key: string, value: string) => {
     const next = new URLSearchParams(searchParams);

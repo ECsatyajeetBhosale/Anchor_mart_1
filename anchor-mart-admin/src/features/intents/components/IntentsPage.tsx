@@ -33,6 +33,7 @@ import {
   useClaimOrderMutation,
   useOrderOwnership,
 } from "@/features/orders";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
 import { getApiMessage, getApiStatus } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
@@ -263,7 +264,7 @@ export function IntentsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // URL-driven state (shareable, refresh-safe, preserved across pagination).
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const page = pageFromParams(searchParams);
   const searchTerm = searchParams.get("search") ?? "";
   const statusFilter = searchParams.get("status") ?? "all";
 
@@ -309,13 +310,14 @@ export function IntentsPage() {
   const typeFilter = asIntentType(searchParams.get("type"));
   const typeQuery = INTENT_TYPE_QUERY[typeFilter];
 
-  const { data, isLoading, isFetching, isError, refetch } = useGetIntentsQuery({
+  const { data, isLoading, isFetching, isError, error, refetch } = useGetIntentsQuery({
     page,
     limit: LIMIT,
     search: searchTerm,
     status: statusParam,
     ...typeQuery,
   });
+  useUrlPageReset(error, page);
 
   // Live KPI stats from the API. Scoped to the same search and order type as
   // the table beneath them — the endpoint honours both, and was previously

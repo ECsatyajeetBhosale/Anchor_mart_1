@@ -6,7 +6,6 @@ export { useAssignmentColumns } from "./components/assignmentColumns";
 export {
   useGetUnassignedOrdersQuery,
   useGetActiveAssignmentsQuery,
-  useGetAssignablePartnersQuery,
   useGetPartnersByCapabilityQuery,
   useGetOrderTimelineQuery,
   useGetOrderAssignmentsQuery,

@@ -50,6 +50,8 @@ export const orderOwnershipApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, orderId) => [
         { type: "Intents", id: orderId },
         { type: "Intents", id: "PARTIAL-LIST" },
+        // Ownership moves the intent between the status buckets the cards count.
+        { type: "Intents", id: "STATS" },
         { type: "Orders", id: orderId },
         { type: "Orders", id: "PARTIAL-LIST" },
         /**
@@ -113,6 +115,8 @@ export const orderOwnershipApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, orderId) => [
         { type: "Intents", id: orderId },
         { type: "Intents", id: "PARTIAL-LIST" },
+        // Ownership moves the intent between the status buckets the cards count.
+        { type: "Intents", id: "STATS" },
         { type: "Orders", id: orderId },
         { type: "Orders", id: "PARTIAL-LIST" },
         /**

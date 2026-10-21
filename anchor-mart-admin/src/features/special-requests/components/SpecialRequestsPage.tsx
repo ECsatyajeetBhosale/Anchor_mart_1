@@ -26,6 +26,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
 import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { downloadBlob } from "@/lib/download";
@@ -152,7 +153,7 @@ export function SpecialRequestsPage() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   // URL-driven filter state (shareable, refresh-safe) — mirrors Orders/Intents.
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const page = pageFromParams(searchParams);
   const search = searchParams.get("search") ?? "";
   // The API 400s on an unknown `?status`, and a hand-edited or stale URL would
   // otherwise break the table — so anything off the accepted list reads as "all".
@@ -163,12 +164,13 @@ export function SpecialRequestsPage() {
 
   // Special-requests list — search + status filter server-side; paginated by DRF.
   const statusParam = statusFilter !== "all" ? statusFilter : undefined;
-  const { data, isLoading, isFetching, isError, refetch } = useGetSpecialRequestsQuery({
+  const { data, isLoading, isFetching, isError, error, refetch } = useGetSpecialRequestsQuery({
     page,
     limit: LIMIT,
     search,
     status: statusParam,
   });
+  useUrlPageReset(error, page);
 
   const requests = data?.requests ?? [];
   const totalCount = data?.count ?? 0;

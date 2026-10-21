@@ -3,7 +3,6 @@ import { DASHBOARD_ENDPOINTS } from "@/lib/apiEndpoints";
 import { baseApi } from "@/lib/fetchUtils";
 import type {
   ActionRequiredResponse,
-  ActivePartnersResponse,
   DashboardPort,
   DashboardStatsParams,
   DashboardStatsResponse,
@@ -11,7 +10,6 @@ import type {
   LiveOrdersResponse,
   RevenueParams,
   RevenueResponse,
-  TopProductsResponse,
 } from "../types/dashboard.types";
 
 /**
@@ -53,13 +51,6 @@ export const dashboardApi = baseApi.injectEndpoints({
       }),
       providesTags: [{ type: "Orders", id: "DASHBOARD-LIVE" }],
     }),
-    getLiveOrderDetails: builder.query<LiveOrderDetailsResponse, string>({
-      query: (id) => ({
-        url: DASHBOARD_ENDPOINTS.LIVE_ORDER_DETAIL(id),
-        method: "GET",
-      }),
-      providesTags: (_result, _error, id) => [{ type: "Orders", id }],
-    }),
     getRevenue: builder.query<RevenueResponse, RevenueParams>({
       query: (params) => ({
         url: DASHBOARD_ENDPOINTS.GET_REVENUE,
@@ -67,22 +58,6 @@ export const dashboardApi = baseApi.injectEndpoints({
         params: toRevenueParams(params),
       }),
       providesTags: [{ type: "Dashboard", id: "REVENUE" }],
-    }),
-    getTopProducts: builder.query<TopProductsResponse, DashboardStatsParams>({
-      query: (params) => ({
-        url: DASHBOARD_ENDPOINTS.GET_TOP_PRODUCTS,
-        method: "GET",
-        params: toFilterParams(params),
-      }),
-      providesTags: [{ type: "Dashboard", id: "TOP-PRODUCTS" }],
-    }),
-    // Endpoint takes no params — period/date filters are intentionally omitted.
-    getActivePartners: builder.query<ActivePartnersResponse, void>({
-      query: () => ({
-        url: DASHBOARD_ENDPOINTS.GET_ACTIVE_PARTNERS,
-        method: "GET",
-      }),
-      providesTags: [{ type: "Dashboard", id: "ACTIVE-PARTNERS" }],
     }),
     // Endpoint takes no params — period/date filters are intentionally omitted.
     getActionRequired: builder.query<ActionRequiredResponse, void>({
@@ -151,10 +126,7 @@ export const dashboardApi = baseApi.injectEndpoints({
 export const {
   useGetDashboardStatsQuery,
   useGetLiveOrdersQuery,
-  useGetLiveOrderDetailsQuery,
   useGetRevenueQuery,
-  useGetTopProductsQuery,
-  useGetActivePartnersQuery,
   useGetActionRequiredQuery,
   useGetDashboardOrderDetailQuery,
   useGetDashboardPortsQuery,

@@ -6,11 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The active application is the React/TypeScript SPA in **`anchor-mart-admin/`**. Run all commands from that directory.
 
-The repo root also contains a **legacy static-HTML demo** (`index.html`, `css/`, `js/app.js`, `serve.js`, the large `anchormart-admin-*.html` files, `README.md`). This is the old mocked-login prototype and is not the app under development — ignore it unless explicitly asked.
+It is also the only thing in the repo: the legacy static-HTML demo, `PROJECT_RULES.md` and `DESIGN_RULES.md` were all removed from the remote in `2bcfeec`, so this file is the convention doc.
 
-`PROJECT_RULES.md` (repo root) is the authoritative coding-convention doc. Read it before writing feature code; the conventions below are the load-bearing subset plus things not obvious from a single file.
-
-**Order/intent statuses:** `docs/ORDER_STATUSES.md` is the PM-provided source of truth for the 18 order (intent) lifecycle statuses — the exact backend `status` keys, display labels, canonical ordering, which actor acts next, terminal/cancellation rules, and the `StatusBadge` variant mapping. Consult it before implementing or labeling any order/intent state (Intents, Orders, Assignments, Verification, etc.); use those keys and labels verbatim — never invent new ones.
+**Order/intent statuses:** `src/lib/orderStatuses.ts` is the source of truth for the 19 order (intent) lifecycle statuses — the exact backend `status` keys, display labels, canonical ordering, which actor acts next, the plain-language meaning, and the `StatusBadge` variant. It mirrors a PM-provided `docs/ORDER_STATUSES.md` that is no longer in the repo. Consult it before implementing or labeling any order/intent state; use those keys and labels verbatim — never invent new ones.
 
 ## Commands
 
@@ -26,15 +24,16 @@ npm run format   # Biome format with --write
 ```
 
 - **Formatting/linting is Biome**, not ESLint/Prettier. A Husky pre-commit hook runs `biome check --write` via lint-staged on staged `*.{ts,tsx,js,jsx,json}`.
-- **No test runner is wired up.** `PROJECT_RULES.md` asks for smoke tests and `src/test/setup.ts` exists, but `package.json` has no `test` script and Vitest is not installed. Do not assume `npm test` works — if tests are needed, the runner must be added first.
+- **Tests are Vitest** (`npm test`, `npm run test:watch`), jsdom via `src/test/setup.ts`, configured inside `vite.config.ts` so a test resolves `@/` exactly as the app does. Specs sit beside their subject as `*.test.ts(x)`. Run them before committing.
+- **Installs use yarn** — `yarn.lock` is the committed lockfile and `package-lock.json` is gitignored. Two lockfiles drift, because an install updates only the one its tool owns. A pin must be written **twice**: `overrides` (npm) and `resolutions` (yarn) — yarn ignores `overrides`, so a pin listed only there silently lets a second copy of the package in.
 
 ## Architecture
 
 **Stack:** React 19, Vite 6, Redux Toolkit + RTK Query, React Router 7, Tailwind CSS 4 (via `@tailwindcss/vite`), shadcn-style UI on Radix primitives, React Hook Form + Zod, `sonner` for toasts.
 
-**Feature-sliced layout.** Code is organized under `src/features/<name>/` (each owns `api/`, `components/`, `hooks/`, `types/`, `schemas/`, `slice/`, and a barrel `index.ts`). Import features only through their barrel — never deep paths. Use the `@/` alias for all imports. See `PROJECT_RULES.md` for the mandatory per-feature folder structure and the new-feature checklist.
+**Feature-sliced layout.** Code is organized under `src/features/<name>/` (each owns `api/`, `components/`, `hooks/`, `types/`, `schemas/`, `slice/`, and a barrel `index.ts`). Import features only through their barrel — never deep paths. Use the `@/` alias for all imports. A folder a feature does not need is simply absent.
 
-**Migration in progress:** most pages still live in `src/pages/*.tsx` as full implementations and are routed directly in `AppRouter.tsx`. Only `auth` and `products` have been migrated to `src/features/`. When adding/migrating, page components belong in `features/<name>/components/`, and `src/pages/<Name>Page.tsx` should become a thin re-export wrapper.
+**Migration is done:** every page component lives in `features/<name>/components/`, and the files left in `src/pages/*.tsx` are 1–4 line re-export wrappers kept so existing imports resolve. A new page goes straight into its feature; it needs a `src/pages/` wrapper only if something already imports that path.
 
 **Data layer — single RTK Query API.** `src/lib/fetchUtils.ts` defines the one `baseApi` (`createApi`). Every feature adds endpoints via `baseApi.injectEndpoints()` — never call `createApi` again, and do not use raw `fetch`/`axios`. The store (`src/store/index.ts`) wires `baseApi.reducer` + `baseApi.middleware` plus the `auth` slice. Cache invalidation uses the `tagTypes` declared in `fetchUtils.ts` (`Products`, `Orders`, `Sailors`, etc.) — see `features/products/api/productApi.ts` for the providesTags/invalidatesTags pattern.
 
@@ -42,15 +41,11 @@ npm run format   # Biome format with --write
 
 **API base URL.** In **dev**, `baseUrl` is `/api` so requests hit the Vite proxy (`vite.config.ts`), which forwards to `VITE_API_BASE_URL`'s origin and adds the `ngrok-skip-browser-warning` header — this avoids CORS. In **prod**, `baseUrl` is `VITE_API_BASE_URL` directly. Set `VITE_API_BASE_URL` in `.env` (see `.env.example`); it currently points at an ngrok tunnel to a Django backend.
 
-### Known gotcha: duplicate route constants
+### Where paths live
 
-There are **two** API-path files and they disagree:
-- `src/lib/constants.ts` — `APP_ROUTES` (navigation) and an `API_ROUTES` whose products endpoints are `/superadmin/products/...`.
-- `src/lib/apiEndpoints.ts` — a *second* copy of `API_ROUTES` plus `PRODUCT_ENDPOINTS` / `CATEGORY_ENDPOINTS` pointing at different `/superadmin/catalog/...` paths.
+Two files, no overlap: `src/lib/apiEndpoints.ts` holds every API path as grouped per-feature constants, and `src/lib/constants.ts` holds `APP_ROUTES` (navigation), `API_ROUTES.AUTH` (the five auth paths) and `API_MAX_PAGE_SIZE`. The duplicate, stale `API_ROUTES` that used to sit in `apiEndpoints.ts` is gone.
 
-The live products/catalog features import from **`apiEndpoints.ts`** (`PRODUCT_ENDPOINTS`, `CATEGORY_ENDPOINTS`), while routing/other code uses `constants.ts`. When touching API paths, confirm which file the feature actually imports before editing. `APP_ROUTES` lives only in `constants.ts`.
-
-## Conventions that matter (from PROJECT_RULES.md)
+## Conventions that matter
 
 - **No hardcoded URLs, API paths, or route strings** — use `APP_ROUTES` / the endpoint constants.
 - **Forms:** React Hook Form + Zod, schema in `features/<name>/schemas/`, type via `z.infer`, connected with `zodResolver`.
@@ -65,7 +60,7 @@ The **Products feature** (`src/features/products/`, rendered by `ProductsPage.ts
 
 All design values live as **CSS custom properties** in `src/index.css` (defined under `:root`). **Never hardcode hex colors, px sizes, radii, or shadows** — reference the tokens (via Tailwind arbitrary values `bg-[var(--token)]` or the `.btn`/`.card`/`.form-input` utility classes). The token families: `--navy-*`, `--teal-*`, `--amber-*`, semantic `--success|danger|warning|info|neutral|purple|green-*`, surfaces `--surface|--surface-alt|--surface-hover|--surface-input|--bg`, borders `--border-xs|sm|md|lg`, text `--t1..--t5`, `--radius-xs|sm|md|lg|xl`, `--shadow-*`/`--sh-*`, `--shadow-focus-teal|navy|red`.
 
-**Design rules: see `DESIGN_RULES.md` (repo root)** — visual conventions matched to the **AnchorMart-1-react-migration** reference project (the visual source of truth). It documents the border tokens (inputs/controls use `--border-md` `#FBCDBD`; tables use `--border-sm`/`--border-xs`) and the rule that tokens declared twice (`@theme` `--color-<name>` + `:root` `--<name>`) must be updated in **both** places. Read it before applying or matching UI.
+**Design rules** (kept from the removed `DESIGN_RULES.md`): inputs and controls use `--border-md` (`#FBCDBD`); tables use `--border-sm`/`--border-xs`. A token declared twice (`@theme` `--color-<name>` + `:root` `--<name>`) must be updated in **both** places.
 
 ## Shadcn components — mandatory reuse (read before building any UI)
 
@@ -80,7 +75,7 @@ If a control you need has **no** shadcn component yet, prefer wrapping an alread
 - `components/ui/select.tsx` and `components/ui/dialog.tsx` are **custom context-based** implementations even though Radix `react-select`/`react-dialog` are installed. Continue using `Select`/`Dialog` (and `DropdownSelect`/`ConfirmDialog`) as the standard, but when reworking them, rebuild on the Radix primitives.
 - Truncation tooltips use the native `title=""` attribute; Radix `tooltip` is installed — use a shadcn `Tooltip` wrapper for richer tooltips when needed.
 - `FormField` renders a raw `<label>`; Radix `react-label` is installed if a proper `Label` component is wanted.
-- The legacy `src/pages/*` use raw HTML controls and `<input type="checkbox">` toggles — replace these with `Input`/`Select`/`Switch`/`DataTable` etc. when migrating (see Gaps below).
+- Any raw HTML control or `<input type="checkbox">` toggle you still meet — replace it with `Input`/`Select`/`Switch`/`DataTable` as you touch it.
 
 ## Page composition (the canonical layout)
 
@@ -177,7 +172,7 @@ Font family is `--font-body` ("Nunito"); monospace is `--font-mono` ("JetBrains 
 
 ## API & data-management standards
 
-- **Endpoints:** all paths live in `src/lib/apiEndpoints.ts` (grouped constants, id-taking ones are functions). No inline URL strings. (Note: a second `API_ROUTES` exists in `src/lib/constants.ts` — the catalog/products features use `apiEndpoints.ts`; confirm which a feature imports before editing.)
+- **Endpoints:** all paths live in `src/lib/apiEndpoints.ts` (grouped constants, id-taking ones are functions). No inline URL strings. The one exception is `API_ROUTES.AUTH` in `src/lib/constants.ts`, which holds the five auth paths.
 - **Service layer = RTK Query.** One `baseApi` (`src/lib/fetchUtils.ts`); every feature adds endpoints via `baseApi.injectEndpoints()` in `features/<name>/api/<name>Api.ts`. Never `createApi` again, never raw `fetch`/`axios`.
 - **Hooks:** queries `useGetXQuery`, mutations `useCreate/useUpdate/useDeleteXMutation`, exported from the api file and re-exported from the feature `index.ts` barrel. A feature may add a thin `use<Feature>` hook for derived shaping, but components may call the generated hooks directly (as `ProductsPage` does).
 - **Cache & refetch:** use `tagTypes` + `providesTags`/`invalidatesTags` (declared in `fetchUtils.ts`). List queries provide a `{ type, id: 'PARTIAL-LIST' }` tag; mutations invalidate that tag so the table **auto-refetches** after create/update/delete — no manual refetch calls.
@@ -185,14 +180,11 @@ Font family is `--font-body` ("Nunito"); monospace is `--font-mono` ("JetBrains 
 - **Success/error UX:** mutations use `.unwrap()` in a try/catch. On success → close the drawer **then** `toast.success`; the tag invalidation refreshes the table. On failure → keep the drawer open (preserve entered data) and `toast.error`. Surface the real backend reason via the shared `getApiMessage` helper (`src/lib/apiError.ts`), which extracts `message`/`detail`/`non_field_errors`/nested DRF field errors. Toasts via `sonner`.
 - **Payload typing:** request payloads are explicit interfaces in `features/<name>/types/` (e.g. `AddProductPayload`, `UpdateProductPayload`); build them field-by-field to match the API contract exactly.
 
-## Gaps in existing pages (migrate toward these standards)
+## Remaining gaps
 
-The pages in `src/pages/*` (Sailors, Orders, Intents, Partners, Verification, Assignments, Sellers, Rewards, Inventory, Express, Support, Spares, Analytics, Dashboard, etc.) are **static/mock prototypes** and do **not** yet meet these standards. When working on any of them, migrate toward the Product Page pattern rather than extending the old markup:
+The mock-prototype pages are gone: 38 files render through `DataTable`, every list is RTK Query backed, and inline `style={{}}` is down to one or two spots per file. What is left:
 
-- **Hand-rolled tables:** every page builds raw `<table>` markup with inline-styled `<th>/<td>`. → Replace with `DataTable` + typed `columns`.
-- **Heavy inline `style={{}}`:** pervasive (50–100+ occurrences per page), violating the Tailwind-only rule. → Move to Tailwind utility classes / design-system classes (`.td-p`, `.td-m`, `.badge`, etc.).
-- **No shared search/pagination:** none use `SearchFilters` or the `Pagination`/`DataTable` pagination. → Adopt `SearchFilters` in the header and `DataTable`'s built-in pagination.
-- **No API layer:** they render local mock arrays, not RTK Query. → Add a feature slice (`features/<name>/`) with `api/`, `types/`, `schemas/`, and migrate the page component into `features/<name>/components/` with a thin `pages/` re-export wrapper (per the feature-sliced rules above).
-- **What they already do right:** all use `PageHeader` and most use `StatsGrid`/`StatCard` — keep those.
+- **Parked screens** — `features/assignments`, `features/verification` and `features/messages` are built but unrouted (see the commented `<Route>`s in `AppRouter.tsx`). They have not kept pace with the standards, and `VerificationPage`'s "Suggest substitute" toasts success without calling anything. Fix that before un-parking one.
+- **Raw `<table>` markup** survives in `ProductEditDrawer`, `VerificationRoundsDrawer` and `TrafficByPlatformCard`.
 
-Do not introduce new table/search/drawer/badge patterns on these pages; converge on the Product Page implementation.
+Do not introduce new table/search/drawer/badge patterns; converge on the Product Page implementation.

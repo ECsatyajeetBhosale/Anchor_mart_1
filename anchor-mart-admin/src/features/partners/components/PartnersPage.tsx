@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { useStartChat } from "@/features/chat";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
 import { getApiMessage, getApiStatus } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { MESSAGES } from "@/lib/messages";
@@ -40,18 +41,19 @@ export function PartnersPage() {
   const { startSupportChat } = useStartChat();
 
   // URL-driven list state (shareable, refresh-safe) — mirrors the other list pages.
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const page = pageFromParams(searchParams);
   const search = searchParams.get("search") ?? "";
 
   // Partners list from the API. Onboard/edit have no write endpoint yet, so they
   // mutate a local copy seeded from the fetched rows; delete uses the real API.
   // Search runs server-side: the list is paginated at 50, so filtering the page
   // in the client would hide every match past the first page.
-  const { data, isLoading, isFetching, isError, refetch } = useGetPartnersQuery({
+  const { data, isLoading, isFetching, isError, error, refetch } = useGetPartnersQuery({
     page,
     limit: PARTNER_PAGE_SIZE,
     search,
   });
+  useUrlPageReset(error, page);
   const [partners, setPartners] = useState<PartnerData[]>([]);
   useEffect(() => {
     setPartners(data?.partners ?? []);

@@ -1,3 +1,4 @@
+import { useFirstPageOnOutOfRange } from "@/hooks/usePageParam";
 import { IconPlus, IconTicket, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -47,10 +48,11 @@ export function CouponAssignmentsTab() {
   const [couponId, setCouponId] = useState("");
   const [errors, setErrors] = useState<{ user?: string; coupon?: string }>({});
 
-  const { data, isLoading, isError, refetch } = useGetCouponAssignmentsQuery({
+  const { data, isLoading, isError, error, refetch } = useGetCouponAssignmentsQuery({
     page,
     limit: LIMIT,
   });
+  useFirstPageOnOutOfRange(error, page, () => setPage(1));
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / LIMIT));
 
   /**

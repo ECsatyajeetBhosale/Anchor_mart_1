@@ -1,3 +1,4 @@
+import { useFirstPageOnOutOfRange } from "@/hooks/usePageParam";
 import { IconSettings, IconStar, IconTicket } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -190,8 +191,10 @@ export function RewardsPage() {
     data: couponData,
     isLoading: couponsLoading,
     isError: couponsError,
+    error: couponsFetchError,
     refetch: refetchCoupons,
   } = useGetActiveCouponsQuery({ page: couponPage, limit: COUPON_LIMIT, search: couponSearch });
+  useFirstPageOnOutOfRange(couponsFetchError, couponPage, () => setCouponPage(1));
   const couponPages = Math.max(1, Math.ceil((couponData?.count ?? 0) / COUPON_LIMIT));
   const [createCoupon, { isLoading: isCreating }] = useCreateCouponMutation();
   const [updateCoupon, { isLoading: isUpdating }] = useUpdateCouponMutation();

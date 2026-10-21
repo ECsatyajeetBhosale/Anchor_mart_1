@@ -1,5 +1,4 @@
 import { IconEye, IconInfoCircle, IconShieldLock } from "@tabler/icons-react";
-import { endOfDay, startOfDay } from "date-fns";
 import { useMemo, useState } from "react";
 import type { DateRange } from "react-day-picker";
 
@@ -9,6 +8,7 @@ import { SearchFilters } from "@/components/common/SearchFilters";
 import { badgeColumn, textColumn, truncatedColumn } from "@/components/common/tableColumns";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
+import { sgtDayEndIso, sgtDayStartIso } from "@/lib/dates";
 import { MESSAGES } from "@/lib/messages";
 import { useGetAuditEntriesQuery } from "../api/auditApi";
 import { useAuditAccess } from "../lib/auditAccess";
@@ -77,9 +77,10 @@ export function AuditTrailPage() {
   }, [access.canReadOperational]);
 
   // `from`/`to` are ISO-8601 datetimes, not dates: widen the picked days to
-  // cover the whole span so a same-day range isn't an empty instant.
-  const from = dateRange?.from ? startOfDay(dateRange.from).toISOString() : undefined;
-  const to = dateRange?.to ? endOfDay(dateRange.to).toISOString() : undefined;
+  // cover the whole span so a same-day range isn't an empty instant. The days
+  // are Singapore days, matching the SGT times the table shows.
+  const from = dateRange?.from ? sgtDayStartIso(dateRange.from) : undefined;
+  const to = dateRange?.to ? sgtDayEndIso(dateRange.to) : undefined;
 
   const { data, isLoading, isFetching, isError, refetch } = useGetAuditEntriesQuery({
     page,

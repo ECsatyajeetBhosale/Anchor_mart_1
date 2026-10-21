@@ -19,7 +19,6 @@
  * is here rather than beside the feature it belongs to.
  */
 
-
 importScripts("https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js");
 importScripts("https://www.gstatic.com/firebasejs/12.18.0/firebase-messaging-compat.js");
 
@@ -67,8 +66,9 @@ const ROUTE_BY_TYPE = {
   intent_received: "/intents",
   out_of_stock: "/intents",
   substitution: "/intents",
-  // Fulfilment.
-  order_assigned: "/assignments",
+  // Fulfilment. The Assignments screen is parked (unrouted), so its pushes land
+  // on the orders list the assignment belongs to.
+  order_assigned: "/orders",
   // Conversations.
   order_chat: "/order-chats",
   crew_nudge: "/order-chats",

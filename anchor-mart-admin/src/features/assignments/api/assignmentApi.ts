@@ -2,6 +2,7 @@ import { ASSIGNMENT_ENDPOINTS, PARTNER_ENDPOINTS } from "@/lib/apiEndpoints";
 import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { stampText } from "@/lib/dates";
 import { baseApi } from "@/lib/fetchUtils";
+import { formatMoney } from "@/lib/money";
 import type { PartnerCapability } from "@/lib/partnerCapability";
 import { isTimelineState } from "@/lib/timeline";
 import type {
@@ -35,12 +36,6 @@ function pick(obj: unknown, ...keys: string[]): string {
   return "";
 }
 
-/** Format the API's decimal string amount as `$1000.00`, falling back to "-". */
-function formatAmount(amount: string): string {
-  const value = Number(amount);
-  return Number.isFinite(value) ? `$${value.toFixed(2)}` : "-";
-}
-
 /**
  * Map an unassigned-order API row onto the flat shape the
  * `UnassignedOrdersCard` renders. Keeps the UI untouched — only the data
@@ -52,7 +47,7 @@ function mapUnassignedOrder(o: ApiUnassignedOrder): UnassignedOrder {
     orderId: o.id,
     sailor: o.customer_name || "-",
     items: o.status_display || "-",
-    port: formatAmount(o.total_amount),
+    port: formatMoney(o.total_amount, { fallback: "-" }),
     priority: "Normal",
   };
 }
@@ -151,24 +146,6 @@ export const assignmentApi = baseApi.injectEndpoints({
         return rows.map(mapActiveAssignment);
       },
       providesTags: [{ type: "Assignments", id: "ACTIVE-LIST" }],
-    }),
-
-    // Flow 28 API 11 — assignable partners. Passing `orderId` scopes the list to
-    // the order's port and the capability its phase needs; omitting it returns
-    // ALL available partners, capability-unfiltered. Callers currently omit it,
-    // because the scoped list is empty until partner port/capability data is
-    // complete — the assign write enforces the rule regardless.
-    getAssignablePartners: builder.query<AssignablePartner[], { orderId?: string }>({
-      query: (arg) => ({
-        url: ASSIGNMENT_ENDPOINTS.ASSIGNABLE_PARTNERS,
-        method: "GET",
-        // 100 was capped to 50 server-side; ask for what can actually arrive.
-        params: { order_id: arg?.orderId || undefined, page_size: API_MAX_PAGE_SIZE },
-      }),
-      transformResponse: toPartnerRows,
-      providesTags: (_r, _e, arg) => [
-        { type: "Assignments", id: `ASSIGNABLE-${arg?.orderId ?? "ALL"}` },
-      ],
     }),
 
     /**
@@ -350,7 +327,6 @@ export const assignmentApi = baseApi.injectEndpoints({
 export const {
   useGetUnassignedOrdersQuery,
   useGetActiveAssignmentsQuery,
-  useGetAssignablePartnersQuery,
   useGetPartnersByCapabilityQuery,
   useGetOrderTimelineQuery,
   useGetOrderAssignmentsQuery,

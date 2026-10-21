@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { FILE_LOCATIONS, ImageListField, toStoredPath } from "@/features/media";
 import { getApiMessage, getFieldErrors } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
+import { hasAtMostTwoDecimals } from "@/lib/money";
 import { useCreateVariantMutation, useUpdateVariantMutation } from "../api/variantApi";
 import type { ProductVariant, UpdateVariantPayload } from "../types/variant.types";
 
@@ -134,7 +135,7 @@ export function VariantForm({ productId, variant, productCatalogType, onDone }: 
     // (`DecimalField(max_digits=12, decimal_places=2, min_value=0.01)`), so a
     // price of 0 was a guaranteed 400 that only surfaced on submit. More than
     // two decimal places is rejected the same way.
-    const centsOff = Math.abs(priceValue * 100 - Math.round(priceValue * 100)) >= 1e-9;
+    const centsOff = !hasAtMostTwoDecimals(priceValue);
     if (price.trim() === "" || !Number.isFinite(priceValue) || priceValue < 0.01 || centsOff) {
       next.price = V.PRICE_INVALID;
     }

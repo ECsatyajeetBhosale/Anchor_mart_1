@@ -186,59 +186,6 @@ export interface LiveOrderDetailsResponse {
   totals: LiveOrderTotals;
 }
 
-/** Ranking metric for the top-products endpoint (scalable for future metrics). */
-export type TopProductsRankBy = "units" | "revenue";
-
-/** A single row in the "Top Products" widget. */
-export interface TopProductItem {
-  product_id: string;
-  product_name: string;
-  category: string;
-  units: number;
-  revenue: number;
-}
-
-/** The `results` envelope of the top-products payload. */
-export interface TopProductsResults {
-  message: string;
-  rank_by: TopProductsRankBy;
-  period: string;
-  data: TopProductItem[];
-}
-
-/** Payload from `GET /superadmin/dashboard/top-products/`. */
-export interface TopProductsResponse {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: TopProductsResults;
-}
-
-/** The order a partner is currently delivering (null when free). */
-export interface ActivePartnerCurrentOrder {
-  id?: string;
-  order_number: string;
-}
-
-/** A delivery partner row from the active-partners endpoint. */
-export interface ActivePartner {
-  id: string;
-  name: string;
-  email: string;
-  partner_code: string | null;
-  is_available: boolean | null;
-  work_status: string;
-  current_order: ActivePartnerCurrentOrder | null;
-}
-
-/** Payload from `GET /superadmin/dashboard/active-partners/` (takes no params). */
-export interface ActivePartnersResponse {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: ActivePartner[];
-}
-
 /** Color tone for an "Action Required" item's icon tile. */
 export type ActionTone = "warning" | "danger" | "info" | "purple" | "success";
 

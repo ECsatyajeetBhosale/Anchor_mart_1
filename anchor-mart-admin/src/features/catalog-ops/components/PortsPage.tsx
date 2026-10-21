@@ -9,6 +9,7 @@ import {
   twoLineColumn,
 } from "@/components/common/tableColumns";
 import { type Column, DataTable } from "@/components/ui/data-table";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
@@ -52,16 +53,17 @@ export function PortsPage() {
   const { can } = useAdminAccess();
   const canConfigurePorts = can("platform.port_config");
 
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const page = pageFromParams(searchParams);
   const search = searchParams.get("search") ?? "";
   const isActive = searchParams.get("is_active") ?? "";
 
-  const { data, isLoading, isError, refetch } = useGetPortsQuery({
+  const { data, isLoading, isError, error, refetch } = useGetPortsQuery({
     page,
     limit: LIMIT,
     search,
     isActive,
   });
+  useUrlPageReset(error, page);
 
   const ports = data?.items ?? [];
   const totalPages = Math.max(1, Math.ceil((data?.count ?? 0) / LIMIT));

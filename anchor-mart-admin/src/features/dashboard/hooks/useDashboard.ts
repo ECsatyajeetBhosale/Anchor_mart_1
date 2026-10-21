@@ -9,10 +9,8 @@ import { useState } from "react";
 import type { DateRange } from "react-day-picker";
 import {
   useGetActionRequiredQuery,
-  useGetActivePartnersQuery,
   useGetDashboardStatsQuery,
   useGetLiveOrdersQuery,
-  useGetTopProductsQuery,
 } from "../api/dashboardApi";
 import { isOverdue } from "../lib/overdue";
 import type { DashboardPeriod, DashboardStatsParams, TimeRange } from "../types/dashboard.types";
@@ -22,12 +20,6 @@ const PLACEHOLDER = "—";
 
 /** Max rows shown in the dashboard Live Orders preview table. */
 const LIVE_ORDERS_LIMIT = 5;
-
-/** Max rows shown in the dashboard Top Products widget. */
-const TOP_PRODUCTS_LIMIT = 5;
-
-/** Max rows shown in the dashboard Active Partners widget. */
-const ACTIVE_PARTNERS_LIMIT = 5;
 
 /** Format a numeric stat with thousands separators; fall back while loading. */
 function formatStat(value: number | undefined): string {
@@ -60,9 +52,6 @@ export function useDashboard() {
 
   const statsQuery = useGetDashboardStatsQuery(params);
   const liveOrdersQuery = useGetLiveOrdersQuery(params);
-  const topProductsQuery = useGetTopProductsQuery(params);
-  // Active partners is param-less — no period/date filters are sent.
-  const activePartnersQuery = useGetActivePartnersQuery();
   // Action required is param-less — no period/date filters are sent.
   const actionRequiredQuery = useGetActionRequiredQuery();
 
@@ -100,8 +89,6 @@ export function useDashboard() {
   const refetch = () => {
     statsQuery.refetch();
     liveOrdersQuery.refetch();
-    topProductsQuery.refetch();
-    activePartnersQuery.refetch();
     actionRequiredQuery.refetch();
     sailedQuery.refetch();
     expressConfirmedQuery.refetch();
@@ -209,26 +196,6 @@ export function useDashboard() {
     refetch: liveOrdersQuery.refetch,
   };
 
-  const topProducts = {
-    // Same capped-preview pattern as Live Orders; `count` keeps the true total.
-    items: (topProductsQuery.data?.results.data ?? []).slice(0, TOP_PRODUCTS_LIMIT),
-    count: topProductsQuery.data?.count ?? 0,
-    isLoading: topProductsQuery.isLoading,
-    isError: topProductsQuery.isError,
-    error: topProductsQuery.error,
-    refetch: topProductsQuery.refetch,
-  };
-
-  const activePartners = {
-    // Same capped-preview pattern; `count` keeps the true total.
-    items: (activePartnersQuery.data?.results ?? []).slice(0, ACTIVE_PARTNERS_LIMIT),
-    count: activePartnersQuery.data?.count ?? 0,
-    isLoading: activePartnersQuery.isLoading,
-    isError: activePartnersQuery.isError,
-    error: activePartnersQuery.error,
-    refetch: activePartnersQuery.refetch,
-  };
-
   const actionRequired = {
     // Bounded set of action types — render all; `total` is the aggregate count.
     items: actionRequiredQuery.data?.actions ?? [],
@@ -251,8 +218,6 @@ export function useDashboard() {
     error: statsQuery.error,
     refetch,
     liveOrders,
-    topProducts,
-    activePartners,
     actionRequired,
   };
 }

@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { SearchFilters } from "@/components/common/SearchFilters";
 import { StatsGrid } from "@/components/common/StatsGrid";
 import { DataTable } from "@/components/ui/data-table";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
 import { getApiMessage } from "@/lib/apiError";
 import { MESSAGES } from "@/lib/messages";
 import { IconAddressBook, IconPlus, IconUserCircle, IconWorld } from "@tabler/icons-react";
@@ -26,18 +27,19 @@ export function ShipAgentsPage() {
   const [deleteShipAgent, { isLoading: isDeleting }] = useDeleteShipAgentMutation();
 
   // URL-driven state (shareable, refresh-safe).
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const page = pageFromParams(searchParams);
   const searchTerm = searchParams.get("search") ?? "";
   const scopeFilter = searchParams.get("scope") ?? ""; // "", "global", "owned"
   const scope = scopeFilter === "global" || scopeFilter === "owned" ? scopeFilter : undefined;
 
   // Ship-agent list — search and scope filter server-side.
-  const { data, isLoading, isError, refetch } = useGetShipAgentsQuery({
+  const { data, isLoading, isError, error, refetch } = useGetShipAgentsQuery({
     page,
     limit: LIMIT,
     search: searchTerm,
     scope,
   });
+  useUrlPageReset(error, page);
 
   const agents: ShipAgent[] = data?.results ?? [];
   const totalCount = data?.count ?? 0;

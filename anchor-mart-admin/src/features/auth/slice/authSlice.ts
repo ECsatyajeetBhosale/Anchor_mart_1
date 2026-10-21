@@ -85,7 +85,7 @@ const authSlice = createSlice({
      *   asking a dead token to invalidate itself. It would also 401, which
      *   dispatches `logout()` again: the loop this flag exists to stop.
      *
-     * A caller signing *this* tab out deliberately — the sidebar, `useAuth` —
+     * A caller signing *this* tab out deliberately — the sidebar —
      * passes neither, and gets the full treatment including the server call.
      */
     logout: {

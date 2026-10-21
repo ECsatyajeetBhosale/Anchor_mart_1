@@ -1,7 +1,6 @@
 export { LoginPage } from "./components/LoginPage";
 export { OtpLoginPage } from "./components/OtpLoginPage";
 export { AuthShell } from "./components/AuthShell";
-export { useAuth } from "./hooks/useAuth";
 export { useOtpLogin } from "./hooks/useOtpLogin";
 export {
   useLoginMutation,

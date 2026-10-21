@@ -297,6 +297,7 @@ export const productsApi = baseApi.injectEndpoints({
         { type: "Products", id: "STATS" },
         { type: "Variants", id: "PARTIAL-LIST" },
         { type: "ExpressItems", id: "CATALOG-LIST" },
+        { type: "ExpressItems", id: "STATS" },
       ],
     }),
 
@@ -331,6 +332,7 @@ export const productsApi = baseApi.injectEndpoints({
         { type: "Products", id: "STATS" },
         { type: "Variants", id: "PARTIAL-LIST" },
         { type: "ExpressItems", id: "CATALOG-LIST" },
+        { type: "ExpressItems", id: "STATS" },
       ],
     }),
 
@@ -377,6 +379,9 @@ export const productsApi = baseApi.injectEndpoints({
         { type: "Products", id },
         { type: "Products", id: "PARTIAL-LIST" },
         { type: "Products", id: "STATS" },
+        // A deleted product leaves the Express tab and its cards too.
+        { type: "ExpressItems", id: "CATALOG-LIST" },
+        { type: "ExpressItems", id: "STATS" },
       ],
     }),
   }),

@@ -6,7 +6,6 @@ export { VariantForm } from "./components/VariantForm";
 export type { VariantFormProps } from "./components/VariantForm";
 export {
   useGetVariantsQuery,
-  useGetVariantQuery,
   useCreateVariantMutation,
   useUpdateVariantMutation,
   useDeleteVariantMutation,

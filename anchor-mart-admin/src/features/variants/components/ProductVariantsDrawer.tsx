@@ -1,3 +1,4 @@
+import { useFirstPageOnOutOfRange } from "@/hooks/usePageParam";
 import {
   IconEdit,
   IconPencil,
@@ -103,10 +104,11 @@ export function ProductVariantsDrawer({
     }
   }, [isOpen]);
 
-  const { data, isLoading, isError, refetch } = useGetVariantsQuery(
+  const { data, isLoading, isError, error, refetch } = useGetVariantsQuery(
     { page, limit: LIMIT, productId: productId ?? undefined },
     { skip: !isOpen || !productId },
   );
+  useFirstPageOnOutOfRange(error, page, () => setPage(1));
 
   const [deleteVariant, { isLoading: isDeleting }] = useDeleteVariantMutation();
   const [updateVariant] = useUpdateVariantMutation();

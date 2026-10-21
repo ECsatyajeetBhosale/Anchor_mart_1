@@ -6,7 +6,7 @@ import {
   IconStar,
 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -27,7 +27,8 @@ import {
   useSetProductTopRatedMutation,
 } from "@/features/products";
 import { ProductVariantsDrawer } from "@/features/variants";
-import { getApiMessage, getApiStatus, getSuccessMessage } from "@/lib/apiError";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
+import { getApiMessage, getSuccessMessage } from "@/lib/apiError";
 import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { MESSAGES } from "@/lib/messages";
 import { useAdminAccess } from "@/lib/roles";
@@ -93,7 +94,7 @@ export function SparesPage() {
   const [pendingDelete, setPendingDelete] = useState<Product | null>(null);
 
   // URL-driven filter state (shareable, refresh-safe) — mirrors the other pages.
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const page = pageFromParams(searchParams);
   const search = searchParams.get("search") ?? "";
   const categoryFilter = searchParams.get("category") ?? "all";
   const statusRaw = searchParams.get("status") ?? "all";
@@ -129,23 +130,11 @@ export function SparesPage() {
      */
     { refetchOnMountOrArgChange: true },
   );
+  useUrlPageReset(error, page);
 
   const products: Product[] = data?.results?.data ?? [];
   const totalCount = data?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / LIMIT));
-
-  /**
-   * A page past the end is a **404**, not an empty page — the same
-   * `CustomPagination` as every other catalog list, so the same recovery to
-   * page 1 rather than a permanent error with a Retry that cannot succeed.
-   */
-  const isPageOutOfRange = getApiStatus(error) === 404;
-  useEffect(() => {
-    if (!isPageOutOfRange || page === 1) return;
-    const next = new URLSearchParams(searchParams);
-    next.set("page", "1");
-    setSearchParams(next, { replace: true });
-  }, [isPageOutOfRange, page, searchParams, setSearchParams]);
 
   /**
    * Category filter options — the marine-emergency categories these are filed

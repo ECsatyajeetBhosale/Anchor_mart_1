@@ -297,6 +297,7 @@ export const ordersApi = baseApi.injectEndpoints({
         { type: "Orders", id: "STATS" },
         { type: "Intents", id: orderId },
         { type: "Intents", id: "PARTIAL-LIST" },
+        { type: "Intents", id: "STATS" },
       ],
     }),
     /**

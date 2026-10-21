@@ -75,6 +75,8 @@ export function AdminUserDetailDrawer({ user, isOpen, onClose }: AdminUserDetail
   const [confirming, setConfirming] = useState<"status" | "reset" | "delete" | null>(null);
 
   const currentEmail = useAppSelector((s) => s.auth.user?.email?.trim().toLowerCase() ?? "");
+  // The id survives an email edit; the stored email is only refreshed on app load.
+  const currentId = useAppSelector((s) => s.auth.user?.id ?? "");
 
   const [updateUser, { isLoading: isSaving }] = useUpdateAdminUserMutation();
   const [setStatus, { isLoading: isTogglingStatus }] = useSetAdminUserStatusMutation();
@@ -136,7 +138,9 @@ export function AdminUserDetailDrawer({ user, isOpen, onClose }: AdminUserDetail
 
   if (!user) return null;
 
-  const isSelf = !!currentEmail && record?.email.trim().toLowerCase() === currentEmail;
+  const isSelf =
+    (!!currentId && record?.id === currentId) ||
+    (!!currentEmail && record?.email.trim().toLowerCase() === currentEmail);
   const isActive = record?.isActive !== false;
   const busy = isSaving || isTogglingStatus || isResetting || isDeleting;
 

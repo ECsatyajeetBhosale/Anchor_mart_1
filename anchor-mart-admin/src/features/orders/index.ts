@@ -45,7 +45,6 @@ export { useGetRefundQuoteQuery, useRefundOrderMutation } from "./api/orderRefun
 export { OrderLocationDeltaSection } from "./components/OrderLocationDeltaSection";
 export { RaiseDeltaDialog } from "./components/RaiseDeltaDialog";
 export {
-  useGetLocationReportsQuery,
   useRaiseDeltaMutation,
   useAcceptLocationReportMutation,
   useDismissLocationReportMutation,

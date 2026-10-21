@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMoney, hasAmount } from "./money";
+import { formatMoney, hasAmount, hasAtMostTwoDecimals } from "./money";
 
 describe("formatMoney", () => {
   it("formats decimal strings and numbers alike, to two places", () => {
@@ -55,5 +55,19 @@ describe("hasAmount", () => {
     expect(hasAmount("")).toBe(false);
     expect(hasAmount(null)).toBe(false);
     expect(hasAmount("abc")).toBe(false);
+  });
+});
+
+describe("hasAtMostTwoDecimals", () => {
+  it("accepts two-decimal prices at every magnitude the backend allows", () => {
+    for (const n of [0.01, 99.99, 5000.1, 131072.02, 1234567.89, 9_999_999_999.99]) {
+      expect(hasAtMostTwoDecimals(n)).toBe(true);
+    }
+  });
+
+  it("rejects a third decimal place and non-numbers", () => {
+    for (const n of [0.125, 1.005, 12.345, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(hasAtMostTwoDecimals(n)).toBe(false);
+    }
   });
 });

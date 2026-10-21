@@ -145,20 +145,6 @@ export const variantApi = baseApi.injectEndpoints({
           : [{ type: "Variants", id: "PARTIAL-LIST" }],
     }),
 
-    /** Detail by `product_variant_id` query param (not a path segment). */
-    getVariant: builder.query<ProductVariant, string>({
-      query: (variantId) => ({
-        url: VARIANT_ENDPOINTS.GET_VARIANT,
-        method: "GET",
-        params: { product_variant_id: variantId },
-      }),
-      transformResponse: (res: unknown): ProductVariant => {
-        const node = getProp(res, "data") ?? res;
-        return toVariant(node, 0);
-      },
-      providesTags: (_r, _e, id) => [{ type: "Variants", id }],
-    }),
-
     createVariant: builder.mutation<unknown, AddVariantPayload>({
       query: (body) => ({ url: VARIANT_ENDPOINTS.ADD_VARIANT, method: "POST", body }),
       // A new SKU changes the parent product's variant count, so the product
@@ -199,10 +185,17 @@ export const variantApi = baseApi.injectEndpoints({
           },
         };
       },
-      invalidatesTags: (_r, _e, { id }) => [
+      invalidatesTags: (r, _e, { id }) => [
         { type: "Variants", id },
         { type: "Variants", id: "PARTIAL-LIST" },
         { type: "Products", id: "PARTIAL-LIST" },
+        { type: "Products", id: "STATS" },
+        // The cascades can move a product's catalog type, on or off the express shelf.
+        { type: "ExpressItems", id: "CATALOG-LIST" },
+        { type: "ExpressItems", id: "STATS" },
+        ...[r?.cascades.productId, r?.cascades.sourceProductId]
+          .filter((pid): pid is string => Boolean(pid))
+          .map((pid) => ({ type: "Products" as const, id: pid })),
       ],
     }),
 
@@ -381,7 +374,6 @@ export const variantApi = baseApi.injectEndpoints({
 
 export const {
   useGetVariantsQuery,
-  useGetVariantQuery,
   useCreateVariantMutation,
   useUpdateVariantMutation,
   useDeleteVariantMutation,

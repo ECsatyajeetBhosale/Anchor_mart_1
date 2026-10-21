@@ -11,9 +11,9 @@ import { publishLogout, subscribeToRemoteLogout } from "./sessionChannel";
  * slice — in one place, so it happens for *every* sign-out rather than for the
  * one the sidebar button knows about.
  *
- * There are five callers of `logout()` and they are not all under this app's
- * control: the sidebar, `useAuth`, the API layer's 401 handler, the badge
- * socket's terminal auth frame, and now another tab. Hanging this off the
+ * There are four callers of `logout()` and they are not all under this app's
+ * control: the sidebar, the API layer's 401 handler, the badge socket's
+ * terminal auth frame, and another tab. Hanging this off the
  * action instead of off any of those means none of them can be the one that
  * forgets.
  */

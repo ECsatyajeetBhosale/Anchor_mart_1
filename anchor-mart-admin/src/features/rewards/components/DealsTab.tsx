@@ -1,3 +1,4 @@
+import { useFirstPageOnOutOfRange } from "@/hooks/usePageParam";
 import { IconDiscount2, IconEdit, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -34,12 +35,13 @@ export function DealsTab() {
   const [editing, setEditing] = useState<Deal | null>(null);
   const [toDelete, setToDelete] = useState<Deal | null>(null);
 
-  const { data, isLoading, isError, refetch } = useGetDealsQuery({
+  const { data, isLoading, isError, error, refetch } = useGetDealsQuery({
     page,
     limit: LIMIT,
     search,
     status,
   });
+  useFirstPageOnOutOfRange(error, page, () => setPage(1));
   const { data: stats, isLoading: statsLoading } = useGetDealStatsQuery();
   // The live set is a different question from the schedule, so it gets its own
   // strip above the table rather than a filter on it.

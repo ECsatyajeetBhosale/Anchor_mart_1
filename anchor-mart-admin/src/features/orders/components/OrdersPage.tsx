@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import { useGetOrderTimelineQuery } from "@/features/assignments";
 import { StatusLegendDialog } from "@/features/intents";
+import { pageFromParams, useUrlPageReset } from "@/hooks/usePageParam";
 import { getApiMessage } from "@/lib/apiError";
 import { getFallbackAvatar } from "@/lib/avatar";
 import { dateTimeText, shortDate } from "@/lib/dates";
@@ -607,7 +608,7 @@ export function OrdersPage() {
   const [isLegendOpen, setIsLegendOpen] = useState(false);
 
   // URL-driven filter state (shareable, refresh-safe).
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const page = pageFromParams(searchParams);
   const search = searchParams.get("search") ?? "";
   const statusFilter = searchParams.get("status") ?? "all";
   // Tab lives in the URL alongside the filters so a shared link reopens the
@@ -637,13 +638,14 @@ export function OrdersPage() {
   };
 
   // Every filter is applied server-side, so pagination stays truthful.
-  const { data, isLoading, isFetching, isError, refetch } = useGetOrdersQuery({
+  const { data, isLoading, isFetching, isError, error, refetch } = useGetOrdersQuery({
     page,
     limit: LIMIT,
     ...scope,
     status: statusFilter !== "all" ? statusFilter : undefined,
     ...ORDER_TYPE_QUERY[typeFilter],
   });
+  useUrlPageReset(error, page);
 
   // Cards follow the whole screen, order type included: filter to Express and
   // the lifecycle breakdown is Express's breakdown.
@@ -1019,7 +1021,11 @@ export function OrdersPage() {
                   drops the 32px rather than stacking two heights. */}
               <DateRangePicker
                 value={dateRange}
-                onChange={setDateRange}
+                onChange={(range) => {
+                  // A narrower range can have fewer pages than the one we're on.
+                  setDateRange(range);
+                  setSearchParams(clearParams(searchParams, ["page"]));
+                }}
                 placeholder={M.DATE_RANGE}
                 className="h-10"
               />

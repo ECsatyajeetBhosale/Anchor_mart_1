@@ -1,3 +1,4 @@
+import { hasAtMostTwoDecimals } from "@/lib/money";
 import { z } from "zod";
 
 /**
@@ -10,12 +11,7 @@ const basePriceSchema = z.coerce
   .number({ invalid_type_error: "Price must be a number" })
   .min(0.01, "Price must be at least 0.01")
   .max(9_999_999_999.99, "Price is too large")
-  .refine(
-    (n) => Number.isInteger(Math.round(n * 100)) && Math.abs(n * 100 - Math.round(n * 100)) < 1e-9,
-    {
-      message: "Price can have at most 2 decimal places",
-    },
-  );
+  .refine(hasAtMostTwoDecimals, { message: "Price can have at most 2 decimal places" });
 
 /**
  * The editable subset of a product — **exactly the eight keys update-product

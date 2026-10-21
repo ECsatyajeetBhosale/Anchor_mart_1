@@ -238,3 +238,20 @@ export function formatDateRange(from: Date, to: Date): string {
     ? `${day(from)} – ${day(to)}, ${to.getFullYear()}`
     : `${day(from)}, ${from.getFullYear()} – ${day(to)}, ${to.getFullYear()}`;
 }
+
+/**
+ * A picked calendar day's first and last instant **in Singapore**, as ISO — for
+ * `from`/`to` datetime filters. `startOfDay(d).toISOString()` used the browser's
+ * midnight instead, so an admin outside SGT filtered a window shifted against
+ * the SGT times every row displays. Read with local getters, as the picker
+ * produced the day.
+ */
+export function sgtDayStartIso(day: Date): string {
+  const utcMidnight = Date.UTC(day.getFullYear(), day.getMonth(), day.getDate());
+  return new Date(utcMidnight - SGT_OFFSET_MS).toISOString();
+}
+
+export function sgtDayEndIso(day: Date): string {
+  const nextUtcMidnight = Date.UTC(day.getFullYear(), day.getMonth(), day.getDate() + 1);
+  return new Date(nextUtcMidnight - SGT_OFFSET_MS - 1).toISOString();
+}
