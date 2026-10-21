@@ -60,6 +60,7 @@
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@tailwindcss/vite": "^4.0.0",
+    "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^26.2.0",
@@ -76,8 +77,6 @@
     "vitest": "^3.2.7"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx,json}": [
-      "biome check --write"
-    ]
+    "*.{ts,tsx,js,jsx,json}": ["biome check --write"]
   }
 }
