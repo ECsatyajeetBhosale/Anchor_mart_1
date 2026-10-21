@@ -58,13 +58,17 @@ export const couponApi = baseApi.injectEndpoints({
       invalidatesTags: [{ type: "Coupons", id: "ACTIVE-LIST" }],
     }),
 
-    // Delete a coupon by its UUID; refreshes the active-coupons list.
+    // Delete a coupon by its UUID; refreshes the coupon list and the
+    // assignments, which flag grants of a coupon that is gone (BUG-062).
     deleteCoupon: builder.mutation<void, string>({
       query: (id) => ({
         url: REWARD_ENDPOINTS.DELETE_COUPON(id),
         method: "DELETE",
       }),
-      invalidatesTags: [{ type: "Coupons", id: "ACTIVE-LIST" }],
+      invalidatesTags: [
+        { type: "Coupons", id: "ACTIVE-LIST" },
+        { type: "Coupons", id: "ASSIGNMENTS" },
+      ],
     }),
   }),
   overrideExisting: false,

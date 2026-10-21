@@ -1,5 +1,6 @@
 import {
   IconAlertTriangle,
+  IconAnchorOff,
   IconBolt,
   IconBoxSeam,
   IconChecklist,
@@ -44,7 +45,9 @@ const M = MESSAGES.DASHBOARD;
 
    A presentation-layer rebuild. Every figure, every route and
    every deliberate *absence* of a route below is unchanged;
-   `useDashboard` is untouched and no request was added.
+   `useDashboard` was untouched and no request was added. (Since
+   then two Needs Attention panels were — Sailed, Not Delivered
+   and Overdue Express, for QA BUG-021 / BUG-065.)
 
    What changed is rank. The screen was eighteen tiles of one
    size in four groups, which made "7 deliveries failed" and
@@ -315,7 +318,7 @@ export function DashboardPage() {
           {M.OCC.ATTENTION}
         </span>
       </div>
-      <div className="grid grid-cols-[repeat(3,1fr)] gap-[12px] max-[860px]:grid-cols-[1fr]">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-[12px]">
         <AttentionPanel
           label="Delivery Failed"
           value={stats.deliveryFailed}
@@ -324,6 +327,26 @@ export function DashboardPage() {
           severity="danger"
           meta={oldestFailed}
           onClick={() => navigate(`${APP_ROUTES.ORDERS}?status=delivery_failed`)}
+        />
+        {/* BUG-021 — the vessel has gone and the order is still open: the
+            remainder can no longer arrive, so it needs a refund or a call. */}
+        <AttentionPanel
+          label={M.OCC.SAILED_OPEN}
+          value={stats.sailedOpen}
+          description={M.OCC.SAILED_OPEN_DESC}
+          icon={<IconAnchorOff size={17} />}
+          severity="danger"
+          onClick={() => navigate(`${APP_ROUTES.ORDERS}?departed=true`)}
+        />
+        {/* BUG-065 — express orders past their deadline, unallocated ones
+            included; no list filters on the deadline, so it opens the queue. */}
+        <AttentionPanel
+          label={M.OCC.OVERDUE_EXPRESS}
+          value={stats.overdueExpress}
+          description={M.OCC.OVERDUE_EXPRESS_DESC}
+          icon={<IconBolt size={17} />}
+          severity="warning"
+          onClick={() => navigate(APP_ROUTES.EXPRESS_ORDERS)}
         />
         <AttentionPanel
           label="Expired Deltas"

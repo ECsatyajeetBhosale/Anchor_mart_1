@@ -1,4 +1,9 @@
+import { useGetExpressOrdersQuery } from "@/features/express";
+import { useGetOrderStatsQuery } from "@/features/orders";
+import { useGetOrderConfigQuery } from "@/features/settings";
+import { API_MAX_PAGE_SIZE } from "@/lib/constants";
 import { formatDateRange } from "@/lib/dates";
+import { statusCount } from "@/lib/stats";
 import { format } from "date-fns";
 import { useState } from "react";
 import type { DateRange } from "react-day-picker";
@@ -9,6 +14,7 @@ import {
   useGetLiveOrdersQuery,
   useGetTopProductsQuery,
 } from "../api/dashboardApi";
+import { isOverdue } from "../lib/overdue";
 import type { DashboardPeriod, DashboardStatsParams, TimeRange } from "../types/dashboard.types";
 
 /** Placeholder shown in a stat card while data is loading or unavailable. */
@@ -60,6 +66,30 @@ export function useDashboard() {
   // Action required is param-less — no period/date filters are sent.
   const actionRequiredQuery = useGetActionRequiredQuery();
 
+  /**
+   * BUG-021 — paid orders whose ship has sailed but which are still open. The
+   * stats endpoint filters on departure server-side, so the count is exact.
+   */
+  const sailedQuery = useGetOrderStatsQuery({ departed: true });
+
+  /**
+   * BUG-065 — express orders past their delivery deadline. The two open
+   * buckets (`order_confirmed`, and the derived `in_progress`) at a full page
+   * each; the deadline is checked here because no endpoint filters on it.
+   * Settings supplies the express SLA for a row without a `deliver_by`.
+   */
+  const expressConfirmedQuery = useGetExpressOrdersQuery({
+    page: 1,
+    limit: API_MAX_PAGE_SIZE,
+    status: "order_confirmed",
+  });
+  const expressInProgressQuery = useGetExpressOrdersQuery({
+    page: 1,
+    limit: API_MAX_PAGE_SIZE,
+    status: "in_progress",
+  });
+  const { data: orderConfig } = useGetOrderConfigQuery();
+
   // Selecting a period pill clears any active custom range so `period` applies.
   const selectPeriod = (tab: TimeRange) => {
     setActiveTab(tab);
@@ -73,7 +103,28 @@ export function useDashboard() {
     topProductsQuery.refetch();
     activePartnersQuery.refetch();
     actionRequiredQuery.refetch();
+    sailedQuery.refetch();
+    expressConfirmedQuery.refetch();
+    expressInProgressQuery.refetch();
   };
+
+  const sailedOpen =
+    sailedQuery.data === undefined
+      ? undefined
+      : (statusCount(sailedQuery.data, "new") ?? 0) +
+        (statusCount(sailedQuery.data, "in_progress") ?? 0);
+
+  const expressQueries = [expressConfirmedQuery, expressInProgressQuery];
+  const expressLoaded = expressQueries.every((q) => q.data !== undefined);
+  const overdueExpressCount = expressLoaded
+    ? expressQueries
+        .flatMap((q) => q.data?.results ?? [])
+        .filter((order) => isOverdue(order, orderConfig?.sla_express_hours)).length
+    : undefined;
+  // A full page means older rows were not read, so the count is a floor.
+  const overdueTruncated = expressQueries.some(
+    (q) => (q.data?.count ?? 0) > (q.data?.results.length ?? 0),
+  );
 
   // Pre-formatted values mapped to the dashboard cards. Grouped by how each
   // field responds to the header filter — see `DashboardStatsResponse`. Only
@@ -108,6 +159,13 @@ export function useDashboard() {
     /** Customer location reports awaiting an admin decision. The legacy
      *  `silent_alerts_count` was the same number under a different name. */
     locationReportsPending: formatStat(statsQuery.data?.location_reports_pending),
+    /** Paid orders still open after their ship sailed (BUG-021). */
+    sailedOpen: formatStat(sailedOpen),
+    /** Express orders past their deadline (BUG-065); "N+" when not every row was read. */
+    overdueExpress:
+      overdueExpressCount && overdueTruncated
+        ? `${formatStat(overdueExpressCount)}+`
+        : formatStat(overdueExpressCount),
 
     /**
      * Unformatted counts for the hero sentence.

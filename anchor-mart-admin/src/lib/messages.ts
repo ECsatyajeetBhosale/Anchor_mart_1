@@ -126,6 +126,12 @@ export const MESSAGES = {
       DELIVERY_FAILED_DESC: "Orders requiring intervention",
       DELTA_EXPIRED_DESC: "Surcharge deadlines that have passed",
       LOCATION_REPORTS_DESC: "Reports awaiting a decision",
+      /** BUG-021 — paid orders still open after the vessel sailed. */
+      SAILED_OPEN: "Sailed, Not Delivered",
+      SAILED_OPEN_DESC: "Paid orders still open after the ship departed",
+      /** BUG-065 — express orders past their delivery deadline. */
+      OVERDUE_EXPRESS: "Overdue Express",
+      OVERDUE_EXPRESS_DESC: "Express orders past their delivery deadline",
       /** Staleness qualifier on Delivery Failed — the count alone omits how long. */
       OLDEST_FAILED: (ago: string) => `Oldest ${ago}`,
     },
@@ -3698,6 +3704,9 @@ export const MESSAGES = {
       ADD: "Assign Coupon",
       EMPTY: "No coupons have been assigned to individual sailors.",
       FETCH_ERROR: "Failed to load coupon assignments.",
+      /** A grant whose coupon was since deleted (BUG-062). */
+      COUPON_DELETED: "Deleted",
+      COUPON_DELETED_HINT: "This coupon no longer exists, so the sailor cannot use it.",
       /**
        * No Sailor column and no Used column: this endpoint returns the user's
        * id and email, the coupon's id and code, and `assigned_at`. Redemption
@@ -5606,6 +5615,8 @@ export const MESSAGES = {
     },
     /** The browser tab's base title. */
     APP_TITLE: "AnchorMart Admin",
+    /** Shown instead of the app inside another site's frame (BUG-007). */
+    FRAMED_BLOCKED: "AnchorMart Admin can't be shown inside another site. Open it directly.",
     /** BUG-032 — an unknown URL inside the app, instead of a silent redirect. */
     NOT_FOUND: {
       TITLE: "Page not found",

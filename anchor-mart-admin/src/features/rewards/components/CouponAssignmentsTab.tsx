@@ -7,6 +7,7 @@ import { DropdownSelect } from "@/components/common/DropdownSelect";
 import { FormField } from "@/components/common/FormField";
 import { Search } from "@/components/common/Search";
 import { SectionCard } from "@/components/common/SectionCard";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { type Column, DataTable } from "@/components/ui/data-table";
 import {
@@ -78,6 +79,18 @@ export function CouponAssignmentsTab() {
   );
   const coupons = (couponsData?.results ?? []).filter((c) => isAssignableCoupon(c));
 
+  /**
+   * Every coupon that still exists, to flag a grant whose coupon was deleted —
+   * the assignment outlives it and was listed as if nothing had happened
+   * (BUG-062). Only trusted when the whole list fits on one page; past that a
+   * missing id proves nothing, so nothing is flagged.
+   */
+  const { data: allCouponsData } = useGetActiveCouponsQuery({ page: 1, limit: API_MAX_PAGE_SIZE });
+  const existingCouponIds =
+    allCouponsData && allCouponsData.count <= allCouponsData.results.length
+      ? new Set(allCouponsData.results.map((c) => c.id))
+      : null;
+
   const [addAssignment, { isLoading: isSaving }] = useAddCouponAssignmentMutation();
   const [deleteAssignment, { isLoading: isRemoving }] = useDeleteCouponAssignmentMutation();
 
@@ -144,7 +157,18 @@ export function CouponAssignmentsTab() {
       id: "coupon",
       header: M.COLUMNS.COUPON,
       className: "td-id",
-      cell: (r) => r.couponCode,
+      cell: (r) =>
+        existingCouponIds && r.couponId && !existingCouponIds.has(r.couponId) ? (
+          // A div, not a span: `Badge` renders a div.
+          <div className="inline-flex items-center gap-1.5">
+            {r.couponCode}
+            <Badge variant="neutral" title={M.COUPON_DELETED_HINT}>
+              {M.COUPON_DELETED}
+            </Badge>
+          </div>
+        ) : (
+          r.couponCode
+        ),
     },
     // Replaces the "Used / Unused" badge, which had no field behind it —
     // `is_used` is not in this payload, so every row claimed Unused. When the
